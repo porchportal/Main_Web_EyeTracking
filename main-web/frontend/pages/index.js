@@ -1,27 +1,57 @@
 import Head from 'next/head';
-import ImageUploader from '../components/ImageUploader';
+import { useRouter } from 'next/router';
 import styles from '../styles/Home.module.css';
 
-export default function Home() {
+export default function HomePage() {
+  const router = useRouter();
+
+  const handleButtonClick = (destination) => {
+    if (destination === 'testing-model') {
+      router.push('/testing-model');
+    } else {
+      // For other buttons, we'll just show an alert for now
+      alert(`Navigating to ${destination} - This feature is coming soon!`);
+    }
+  };
+
   return (
     <div className={styles.container}>
       <Head>
-        <title>Face Analysis App</title>
-        <meta name="description" content="Face analysis with head pose detection" />
+        <title>Eye Tracking App</title>
+        <meta name="description" content="Eye tracking application with multiple models" />
         <link rel="icon" href="/eye-tracking-app/favicon.ico" />
       </Head>
 
       <main className={styles.main}>
         <h1 className={styles.title}>
-          Face Analysis Application
+          Eye Tracking Application
         </h1>
         
         <p className={styles.description}>
-          Upload an image to analyze face and head pose
+          Select one of the options below to get started
         </p>
 
-        <div className={styles.uploaderContainer}>
-          <ImageUploader />
+        <div className={styles.buttonGrid}>
+          <button 
+            className={styles.menuButton}
+            onClick={() => handleButtonClick('collected-dataset')}
+          >
+            <h2>Collected Dataset</h2>
+          </button>
+          
+          <button 
+            className={styles.menuButton}
+            onClick={() => handleButtonClick('testing-model')}
+          >
+            <h2>Testing Singal Model</h2>
+          </button>
+          
+          <button 
+            className={styles.menuButton}
+            onClick={() => handleButtonClick('realtime-model')}
+          >
+            <h2>Realtime Model</h2>
+          </button>
         </div>
       </main>
 
@@ -31,7 +61,7 @@ export default function Home() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Powered by Your Company
+          Powered by Porch
         </a>
       </footer>
     </div>

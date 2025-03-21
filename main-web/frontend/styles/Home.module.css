@@ -48,6 +48,89 @@
   border-radius: 10px;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
   background: white;
+  margin-bottom: 2rem;
+}
+
+/* Button grid styles */
+.buttonGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2rem;
+  width: 100%;
+  max-width: 1000px;
+  margin-top: 2rem;
+}
+
+.menuButton {
+  background: linear-gradient(to bottom, rgba(173, 235, 254, 0.8), rgba(173, 235, 254, 0.4));
+  border: none;
+  border-radius: 20px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  height: 180px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.menuButton:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(to bottom, rgba(173, 235, 254, 1), rgba(173, 235, 254, 0.6));
+}
+
+.menuButton h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.backButton {
+  margin-top: 2rem;
+  padding: 0.75rem 1.5rem;
+  background-color: #e0e0e0;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.backButton:hover {
+  background-color: #d0d0d0;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .buttonGrid {
+    grid-template-columns: repeat(1, 1fr);
+    gap: 1.5rem;
+  }
+  
+  .menuButton {
+    height: 150px;
+  }
+  
+  .title {
+    font-size: 2.5rem;
+  }
+  
+  .main {
+    padding: 3rem 1rem;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .buttonGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
 }
 
 @media (max-width: 600px) {
@@ -60,6 +143,10 @@
   }
   
   .description {
+    font-size: 1.2rem;
+  }
+  
+  .menuButton h2 {
     font-size: 1.2rem;
   }
 }
