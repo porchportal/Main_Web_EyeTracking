@@ -1,23 +1,20 @@
-/** @type {import('tailwindcss').Config} */
 module.exports = {
     content: [
-      "./pages/**/*.{js,ts,jsx,tsx,mdx}",
-      "./components/**/*.{js,ts,jsx,tsx,mdx}",
-      "./app/**/*.{js,ts,jsx,tsx,mdx}",
+      "./pages/**/*.{js,ts,jsx,tsx}",
+      "./components/**/*.{js,ts,jsx,tsx}",
     ],
     theme: {
       extend: {
+        fontFamily: {
+          'roboto': ['Roboto', 'sans-serif'],
+        },
         colors: {
-          mint: {
-            50: '#f0fdf4',
-            100: '#dcfce7',
-            200: '#bbf7d0',
-            300: '#86efac',
-            400: '#4ade80',
-            500: '#22c55e',
-          }
+          'mint-green': 'rgba(124, 255, 218, 0.5)',
+          'mint-green-dark': 'rgba(124, 255, 218, 0.7)',
+          'mint-green-solid': 'rgba(124, 255, 183, 1)',
+          'mint-green-light': 'rgba(124, 255, 183, 0.3)',
         },
       },
     },
     plugins: [],
-  };
+  }
