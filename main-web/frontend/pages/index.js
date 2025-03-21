@@ -8,6 +8,8 @@ export default function HomePage() {
   const handleButtonClick = (destination) => {
     if (destination === 'testing-model') {
       router.push('/testing-model');
+    } else if (destination === 'collected-dataset') {
+      router.push('/collected-dataset');
     } else {
       // For other buttons, we'll just show an alert for now
       alert(`Navigating to ${destination} - This feature is coming soon!`);
