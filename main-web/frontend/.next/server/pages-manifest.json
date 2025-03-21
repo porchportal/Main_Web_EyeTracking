@@ -2,7 +2,5 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/collected-dataset": "pages/collected-dataset.js",
-  "/testing-model": "pages/testing-model.js",
-  "/": "pages/index.js"
+  "/collected-dataset": "pages/collected-dataset.js"
 }

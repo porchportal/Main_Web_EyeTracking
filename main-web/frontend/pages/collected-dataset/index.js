@@ -88,75 +88,30 @@ export default function CollectedDatasetPage() {
 
       <TopBar isCompactMode={isCompactMode} />
       
-      <main className="container mx-auto px-4 py-2">
-        <div className="flex flex-col space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            {/* Left column buttons */}
-            <div>
-              <button
-                className="w-full py-2 px-4 rounded-md text-sm"
-                style={{ backgroundColor: 'rgba(124, 255, 218, 0.5)' }}
-              >
-                {isCompactMode ? 'Head pose' : 'Draw Head pose'}
-              </button>
-            </div>
-            <div>
-              <button
-                className="w-full py-2 px-4 rounded-md text-sm"
-                style={{ backgroundColor: 'rgba(124, 255, 218, 0.5)' }}
-              >
-                {isCompactMode ? '☐ Box' : 'Show Bounding Box'}
-              </button>
-            </div>
-            <div></div>
-            
-            <div>
-              <button
-                className="w-full py-2 px-4 rounded-md text-sm"
-                style={{ backgroundColor: 'rgba(124, 255, 218, 0.5)' }}
-                onClick={handleCameraAccess}
-              >
-                {isCompactMode ? 'Preview' : 'Show Preview'}
-              </button>
-            </div>
-            <div>
-              <button
-                className="w-full py-2 px-4 rounded-md text-sm"
-                style={{ backgroundColor: 'rgba(124, 255, 218, 0.5)' }}
-              >
-                {isCompactMode ? '😷 Mask' : '😷 Show Mask'}
-              </button>
-            </div>
-            <div>
-              <button
-                className="w-full py-2 px-4 rounded-md text-sm"
-                style={{ backgroundColor: 'rgba(124, 255, 218, 0.5)' }}
-              >
-                {isCompactMode ? 'Values' : 'Parameters'}
-              </button>
-            </div>
+      <main className="relative">
+        {/* Main content area */}
+        <div 
+          ref={previewAreaRef}
+          className="w-full h-screen-3/4 flex items-center justify-center"
+          style={{ 
+            backgroundColor: 'rgba(124, 255, 218, 0.1)', 
+            minHeight: '500px'
+          }}
+        >
+          <div className="text-center">
+            <p className="text-gray-700">Camera preview will appear here</p>
+            <button 
+              onClick={handleCameraAccess}
+              className="mt-4 px-4 py-2 rounded-md hover:bg-opacity-80"
+              style={{ backgroundColor: '#7CFFDA' }}
+            >
+              Access Camera
+            </button>
           </div>
-          
-          <div 
-            ref={previewAreaRef}
-            className="border border-gray-200 rounded-lg h-80 md:h-96 flex items-center justify-center"
-            style={{ 
-              backgroundColor: 'rgba(124, 255, 183, 0.3)', 
-              borderRadius: '7px'
-            }}
-          >
-            <div className="text-center">
-              <p className="text-gray-500">Camera preview will appear here</p>
-              <button 
-                onClick={handleCameraAccess}
-                className="mt-4 px-4 py-2 rounded-md hover:bg-mint-green-dark"
-                style={{ backgroundColor: 'rgba(124, 255, 218, 0.5)' }}
-              >
-                Access Camera
-              </button>
-            </div>
-          </div>
-          
+        </div>
+        
+        {/* Info box in the top right corner */}
+        <div className="absolute top-4 right-4">
           <DisplayResponse 
             width={metrics.width} 
             height={metrics.height} 
