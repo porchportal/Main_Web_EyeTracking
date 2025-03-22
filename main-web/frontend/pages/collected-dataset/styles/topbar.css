@@ -1,230 +1,271 @@
-/* Enhanced TopBar styles */
+/* TopBar styles - Fixed version */
 .topbar {
-    padding: 10px;
-    margin: 0;
-    display: flex;
-    flex-direction: row;
-    border-bottom: 1px solid #ccc;
-    background-color: #fff;
-    position: relative;
+  display: flex;
+  background-color: white;
+  padding: 10px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  align-items: flex-start;
+  box-shadow: 0 0 50px 10px rgba(120, 242, 255, 0.5);
+  position: relative;
+  z-index: 10;
+}
+
+/* Left section - Logo and Time/Delay controls */
+.topbar-left {
+  display: flex;
+  flex-direction: column;
+  margin-right: 30px;
+}
+
+/* Logo styles */
+.logo {
+  margin-bottom: 12px;
+}
+
+.logo-text {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 0;
+  color: #333;
+}
+
+/* Controls container */
+.controls-container {
+  display: flex;
+  flex-direction: row;
+  gap: 15px;
+}
+
+/* Control group */
+.control-group {
+  display: flex;
+  align-items: center;
+}
+
+.control-label {
+  margin-right: 8px;
+  font-size: 14px;
+  color: #333;
+}
+
+.control-input {
+  background-color: #7CFFDA;
+  border-radius: 4px;
+  overflow: hidden;
+  width: 40px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-input-field {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  text-align: center;
+  font-size: 14px;
+}
+
+/* Middle section - Button groups */
+.topbar-middle {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.button-groups {
+  display: flex;
+  gap: 20px;
+}
+
+/* Button group */
+.button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Vertical divider */
+.topbar-divider {
+  width: 1px;
+  background-color: #e0e0e0;
+  margin: 0 10px;
+}
+
+/* Button row */
+.button-row {
+  display: flex;
+  gap: 10px;
+}
+
+/* Button style */
+.btn {
+  background-color: #7CFFDA;
+  color: #333;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  background-color: #6be9c6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* Right section */
+.topbar-right {
+  display: flex;
+  margin-left: auto;
+}
+
+/* Output container (previously notes) */
+.notes-container {
+  width: 240px;
+  height: 80px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  margin-right: 10px;
+  overflow: hidden;
+}
+
+/* Fixed output display styling */
+.output-display {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  font-size: 14px;
+  font-family: Arial, sans-serif;
+  color: #333;
+  overflow-y: auto;
+  user-select: text;
+  cursor: default;
+  background-color: #f9f9f9;
+}
+
+/* Control buttons container */
+.control-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Icon buttons */
+.icon-btn {
+  width: 35px;
+  height: 35px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-bottom: 5px;
+}
+
+.menu-btn {
+  background-color: #7CFFDA;
+  color: #333;
+  border-radius: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.menu-btn:hover {
+  background-color: #6be9c6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.alert-btn {
+  background-color: #7CFFDA;
+  color: #333;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.alert-btn:hover {
+  background-color: #6be9c6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.icon-text {
+  font-size: 18px;
+}
+
+/* Preview area below topbar */
+.preview-area {
+  background-color: white;
+  position: relative;
+  flex: 1;
+  border-top: 1px solid #e0e0e0;
+}
+
+/* Metrics display - Fixed positioning */
+.metrics-display {
+  position: absolute;
+  right: 10px;
+  top: 120px; /* Positioned with more space from the top */
+  padding: 10px;
+  background-color: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  box-shadow: 0 0 50px 10px rgba(120, 242, 255, 0.5);
+  color: #333;
+  font-size: 14px;
+  z-index: 5;
+}
+
+.metrics-display p {
+  font-size: 16px;
+  margin: 5px 0;
+  white-space: nowrap;
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+  .topbar {
+    padding: 8px 15px;
   }
   
-  .topbar-compact {
-    padding: 5px;
+  .notes-container {
+    width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .topbar {
     flex-wrap: wrap;
   }
   
-  /* Left section with logo and time/delay controls */
-  .topbar-left {
-    display: flex;
-    flex-direction: column;
-    margin-right: 20px;
-  }
-  
-  .topbar-left-compact {
-    flex-direction: row;
-    align-items: center;
-    margin-right: 10px;
-    margin-bottom: 5px;
-    flex: 1 0 100%;
-  }
-  
-  /* Logo styles */
-  .logo {
-    margin-bottom: 15px;
-  }
-  
-  .logo-compact {
-    margin-right: 15px;
-    margin-bottom: 0;
-  }
-  
-  .logo-text {
-    font-size: 32px;
-    font-weight: bold;
-    cursor: pointer;
-    margin: 0;
-  }
-  
-  .logo-text-compact {
-    font-size: 24px;
-  }
-  
-  /* Controls container */
-  .controls-container {
-    display: flex;
-    flex-direction: row;
-  }
-  
-  .controls-container-compact {
-    flex-direction: column;
-  }
-  
-  /* Control group */
-  .control-group {
-    display: flex;
-    align-items: center;
-    margin-right: 10px;
-    margin-bottom: 0;
-  }
-  
-  .control-group-compact {
-    margin-right: 0;
-    margin-bottom: 5px;
-  }
-  
-  .control-label {
-    margin-right: 5px;
-    min-width: 60px;
-  }
-  
-  .control-label-compact {
-    min-width: 15px;
-  }
-  
-  .control-input {
-    display: flex;
-    align-items: center;
-    background-color: #7CFFDA;
-    width: 40px;
-    height: 30px;
-    padding: 0 5px;
-  }
-  
-  .control-input-field {
-    width: 100%;
-    background: transparent;
-    border: none;
-    text-align: center;
-  }
-  
-  /* Middle section with button groups */
   .topbar-middle {
-    display: flex;
-    flex: 1;
+    order: 3;
+    width: 100%;
+    margin-top: 10px;
   }
   
-  .topbar-middle-compact {
-    flex-wrap: wrap;
-    margin-top: 5px;
+  .notes-container {
+    width: 180px;
   }
   
-  /* Button groups */
-  .button-group {
-    display: flex;
-    flex-direction: column;
-    margin-right: 20px;
+  .metrics-display {
+    top: 160px;
+  }
+}
+
+@media (max-width: 576px) {
+  .notes-container {
+    width: 150px;
+    height: 70px;
   }
   
-  .button-group-compact {
-    margin-right: 10px;
-    margin-bottom: 5px;
+  .output-display {
+    font-size: 12px;
+    padding: 6px;
   }
-  
-  /* Divider between button groups */
-  .topbar-divider {
-    width: 1px;
-    background-color: #ccc;
-    margin: 0 15px;
-  }
-  
-  /* Button row */
-  .button-row {
-    display: flex;
-    margin-bottom: 5px;
-    flex-wrap: wrap;
-  }
-  
-  /* Standard button */
-  .btn {
-    background-color: #7CFFDA;
-    padding: 5px 10px;
-    margin: 0 5px 5px 0;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
-    white-space: nowrap;
-  }
-  
-  /* Small screen buttons */
-  @media (max-width: 768px) {
-    .btn {
-      padding: 4px 8px;
-      font-size: 14px;
-    }
-  }
-  
-  /* Extra small screen buttons */
-  @media (max-width: 480px) {
-    .btn {
-      padding: 3px 6px;
-      font-size: 13px;
-    }
-  }
-  
-  /* Right section with textarea and buttons */
-  .topbar-right {
-    display: flex;
-    margin-left: 20px;
-  }
-  
-  .notes-textarea {
-    width: 250px;
-    height: 80px;
-    margin-right: 10px;
-    border: 1px solid #ccc;
-    resize: none;
-    padding: 5px;
-  }
-  
-  /* Menu buttons */
-  .menu-buttons {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-  }
-  
-  .floating-menu-buttons {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    display: flex;
-    flex-direction: column;
-  }
-  
-  /* Icon buttons */
-  .icon-btn {
-    background-color: #7CFFDA;
-    width: 35px;
-    height: 35px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: none;
-    cursor: pointer;
-    margin-bottom: 5px;
-  }
-  
-  .icon-btn-rounded {
-    border-radius: 50%;
-  }
-  
-  .icon-text {
-    font-size: 20px;
-  }
-  
-  /* Camera access button container */
-  .camera-access-btn-container {
-    position: absolute;
-    bottom: 10px;
-    right: 10px;
-  }
-  
-  .camera-access-btn {
-    background-color: #7CFFDA;
-    border: none;
-    border-radius: 4px;
-    padding: 5px 10px;
-    cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  }
+}

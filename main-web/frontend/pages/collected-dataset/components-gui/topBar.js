@@ -1,89 +1,35 @@
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+import React, { useState } from 'react';
 
-const TopBar = ({ 
-  onButtonClick, 
-  onCameraAccess, 
-  outputText, 
-  onOutputChange,
-  onToggleTopBar, 
-  onToggleMetrics 
-}) => {
-  const router = useRouter();
-  const [screenSize, setScreenSize] = useState('large'); // 'large', 'medium', 'small', 'extra-small'
+const TopBar = ({ onToggleTopBar, onToggleMetrics }) => {
+  const [outputText, setOutputText] = useState('');
   
-  useEffect(() => {
-    const updateScreenSize = () => {
-      const width = window.innerWidth;
-      if (width >= 1200) {
-        setScreenSize('large');
-      } else if (width >= 768) {
-        setScreenSize('medium');
-      } else if (width >= 480) {
-        setScreenSize('small');
-      } else {
-        setScreenSize('extra-small');
-      }
-    };
+  const handleButtonClick = (actionType) => {
+    console.log(`Button clicked: ${actionType}`);
+    // Example of updating the output text based on action
+    setOutputText(`Action performed: ${actionType} at ${new Date().toLocaleTimeString()}`);
+    // Add your button click handler here
+  };
 
-    if (typeof window !== 'undefined') {
-      updateScreenSize();
-      window.addEventListener('resize', updateScreenSize);
-    }
-    
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('resize', updateScreenSize);
-      }
-    };
-  }, []);
-  
-  // Get button text based on screen size
-  const getButtonText = (fullText, shortText) => {
-    if (screenSize === 'extra-small' || screenSize === 'small') {
-      return shortText;
-    }
-    return fullText;
-  };
-  
-  // Helper function to create buttons that trigger camera access
-  const createButton = (text, shortText, actionType) => {
-    const displayText = getButtonText(text, shortText);
-    return (
-      <button 
-        className="btn"
-        onClick={() => {
-          // All buttons will trigger camera access first time
-          onButtonClick(actionType);
-        }}
-      >
-        {displayText}
-      </button>
-    );
-  };
-  
-  const isCompact = screenSize !== 'large';
-  
   return (
-    <div className={`topbar ${isCompact ? 'topbar-compact' : ''}`}>
-      {/* Logo and Time/Delay Section */}
-      <div className={`topbar-left ${isCompact ? 'topbar-left-compact' : ''}`}>
+    <div className="topbar">
+      {/* Metrics Display - Moved inside topbar for better positioning */}
+      <div className="metrics-display" style={{ display: 'none' }}>
+        {/* Metrics content will be shown when toggled */}
+        <p>Metric 1: Value</p>
+        <p>Metric 2: Value</p>
+      </div>
+      
+      {/* Left Section - Logo and Controls */}
+      <div className="topbar-left">
         {/* Logo */}
-        <div className={`logo ${isCompact ? 'logo-compact' : ''}`}>
-          <h1 
-            className={`logo-text ${isCompact ? 'logo-text-compact' : ''}`}
-            onClick={() => router.push('/')}
-          >
-            Logo
-          </h1>
+        <div className="logo">
+          <h1 className="logo-text">Logo</h1>
         </div>
         
         {/* Time/Delay Controls */}
-        <div className={`controls-container ${isCompact ? 'controls-container-compact' : ''}`}>
-          <div className={`control-group ${isCompact ? 'control-group-compact' : ''}`}>
-            <span className={`control-label ${isCompact ? 'control-label-compact' : ''}`}>
-              {isCompact ? 'T:' : 'Time(s):'}
-            </span>
+        <div className="controls-container">
+          <div className="control-group">
+            <span className="control-label">Time(s):</span>
             <div className="control-input">
               <input
                 type="text"
@@ -93,10 +39,8 @@ const TopBar = ({
             </div>
           </div>
           
-          <div className={`control-group ${isCompact ? 'control-group-compact' : ''}`}>
-            <span className={`control-label ${isCompact ? 'control-label-compact' : ''}`}>
-              {isCompact ? 'D:' : 'Delay(s):'}
-            </span>
+          <div className="control-group">
+            <span className="control-label">Delay(s):</span>
             <div className="control-input">
               <input
                 type="text"
@@ -108,65 +52,112 @@ const TopBar = ({
         </div>
       </div>
       
-      {/* Button Section */}
-      <div className={`topbar-middle ${isCompact ? 'topbar-middle-compact' : ''}`}>
-        {/* First Button Group */}
-        <div className={`button-group ${isCompact ? 'button-group-compact' : ''}`}>
-          <div className="button-row">
-            {createButton('Set Random', 'SRandom', 'setRandom')}
-            {createButton('Random Dot', 'Random', 'randomDot')}
+      {/* Middle Section - Buttons */}
+      <div className="topbar-middle">
+        <div className="button-groups">
+          {/* First Button Group */}
+          <div className="button-group">
+            <div className="button-row">
+              <button 
+                className="btn"
+                onClick={() => handleButtonClick('setRandom')}
+              >
+                Set Random
+              </button>
+              <button 
+                className="btn"
+                onClick={() => handleButtonClick('randomDot')}
+              >
+                Random Dot
+              </button>
+            </div>
+            
+            <div className="button-row">
+              <button 
+                className="btn"
+                onClick={() => handleButtonClick('calibrate')}
+              >
+                Set Calibrate
+              </button>
+              <button 
+                className="btn"
+                onClick={() => handleButtonClick('clearAll')}
+              >
+                Clear All
+              </button>
+            </div>
           </div>
           
-          <div className="button-row">
-            {createButton('Set Calibrate', 'Calibrate', 'calibrate')}
-            {createButton('Clear All', 'Clear', 'clearAll')}
-          </div>
-        </div>
-        
-        {/* Divider - only visible in large mode */}
-        {!isCompact && <div className="topbar-divider"></div>}
-        
-        {/* Second Button Group */}
-        <div className={`button-group ${isCompact ? 'button-group-compact' : ''}`}>
-          <div className="button-row">
-            {createButton('Draw Head pose', 'Head pose', 'headPose')}
-            {createButton('Show Bounding Box', '☐ Box', 'boundingBox')}
-          </div>
+          {/* Divider */}
+          <div className="topbar-divider"></div>
           
-          <div className="button-row">
-            {createButton('Show Preview', 'Preview', 'preview')}
-            {createButton('😊 Show Mask', '😊 Mask', 'mask')}
-            {createButton('Parameters', 'Values', 'parameters')}
+          {/* Second Button Group */}
+          <div className="button-group">
+            <div className="button-row">
+              <button 
+                className="btn"
+                onClick={() => handleButtonClick('headPose')}
+              >
+                Draw Head pose
+              </button>
+              <button 
+                className="btn"
+                onClick={() => handleButtonClick('boundingBox')}
+              >
+                Show Bounding Box
+              </button>
+            </div>
+            
+            <div className="button-row">
+              <button 
+                className="btn"
+                onClick={() => handleButtonClick('preview')}
+              >
+                Show Preview
+              </button>
+              <button 
+                className="btn"
+                onClick={() => handleButtonClick('mask')}
+              >
+                😊 Show Mask
+              </button>
+              <button 
+                className="btn"
+                onClick={() => handleButtonClick('parameters')}
+              >
+                Parameters
+              </button>
+            </div>
           </div>
         </div>
       </div>
       
-      {/* Right section with notes textarea and control buttons */}
-      <div className={`topbar-right ${isCompact ? 'topbar-right-compact' : ''}`}>
+      {/* Right Section - Output Display and Controls */}
+      <div className="topbar-right">
         <div className="notes-container">
-          <textarea 
-            placeholder="Notes..." 
-            value={outputText}
-            onChange={onOutputChange}
-            className="notes-textarea"
-          />
+          <div 
+            className="output-display"
+            title="Processing Output"
+          >
+            {outputText || "Processing output will appear here..."}
+          </div>
         </div>
         
-        <div className="top-control-buttons">
+        <div className="control-buttons">
           <button 
-            className="control-btn menu-btn"
+            className="icon-btn menu-btn"
             onClick={onToggleTopBar}
             title="Toggle TopBar"
           >
-            ≡
+            <span className="icon-text">≡</span>
           </button>
           
           <button 
-            className="control-btn circle-btn"
+            className="icon-btn alert-btn"
             onClick={onToggleMetrics}
             title="Toggle Metrics"
           >
-            ⚫
+            <span className="icon-text">!</span>
           </button>
         </div>
       </div>

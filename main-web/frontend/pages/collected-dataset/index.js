@@ -15,32 +15,47 @@ export default function CollectedDatasetPage() {
     height: '---',
     distance: '---'
   });
+  const [windowSize, setWindowSize] = useState({
+    width: 0,
+    height: 0,
+    percentage: 100
+  });
   const previewAreaRef = useRef(null);
 
-  // Update metrics when component mounts and on window resize
+  // Update metrics and window size when component mounts and on window resize
   useEffect(() => {
-    const updateMetrics = () => {
+    const updateDimensions = () => {
       if (previewAreaRef.current) {
         const width = previewAreaRef.current.offsetWidth;
         const height = previewAreaRef.current.offsetHeight;
+        
+        // Calculate what percentage of the screen we're using
+        const screenPercentage = (window.innerWidth / window.screen.width) * 100;
+        
         setMetrics(prev => ({
           ...prev,
           width,
           height
         }));
+        
+        setWindowSize({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          percentage: Math.round(screenPercentage)
+        });
       }
     };
 
     // Initial calculation
     if (typeof window !== 'undefined') {
-      updateMetrics();
-      window.addEventListener('resize', updateMetrics);
+      updateDimensions();
+      window.addEventListener('resize', updateDimensions);
     }
     
     // Clean up
     return () => {
       if (typeof window !== 'undefined') {
-        window.removeEventListener('resize', updateMetrics);
+        window.removeEventListener('resize', updateDimensions);
       }
     };
   }, []);
@@ -90,8 +105,17 @@ export default function CollectedDatasetPage() {
     setOutputText(`Metrics ${!showMetrics ? 'shown' : 'hidden'}`);
   };
 
+  // Dynamic class to reflect current window size
+  const getSizeClass = () => {
+    const { percentage } = windowSize;
+    if (percentage < 35) return 'window-size-tiny';
+    if (percentage < 50) return 'window-size-small';
+    if (percentage < 70) return 'window-size-medium';
+    return 'window-size-large';
+  };
+
   return (
-    <div className="main-container">
+    <div className={`main-container ${getSizeClass()}`}>
       <Head>
         <title>Camera Dataset Collection</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -130,6 +154,7 @@ export default function CollectedDatasetPage() {
         {!showCamera && (
           <div className="preview-message">
             <p>Camera preview will appear here</p>
+            <p className="size-indicator">Current window: {windowSize.percentage}% of screen width</p>
           </div>
         )}
         
