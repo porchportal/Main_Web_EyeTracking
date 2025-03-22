@@ -61,14 +61,17 @@ export default function CollectedDatasetPage() {
     };
   }, []);
 
-  // Handle top bar button clicks - all buttons will trigger camera permission popup
   const handleTopBarButtonClick = (actionType) => {
     // Show camera permission popup if camera is not already active
     if (!showCamera && (
       actionType === 'Random Dot' || 
       actionType === 'Set Random' || 
       actionType === 'Set Calibrate' ||
-      actionType === 'Show Preview'
+      actionType === 'Show Preview' ||
+      actionType === 'randomDot' ||
+      actionType === 'setRandom' ||
+      actionType === 'calibrate' ||
+      actionType === 'preview'
     )) {
       setShowPermissionPopup(true);
     }
@@ -131,14 +134,14 @@ export default function CollectedDatasetPage() {
           onButtonClick={handleTopBarButtonClick} 
           onCameraAccess={() => setShowPermissionPopup(true)}
           outputText={outputText}
-          onOutputChange={(e) => setOutputText(e.target.value)}
+          onOutputChange={(text) => setOutputText(text)}
           onToggleTopBar={toggleTopBar}
           onToggleMetrics={toggleMetrics}
-          canvasRef={canvasRef} // Pass canvas reference to TopBar
+          canvasRef={canvasRef}
         />
       )}
       
-      {/* Show restore button when TopBar is hidden */}
+      {/* Show restore button when TopBar is hidden - positioned at top right */}
       {!showTopBar && (
         <div className="restore-button-container">
           <button 

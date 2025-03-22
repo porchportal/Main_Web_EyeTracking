@@ -1,24 +1,22 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-const TopBar = ({ onToggleTopBar, onToggleMetrics }) => {
-  const [outputText, setOutputText] = useState('');
-  
+const TopBar = ({ 
+  onButtonClick, 
+  outputText, 
+  onOutputChange, 
+  onToggleTopBar, 
+  onToggleMetrics,
+  canvasRef
+}) => {
   const handleButtonClick = (actionType) => {
-    console.log(`Button clicked: ${actionType}`);
-    // Example of updating the output text based on action
-    setOutputText(`Action performed: ${actionType} at ${new Date().toLocaleTimeString()}`);
-    // Add your button click handler here
+    // Call the passed button click handler
+    if (onButtonClick) {
+      onButtonClick(actionType);
+    }
   };
 
   return (
     <div className="topbar">
-      {/* Metrics Display - Moved inside topbar for better positioning */}
-      <div className="metrics-display" style={{ display: 'none' }}>
-        {/* Metrics content will be shown when toggled */}
-        <p>Metric 1: Value</p>
-        <p>Metric 2: Value</p>
-      </div>
-      
       {/* Left Section - Logo and Controls */}
       <div className="topbar-left">
         {/* Logo */}
