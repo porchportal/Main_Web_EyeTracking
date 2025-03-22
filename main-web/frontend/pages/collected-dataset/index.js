@@ -44,6 +44,9 @@ export default function CollectedDatasetPage() {
           height: window.innerHeight,
           percentage: Math.round(screenPercentage)
         });
+
+        // Update canvas dimensions
+        adjustCanvasDimensions();
       }
     };
 
@@ -60,6 +63,30 @@ export default function CollectedDatasetPage() {
       }
     };
   }, []);
+
+  // Adjust canvas dimensions to fill the container properly
+  const adjustCanvasDimensions = () => {
+    if (canvasRef.current && previewAreaRef.current) {
+      const canvas = canvasRef.current;
+      const container = previewAreaRef.current;
+      
+      // Get the size of the preview area
+      const rect = container.getBoundingClientRect();
+      
+      // Set canvas dimensions to match container size
+      canvas.width = rect.width;
+      canvas.height = rect.height - (showTopBar ? 0 : 0); // Adjust if needed
+      
+      // Clear the canvas
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+  };
+
+  // Add effect to update canvas when dimensions change
+  useEffect(() => {
+    adjustCanvasDimensions();
+  }, [windowSize, showTopBar]);
 
   const handleTopBarButtonClick = (actionType) => {
     // Show camera permission popup if camera is not already active
@@ -103,8 +130,18 @@ export default function CollectedDatasetPage() {
   };
 
   const toggleTopBar = () => {
-    setShowTopBar(prev => !prev);
-    setOutputText(`TopBar ${!showTopBar ? 'shown' : 'hidden'}`);
+    const newTopBarState = !showTopBar;
+    setShowTopBar(newTopBarState);
+    
+    // Also hide metrics when hiding the top bar
+    if (!newTopBarState) {
+      setShowMetrics(false);
+    }
+    
+    setOutputText(`TopBar ${newTopBarState ? 'shown' : 'hidden'}${!newTopBarState ? ', Metrics hidden' : ''}`);
+    
+    // Wait for state update and DOM changes, then adjust canvas
+    setTimeout(adjustCanvasDimensions, 0);
   };
 
   const toggleMetrics = () => {
@@ -147,7 +184,7 @@ export default function CollectedDatasetPage() {
           <button 
             className="restore-btn"
             onClick={toggleTopBar}
-            title="Show TopBar"
+            title="Show TopBar and Metrics"
           >
             ≡
           </button>
@@ -158,6 +195,7 @@ export default function CollectedDatasetPage() {
       <div 
         ref={previewAreaRef}
         className="preview-area"
+        style={{ height: showTopBar ? 'calc(100vh - 120px)' : '100vh' }}
       >
         {!showCamera ? (
           <div className="preview-message">
@@ -175,23 +213,29 @@ export default function CollectedDatasetPage() {
           />
         )}
         
-        {/* Canvas for eye tracking dots */}
+        {/* Canvas for eye tracking dots - Making it truly fullscreen */}
         <div 
           className="canvas-container" 
           style={{ 
-            position: 'relative', 
+            position: 'absolute', 
+            top: 0,
+            left: 0,
             width: '100%', 
-            height: '60vh', 
-            minHeight: '400px', 
-            border: '1px solid #e0e0e0', 
+            height: '100%',
             backgroundColor: 'white',
-            display: showCamera ? 'none' : 'block' // Hide canvas when camera is showing
+            display: showCamera ? 'none' : 'block', // Hide canvas when camera is showing
+            overflow: 'hidden',
+            border: 'none' // Remove border to eliminate line
           }}
         >
           <canvas 
             ref={canvasRef}
             className="tracking-canvas"
-            style={{ width: '100%', height: '100%' }}
+            style={{ 
+              width: '100%', 
+              height: '100%',
+              display: 'block' // Removes the inline-block spacing issues
+            }}
           />
         </div>
       </div>

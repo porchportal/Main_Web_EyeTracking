@@ -21,6 +21,9 @@
   position: relative;
   z-index: 10;
 }
+.topbar-hidden .preview-area {
+  height: 100vh;
+}
 
 /* Left section - Logo and Time/Delay controls */
 .topbar-left {
@@ -216,7 +219,9 @@
   background-color: white;
   position: relative;
   flex: 1;
-  border-top: 1px solid #e0e0e0;
+  width: 100%;
+  height: calc(100vh - 120px); /* Adjust based on TopBar height */
+  border: none;
   overflow: hidden;
 }
 
@@ -331,17 +336,20 @@
 
 /* Canvas container */
 .canvas-container {
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
-  height: 60vh;
-  min-height: 400px;
-  border: 1px solid #e0e0e0;
+  height: 100%;
+  border: none !important; /* Remove border that causes lines */
   background-color: white;
+  overflow: hidden;
 }
 
 .tracking-canvas {
   width: 100%;
   height: 100%;
+  display: block; /* Removes inline spacing issues */
 }
 
 /* Responsive adjustments */
