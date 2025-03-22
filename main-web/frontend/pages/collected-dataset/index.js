@@ -21,6 +21,7 @@ export default function CollectedDatasetPage() {
     percentage: 100
   });
   const previewAreaRef = useRef(null);
+  const canvasRef = useRef(null); // Reference for the tracking canvas
 
   // Update metrics and window size when component mounts and on window resize
   useEffect(() => {
@@ -63,14 +64,17 @@ export default function CollectedDatasetPage() {
   // Handle top bar button clicks - all buttons will trigger camera permission popup
   const handleTopBarButtonClick = (actionType) => {
     // Show camera permission popup if camera is not already active
-    if (!showCamera) {
+    if (!showCamera && (
+      actionType === 'Random Dot' || 
+      actionType === 'Set Random' || 
+      actionType === 'Set Calibrate' ||
+      actionType === 'Show Preview'
+    )) {
       setShowPermissionPopup(true);
     }
     
     // Update output text based on action type
     setOutputText(`Action triggered: ${actionType} at ${new Date().toLocaleTimeString()}`);
-    
-    // You can add specific logic for different button actions here
   };
 
   const handlePermissionAccepted = () => {
@@ -130,6 +134,7 @@ export default function CollectedDatasetPage() {
           onOutputChange={(e) => setOutputText(e.target.value)}
           onToggleTopBar={toggleTopBar}
           onToggleMetrics={toggleMetrics}
+          canvasRef={canvasRef} // Pass canvas reference to TopBar
         />
       )}
       
@@ -151,12 +156,12 @@ export default function CollectedDatasetPage() {
         ref={previewAreaRef}
         className="preview-area"
       >
-        {!showCamera && (
+        {!showCamera ? (
           <div className="preview-message">
             <p>Camera preview will appear here</p>
             <p className="size-indicator">Current window: {windowSize.percentage}% of screen width</p>
           </div>
-        )}
+        ) : null}
         
         {/* Metrics info - conditionally rendered */}
         {showMetrics && (
@@ -166,6 +171,26 @@ export default function CollectedDatasetPage() {
             distance={metrics.distance}
           />
         )}
+        
+        {/* Canvas for eye tracking dots */}
+        <div 
+          className="canvas-container" 
+          style={{ 
+            position: 'relative', 
+            width: '100%', 
+            height: '60vh', 
+            minHeight: '400px', 
+            border: '1px solid #e0e0e0', 
+            backgroundColor: 'white',
+            display: showCamera ? 'none' : 'block' // Hide canvas when camera is showing
+          }}
+        >
+          <canvas 
+            ref={canvasRef}
+            className="tracking-canvas"
+            style={{ width: '100%', height: '100%' }}
+          />
+        </div>
       </div>
       
       {/* Camera permission popup */}
