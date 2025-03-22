@@ -1,0 +1,230 @@
+/* Enhanced TopBar styles */
+.topbar {
+    padding: 10px;
+    margin: 0;
+    display: flex;
+    flex-direction: row;
+    border-bottom: 1px solid #ccc;
+    background-color: #fff;
+    position: relative;
+  }
+  
+  .topbar-compact {
+    padding: 5px;
+    flex-wrap: wrap;
+  }
+  
+  /* Left section with logo and time/delay controls */
+  .topbar-left {
+    display: flex;
+    flex-direction: column;
+    margin-right: 20px;
+  }
+  
+  .topbar-left-compact {
+    flex-direction: row;
+    align-items: center;
+    margin-right: 10px;
+    margin-bottom: 5px;
+    flex: 1 0 100%;
+  }
+  
+  /* Logo styles */
+  .logo {
+    margin-bottom: 15px;
+  }
+  
+  .logo-compact {
+    margin-right: 15px;
+    margin-bottom: 0;
+  }
+  
+  .logo-text {
+    font-size: 32px;
+    font-weight: bold;
+    cursor: pointer;
+    margin: 0;
+  }
+  
+  .logo-text-compact {
+    font-size: 24px;
+  }
+  
+  /* Controls container */
+  .controls-container {
+    display: flex;
+    flex-direction: row;
+  }
+  
+  .controls-container-compact {
+    flex-direction: column;
+  }
+  
+  /* Control group */
+  .control-group {
+    display: flex;
+    align-items: center;
+    margin-right: 10px;
+    margin-bottom: 0;
+  }
+  
+  .control-group-compact {
+    margin-right: 0;
+    margin-bottom: 5px;
+  }
+  
+  .control-label {
+    margin-right: 5px;
+    min-width: 60px;
+  }
+  
+  .control-label-compact {
+    min-width: 15px;
+  }
+  
+  .control-input {
+    display: flex;
+    align-items: center;
+    background-color: #7CFFDA;
+    width: 40px;
+    height: 30px;
+    padding: 0 5px;
+  }
+  
+  .control-input-field {
+    width: 100%;
+    background: transparent;
+    border: none;
+    text-align: center;
+  }
+  
+  /* Middle section with button groups */
+  .topbar-middle {
+    display: flex;
+    flex: 1;
+  }
+  
+  .topbar-middle-compact {
+    flex-wrap: wrap;
+    margin-top: 5px;
+  }
+  
+  /* Button groups */
+  .button-group {
+    display: flex;
+    flex-direction: column;
+    margin-right: 20px;
+  }
+  
+  .button-group-compact {
+    margin-right: 10px;
+    margin-bottom: 5px;
+  }
+  
+  /* Divider between button groups */
+  .topbar-divider {
+    width: 1px;
+    background-color: #ccc;
+    margin: 0 15px;
+  }
+  
+  /* Button row */
+  .button-row {
+    display: flex;
+    margin-bottom: 5px;
+    flex-wrap: wrap;
+  }
+  
+  /* Standard button */
+  .btn {
+    background-color: #7CFFDA;
+    padding: 5px 10px;
+    margin: 0 5px 5px 0;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    white-space: nowrap;
+  }
+  
+  /* Small screen buttons */
+  @media (max-width: 768px) {
+    .btn {
+      padding: 4px 8px;
+      font-size: 14px;
+    }
+  }
+  
+  /* Extra small screen buttons */
+  @media (max-width: 480px) {
+    .btn {
+      padding: 3px 6px;
+      font-size: 13px;
+    }
+  }
+  
+  /* Right section with textarea and buttons */
+  .topbar-right {
+    display: flex;
+    margin-left: 20px;
+  }
+  
+  .notes-textarea {
+    width: 250px;
+    height: 80px;
+    margin-right: 10px;
+    border: 1px solid #ccc;
+    resize: none;
+    padding: 5px;
+  }
+  
+  /* Menu buttons */
+  .menu-buttons {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  
+  .floating-menu-buttons {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  /* Icon buttons */
+  .icon-btn {
+    background-color: #7CFFDA;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    margin-bottom: 5px;
+  }
+  
+  .icon-btn-rounded {
+    border-radius: 50%;
+  }
+  
+  .icon-text {
+    font-size: 20px;
+  }
+  
+  /* Camera access button container */
+  .camera-access-btn-container {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+  }
+  
+  .camera-access-btn {
+    background-color: #7CFFDA;
+    border: none;
+    border-radius: 4px;
+    padding: 5px 10px;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }

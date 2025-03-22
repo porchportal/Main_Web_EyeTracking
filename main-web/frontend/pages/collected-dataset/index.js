@@ -2,20 +2,25 @@ import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import TopBar from './components-gui/topBar';
 import CameraAccess from './components-gui/cameraAccess';
+import DisplayResponse from './components-gui/displayResponse';
 
 export default function CollectedDatasetPage() {
   const [showCamera, setShowCamera] = useState(false);
-  const [isCompact, setIsCompact] = useState(false);
+  const [showPermissionPopup, setShowPermissionPopup] = useState(false);
+  const [showTopBar, setShowTopBar] = useState(true);
+  const [showMetrics, setShowMetrics] = useState(true);
+  const [outputText, setOutputText] = useState('');
   const [metrics, setMetrics] = useState({
     width: '---',
     height: '---',
     distance: '---'
   });
   const previewAreaRef = useRef(null);
+  const notesRef = useRef(null);
 
-  // Update metrics and check window width for responsive layout
+  // Update metrics when component mounts and on window resize
   useEffect(() => {
-    const updateScreenSize = () => {
+    const updateMetrics = () => {
       if (previewAreaRef.current) {
         const width = previewAreaRef.current.offsetWidth;
         const height = previewAreaRef.current.offsetHeight;
@@ -25,27 +30,42 @@ export default function CollectedDatasetPage() {
           height
         }));
       }
-      
-      // Set compact mode if window width is less than 1200px
-      setIsCompact(window.innerWidth < 1200);
     };
 
     // Initial calculation
     if (typeof window !== 'undefined') {
-      updateScreenSize();
-      window.addEventListener('resize', updateScreenSize);
+      updateMetrics();
+      window.addEventListener('resize', updateMetrics);
     }
     
     // Clean up
     return () => {
       if (typeof window !== 'undefined') {
-        window.removeEventListener('resize', updateScreenSize);
+        window.removeEventListener('resize', updateMetrics);
       }
     };
   }, []);
 
-  const handleCameraAccess = () => {
+  // Handle top bar button clicks - all buttons will trigger camera permission popup
+  const handleTopBarButtonClick = (actionType) => {
+    // Show camera permission popup if camera is not already active
+    if (!showCamera) {
+      setShowPermissionPopup(true);
+    }
+    
+    // Update output text based on action type
+    setOutputText(`Action triggered: ${actionType} at ${new Date().toLocaleTimeString()}`);
+    
+    // You can add specific logic for different button actions here
+  };
+
+  const handlePermissionAccepted = () => {
+    setShowPermissionPopup(false);
     setShowCamera(true);
+  };
+
+  const handlePermissionDenied = () => {
+    setShowPermissionPopup(false);
   };
 
   const handleCameraClose = () => {
@@ -58,359 +78,142 @@ export default function CollectedDatasetPage() {
       height: dimensions.height,
       distance: dimensions.distance || '---'
     });
+    setOutputText(`Camera ready: ${dimensions.width}x${dimensions.height}`);
+  };
+
+  const toggleTopBar = () => {
+    setShowTopBar(prev => !prev);
+    setOutputText(`TopBar ${!showTopBar ? 'shown' : 'hidden'}`);
+  };
+
+  const toggleMetrics = () => {
+    setShowMetrics(prev => !prev);
+    setOutputText(`Metrics ${!showMetrics ? 'shown' : 'hidden'}`);
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      width: '100%',
-      margin: 0,
-      padding: 0,
-      overflow: 'hidden'
-    }}>
-      {/* Header/Navigation Area */}
-      <div style={{
-        display: 'flex',
-        flexDirection: isCompact ? 'column' : 'row',
-        borderBottom: '1px solid #ccc',
-        backgroundColor: '#fff',
-        padding: isCompact ? '5px' : '10px'
-      }}>
-        {/* Logo and Time/Delay Controls */}
-        <div style={{
-          display: 'flex',
-          flexDirection: isCompact ? 'row' : 'column',
-          alignItems: isCompact ? 'center' : 'flex-start',
-          marginRight: isCompact ? '0' : '20px'
-        }}>
-          <div style={{
-            fontSize: '32px',
-            fontWeight: 'bold',
-            marginRight: isCompact ? '20px' : '0',
-            marginBottom: isCompact ? '0' : '15px'
-          }}>
-            Logo
-          </div>
-          
-          <div style={{
-            display: 'flex',
-            flexDirection: isCompact ? 'column' : 'row',
-            marginBottom: isCompact ? '5px' : '10px'
-          }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              marginRight: isCompact ? '0' : '10px',
-              marginBottom: isCompact ? '5px' : '0'
-            }}>
-              <span style={{ 
-                marginRight: '5px',
-                minWidth: isCompact ? '15px' : '60px'
-              }}>
-                {isCompact ? 'T:' : 'Time(s):'}
-              </span>
-              <input
-                type="text"
-                defaultValue="1"
-                style={{
-                  backgroundColor: '#7CFFDA',
-                  width: '40px',
-                  textAlign: 'center',
-                  padding: '5px',
-                  border: 'none'
-                }}
-              />
-            </div>
-            
-            <div style={{
-              display: 'flex',
-              alignItems: 'center'
-            }}>
-              <span style={{ 
-                marginRight: '5px',
-                minWidth: isCompact ? '15px' : '60px'
-              }}>
-                {isCompact ? 'D:' : 'Delay(s):'}
-              </span>
-              <input
-                type="text"
-                defaultValue="3"
-                style={{
-                  backgroundColor: '#7CFFDA',
-                  width: '40px',
-                  textAlign: 'center',
-                  padding: '5px',
-                  border: 'none'
-                }}
-              />
-            </div>
-          </div>
-        </div>
-        
-        {/* Button Groups */}
-        <div style={{
-          display: 'flex',
-          flexDirection: isCompact ? 'column' : 'row',
-          flex: 1
-        }}>
-          {/* First Button Group */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            marginRight: isCompact ? '0' : '20px',
-            borderRight: isCompact ? 'none' : '1px solid #ccc',
-            paddingRight: isCompact ? '0' : '15px'
-          }}>
-            <div style={{
-              display: 'flex',
-              marginBottom: '5px'
-            }}>
-              <button style={{
-                backgroundColor: '#7CFFDA',
-                padding: '5px 10px',
-                margin: '0 5px 0 0',
-                border: 'none',
-                cursor: 'pointer'
-              }}>
-                {isCompact ? 'SRandom' : 'Set Random'}
-              </button>
-              <button style={{
-                backgroundColor: '#7CFFDA',
-                padding: '5px 10px',
-                margin: '0 5px 0 0',
-                border: 'none',
-                cursor: 'pointer'
-              }}>
-                {isCompact ? 'Random' : 'Random Dot'}
-              </button>
-            </div>
-            
-            <div style={{
-              display: 'flex',
-              marginBottom: '5px'
-            }}>
-              <button style={{
-                backgroundColor: '#7CFFDA',
-                padding: '5px 10px',
-                margin: '0 5px 0 0',
-                border: 'none',
-                cursor: 'pointer'
-              }}>
-                {isCompact ? 'Calibrate' : 'Set Calibrate'}
-              </button>
-              <button style={{
-                backgroundColor: '#7CFFDA',
-                padding: '5px 10px',
-                margin: '0 5px 0 0',
-                border: 'none',
-                cursor: 'pointer'
-              }}>
-                {isCompact ? 'Clear' : 'Clear All'}
-              </button>
-            </div>
-          </div>
-          
-          {/* Second Button Group */}
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            <div style={{
-              display: 'flex',
-              marginBottom: '5px'
-            }}>
-              <button style={{
-                backgroundColor: '#7CFFDA',
-                padding: '5px 10px',
-                margin: '0 5px 0 0',
-                border: 'none',
-                cursor: 'pointer'
-              }}>
-                {isCompact ? 'Head pose' : 'Draw Head pose'}
-              </button>
-              <button style={{
-                backgroundColor: '#7CFFDA',
-                padding: '5px 10px',
-                margin: '0 5px 0 0',
-                border: 'none',
-                cursor: 'pointer'
-              }}>
-                {isCompact ? '☐ Box' : 'Show Bounding Box'}
-              </button>
-            </div>
-            
-            <div style={{
-              display: 'flex',
-              marginBottom: '5px'
-            }}>
-              <button style={{
-                backgroundColor: '#7CFFDA',
-                padding: '5px 10px',
-                margin: '0 5px 0 0',
-                border: 'none',
-                cursor: 'pointer'
-              }}>
-                {isCompact ? 'Preview' : 'Show Preview'}
-              </button>
-              <button style={{
-                backgroundColor: '#7CFFDA',
-                padding: '5px 10px',
-                margin: '0 5px 0 0',
-                border: 'none',
-                cursor: 'pointer'
-              }}>
-                {isCompact ? '😊 Mask' : '😊 Show Mask'}
-              </button>
-              <button style={{
-                backgroundColor: '#7CFFDA',
-                padding: '5px 10px',
-                margin: '0 5px 0 0',
-                border: 'none',
-                cursor: 'pointer'
-              }}>
-                {isCompact ? 'Values' : 'Parameters'}
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        {/* Only show textarea in full version */}
-        {!isCompact && (
-          <div style={{
-            display: 'flex',
-            marginLeft: '20px'
-          }}>
-            <textarea style={{
-              width: '250px',
-              height: '80px',
-              marginRight: '10px',
-              border: '1px solid #ccc'
-            }}></textarea>
-            
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
-            }}>
-              <button style={{
-                backgroundColor: '#7CFFDA',
-                width: '40px',
-                height: '35px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                border: 'none',
-                cursor: 'pointer'
-              }}>
-                <span style={{fontSize: '20px'}}>≡</span>
-              </button>
-              
-              <button style={{
-                backgroundColor: '#7CFFDA',
-                width: '40px',
-                height: '35px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                borderRadius: '50%',
-                border: 'none',
-                cursor: 'pointer'
-              }}>
-                <span style={{fontSize: '20px'}}>⚫</span>
-              </button>
-            </div>
-          </div>
-        )}
-        
-        {/* Menu buttons for compact view (right-aligned) */}
-        {isCompact && (
-          <div style={{
-            position: 'absolute',
-            top: '10px',
-            right: '10px',
-            display: 'flex',
-            flexDirection: 'column'
-          }}>
-            <button style={{
-              backgroundColor: '#7CFFDA',
-              width: '35px',
-              height: '35px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginBottom: '5px',
-              border: 'none',
-              cursor: 'pointer'
-            }}>
-              <span style={{fontSize: '20px'}}>≡</span>
-            </button>
-            
-            <button style={{
-              backgroundColor: '#7CFFDA',
-              width: '35px',
-              height: '35px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '50%',
-              border: 'none',
-              cursor: 'pointer'
-            }}>
-              <span style={{fontSize: '20px'}}>⚫</span>
-            </button>
-          </div>
-        )}
-      </div>
+    <div className="main-container">
+      <Head>
+        <title>Camera Dataset Collection</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
+
+      {/* TopBar component with onButtonClick handler - conditionally rendered */}
+      {showTopBar && (
+        <TopBar 
+          onButtonClick={handleTopBarButtonClick} 
+          onCameraAccess={() => setShowPermissionPopup(true)}
+        />
+      )}
       
       {/* Main preview area */}
       <div 
         ref={previewAreaRef}
-        style={{
-          flex: 1,
-          backgroundColor: '#e0f5f0',
-          position: 'relative'
-        }}
+        className="preview-area"
       >
         {!showCamera && (
-          <div style={{
-            position: 'absolute', 
-            top: '50%', 
-            left: '50%', 
-            transform: 'translate(-50%, -50%)',
-            textAlign: 'center'
-          }}>
-            <p style={{marginBottom: '15px'}}>Camera preview will appear here</p>
-            <button 
-              onClick={handleCameraAccess}
-              style={{
-                backgroundColor: '#7CFFDA',
-                padding: '5px 10px',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Access Camera
-            </button>
+          <div className="preview-message">
+            <p>Camera preview will appear here</p>
           </div>
         )}
         
-        {/* Metrics info */}
-        <div style={{
-          position: 'absolute',
-          right: '10px',
-          top: '10px',
-          padding: '10px',
-          backgroundColor: 'white',
-          border: '1px solid #ccc',
-          borderRadius: '5px'
-        }}>
-          <p>W: {metrics.width} (pixels) H: {metrics.height} (pixels)</p>
-          <p>Distance: {metrics.distance} (cm)</p>
+        {/* Metrics info - conditionally rendered */}
+        {showMetrics && (
+          <DisplayResponse 
+            width={metrics.width} 
+            height={metrics.height} 
+            distance={metrics.distance}
+          />
+        )}
+        
+        {/* Control buttons (top right) - First set */}
+        <div className="top-controls">
+          <div className="notes-container">
+            <textarea 
+              placeholder="Notes..." 
+              value={outputText}
+              onChange={(e) => setOutputText(e.target.value)}
+              readOnly
+            />
+          </div>
+          
+          <div className="top-control-buttons">
+            <button 
+              className="control-btn menu-btn"
+              onClick={toggleTopBar}
+              title={showTopBar ? "Hide TopBar" : "Show TopBar"}
+            >
+              ≡
+            </button>
+            
+            <button 
+              className="control-btn circle-btn"
+              onClick={toggleMetrics}
+              title={showMetrics ? "Hide Metrics" : "Show Metrics"}
+            >
+              ⚫
+            </button>
+          </div>
+        </div>
+        
+        {/* Second set of controls (below the first set) */}
+        <div className="bottom-controls">
+          <div className="status-container">
+            <textarea 
+              readOnly
+              value={showTopBar ? "TopBar shown" : "TopBar hidden"}
+            />
+          </div>
+          
+          <div className="bottom-control-buttons">
+            <button 
+              className="control-btn menu-btn"
+              onClick={toggleTopBar}
+              title={showTopBar ? "Hide TopBar" : "Show TopBar"}
+            >
+              ≡
+            </button>
+            
+            <button 
+              className="control-btn circle-btn"
+              onClick={toggleMetrics}
+              title={showMetrics ? "Hide Metrics" : "Show Metrics"}
+            >
+              ⚫
+            </button>
+          </div>
         </div>
       </div>
       
+      {/* Camera permission popup */}
+      {showPermissionPopup && (
+        <div className="permission-popup">
+          <div className="permission-dialog">
+            <h3 className="permission-title">Camera Access Required</h3>
+            <p className="permission-message">
+              This application needs access to your camera to function properly. 
+              When prompted by your browser, please click "Allow" to grant camera access.
+            </p>
+            <div className="permission-buttons">
+              <button 
+                onClick={handlePermissionDenied}
+                className="btn"
+                style={{ backgroundColor: '#f0f0f0' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handlePermissionAccepted}
+                className="btn"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Camera component */}
       <CameraAccess 
         isShowing={showCamera} 
         onClose={handleCameraClose}

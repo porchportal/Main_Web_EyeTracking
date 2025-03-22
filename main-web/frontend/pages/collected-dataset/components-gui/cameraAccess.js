@@ -1,116 +1,175 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+// Remove the CSS import - it's now in _app.js
 
 const CameraAccess = ({ isShowing, onClose, onCameraReady }) => {
   const videoRef = useRef(null);
-  const [hasPermission, setHasPermission] = useState(false);
-  const [showPrompt, setShowPrompt] = useState(true);
-  const [constraints, setConstraints] = useState({
-    video: { 
-      width: { ideal: 1920 }, 
-      height: { ideal: 1080 },
-      facingMode: "user" 
-    }
+  const [stream, setStream] = useState(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [permissionStatus, setPermissionStatus] = useState('pending'); // 'pending', 'granted', 'denied'
+  const [windowSize, setWindowSize] = useState({
+    width: typeof window !== 'undefined' ? window.innerWidth : 0,
+    height: typeof window !== 'undefined' ? window.innerHeight : 0
   });
 
   useEffect(() => {
-    if (!isShowing) {
-      stopCamera();
-      if (isShowing) {
-        setShowPrompt(true);
-      }
+    const handleResize = () => {
+      setWindowSize({
+        width: window.innerWidth,
+        height: window.innerHeight
+      });
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', handleResize);
     }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', handleResize);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isShowing) {
+      startCamera();
+    } else {
+      stopCamera();
+    }
+    
+    return () => {
+      stopCamera();
+    };
   }, [isShowing]);
 
-  const requestCameraAccess = async () => {
-    setShowPrompt(false);
+  const startCamera = async () => {
+    setPermissionStatus('pending');
+    setErrorMessage('');
     
     try {
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' }
+      });
+      
+      setStream(mediaStream);
+      setPermissionStatus('granted');
       
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        setHasPermission(true);
+        videoRef.current.srcObject = mediaStream;
         
-        // Get video track settings to provide dimensions
-        const videoTrack = stream.getVideoTracks()[0];
-        const settings = videoTrack.getSettings();
-        
-        // Calculate a simulated distance
-        const simulatedDistance = Math.round(30 + Math.random() * 20); // Random between 30-50cm
-        
-        onCameraReady({
-          width: settings.width,
-          height: settings.height,
-          distance: `${simulatedDistance}`
-        });
+        // Wait for video to load metadata to get dimensions
+        videoRef.current.onloadedmetadata = () => {
+          const videoWidth = videoRef.current.videoWidth;
+          const videoHeight = videoRef.current.videoHeight;
+          
+          // Calculate a reasonable distance estimation (this is a placeholder)
+          // In a real app, you would use depth sensing or face size heuristics
+          const estimatedDistance = Math.round(120 * (windowSize.width / videoWidth));
+          
+          onCameraReady({
+            width: videoWidth,
+            height: videoHeight,
+            distance: estimatedDistance
+          });
+        };
       }
-    } catch (err) {
-      console.error("Error accessing camera:", err);
-      setHasPermission(false);
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      setPermissionStatus('denied');
+      
+      if (error.name === 'NotAllowedError') {
+        setErrorMessage('Camera access denied. Please enable camera permissions in your browser settings.');
+      } else if (error.name === 'NotFoundError') {
+        setErrorMessage('No camera device found. Please connect a camera and try again.');
+      } else {
+        setErrorMessage('Failed to access camera. Error: ' + error.message);
+      }
     }
   };
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const tracks = videoRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    
+    if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+    
+    setPermissionStatus('pending');
   };
 
-  if (!isShowing) return null;
+  const renderPermissionPending = () => (
+    <div className="permission-pending">
+      <div className="permission-pending-icon">📷</div>
+      <h2>Waiting for Camera Permission</h2>
+      <p className="permission-instructions">
+        Please allow access to your camera when prompted by your browser.
+        This app needs camera access to analyze eye movement data.
+      </p>
+      <div className="permission-tip">
+        Look for a permission dialog near the top of your browser window.
+        If you don't see it, check if it was blocked or click the camera icon in the address bar.
+      </div>
+      <button 
+        onClick={startCamera}
+        className="btn"
+      >
+        Try Again
+      </button>
+    </div>
+  );
+
+  if (!isShowing) {
+    return null;
+  }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-lg w-full">
-        {showPrompt ? (
-          <div className="text-center">
-            <h3 className="text-lg font-medium mb-4">Camera Access Required</h3>
-            <p className="mb-6">This application needs access to your camera to function properly.</p>
-            <div className="flex justify-center space-x-4">
-              <button 
-                onClick={onClose}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-100"
-              >
-                Deny
-              </button>
-              <button 
-                onClick={requestCameraAccess}
-                className="px-4 py-2 text-black rounded-md hover:bg-mint-green-dark"
-                style={{ backgroundColor: 'rgba(124, 255, 218, 0.5)' }}
-              >
-                Agree
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="mb-4 relative">
-              {hasPermission ? (
-                <video 
-                  ref={videoRef} 
-                  autoPlay 
-                  playsInline
-                  className="w-full rounded"
-                />
-              ) : (
-                <div className="bg-gray-100 h-64 rounded flex items-center justify-center">
-                  <p className="text-red-500">Camera access denied or unavailable</p>
-                </div>
-              )}
-            </div>
-            <div className="flex justify-end">
-              <button 
-                onClick={onClose}
-                className="px-4 py-2 rounded-md text-black"
-                style={{ backgroundColor: 'rgba(124, 255, 218, 0.5)' }}
-              >
-                Close
-              </button>
-            </div>
-          </>
-        )}
+    <div className="camera-container">
+      <div className="camera-controls">
+        <button onClick={onClose} className="btn">
+          Close Camera
+        </button>
       </div>
+      
+      {permissionStatus === 'pending' && renderPermissionPending()}
+      
+      {errorMessage && (
+        <div className="camera-error">
+          <p className="error-message">{errorMessage}</p>
+          <button 
+            onClick={startCamera}
+            className="btn"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+      
+      {permissionStatus === 'granted' && (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="camera-video"
+        />
+      )}
+      
+      {permissionStatus === 'granted' && (
+        <div className="camera-settings">
+          <div className="settings-title">Camera Settings</div>
+          <div className="settings-row">
+            <span className="settings-label">Resolution:</span>
+            <span id="resolution-value">Detecting...</span>
+          </div>
+          <div className="settings-row">
+            <span className="settings-label">Frame Rate:</span>
+            <span id="framerate-value">30 fps</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,133 +1,180 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 
-const TopBar = () => {
+const TopBar = ({ onButtonClick, onCameraAccess }) => {
   const router = useRouter();
+  const [screenSize, setScreenSize] = useState('large'); // 'large', 'medium', 'small', 'extra-small'
+  
+  useEffect(() => {
+    const updateScreenSize = () => {
+      const width = window.innerWidth;
+      if (width >= 1200) {
+        setScreenSize('large');
+      } else if (width >= 768) {
+        setScreenSize('medium');
+      } else if (width >= 480) {
+        setScreenSize('small');
+      } else {
+        setScreenSize('extra-small');
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      updateScreenSize();
+      window.addEventListener('resize', updateScreenSize);
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', updateScreenSize);
+      }
+    };
+  }, []);
+  
+  // Get button text based on screen size
+  const getButtonText = (fullText, shortText) => {
+    if (screenSize === 'extra-small' || screenSize === 'small') {
+      return shortText;
+    }
+    return fullText;
+  };
+  
+  // Helper function to create buttons that trigger camera access
+  const createButton = (text, shortText, actionType) => {
+    const displayText = getButtonText(text, shortText);
+    return (
+      <button 
+        className="btn"
+        onClick={() => {
+          // All buttons will trigger camera access first time
+          onButtonClick(actionType);
+        }}
+      >
+        {displayText}
+      </button>
+    );
+  };
+  
+  const isCompact = screenSize !== 'large';
   
   return (
-    <div className="p-0 m-0">
-      {/* Logo */}
-      <div className="mb-2">
-        <h1 
-          className="text-4xl font-bold cursor-pointer"
-          onClick={() => router.push('/')}
-        >
-          Logo
-        </h1>
-      </div>
-      
-      {/* Time input - full width */}
-      <div className="mb-2">
-        <span className="block mb-1">T:</span>
-        <div 
-          className="w-full h-8 flex items-center px-2" 
-          style={{ backgroundColor: '#7CFFDA' }}
-        >
-          <span>1</span>
+    <div className={`topbar ${isCompact ? 'topbar-compact' : ''}`}>
+      {/* Logo and Time/Delay Section */}
+      <div className={`topbar-left ${isCompact ? 'topbar-left-compact' : ''}`}>
+        {/* Logo */}
+        <div className={`logo ${isCompact ? 'logo-compact' : ''}`}>
+          <h1 
+            className={`logo-text ${isCompact ? 'logo-text-compact' : ''}`}
+            onClick={() => router.push('/')}
+          >
+            Logo
+          </h1>
         </div>
-      </div>
-      
-      {/* Delay input - full width */}
-      <div className="mb-2">
-        <span className="block mb-1">D:</span>
-        <div 
-          className="w-full h-8 flex items-center px-2"
-          style={{ backgroundColor: '#7CFFDA' }}
-        >
-          <span>3</span>
-        </div>
-      </div>
-      
-      {/* First row of buttons */}
-      <div className="flex mb-2">
-        <button
-          className="mr-1 py-1 px-2 border border-black"
-          style={{ backgroundColor: '#7CFFDA' }}
-        >
-          SRandom
-        </button>
-        <button
-          className="py-1 px-2 border border-black"
-          style={{ backgroundColor: '#7CFFDA' }}
-        >
-          Calibrate
-        </button>
-      </div>
-      
-      {/* Second row of buttons */}
-      <div className="flex mb-2">
-        <button
-          className="mr-1 py-1 px-2 border border-black"
-          style={{ backgroundColor: '#7CFFDA' }}
-        >
-          Random
-        </button>
-        <button
-          className="py-1 px-2 border border-black"
-          style={{ backgroundColor: '#7CFFDA' }}
-        >
-          Clear
-        </button>
-      </div>
-      
-      {/* Third row of buttons */}
-      <div className="flex mb-2">
-        <button
-          className="mr-1 py-1 px-2 border border-black"
-          style={{ backgroundColor: '#7CFFDA' }}
-        >
-          Head pose
-        </button>
-        <button
-          className="py-1 px-2 border border-black"
-          style={{ backgroundColor: '#7CFFDA' }}
-        >
-          Preview
-        </button>
-      </div>
-      
-      {/* Fourth row of buttons */}
-      <div className="flex mb-2">
-        <button
-          className="mr-1 py-1 px-2 border border-black"
-          style={{ backgroundColor: '#7CFFDA' }}
-        >
-          ☐ Box
-        </button>
-        <button
-          className="py-1 px-2 border border-black"
-          style={{ backgroundColor: '#7CFFDA' }}
-        >
-          😊 Mask
-        </button>
-      </div>
-      
-      {/* Fifth row - Values button */}
-      <div className="flex mb-2">
-        <button
-          className="py-1 px-2 border border-black"
-          style={{ backgroundColor: '#7CFFDA' }}
-        >
-          Values
-        </button>
-      </div>
-      
-      {/* Menu buttons */}
-      <div className="flex mb-2">
-        <button 
-          className="mr-1 p-1 border border-black"
-          style={{ backgroundColor: '#7CFFDA' }}
-        >
-          <span>≡</span>
-        </button>
         
-        <button 
-          className="p-1 border border-black"
-          style={{ backgroundColor: '#7CFFDA' }}
-        >
-          <span>◯</span>
-        </button>
+        {/* Time/Delay Controls */}
+        <div className={`controls-container ${isCompact ? 'controls-container-compact' : ''}`}>
+          <div className={`control-group ${isCompact ? 'control-group-compact' : ''}`}>
+            <span className={`control-label ${isCompact ? 'control-label-compact' : ''}`}>
+              {isCompact ? 'T:' : 'Time(s):'}
+            </span>
+            <div className="control-input">
+              <input
+                type="text"
+                defaultValue="1"
+                className="control-input-field"
+              />
+            </div>
+          </div>
+          
+          <div className={`control-group ${isCompact ? 'control-group-compact' : ''}`}>
+            <span className={`control-label ${isCompact ? 'control-label-compact' : ''}`}>
+              {isCompact ? 'D:' : 'Delay(s):'}
+            </span>
+            <div className="control-input">
+              <input
+                type="text"
+                defaultValue="3"
+                className="control-input-field"
+              />
+            </div>
+          </div>
+        </div>
       </div>
+      
+      {/* Button Section */}
+      <div className={`topbar-middle ${isCompact ? 'topbar-middle-compact' : ''}`}>
+        {/* First Button Group */}
+        <div className={`button-group ${isCompact ? 'button-group-compact' : ''}`}>
+          <div className="button-row">
+            {createButton('Set Random', 'SRandom', 'setRandom')}
+            {createButton('Random Dot', 'Random', 'randomDot')}
+          </div>
+          
+          <div className="button-row">
+            {createButton('Set Calibrate', 'Calibrate', 'calibrate')}
+            {createButton('Clear All', 'Clear', 'clearAll')}
+          </div>
+        </div>
+        
+        {/* Divider - only visible in large mode */}
+        {!isCompact && <div className="topbar-divider"></div>}
+        
+        {/* Second Button Group */}
+        <div className={`button-group ${isCompact ? 'button-group-compact' : ''}`}>
+          <div className="button-row">
+            {createButton('Draw Head pose', 'Head pose', 'headPose')}
+            {createButton('Show Bounding Box', '☐ Box', 'boundingBox')}
+          </div>
+          
+          <div className="button-row">
+            {createButton('Show Preview', 'Preview', 'preview')}
+            {createButton('😊 Show Mask', '😊 Mask', 'mask')}
+            {createButton('Parameters', 'Values', 'parameters')}
+          </div>
+        </div>
+      </div>
+      
+      {/* Right section - only visible in large view */}
+      {!isCompact && (
+        <div className="topbar-right">
+          <textarea className="notes-textarea" placeholder="Notes..."></textarea>
+          
+          <div className="menu-buttons">
+            <button 
+              className="icon-btn"
+              onClick={() => onButtonClick('menu')}
+            >
+              <span className="icon-text">≡</span>
+            </button>
+            
+            <button 
+              className="icon-btn icon-btn-rounded"
+              onClick={() => onButtonClick('record')}
+            >
+              <span className="icon-text">⚫</span>
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Floating menu buttons for compact view */}
+      {isCompact && (
+        <div className="floating-menu-buttons">
+          <button 
+            className="icon-btn"
+            onClick={() => onButtonClick('menu')}
+          >
+            <span className="icon-text">≡</span>
+          </button>
+          
+          <button 
+            className="icon-btn icon-btn-rounded"
+            onClick={() => onButtonClick('record')}
+          >
+            <span className="icon-text">⚫</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 };
