@@ -16,7 +16,6 @@ export default function CollectedDatasetPage() {
     distance: '---'
   });
   const previewAreaRef = useRef(null);
-  const notesRef = useRef(null);
 
   // Update metrics when component mounts and on window resize
   useEffect(() => {
@@ -103,6 +102,10 @@ export default function CollectedDatasetPage() {
         <TopBar 
           onButtonClick={handleTopBarButtonClick} 
           onCameraAccess={() => setShowPermissionPopup(true)}
+          outputText={outputText}
+          onOutputChange={(e) => setOutputText(e.target.value)}
+          onToggleTopBar={toggleTopBar}
+          onToggleMetrics={toggleMetrics}
         />
       )}
       
@@ -125,64 +128,6 @@ export default function CollectedDatasetPage() {
             distance={metrics.distance}
           />
         )}
-        
-        {/* Control buttons (top right) - First set */}
-        <div className="top-controls">
-          <div className="notes-container">
-            <textarea 
-              placeholder="Notes..." 
-              value={outputText}
-              onChange={(e) => setOutputText(e.target.value)}
-              readOnly
-            />
-          </div>
-          
-          <div className="top-control-buttons">
-            <button 
-              className="control-btn menu-btn"
-              onClick={toggleTopBar}
-              title={showTopBar ? "Hide TopBar" : "Show TopBar"}
-            >
-              ≡
-            </button>
-            
-            <button 
-              className="control-btn circle-btn"
-              onClick={toggleMetrics}
-              title={showMetrics ? "Hide Metrics" : "Show Metrics"}
-            >
-              ⚫
-            </button>
-          </div>
-        </div>
-        
-        {/* Second set of controls (below the first set) */}
-        <div className="bottom-controls">
-          <div className="status-container">
-            <textarea 
-              readOnly
-              value={showTopBar ? "TopBar shown" : "TopBar hidden"}
-            />
-          </div>
-          
-          <div className="bottom-control-buttons">
-            <button 
-              className="control-btn menu-btn"
-              onClick={toggleTopBar}
-              title={showTopBar ? "Hide TopBar" : "Show TopBar"}
-            >
-              ≡
-            </button>
-            
-            <button 
-              className="control-btn circle-btn"
-              onClick={toggleMetrics}
-              title={showMetrics ? "Hide Metrics" : "Show Metrics"}
-            >
-              ⚫
-            </button>
-          </div>
-        </div>
       </div>
       
       {/* Camera permission popup */}

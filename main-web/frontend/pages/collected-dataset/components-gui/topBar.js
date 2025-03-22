@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 
-const TopBar = ({ onButtonClick, onCameraAccess }) => {
+const TopBar = ({ 
+  onButtonClick, 
+  onCameraAccess, 
+  outputText, 
+  onOutputChange,
+  onToggleTopBar, 
+  onToggleMetrics 
+}) => {
   const router = useRouter();
   const [screenSize, setScreenSize] = useState('large'); // 'large', 'medium', 'small', 'extra-small'
   
@@ -134,47 +141,35 @@ const TopBar = ({ onButtonClick, onCameraAccess }) => {
         </div>
       </div>
       
-      {/* Right section - only visible in large view */}
-      {!isCompact && (
-        <div className="topbar-right">
-          <textarea className="notes-textarea" placeholder="Notes..."></textarea>
-          
-          <div className="menu-buttons">
-            <button 
-              className="icon-btn"
-              onClick={() => onButtonClick('menu')}
-            >
-              <span className="icon-text">≡</span>
-            </button>
-            
-            <button 
-              className="icon-btn icon-btn-rounded"
-              onClick={() => onButtonClick('record')}
-            >
-              <span className="icon-text">⚫</span>
-            </button>
-          </div>
+      {/* Right section with notes textarea and control buttons */}
+      <div className={`topbar-right ${isCompact ? 'topbar-right-compact' : ''}`}>
+        <div className="notes-container">
+          <textarea 
+            placeholder="Notes..." 
+            value={outputText}
+            onChange={onOutputChange}
+            className="notes-textarea"
+          />
         </div>
-      )}
-      
-      {/* Floating menu buttons for compact view */}
-      {isCompact && (
-        <div className="floating-menu-buttons">
+        
+        <div className="top-control-buttons">
           <button 
-            className="icon-btn"
-            onClick={() => onButtonClick('menu')}
+            className="control-btn menu-btn"
+            onClick={onToggleTopBar}
+            title="Toggle TopBar"
           >
-            <span className="icon-text">≡</span>
+            ≡
           </button>
           
           <button 
-            className="icon-btn icon-btn-rounded"
-            onClick={() => onButtonClick('record')}
+            className="control-btn circle-btn"
+            onClick={onToggleMetrics}
+            title="Toggle Metrics"
           >
-            <span className="icon-text">⚫</span>
+            ⚫
           </button>
         </div>
-      )}
+      </div>
     </div>
   );
 };

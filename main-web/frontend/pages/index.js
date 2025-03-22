@@ -10,7 +10,7 @@ export default function HomePage() {
       router.push('/testing-model');
     } else if (destination === 'collected-dataset') {
       router.push('/collected-dataset');
-    } else {
+    }else {
       // For other buttons, we'll just show an alert for now
       alert(`Navigating to ${destination} - This feature is coming soon!`);
     }
