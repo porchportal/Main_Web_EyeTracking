@@ -109,6 +109,19 @@ export default function CollectedDatasetPage() {
         />
       )}
       
+      {/* Show restore button when TopBar is hidden */}
+      {!showTopBar && (
+        <div className="restore-button-container">
+          <button 
+            className="restore-btn"
+            onClick={toggleTopBar}
+            title="Show TopBar"
+          >
+            ≡
+          </button>
+        </div>
+      )}
+      
       {/* Main preview area */}
       <div 
         ref={previewAreaRef}

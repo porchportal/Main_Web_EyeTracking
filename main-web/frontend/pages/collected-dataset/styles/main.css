@@ -266,6 +266,33 @@
   border-radius: 50%;
 }
 
+/* Restore button for hidden TopBar */
+.restore-button-container {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 100;
+}
+
+.restore-btn {
+  width: 35px;
+  height: 35px;
+  background-color: #7CFFDA;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.restore-btn:hover {
+  background-color: #5EDFBB;
+  transform: scale(1.05);
+}
+
 /* Media queries for responsive layout */
 @media (max-width: 768px) {
   .notes-textarea {
@@ -282,6 +309,12 @@
   
   .metrics-display {
     margin-top: 80px;
+  }
+  
+  .restore-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 18px;
   }
 }
 
@@ -300,5 +333,11 @@
   
   .metrics-display {
     margin-top: 70px;
+  }
+  
+  .restore-btn {
+    width: 25px;
+    height: 25px;
+    font-size: 16px;
   }
 }
