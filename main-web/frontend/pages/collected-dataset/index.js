@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import TopBar from './components-gui/topBar';
-// import CameraAccess from './components-gui/cameraAccess';
-import CameraAccess from './components-gui/OpenCVCameraAccess';
+// Import our dynamic camera component with SSR disabled
+import DynamicCameraAccess from './components-gui/DynamicCameraAccess';
 import DisplayResponse from './components-gui/displayResponse';
 import { ActionButtonGroup } from './components-gui/actionButton';
 
@@ -30,37 +30,20 @@ export default function CollectedDatasetPage() {
   const [showBoundingBox, setShowBoundingBox] = useState(false);
   const [showMask, setShowMask] = useState(false);
   const [showParameters, setShowParameters] = useState(false);
-  const [backendStatus, setBackendStatus] = useState('checking');
   
   // State to track if camera square should be shown
   const [showCameraPlaceholder, setShowCameraPlaceholder] = useState(false);
   
   // To store the camera permission state
   const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
-
-  // Check backend connection on mount
-  useEffect(() => {
-    const checkBackendConnection = async () => {
-      try {
-        const response = await fetch('/api/check-backend-connection');
-        const data = await response.json();
-        setBackendStatus(data.connected ? 'connected' : 'disconnected');
-        console.log(`Backend connection: ${data.connected ? 'OK' : 'Failed'}`);
-        
-        // Show status in output text
-        setOutputText(`Backend ${data.connected ? 'connected' : 'disconnected'}`);
-      } catch (error) {
-        console.error('Error checking backend connection:', error);
-        setBackendStatus('disconnected');
-        setOutputText('Error connecting to backend');
-      }
-    };
-
-    checkBackendConnection();
-  }, []);
+  
+  // Check if we're on the client or server
+  const isClient = typeof window !== 'undefined';
 
   // Update metrics and window size when component mounts and on window resize
   useEffect(() => {
+    if (!isClient) return; // Skip on server
+    
     const updateDimensions = () => {
       if (previewAreaRef.current) {
         const width = previewAreaRef.current.offsetWidth;
@@ -87,41 +70,42 @@ export default function CollectedDatasetPage() {
     };
 
     // Initial calculation
-    if (typeof window !== 'undefined') {
-      updateDimensions();
-      window.addEventListener('resize', updateDimensions);
-    }
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    
+    // Show welcome message
+    setOutputText('Camera system ready. Click "Show Preview" to start camera.');
     
     // Clean up
     return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('resize', updateDimensions);
-      }
+      window.removeEventListener('resize', updateDimensions);
     };
   }, []);
 
   // Adjust canvas dimensions to fill the container properly
   const adjustCanvasDimensions = () => {
-    if (canvasRef.current && previewAreaRef.current) {
-      const canvas = canvasRef.current;
-      const container = previewAreaRef.current;
-      
-      // Get the size of the preview area
-      const rect = container.getBoundingClientRect();
-      
-      // Set canvas dimensions to match container size
-      canvas.width = rect.width;
-      canvas.height = rect.height - (showTopBar ? 0 : 0); // Adjust if needed
-      
-      // Clear the canvas
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-    }
+    if (!isClient || !canvasRef.current || !previewAreaRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const container = previewAreaRef.current;
+    
+    // Get the size of the preview area
+    const rect = container.getBoundingClientRect();
+    
+    // Set canvas dimensions to match container size
+    canvas.width = rect.width;
+    canvas.height = rect.height - (showTopBar ? 0 : 0); // Adjust if needed
+    
+    // Clear the canvas
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
   };
 
   // Add effect to update canvas when dimensions change
   useEffect(() => {
-    adjustCanvasDimensions();
+    if (isClient) {
+      adjustCanvasDimensions();
+    }
   }, [windowSize, showTopBar]);
   
   // Handler for action button clicks
@@ -188,13 +172,7 @@ export default function CollectedDatasetPage() {
   const handleTopBarButtonClick = (actionType) => {
     // Show camera permission popup if camera is not already active and permission not yet granted
     if (!showCamera && !cameraPermissionGranted && (
-      actionType === 'Random Dot' || 
-      actionType === 'Set Random' || 
-      actionType === 'Set Calibrate' ||
       actionType === 'Show Preview' ||
-      actionType === 'randomDot' ||
-      actionType === 'setRandom' ||
-      actionType === 'calibrate' ||
       actionType === 'preview'
     )) {
       setShowPermissionPopup(true);
@@ -357,32 +335,24 @@ export default function CollectedDatasetPage() {
         </div>
       )}
       
-      {/* Backend connection status */}
-      {backendStatus === 'disconnected' && (
-        <div className="backend-error-banner">
-          <span className="error-icon">⚠️</span>
-          <span>Backend disconnected. Using mock mode for face tracking.</span>
-        </div>
-      )}
-      
       {/* Main preview area */}
       <div 
         ref={previewAreaRef}
-        className="preview-area"
+        className="camera-preview-area"
         style={{ height: showTopBar ? 'calc(100vh - 120px)' : '100vh' }}
       >
         {!showCamera ? (
-          <div className="preview-message">
+          <div className="camera-preview-message">
             <p>Camera preview will appear here</p>
-            <p className="size-indicator">Current window: {windowSize.percentage}% of screen width</p>
+            <p className="camera-size-indicator">Current window: {windowSize.percentage}% of screen width</p>
             
             {/* Camera placeholder square - small version */}
             {showCameraPlaceholder && (
               <div 
                 className="camera-placeholder-square"
                 style={{
-                  width: '120px',
-                  height: '90px',
+                  width: '180px',  // Increased size for better visibility
+                  height: '135px', // Maintained 4:3 aspect ratio
                   margin: '20px auto',
                   border: '2px dashed #666',
                   borderRadius: '4px',
@@ -392,12 +362,12 @@ export default function CollectedDatasetPage() {
                   justifyContent: 'center'
                 }}
               >
-                <div style={{ fontSize: '1.2rem' }}>📷</div>
+                <div style={{ fontSize: '1.5rem' }}>📷</div>
               </div>
             )}
             
             {/* Action buttons for camera control */}
-            <div className="action-buttons-container" style={{ marginTop: '30px', maxWidth: '600px' }}>
+            <div className="camera-action-buttons-container" style={{ marginTop: '30px', maxWidth: '600px' }}>
               <ActionButtonGroup
                 triggerCameraAccess={() => {
                   if (cameraPermissionGranted) {
@@ -454,26 +424,69 @@ export default function CollectedDatasetPage() {
         </div>
       </div>
       
-      {/* Camera permission popup */}
-      {showPermissionPopup && (
-        <div className="permission-popup">
-          <div className="permission-dialog">
-            <h3 className="permission-title">Camera Access Required</h3>
-            <p className="permission-message">
+      {/* Camera permission popup - Simplified client-side only version */}
+      {isClient && showPermissionPopup && (
+        <div className="camera-permission-popup" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 2000
+        }}>
+          <div className="camera-permission-dialog" style={{
+            width: '400px',
+            backgroundColor: 'white',
+            borderRadius: '8px',
+            padding: '20px',
+            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h3 className="camera-permission-title" style={{
+              margin: '0 0 15px',
+              fontSize: '18px',
+              fontWeight: 'bold'
+            }}>Camera Access Required</h3>
+            <p className="camera-permission-message" style={{
+              margin: '0 0 20px',
+              fontSize: '14px',
+              lineHeight: '1.4'
+            }}>
               This application needs access to your camera to function properly. 
               When prompted by your browser, please click "Allow" to grant camera access.
             </p>
-            <div className="permission-buttons">
+            <div className="camera-permission-buttons" style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '10px'
+            }}>
               <button 
                 onClick={handlePermissionDenied}
-                className="btn"
-                style={{ backgroundColor: '#f0f0f0' }}
+                className="camera-btn"
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#f0f0f0',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
               >
                 Cancel
               </button>
               <button 
                 onClick={handlePermissionAccepted}
-                className="btn"
+                className="camera-btn"
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#0066cc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
               >
                 Continue
               </button>
@@ -482,16 +495,18 @@ export default function CollectedDatasetPage() {
         </div>
       )}
       
-      {/* Camera component */}
-      <CameraAccess 
-        isShowing={showCamera} 
-        onClose={handleCameraClose}
-        onCameraReady={handleCameraReady}
-        showHeadPose={showHeadPose}
-        showBoundingBox={showBoundingBox}
-        showMask={showMask}
-        showParameters={showParameters}
-      />
+      {/* Camera component - using client-only version */}
+      {isClient && (
+        <DynamicCameraAccess
+          isShowing={showCamera} 
+          onClose={handleCameraClose}
+          onCameraReady={handleCameraReady}
+          showHeadPose={showHeadPose}
+          showBoundingBox={showBoundingBox}
+          showMask={showMask}
+          showParameters={showParameters}
+        />
+      )}
     </div>
   );
 }

@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{}"
+self.__REACT_LOADABLE_MANIFEST="{\"pages/collected-dataset/components-gui/DynamicCameraAccess.js -> ./cameraAccess\":{\"id\":\"pages/collected-dataset/components-gui/DynamicCameraAccess.js -> ./cameraAccess\",\"files\":[\"static/chunks/_pages-dir-browser_pages_collected-dataset_components-gui_cameraAccess_js.js\"]}}"
