@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import TopBar from './components-gui/topBar';
-import CameraAccess from './components-gui/cameraAccess';
+// import CameraAccess from './components-gui/cameraAccess';
+import CameraAccess from './components-gui/OpenCVCameraAccess';
 import DisplayResponse from './components-gui/displayResponse';
+import { ActionButtonGroup } from './components-gui/actionButton';
 
 export default function CollectedDatasetPage() {
   const [showCamera, setShowCamera] = useState(false);
@@ -21,7 +23,41 @@ export default function CollectedDatasetPage() {
     percentage: 100
   });
   const previewAreaRef = useRef(null);
-  const canvasRef = useRef(null); // Reference for the tracking canvas
+  const canvasRef = useRef(null);
+  
+  // State for camera processing options
+  const [showHeadPose, setShowHeadPose] = useState(false);
+  const [showBoundingBox, setShowBoundingBox] = useState(false);
+  const [showMask, setShowMask] = useState(false);
+  const [showParameters, setShowParameters] = useState(false);
+  const [backendStatus, setBackendStatus] = useState('checking');
+  
+  // State to track if camera square should be shown
+  const [showCameraPlaceholder, setShowCameraPlaceholder] = useState(false);
+  
+  // To store the camera permission state
+  const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
+
+  // Check backend connection on mount
+  useEffect(() => {
+    const checkBackendConnection = async () => {
+      try {
+        const response = await fetch('/api/check-backend-connection');
+        const data = await response.json();
+        setBackendStatus(data.connected ? 'connected' : 'disconnected');
+        console.log(`Backend connection: ${data.connected ? 'OK' : 'Failed'}`);
+        
+        // Show status in output text
+        setOutputText(`Backend ${data.connected ? 'connected' : 'disconnected'}`);
+      } catch (error) {
+        console.error('Error checking backend connection:', error);
+        setBackendStatus('disconnected');
+        setOutputText('Error connecting to backend');
+      }
+    };
+
+    checkBackendConnection();
+  }, []);
 
   // Update metrics and window size when component mounts and on window resize
   useEffect(() => {
@@ -87,10 +123,71 @@ export default function CollectedDatasetPage() {
   useEffect(() => {
     adjustCanvasDimensions();
   }, [windowSize, showTopBar]);
+  
+  // Handler for action button clicks
+  const handleActionButtonClick = (actionType) => {
+    switch (actionType) {
+      case 'headPose':
+        const newHeadPoseState = !showHeadPose;
+        setShowHeadPose(newHeadPoseState);
+        setOutputText(`Head pose visualization ${newHeadPoseState ? 'enabled' : 'disabled'}`);
+        if (newHeadPoseState && !showCamera) {
+          setShowCameraPlaceholder(true);
+        } else if (!newHeadPoseState && !showBoundingBox && !showMask && !showParameters) {
+          setShowCameraPlaceholder(false);
+        }
+        break;
+      case 'boundingBox':
+        const newBoundingBoxState = !showBoundingBox;
+        setShowBoundingBox(newBoundingBoxState);
+        setOutputText(`Bounding box ${newBoundingBoxState ? 'shown' : 'hidden'}`);
+        if (newBoundingBoxState && !showCamera) {
+          setShowCameraPlaceholder(true);
+        } else if (!newBoundingBoxState && !showHeadPose && !showMask && !showParameters) {
+          setShowCameraPlaceholder(false);
+        }
+        break;
+      case 'preview':
+        if (cameraPermissionGranted) {
+          // If permission is already granted, just show the camera
+          setShowCamera(true);
+          setShowCameraPlaceholder(false);
+        } else {
+          // Otherwise show permission popup
+          setShowPermissionPopup(true);
+          setOutputText('Opening camera preview');
+          setShowCameraPlaceholder(true);
+        }
+        break;
+      case 'mask':
+        const newMaskState = !showMask;
+        setShowMask(newMaskState);
+        setOutputText(`Mask ${newMaskState ? 'shown' : 'hidden'}`);
+        if (newMaskState && !showCamera) {
+          setShowCameraPlaceholder(true);
+        } else if (!newMaskState && !showHeadPose && !showBoundingBox && !showParameters) {
+          setShowCameraPlaceholder(false);
+        }
+        break;
+      case 'parameters':
+        const newParametersState = !showParameters;
+        setShowParameters(newParametersState);
+        setOutputText(`Parameters ${newParametersState ? 'shown' : 'hidden'}`);
+        if (newParametersState && !showCamera) {
+          setShowCameraPlaceholder(true);
+        } else if (!newParametersState && !showHeadPose && !showBoundingBox && !showMask) {
+          setShowCameraPlaceholder(false);
+        }
+        break;
+      default:
+        setOutputText(`Action triggered: ${actionType} at ${new Date().toLocaleTimeString()}`);
+    }
+  };
 
+  // Top Bar button click handler
   const handleTopBarButtonClick = (actionType) => {
-    // Show camera permission popup if camera is not already active
-    if (!showCamera && (
+    // Show camera permission popup if camera is not already active and permission not yet granted
+    if (!showCamera && !cameraPermissionGranted && (
       actionType === 'Random Dot' || 
       actionType === 'Set Random' || 
       actionType === 'Set Calibrate' ||
@@ -101,6 +198,66 @@ export default function CollectedDatasetPage() {
       actionType === 'preview'
     )) {
       setShowPermissionPopup(true);
+      setShowCameraPlaceholder(true);
+    } else if (cameraPermissionGranted && !showCamera && (
+      actionType === 'Show Preview' ||
+      actionType === 'preview'
+    )) {
+      // If permission already granted, just show the camera without asking again
+      setShowCamera(true);
+      setShowCameraPlaceholder(false);
+    }
+    
+    // Check for action buttons
+    if (
+      actionType === 'Draw Head pose' || 
+      actionType === 'Show Bounding Box' || 
+      actionType === '😷 Show Mask' ||
+      actionType === 'Parameters'
+    ) {
+      switch (actionType) {
+        case 'Draw Head pose':
+          const newHeadPoseState = !showHeadPose;
+          setShowHeadPose(newHeadPoseState);
+          setOutputText(`Head pose visualization ${newHeadPoseState ? 'enabled' : 'disabled'}`);
+          if (newHeadPoseState && !showCamera) {
+            setShowCameraPlaceholder(true);
+          } else if (!newHeadPoseState && !showBoundingBox && !showMask && !showParameters) {
+            setShowCameraPlaceholder(false);
+          }
+          break;
+        case 'Show Bounding Box':
+          const newBoundingBoxState = !showBoundingBox;
+          setShowBoundingBox(newBoundingBoxState);
+          setOutputText(`Bounding box ${newBoundingBoxState ? 'shown' : 'hidden'}`);
+          if (newBoundingBoxState && !showCamera) {
+            setShowCameraPlaceholder(true);
+          } else if (!newBoundingBoxState && !showHeadPose && !showMask && !showParameters) {
+            setShowCameraPlaceholder(false);
+          }
+          break;
+        case '😷 Show Mask':
+          const newMaskState = !showMask;
+          setShowMask(newMaskState);
+          setOutputText(`Mask ${newMaskState ? 'shown' : 'hidden'}`);
+          if (newMaskState && !showCamera) {
+            setShowCameraPlaceholder(true);
+          } else if (!newMaskState && !showHeadPose && !showBoundingBox && !showParameters) {
+            setShowCameraPlaceholder(false);
+          }
+          break;
+        case 'Parameters':
+          const newParametersState = !showParameters;
+          setShowParameters(newParametersState);
+          setOutputText(`Parameters ${newParametersState ? 'shown' : 'hidden'}`);
+          if (newParametersState && !showCamera) {
+            setShowCameraPlaceholder(true);
+          } else if (!newParametersState && !showHeadPose && !showBoundingBox && !showMask) {
+            setShowCameraPlaceholder(false);
+          }
+          break;
+      }
+      return;
     }
     
     // Update output text based on action type
@@ -110,6 +267,8 @@ export default function CollectedDatasetPage() {
   const handlePermissionAccepted = () => {
     setShowPermissionPopup(false);
     setShowCamera(true);
+    setCameraPermissionGranted(true); // Store that permission has been granted
+    setShowCameraPlaceholder(false); // Hide placeholder when camera is active
   };
 
   const handlePermissionDenied = () => {
@@ -118,6 +277,13 @@ export default function CollectedDatasetPage() {
 
   const handleCameraClose = () => {
     setShowCamera(false);
+    
+    // Show camera placeholder if any of the visualization options are enabled
+    if (showHeadPose || showBoundingBox || showMask || showParameters) {
+      setShowCameraPlaceholder(true);
+    } else {
+      setShowCameraPlaceholder(false);
+    }
   };
 
   const handleCameraReady = (dimensions) => {
@@ -191,6 +357,14 @@ export default function CollectedDatasetPage() {
         </div>
       )}
       
+      {/* Backend connection status */}
+      {backendStatus === 'disconnected' && (
+        <div className="backend-error-banner">
+          <span className="error-icon">⚠️</span>
+          <span>Backend disconnected. Using mock mode for face tracking.</span>
+        </div>
+      )}
+      
       {/* Main preview area */}
       <div 
         ref={previewAreaRef}
@@ -201,6 +375,46 @@ export default function CollectedDatasetPage() {
           <div className="preview-message">
             <p>Camera preview will appear here</p>
             <p className="size-indicator">Current window: {windowSize.percentage}% of screen width</p>
+            
+            {/* Camera placeholder square - small version */}
+            {showCameraPlaceholder && (
+              <div 
+                className="camera-placeholder-square"
+                style={{
+                  width: '120px',
+                  height: '90px',
+                  margin: '20px auto',
+                  border: '2px dashed #666',
+                  borderRadius: '4px',
+                  backgroundColor: '#f5f5f5',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <div style={{ fontSize: '1.2rem' }}>📷</div>
+              </div>
+            )}
+            
+            {/* Action buttons for camera control */}
+            <div className="action-buttons-container" style={{ marginTop: '30px', maxWidth: '600px' }}>
+              <ActionButtonGroup
+                triggerCameraAccess={() => {
+                  if (cameraPermissionGranted) {
+                    setShowCamera(true);
+                    setShowCameraPlaceholder(false);
+                  } else {
+                    setShowPermissionPopup(true);
+                  }
+                }}
+                isCompactMode={windowSize.width < 768}
+                onActionClick={handleActionButtonClick}
+                showHeadPose={showHeadPose}
+                showBoundingBox={showBoundingBox}
+                showMask={showMask}
+                showParameters={showParameters}
+              />
+            </div>
           </div>
         ) : null}
         
@@ -273,6 +487,10 @@ export default function CollectedDatasetPage() {
         isShowing={showCamera} 
         onClose={handleCameraClose}
         onCameraReady={handleCameraReady}
+        showHeadPose={showHeadPose}
+        showBoundingBox={showBoundingBox}
+        showMask={showMask}
+        showParameters={showParameters}
       />
     </div>
   );

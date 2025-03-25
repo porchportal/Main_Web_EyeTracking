@@ -56,6 +56,7 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode }) => {
 
   // Update canvas dimensions when the component mounts or window resizes
   useEffect(() => {
+    console.log('Test button clicked');
     const updateCanvasDimensions = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;

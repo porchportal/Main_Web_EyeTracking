@@ -1,31 +1,26 @@
-# backend/app.py
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, status
+# app.py - Main FastAPI entry point
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, status, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
-import cv2
-import numpy as np
-import io
-import base64
-import json
 import os
+from typing import Optional
 
-# Import the face tracking class
-from Main_model02.showframeVisualization import FrameShow_head_face
+# Import the processing modules
+from imageProcess import process_image_handler
+from videoProcess import process_video_handler
 
 app = FastAPI()
 
 # Configure CORS to allow requests from Next.js frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000"],  # Frontend URL
+    allow_origins=["http://localhost:3000"],  # Frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
 )
 
 # API Key authentication
-# A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV
-# API_KEY = os.getenv("API_KEY", "A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV")  # Get from environment variable or use default
 API_KEY = os.getenv("API_KEY", "A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV")
 api_key_header = APIKeyHeader(name="X-API-Key")  # This should match the header name used by frontend
 
@@ -37,82 +32,80 @@ async def verify_api_key(api_key: str = Depends(api_key_header)):
         )
     return api_key
 
-# Initialize face tracker once at startup
-face_tracker = FrameShow_head_face(
-    model_path='Main_model02/face_landmarker.task',
-    isVideo=False,
-    isHeadposeOn=False,
-    isFaceOn=True
-)
-
-# Configure visualization
-face_tracker.set_labet_face_element(True)
-face_tracker.set_IsShowBox(True)
-face_tracker.set_IsShowHeadpose(True)
-
 @app.post("/process-image", dependencies=[Depends(verify_api_key)])
-async def process_image(file: UploadFile = File(...)):
-    # Read the uploaded image
-    contents = await file.read()
-    nparr = np.frombuffer(contents, np.uint8)
-    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    
-    
-    if frame is None:
-        return {"error": "Could not read image"}
-    
-    # Process the image with face tracker
-    timestamp_ms = 0
-    metrics, processed_frame = face_tracker.process_frame(
-        frame,
-        timestamp_ms,
-        isVideo=False,
-        isEnhanceFace=True
+async def process_image(
+    file: UploadFile = File(...),
+    showHeadPose: Optional[str] = Form(default="false"),
+    showBoundingBox: Optional[str] = Form(default="false"),
+    showMask: Optional[str] = Form(default="false"),
+    showParameters: Optional[str] = Form(default="false")
+):
+    """
+    Process a single image for face tracking and analysis
+    """
+    return await process_image_handler(
+        file, 
+        show_head_pose=showHeadPose.lower() == "true",
+        show_bounding_box=showBoundingBox.lower() == "true",
+        show_mask=showMask.lower() == "true",
+        show_parameters=showParameters.lower() == "true"
     )
-    
-    # Prepare response data
-    response = {"success": False}
-    
-    if metrics is not None:
-        # Extract face metrics
-        pitch, yaw, roll = metrics.head_pose_angles
-        
-        # Convert processed image to base64 for sending to frontend
-        _, buffer = cv2.imencode('.jpg', processed_frame)
-        img_str = base64.b64encode(buffer).decode('utf-8')
-        
-        # Prepare response with metrics and image
-        response = {
-            "success": True,
-            "metrics": {
-                "head_pose": {
-                    "pitch": round(pitch, 2),
-                    "yaw": round(yaw, 2),
-                    "roll": round(roll, 2)
-                }
-            },
-            "image": img_str
-        }
-    
-    return response
+
+@app.post("/process-video", dependencies=[Depends(verify_api_key)])
+async def process_video(
+    file: UploadFile = File(...),
+    showHeadPose: Optional[str] = Form(default="false"),
+    showBoundingBox: Optional[str] = Form(default="false"),
+    showMask: Optional[str] = Form(default="false"),
+    showParameters: Optional[str] = Form(default="false")
+):
+    """
+    Process video frames for face tracking and analysis
+    """
+    return await process_video_handler(
+        file, 
+        show_head_pose=showHeadPose.lower() == "true",
+        show_bounding_box=showBoundingBox.lower() == "true",
+        show_mask=showMask.lower() == "true",
+        show_parameters=showParameters.lower() == "true"
+    )
+
+@app.post("/process-frame", dependencies=[Depends(verify_api_key)])
+async def process_frame(
+    file: UploadFile = File(...),
+    showHeadPose: Optional[str] = Form(default="false"),
+    showBoundingBox: Optional[str] = Form(default="false"),
+    showMask: Optional[str] = Form(default="false"),
+    showParameters: Optional[str] = Form(default="false")
+):
+    """
+    Process a single frame from a video stream
+    This endpoint uses the same handler as process-image
+    """
+    return await process_image_handler(
+        file, 
+        show_head_pose=showHeadPose.lower() == "true",
+        show_bounding_box=showBoundingBox.lower() == "true",
+        show_mask=showMask.lower() == "true",
+        show_parameters=showParameters.lower() == "true"
+    )
 
 # Add a health check endpoint that doesn't require authentication
 @app.get("/health")
 async def health_check():
     return {"status": "ok"}
 
+@app.get("/check-backend-connection")
+async def check_backend_connection():
+    """
+    Endpoint for frontend to check if backend is available
+    """
+    return {"connected": True}
+
 @app.get("/test-auth", dependencies=[Depends(verify_api_key)])
 async def test_auth():
     """Test endpoint to verify API key authentication"""
     return {"message": "Authentication successful!"}
-
-@app.get("/api-key-status")
-async def api_key_status():
-    """Check if API key is set (don't expose actual key)"""
-    return {
-        "api_key_set": bool(API_KEY),
-        "api_key_length": len(API_KEY) if API_KEY else 0
-    }
 
 if __name__ == "__main__":
     import uvicorn
