@@ -35,7 +35,7 @@ const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabl
 };
 
 // Button group component with all action buttons and integrated functionality
-const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode }) => {
+const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }) => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [randomTimes, setRandomTimes] = useState(1);
   const [delaySeconds, setDelaySeconds] = useState(3);
@@ -53,6 +53,9 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode }) => {
   const [showBoundingBox, setShowBoundingBox] = useState(false);
   const [showMask, setShowMask] = useState(false);
   const [showParameters, setShowParameters] = useState(false);
+
+  // Add a state to track camera active status
+  const [isCameraActive, setIsCameraActive] = useState(false);
 
   // Update canvas dimensions when the component mounts or window resizes
   useEffect(() => {
@@ -350,26 +353,105 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode }) => {
 
   // Toggle Head Pose visualization
   const handleToggleHeadPose = () => {
-    setShowHeadPose(prev => !prev);
-    setProcessStatus(`Head pose visualization ${!showHeadPose ? 'enabled' : 'disabled'}`);
+    const newHeadPoseState = !showHeadPose;
+    setShowHeadPose(newHeadPoseState);
+    setProcessStatus(`Head pose visualization ${newHeadPoseState ? 'enabled' : 'disabled'}`);
+    
+    // Call the parent handler to update processor options
+    if (onActionClick) {
+      onActionClick('headPose');
+    }
+    
+    // Update videoProcessor options directly if available
+    if (typeof window !== 'undefined' && window.videoProcessor) {
+      window.videoProcessor.updateOptions({
+        showHeadPose: newHeadPoseState
+      });
+      console.log(`Updated backend head pose: ${newHeadPoseState}`);
+    }
   };
 
   // Toggle Bounding Box visualization
   const handleToggleBoundingBox = () => {
-    setShowBoundingBox(prev => !prev);
-    setProcessStatus(`Bounding box ${!showBoundingBox ? 'shown' : 'hidden'}`);
+    const newBoundingBoxState = !showBoundingBox;
+    setShowBoundingBox(newBoundingBoxState);
+    setProcessStatus(`Bounding box ${newBoundingBoxState ? 'shown' : 'hidden'}`);
+    
+    // Call the parent handler to update processor options
+    if (onActionClick) {
+      onActionClick('boundingBox');
+    }
+    
+    // Update videoProcessor options directly if available
+    if (typeof window !== 'undefined' && window.videoProcessor) {
+      window.videoProcessor.updateOptions({
+        showBoundingBox: newBoundingBoxState
+      });
+      console.log(`Updated backend bounding box: ${newBoundingBoxState}`);
+    }
   };
 
   // Toggle Mask visualization
   const handleToggleMask = () => {
-    setShowMask(prev => !prev);
-    setProcessStatus(`Mask ${!showMask ? 'shown' : 'hidden'}`);
+    const newMaskState = !showMask;
+    setShowMask(newMaskState);
+    setProcessStatus(`Mask ${newMaskState ? 'shown' : 'hidden'}`);
+    
+    // Call the parent handler to update processor options
+    if (onActionClick) {
+      onActionClick('mask');
+    }
+    
+    // Update videoProcessor options directly if available
+    if (typeof window !== 'undefined' && window.videoProcessor) {
+      window.videoProcessor.updateOptions({
+        showMask: newMaskState
+      });
+      console.log(`Updated backend mask: ${newMaskState}`);
+    }
   };
 
   // Toggle Parameters display
   const handleToggleParameters = () => {
-    setShowParameters(prev => !prev);
-    setProcessStatus(`Parameters ${!showParameters ? 'shown' : 'hidden'}`);
+    const newParametersState = !showParameters;
+    setShowParameters(newParametersState);
+    setProcessStatus(`Parameters ${newParametersState ? 'shown' : 'hidden'}`);
+    
+    // Call the parent handler to update processor options
+    if (onActionClick) {
+      onActionClick('parameters');
+    }
+    
+    // Update videoProcessor options directly if available
+    if (typeof window !== 'undefined' && window.videoProcessor) {
+      window.videoProcessor.updateOptions({
+        showParameters: newParametersState
+      });
+      console.log(`Updated backend parameters: ${newParametersState}`);
+    }
+  };
+  const handleToggleCamera = () => {
+    const newCameraState = !isCameraActive;
+    setIsCameraActive(newCameraState);
+    
+    // Call the parent handler with 'preview' action
+    if (onActionClick) {
+      onActionClick('preview');
+    } else {
+      // Fallback to direct trigger if no action handler
+      triggerCameraAccess();
+    }
+    
+    // If turning on camera, ensure we apply current visualization settings
+    if (newCameraState && typeof window !== 'undefined' && window.videoProcessor) {
+      window.videoProcessor.updateOptions({
+        showHeadPose,
+        showBoundingBox,
+        showMask,
+        showParameters
+      });
+      console.log("Applied visualization settings to camera");
+    }
   };
 
   // Button configurations with both full and abbreviated text
@@ -401,29 +483,75 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode }) => {
     { 
       text: "Draw Head pose", 
       abbreviatedText: "Head pose", 
-      onClick: handleToggleHeadPose 
+      onClick: handleToggleHeadPose,
+      active: showHeadPose  // Add active state for visual feedback
     },
     { 
       text: "Show Bounding Box", 
       abbreviatedText: "☐ Box", 
-      onClick: handleToggleBoundingBox 
+      onClick: handleToggleBoundingBox,
+      active: showBoundingBox  // Add active state for visual feedback
     },
     { 
-      text: "Show Preview", 
-      abbreviatedText: "Preview", 
-      onClick: triggerCameraAccess 
+      text: isCameraActive ? "Stop Camera" : "Show Preview", 
+      abbreviatedText: isCameraActive ? "Stop" : "Preview", 
+      onClick: handleToggleCamera,
+      active: isCameraActive  // Add active state for visual feedback
     },
     { 
       text: "😷 Show Mask", 
       abbreviatedText: "😷 Mask", 
-      onClick: handleToggleMask 
+      onClick: handleToggleMask,
+      active: showMask  // Add active state for visual feedback
     },
     { 
       text: "Parameters", 
       abbreviatedText: "Values", 
-      onClick: handleToggleParameters 
+      onClick: handleToggleParameters,
+      active: showParameters  // Add active state for visual feedback
     }
   ];
+  // Update ActionButton component to include active state
+  const EnhancedActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabled = false, active = false }) => {
+    const [isAbbreviated, setIsAbbreviated] = useState(false);
+    
+    // Check window size and set abbreviated mode
+    useEffect(() => {
+      const handleResize = () => {
+        const width = window.innerWidth;
+        setIsAbbreviated(width < 768);
+      };
+      
+      if (typeof window !== 'undefined') {
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Initial call
+        
+        return () => window.removeEventListener('resize', handleResize);
+      }
+    }, []);
+
+    return (
+      <button
+        onClick={onClick}
+        className={`transition-colors py-2 px-2 md:px-4 rounded-md text-xs md:text-sm font-medium ${customClass} ${active ? 'active-button' : ''}`}
+        style={{ 
+          backgroundColor: active 
+            ? 'rgba(0, 102, 204, 0.7)' 
+            : disabled 
+              ? 'rgba(200, 200, 200, 0.5)' 
+              : 'rgba(124, 255, 218, 0.5)', 
+          color: active ? 'white' : 'black',
+          borderRadius: '7px',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          fontWeight: active ? 'bold' : 'normal',
+          boxShadow: active ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
+        }}
+        disabled={disabled}
+      >
+        {isAbbreviated ? abbreviatedText : text}
+      </button>
+    );
+  };
   
   // Mobile layout - 2x5 grid
   return (
@@ -431,25 +559,26 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode }) => {
       {isCompactMode ? (
         <div className="grid grid-cols-2 gap-2 mb-4">
           {buttons.filter(b => !b.divider).map((button, index) => (
-            <ActionButton 
+            <EnhancedActionButton 
               key={index}
               text={button.text}
               abbreviatedText={button.abbreviatedText}
               onClick={button.onClick}
               disabled={button.disabled}
+              active={button.active}
             />
           ))}
         </div>
       ) : (
         <div className="space-y-2 mb-4">
           <div className="grid grid-cols-2 gap-2">
-            <ActionButton 
+            <EnhancedActionButton 
               text="Set Random"
               abbreviatedText="SRandom" 
               onClick={handleSetRandom}
               disabled={isCapturing}
             />
-            <ActionButton 
+            <EnhancedActionButton 
               text="Random Dot"
               abbreviatedText="Random" 
               onClick={handleRandomDot}
@@ -457,13 +586,13 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode }) => {
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <ActionButton 
+            <EnhancedActionButton 
               text="Set Calibrate"
               abbreviatedText="Calibrate" 
               onClick={handleSetCalibrate}
               disabled={isCapturing}
             />
-            <ActionButton 
+            <EnhancedActionButton 
               text="Clear All"
               abbreviatedText="Clear" 
               onClick={handleClearAll}
@@ -473,34 +602,39 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode }) => {
           <hr className="my-3 border-gray-200" />
           
           <div className="grid grid-cols-2 gap-2">
-            <ActionButton 
+            <EnhancedActionButton 
               text="Draw Head pose"
               abbreviatedText="Head pose" 
               onClick={handleToggleHeadPose}
+              active={showHeadPose}
             />
-            <ActionButton 
+            <EnhancedActionButton 
               text="Show Bounding Box"
               abbreviatedText="☐ Box" 
               onClick={handleToggleBoundingBox}
+              active={showBoundingBox}
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <ActionButton 
-              text="Show Preview"
-              abbreviatedText="Preview"
-              onClick={triggerCameraAccess}
+            <EnhancedActionButton 
+              text={isCameraActive ? "Stop Camera" : "Show Preview"}
+              abbreviatedText={isCameraActive ? "Stop" : "Preview"}
+              onClick={handleToggleCamera}
+              active={isCameraActive}
             />
-            <ActionButton 
+            <EnhancedActionButton 
               text="😷 Show Mask"
               abbreviatedText="😷 Mask" 
               onClick={handleToggleMask}
+              active={showMask}
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <ActionButton 
+            <EnhancedActionButton 
               text="Parameters"
               abbreviatedText="Values" 
               onClick={handleToggleParameters}
+              active={showParameters}
             />
             <div></div> {/* Empty space for alignment */}
           </div>

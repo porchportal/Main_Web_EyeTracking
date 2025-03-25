@@ -1,6 +1,12 @@
 {
-  "pages/collected-dataset/components-gui/DynamicCameraAccess.js -> ./cameraAccess": {
-    "id": "pages/collected-dataset/components-gui/DynamicCameraAccess.js -> ./cameraAccess",
+  "pages/collected-dataset/index.js -> ./components-gui/VideoProcessorComponent": {
+    "id": "pages/collected-dataset/index.js -> ./components-gui/VideoProcessorComponent",
+    "files": [
+      "static/chunks/_pages-dir-browser_pages_collected-dataset_components-gui_VideoProcessorComponent_js.js"
+    ]
+  },
+  "pages/collected-dataset/index.js -> ./components-gui/cameraAccess": {
+    "id": "pages/collected-dataset/index.js -> ./components-gui/cameraAccess",
     "files": [
       "static/chunks/_pages-dir-browser_pages_collected-dataset_components-gui_cameraAccess_js.js"
     ]

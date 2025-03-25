@@ -1,21 +1,54 @@
 // videoProcessor.js
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 const useVideoProcessor = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingResults, setProcessingResults] = useState(null);
   const [processingError, setProcessingError] = useState(null);
+  const [backendAvailable, setBackendAvailable] = useState(null);
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const processingIntervalRef = useRef(null);
+  const canvasRef = useRef(null);
+  const [options, setOptions] = useState({
+    showHeadPose: false,
+    showBoundingBox: false,
+    showMask: false,
+    showParameters: false,
+    showProcessedImage: false
+  });
+  
+  // Check backend connection on mount
+  useEffect(() => {
+    const checkBackendConnection = async () => {
+      try {
+        const response = await fetch('/api/check-backend-connection');
+        const data = await response.json();
+        setBackendAvailable(data.connected);
+        console.log(`Backend connection: ${data.connected ? 'OK' : 'Failed'}`);
+      } catch (error) {
+        console.error('Error checking backend connection:', error);
+        setBackendAvailable(false);
+      }
+    };
+
+    checkBackendConnection();
+  }, []);
 
   /**
    * Start video processing with backend
    */
-  const startVideoProcessing = useCallback(async (options = {}) => {
-    if (isProcessing) return;
+  const startVideoProcessing = useCallback(async (newOptions = {}) => {
+    if (isProcessing) {
+      // If already processing, just update options
+      updateOptions(newOptions);
+      return;
+    }
     
     setProcessingError(null);
+    
+    // Update options
+    updateOptions(newOptions);
     
     try {
       // Request camera access
@@ -30,20 +63,51 @@ const useVideoProcessor = () => {
       // If we have a video element reference, attach the stream
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        await videoRef.current.play();
+        
+        try {
+          await videoRef.current.play();
+          console.log('Video playing successfully');
+        } catch (playError) {
+          console.error('Error playing video:', playError);
+          setProcessingError(`Failed to play video: ${playError.message}`);
+          stopVideoProcessing();
+          return;
+        }
       }
       
       setIsProcessing(true);
       
       // Start the frame processing interval
       processingIntervalRef.current = setInterval(() => {
-        processCurrentFrame(options);
+        processCurrentFrame();
       }, 200); // Process a frame every 200ms (5fps) to reduce server load
       
     } catch (error) {
       console.error('Error starting video processing:', error);
       setProcessingError(`Failed to access camera: ${error.message}`);
+      stopVideoProcessing();
     }
+  }, [isProcessing]);
+
+  /**
+   * Update processing options
+   */
+  const updateOptions = useCallback((newOptions = {}) => {
+    setOptions(prevOptions => {
+      const updatedOptions = {
+        ...prevOptions,
+        ...newOptions
+      };
+      
+      // If we're already processing, update the backend with new options on next frame
+      if (isProcessing) {
+        // We don't need to call processCurrentFrame explicitly here
+        // since it's handled by the interval
+        console.log('Options updated, will be applied on next frame:', updatedOptions);
+      }
+      
+      return updatedOptions;
+    });
   }, [isProcessing]);
 
   /**
@@ -58,7 +122,9 @@ const useVideoProcessor = () => {
     
     // Stop all tracks in the media stream
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+      });
       streamRef.current = null;
     }
     
@@ -74,19 +140,19 @@ const useVideoProcessor = () => {
   /**
    * Toggle video processing
    */
-  const toggleVideoProcessing = useCallback((options = {}) => {
+  const toggleVideoProcessing = useCallback((newOptions = {}) => {
     if (isProcessing) {
       stopVideoProcessing();
     } else {
-      startVideoProcessing(options);
+      startVideoProcessing(newOptions);
     }
   }, [isProcessing, startVideoProcessing, stopVideoProcessing]);
 
   /**
    * Process the current video frame
    */
-  const processCurrentFrame = async (options = {}) => {
-    if (!videoRef.current || !streamRef.current) return;
+  const processCurrentFrame = async () => {
+    if (!videoRef.current || !streamRef.current || !isProcessing) return;
     
     try {
       // Create a canvas to capture the current frame
@@ -114,11 +180,20 @@ const useVideoProcessor = () => {
       const formData = new FormData();
       formData.append('file', blob, 'frame.jpg');
       
-      // Add processing options
-      formData.append('showHeadPose', options.showHeadPose || false);
-      formData.append('showBoundingBox', options.showBoundingBox || false);
-      formData.append('showMask', options.showMask || false);
-      formData.append('showParameters', options.showParameters || false);
+      // Add processing options - explicitly convert booleans to strings
+      // This is important for proper transmission to the backend
+      formData.append('showHeadPose', options.showHeadPose.toString());
+      formData.append('showBoundingBox', options.showBoundingBox.toString());
+      formData.append('showMask', options.showMask.toString());
+      formData.append('showParameters', options.showParameters.toString());
+      
+      // Log what's being sent to the backend for debugging
+      console.log('Sending options to backend:', {
+        showHeadPose: options.showHeadPose,
+        showBoundingBox: options.showBoundingBox,
+        showMask: options.showMask,
+        showParameters: options.showParameters
+      });
       
       // Send to backend API
       const response = await fetch('/api/process-frame', {
@@ -136,8 +211,8 @@ const useVideoProcessor = () => {
         setProcessingResults(result);
         
         // If we have a processed image, display it
-        if (result.image && options.showProcessedImage) {
-          displayProcessedImage(result.image);
+        if (result.image && options.showProcessedImage && canvasRef.current) {
+          displayProcessedImage(result.image, canvasRef.current);
         }
         
         return result;
@@ -155,68 +230,35 @@ const useVideoProcessor = () => {
   /**
    * Display the processed image in a canvas element
    */
-  const displayProcessedImage = (base64Image) => {
-    // Implementation depends on your UI structure
-    // This would typically update a canvas element with the processed image
-  };
-
-  /**
-   * Process a video file (not a live stream)
-   */
-  const processVideoFile = async (file, options = {}) => {
-    try {
-      setIsProcessing(true);
-      setProcessingError(null);
-      
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      // Add processing options
-      formData.append('showHeadPose', options.showHeadPose || false);
-      formData.append('showBoundingBox', options.showBoundingBox || false);
-      formData.append('showMask', options.showMask || false);
-      formData.append('showParameters', options.showParameters || false);
-      
-      // Send to backend API
-      const response = await fetch('/api/process-video', {
-        method: 'POST',
-        body: formData
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
-      }
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setProcessingResults(result);
-        return result;
-      } else {
-        console.error('Video processing failed:', result.error);
-        setProcessingError(`Video processing failed: ${result.error}`);
-        return null;
-      }
-    } catch (error) {
-      console.error('Error processing video:', error);
-      setProcessingError(`Error processing video: ${error.message}`);
-      return null;
-    } finally {
-      setIsProcessing(false);
-    }
+  const displayProcessedImage = (base64Image, canvas) => {
+    if (!canvas || !base64Image) return;
+    
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+    
+    img.src = `data:image/jpeg;base64,${base64Image}`;
   };
 
   return {
     isProcessing,
     processingResults,
     processingError,
+    backendAvailable,
     videoRef,
+    canvasRef,
+    options,
     startVideoProcessing,
     stopVideoProcessing,
     toggleVideoProcessing,
-    processVideoFile,
+    updateOptions,
     processCurrentFrame
   };
 };
 
+// Make sure to export the hook as default
 export default useVideoProcessor;
