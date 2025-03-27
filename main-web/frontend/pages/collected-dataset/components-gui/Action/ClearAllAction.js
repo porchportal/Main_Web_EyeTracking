@@ -1,18 +1,18 @@
 // components/Action/ClearAllAction.js
-import React from 'react';
+import { useCallback } from 'react';
 
-const ClearAllAction = ({ canvasRef, onStatusUpdate }) => {
+export const useClearAll = ({ canvasRef, onStatusUpdate }) => {
   // Clear the canvas
-  const clearCanvas = () => {
+  const clearCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-  };
+  }, [canvasRef]);
 
   // Clear All Button - Reset everything
-  const handleClearAll = () => {
+  const handleClearAll = useCallback(() => {
     clearCanvas();
     
     // Reset status
@@ -34,26 +34,12 @@ const ClearAllAction = ({ canvasRef, onStatusUpdate }) => {
         processStatus: ''
       });
     }, 1500);
-  };
+  }, [clearCanvas, onStatusUpdate]);
 
   return {
-    component: (
-      <button
-        onClick={handleClearAll}
-        className="app-button w-full"
-        style={{
-          backgroundColor: '#7CFFDA',
-          border: '1px solid #000',
-          padding: '3px 10px',
-          cursor: 'pointer'
-        }}
-      >
-        Clear All
-      </button>
-    ),
     clearCanvas,
     handleAction: handleClearAll
   };
 };
 
-export default ClearAllAction;
+export default useClearAll;
