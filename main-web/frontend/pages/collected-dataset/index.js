@@ -890,6 +890,7 @@ export default function CollectedDatasetPage() {
           ⚠️ Backend disconnected. Using mock mode for face tracking.
         </div>
       )}
+      
 
       {/* TopBar component with onButtonClick handler - conditionally rendered */}
       {showTopBar && (
@@ -899,7 +900,7 @@ export default function CollectedDatasetPage() {
           outputText={outputText}
           onOutputChange={(text) => setOutputText(text)}
           onToggleTopBar={toggleTopBar}
-          onToggleMetrics={toggleMetrics}
+          onToggleMetrics={toggleMetrics} // Make sure this is connected
           canvasRef={canvasRef}
         />
       )}
@@ -1082,6 +1083,7 @@ export default function CollectedDatasetPage() {
             width={metrics.width} 
             height={metrics.height} 
             distance={metrics.distance}
+            isVisible={showMetrics}
           />
         )}
         
