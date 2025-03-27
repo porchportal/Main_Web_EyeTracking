@@ -11,7 +11,6 @@ const VideoProcessorComponent = dynamic(
   () => import('./components-gui/VideoProcessorComponent'),
   { ssr: false }
 );
-
 // Dynamically import the camera component with SSR disabled
 const DynamicCameraAccess = dynamic(
   () => import('./components-gui/cameraAccess'),
@@ -70,6 +69,10 @@ export default function CollectedDatasetPage() {
   const canvasRef = useRef(null);
   const videoRef = useRef(null);
   
+  // State for capture tracking
+  const [captureCounter, setCaptureCounter] = useState(1);
+  const [captureFolder, setCaptureFolder] = useState('');
+  
   // State for camera processing options
   const [showHeadPose, setShowHeadPose] = useState(false);
   const [showBoundingBox, setShowBoundingBox] = useState(false);
@@ -91,6 +94,20 @@ export default function CollectedDatasetPage() {
   
   // Check if we're on the client or server
   const isClient = typeof window !== 'undefined';
+  // Create a capture folder on component mount
+  useEffect(() => {
+    if (!captureFolder && isClient && isHydrated) {
+      const timestamp = new Date().toISOString().replace(/[:\.]/g, '-');
+      setCaptureFolder(`session_${timestamp}`);
+      console.log(`Created capture folder: session_${timestamp}`);
+    }
+  }, [captureFolder, isClient, isHydrated]);
+
+  // Dynamically import WhiteScreenMain with SSR disabled
+  const DynamicWhiteScreenMain = dynamic(
+    () => import('./components-gui/WhiteScreenMain'),
+    { ssr: false }
+  );
   
   // Set hydrated state after mount to prevent hydration mismatch
   useEffect(() => {
@@ -181,6 +198,10 @@ export default function CollectedDatasetPage() {
     // Clear the canvas
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Fill with white background
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   };
 
   // Add effect to update canvas when dimensions change
@@ -225,6 +246,29 @@ export default function CollectedDatasetPage() {
     // Clean up
     return () => {
       document.head.removeChild(style);
+    };
+  }, [isHydrated]);
+  
+  // Make toggleTopBar function available globally
+  useEffect(() => {
+    if (!isClient || !isHydrated) return;
+    
+    // Make toggleTopBar available to other components
+    window.toggleTopBar = (show) => {
+      setShowTopBar(show);
+      
+      // Also hide metrics when hiding the top bar
+      if (!show) {
+        setShowMetrics(false);
+      }
+      
+      // Adjust canvas dimensions after toggling
+      setTimeout(adjustCanvasDimensions, 100);
+    };
+    
+    return () => {
+      // Clean up
+      delete window.toggleTopBar;
     };
   }, [isHydrated]);
   
@@ -298,8 +342,25 @@ export default function CollectedDatasetPage() {
   };
 
   // Handler for action button clicks
-  const handleActionButtonClick = (actionType) => {
+  const handleActionButtonClick = (actionType, value) => {
     if (!isClient || !isHydrated) return;
+    
+    // Special case for toggling the top bar
+    if (actionType === 'toggleTopBar') {
+      const newTopBarState = value !== undefined ? !!value : !showTopBar;
+      setShowTopBar(newTopBarState);
+      
+      // Also hide metrics when hiding the top bar
+      if (!newTopBarState) {
+        setShowMetrics(false);
+      }
+      
+      setOutputText(`TopBar ${newTopBarState ? 'shown' : 'hidden'}${!newTopBarState ? ', Metrics hidden' : ''}`);
+      
+      // Adjust canvas dimensions after toggling
+      setTimeout(adjustCanvasDimensions, 100);
+      return;
+    }
     
     // Check if camera is active or not required for this action
     const requiresCamera = ['headPose', 'boundingBox', 'mask', 'parameters'].includes(actionType);
@@ -325,6 +386,102 @@ export default function CollectedDatasetPage() {
     
     // Clear any existing warnings
     setShowWarning(false);
+    
+    // Special case for Random Dot - connect to WhiteScreenMain
+    if (actionType === 'randomDot') {
+      // Hide topBar before displaying the dot
+      setShowTopBar(false);
+      
+      if (window.whiteScreenActions && window.whiteScreenActions.randomDot) {
+        window.whiteScreenActions.randomDot();
+      } else {
+        // Fallback behavior
+        setOutputText('Random dot action triggered - using fallback');
+        
+        // Ensure canvas is visible
+        adjustCanvasDimensions();
+        
+        // Draw random dot directly
+        const canvas = canvasRef.current;
+        if (canvas) {
+          const ctx = canvas.getContext('2d');
+          const x = Math.floor(Math.random() * (canvas.width - 40)) + 20;
+          const y = Math.floor(Math.random() * (canvas.height - 40)) + 20;
+          
+          // Clear canvas and fill with white
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Draw the dot
+          ctx.beginPath();
+          ctx.arc(x, y, 8, 0, Math.PI * 2);
+          ctx.fillStyle = 'red';
+          ctx.fill();
+          
+          // Add glow effect
+          ctx.beginPath();
+          ctx.arc(x, y, 11, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          
+          // Start a countdown for capture
+          let count = 3;
+          const countdownInterval = setInterval(() => {
+            count--;
+            if (count <= 0) {
+              clearInterval(countdownInterval);
+              
+              // Trigger camera access
+              if (!showCamera) {
+                toggleCamera(true);
+              }
+              
+              // Simulate capture
+              setTimeout(() => {
+                // Get formatted counter for filenames
+                const counter = String(captureCounter).padStart(3, '0');
+                const screenFilename = `screen_${counter}.jpg`;
+                const webcamFilename = `webcam_${counter}.jpg`;
+                
+                // Capture logic for screen (canvas)
+                const screenImage = canvas.toDataURL('image/png');
+                
+                // Capture logic for webcam if available
+                let webcamImage = null;
+                if (window.videoElement) {
+                  const tempCanvas = document.createElement('canvas');
+                  const tempCtx = tempCanvas.getContext('2d');
+                  tempCanvas.width = window.videoElement.videoWidth;
+                  tempCanvas.height = window.videoElement.videoHeight;
+                  tempCtx.drawImage(window.videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
+                  webcamImage = tempCanvas.toDataURL('image/png');
+                }
+                
+                // Save images - in real implementation you would send to server
+                console.log(`Captured screen: ${screenFilename}, coordinates: ${x}, ${y}`);
+                if (webcamImage) {
+                  console.log(`Captured webcam: ${webcamFilename}`);
+                }
+                
+                // Increment counter for next capture
+                setCaptureCounter(prev => prev + 1);
+                
+                // Show status message
+                setOutputText(`Captured images: ${screenFilename}, ${webcamImage ? webcamFilename : 'webcam not available'}`);
+                
+                // Show TopBar again after capture
+                setTimeout(() => {
+                  setShowTopBar(true);
+                }, 1500);
+              }, 800);
+            }
+          }, 1000);
+        }
+      }
+      return;
+    }
     
     switch (actionType) {
       case 'headPose':
@@ -426,6 +583,13 @@ export default function CollectedDatasetPage() {
   const handleTopBarButtonClick = (actionType) => {
     if (!isClient || !isHydrated) return;
     
+    // Special case for Random Dot action
+    if (actionType === 'randomDot') {
+      // Forward to action button handler
+      handleActionButtonClick('randomDot');
+      return;
+    }
+    
     // Check if camera is active for camera-dependent features
     const requiresCamera = [
       'Draw Head pose', 
@@ -467,6 +631,12 @@ export default function CollectedDatasetPage() {
         setShowPermissionPopup(true);
         setShowCameraPlaceholder(true);
       }
+      return;
+    }
+    
+    // Handle Random Dot action
+    if (actionType === 'Random Dot') {
+      handleActionButtonClick('randomDot');
       return;
     }
     
@@ -594,8 +764,8 @@ export default function CollectedDatasetPage() {
     setOutputText(`Camera ready: ${dimensions.width}x${dimensions.height}`);
   };
 
-  const toggleTopBar = () => {
-    const newTopBarState = !showTopBar;
+  const toggleTopBar = (show) => {
+    const newTopBarState = show !== undefined ? show : !showTopBar;
     setShowTopBar(newTopBarState);
     
     // Also hide metrics when hiding the top bar
@@ -612,6 +782,75 @@ export default function CollectedDatasetPage() {
   const toggleMetrics = () => {
     setShowMetrics(prev => !prev);
     setOutputText(`Metrics ${!showMetrics ? 'shown' : 'hidden'}`);
+  };
+  // Updated startCountdown function in index.js (ActionButtonGroup)
+  // Start countdown timer
+  const startCountdown = (count, onComplete) => {
+    setCountdownValue(count);
+    
+    const timer = setTimeout(() => {
+      if (count > 1) {
+        startCountdown(count - 1, onComplete);
+      } else {
+        // Final countdown step - immediately hide countdown and execute callback
+        setCountdownValue(null);
+        
+        // Execute completion callback without delay
+        if (onComplete) onComplete();
+      }
+    }, 800);
+    
+    return () => clearTimeout(timer);
+  };
+
+  // WhiteScreenMain component with properly connected actions
+  const WhiteScreenMainWithActions = () => {
+    // Add a ref to store actions
+    const actionsRef = useRef({});
+    
+    // Handler for status updates from WhiteScreenMain
+    const handleStatusUpdate = (status) => {
+      if (status && typeof status === 'object') {
+        if (status.processStatus) {
+          setOutputText(status.processStatus);
+        }
+        if (status.countdownValue) {
+          // Display countdown somewhere if needed
+        }
+      } else if (typeof status === 'string') {
+        setOutputText(status);
+      }
+    };
+    
+    // Handler for button clicks from WhiteScreenMain
+    const handleButtonClick = (actionType, handlers) => {
+      if (actionType === 'registerActions') {
+        // Store action handlers for later use
+        actionsRef.current = handlers;
+        
+        // Make them available globally for debugging and external access
+        window.whiteScreenActions = handlers;
+      } else {
+        // Handle specific action
+        handleActionButtonClick(actionType);
+      }
+    };
+    
+    return (
+      <DynamicWhiteScreenMain
+        onStatusUpdate={handleStatusUpdate}
+        triggerCameraAccess={(forceEnable) => {
+          if (forceEnable || cameraPermissionGranted) {
+            toggleCamera(true);
+          } else {
+            setShowPermissionPopup(true);
+          }
+        }}
+        onButtonClick={handleButtonClick}
+        canvasRef={canvasRef}
+        toggleTopBar={toggleTopBar}
+      />
+    );
   };
 
   // Dynamic class to reflect current window size
@@ -675,7 +914,7 @@ export default function CollectedDatasetPage() {
         }}>
           <button 
             className="restore-btn"
-            onClick={toggleTopBar}
+            onClick={() => toggleTopBar(true)}
             title="Show TopBar and Metrics"
             style={{
               padding: '5px 10px',
@@ -710,7 +949,6 @@ export default function CollectedDatasetPage() {
           <strong>⚠️ {warningMessage}</strong>
         </div>
       )}
-      
       {/* Main preview area */}
       <div 
         ref={previewAreaRef}
@@ -719,62 +957,125 @@ export default function CollectedDatasetPage() {
           height: showTopBar ? 'calc(100vh - 120px)' : '100vh',
           marginTop: backendStatus === 'disconnected' ? '32px' : '0',
           position: 'relative',
-          backgroundColor: '#f5f5f5'
+          backgroundColor: '#f5f5f5',
+          overflow: 'hidden' // Add overflow hidden
         }}
       >
         {!showCamera ? (
-          <div className="camera-preview-message" style={{
-            padding: '20px',
-            textAlign: 'center'
-          }}>
-            <p>Camera preview will appear here</p>
-            <p className="camera-size-indicator">Current window: {windowSize.percentage}% of screen width</p>
-            
-            {/* Camera placeholder square - small version */}
-            {isHydrated && showCameraPlaceholder && (
-              <div 
-                className="camera-placeholder-square"
-                style={{
-                  width: '180px',  // Increased size for better visibility
-                  height: '135px', // Maintained 4:3 aspect ratio
-                  margin: '20px auto',
-                  border: '2px dashed #666',
-                  borderRadius: '4px',
-                  backgroundColor: '#f5f5f5',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                <div style={{ fontSize: '1.5rem' }}>📷</div>
-              </div>
-            )}
-            
-            {/* Action buttons for camera control */}
-            <div className="camera-action-buttons-container" style={{ 
-              marginTop: '30px', 
-              maxWidth: '600px',
-              margin: '30px auto'
+          <>
+            <div className="camera-preview-message" style={{
+              padding: '20px',
+              textAlign: 'center',
+              position: showTopBar ? 'relative' : 'absolute', // Position based on TopBar state
+              width: '100%',
+              zIndex: 5 // Lower z-index so the WhiteScreenMain can appear on top
             }}>
-              <ActionButtonGroup
-                triggerCameraAccess={() => {
-                  if (cameraPermissionGranted) {
+              <p>Camera preview will appear here</p>
+              <p className="camera-size-indicator">Current window: {windowSize.percentage}% of screen width</p>
+              
+              {/* Camera placeholder square - small version */}
+              {isHydrated && showCameraPlaceholder && (
+                <div 
+                  className="camera-placeholder-square"
+                  style={{
+                    width: '180px',  // Increased size for better visibility
+                    height: '135px', // Maintained 4:3 aspect ratio
+                    margin: '20px auto',
+                    border: '2px dashed #666',
+                    borderRadius: '4px',
+                    backgroundColor: '#f5f5f5',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <div style={{ fontSize: '1.5rem' }}>📷</div>
+                </div>
+              )}
+              
+              {/* Action buttons for camera control */}
+              <div className="camera-action-buttons-container" style={{ 
+                marginTop: '30px', 
+                maxWidth: '600px',
+                margin: '30px auto'
+              }}>
+                <ActionButtonGroup
+                  triggerCameraAccess={(forceEnable) => {
+                    if (forceEnable || cameraPermissionGranted) {
+                      toggleCamera(true);
+                    } else {
+                      setShowPermissionPopup(true);
+                    }
+                  }}
+                  isCompactMode={windowSize.width < 768}
+                  onActionClick={handleActionButtonClick}
+                  showHeadPose={showHeadPose}
+                  showBoundingBox={showBoundingBox}
+                  showMask={showMask}
+                  showParameters={showParameters}
+                />
+              </div>
+            </div>
+            
+            {/* Canvas for eye tracking dots - Making it truly fullscreen */}
+            <div 
+              className="canvas-container" 
+              style={{ 
+                position: 'absolute', 
+                top: 0,
+                left: 0,
+                width: '100%', 
+                height: '100%',
+                backgroundColor: 'white',
+                overflow: 'hidden',
+                border: 'none', // Remove border to eliminate line
+                zIndex: 10 // Higher than the message but lower than WhiteScreenMain
+              }}
+            >
+              <canvas 
+                ref={canvasRef}
+                className="tracking-canvas"
+                style={{ 
+                  width: '100%', 
+                  height: '100%',
+                  display: 'block' // Removes the inline-block spacing issues
+                }}
+              />
+            </div>
+            
+            {/* White Screen component for handling dot display and captures */}
+            {isHydrated && isClient && (
+              <DynamicWhiteScreenMain
+                onStatusUpdate={(status) => {
+                  if (typeof status === 'string') {
+                    setOutputText(status);
+                  } else if (status && typeof status === 'object' && status.processStatus) {
+                    setOutputText(status.processStatus);
+                  }
+                }}
+                triggerCameraAccess={(forceEnable) => {
+                  if (forceEnable || cameraPermissionGranted) {
                     toggleCamera(true);
                   } else {
                     setShowPermissionPopup(true);
                   }
                 }}
-                isCompactMode={windowSize.width < 768}
-                onActionClick={handleActionButtonClick}
-                showHeadPose={showHeadPose}
-                showBoundingBox={showBoundingBox}
-                showMask={showMask}
-                showParameters={showParameters}
+                onButtonClick={(actionType, handlers) => {
+                  if (actionType === 'registerActions') {
+                    // Store action handlers globally
+                    window.whiteScreenActions = handlers;
+                  } else {
+                    // Handle specific action
+                    handleActionButtonClick(actionType);
+                  }
+                }}
+                canvasRef={canvasRef}
+                toggleTopBar={toggleTopBar}
               />
-            </div>
-          </div>
+            )}
+          </>
         ) : null}
-        
+              
         {/* Metrics info - conditionally rendered */}
         {isHydrated && showMetrics && (
           <DisplayResponse 
@@ -809,6 +1110,11 @@ export default function CollectedDatasetPage() {
             }}
           />
         </div>
+        
+        {/* White Screen component for handling dot display and captures */}
+        {isHydrated && isClient && !showCamera && (
+          <WhiteScreenMainWithActions />
+        )}
       </div>
       
       {/* Camera permission popup - Simplified client-side only version */}

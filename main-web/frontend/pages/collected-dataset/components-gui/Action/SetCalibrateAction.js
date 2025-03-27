@@ -77,10 +77,25 @@ const SetCalibrateAction = ({ canvasRef, onStatusUpdate, triggerCameraAccess }) 
   };
 
   // Start countdown timer
+  // Updated startCountdown function for SetCalibrateAction.js
   const startCountdown = (count, onComplete) => {
+    // Check for dot position to determine if we should show countdown below instead of above
+    const canvas = canvasRef.current;
+    const dot = canvas ? document.querySelector('.calibration-dot') : null;
+    const dotRect = dot ? dot.getBoundingClientRect() : null;
+    const canvasRect = canvas ? canvas.getBoundingClientRect() : null;
+    
+    // Calculate if dot is near the top of the screen
+    const isNearTop = dotRect && canvasRect 
+      ? (dotRect.top - canvasRect.top) < (canvas.height * 0.2)
+      : false;
+    
     // Update status with countdown
     onStatusUpdate({
-      countdownValue: count,
+      countdownValue: {
+        value: count,
+        isNearTop: isNearTop
+      },
       isCapturing: true
     });
     
@@ -88,21 +103,13 @@ const SetCalibrateAction = ({ canvasRef, onStatusUpdate, triggerCameraAccess }) 
       if (count > 1) {
         startCountdown(count - 1, onComplete);
       } else {
-        // Final countdown step
+        // When count is 1, immediately clear countdown and execute callback
         onStatusUpdate({
-          countdownValue: "Capturing...",
-          isCapturing: true
+          countdownValue: null
         });
         
-        setTimeout(() => {
-          // Clear countdown
-          onStatusUpdate({
-            countdownValue: null
-          });
-          
-          // Execute completion callback
-          if (onComplete) onComplete();
-        }, 1000);
+        // Execute completion callback
+        if (onComplete) onComplete();
       }
     }, 800);
     

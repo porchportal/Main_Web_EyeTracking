@@ -1,31 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 
-const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabled = false }) => {
+// Create a basic ActionButton component
+const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabled = false, active = false }) => {
   const [isAbbreviated, setIsAbbreviated] = useState(false);
   
   // Check window size and set abbreviated mode
   useEffect(() => {
+    // Skip during SSR
+    if (typeof window === 'undefined') return;
+    
     const handleResize = () => {
       const width = window.innerWidth;
       setIsAbbreviated(width < 768);
     };
     
-    if (typeof window !== 'undefined') {
-      window.addEventListener('resize', handleResize);
-      handleResize(); // Initial call
-      
-      return () => window.removeEventListener('resize', handleResize);
-    }
+    window.addEventListener('resize', handleResize);
+    handleResize(); // Initial call
+    
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   return (
     <button
       onClick={onClick}
-      className={`transition-colors py-2 px-2 md:px-4 rounded-md text-xs md:text-sm font-medium ${customClass}`}
+      className={`transition-colors py-2 px-2 md:px-4 rounded-md text-xs md:text-sm font-medium ${customClass} ${active ? 'active-button' : ''}`}
       style={{ 
-        backgroundColor: disabled ? 'rgba(200, 200, 200, 0.5)' : 'rgba(124, 255, 218, 0.5)', 
+        backgroundColor: active 
+          ? 'rgba(0, 102, 204, 0.7)' 
+          : disabled 
+            ? 'rgba(200, 200, 200, 0.5)' 
+            : 'rgba(124, 255, 218, 0.5)', 
+        color: active ? 'white' : 'black',
         borderRadius: '7px',
-        cursor: disabled ? 'not-allowed' : 'pointer'
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        fontWeight: active ? 'bold' : 'normal',
+        boxShadow: active ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
       }}
       disabled={disabled}
     >
@@ -34,8 +44,9 @@ const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabl
   );
 };
 
-// Button group component with all action buttons and integrated functionality
-const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }) => {
+// Create the ActionButtonGroup component with client-side only rendering
+const ActionButtonGroupInner = ({ triggerCameraAccess, isCompactMode, onActionClick }) => {
+  // State for button actions
   const [isCapturing, setIsCapturing] = useState(false);
   const [randomTimes, setRandomTimes] = useState(1);
   const [delaySeconds, setDelaySeconds] = useState(3);
@@ -48,18 +59,21 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
   const [remainingCaptures, setRemainingCaptures] = useState(0);
   const [showCanvas, setShowCanvas] = useState(false);
   
+  // Track the capture count
+  const [captureCount, setCaptureCount] = useState(1);
+  
   // Toggle states
   const [showHeadPose, setShowHeadPose] = useState(false);
   const [showBoundingBox, setShowBoundingBox] = useState(false);
   const [showMask, setShowMask] = useState(false);
   const [showParameters, setShowParameters] = useState(false);
-
-  // Add a state to track camera active status
   const [isCameraActive, setIsCameraActive] = useState(false);
 
   // Update canvas dimensions when the component mounts or window resizes
   useEffect(() => {
-    console.log('Test button clicked');
+    // Skip during SSR
+    if (typeof window === 'undefined') return;
+    
     const updateCanvasDimensions = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -156,72 +170,96 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
     }, 800);
   };
 
-  // Simulate capturing an image
-  const captureImage = () => {
-    // In a real implementation, this would access the webcam
-    console.log('Capturing image at dot position:', currentDot);
+  // Function to capture both screen and webcam images
+  const captureImages = (x, y) => {
+    // Generate filenames with zero-padded numbers
+    const counter = String(captureCount).padStart(3, '0');
+    const screenFilename = `screen_${counter}.jpg`;
+    const webcamFilename = `webcam_${counter}.jpg`;
     
-    // Simulate camera access if not already active
-    triggerCameraAccess();
-    
-    // Simulate camera processing time
-    setTimeout(() => {
-      setIsCapturing(false);
-    }, 800);
-  };
-
-  // Generate calibration points based on canvas dimensions
-  const generateCalibrationPoints = () => {
-    if (!canvasRef.current) return [];
-    
-    const width = canvasRef.current.width;
-    const height = canvasRef.current.height;
-    
-    // Helper function to handle conditional rounding
-    const conditionalRound = (dimension, percentage) => {
-      const result = dimension * percentage;
-      return Math.round(result);
-    };
-    
-    const firstFramePercentage = 0.12;
-    const secondFramePercentage = 0.26;
-    
-    // Calculate points as in the Python code
-    const xLeftFirst = conditionalRound(width, firstFramePercentage);
-    const xRightFirst = width - conditionalRound(width, firstFramePercentage);
-    const yTopFirst = conditionalRound(height, firstFramePercentage);
-    const yBottomFirst = height - conditionalRound(height, firstFramePercentage);
-    
-    const xLeftSecond = conditionalRound(width, secondFramePercentage);
-    const xRightSecond = width - conditionalRound(width, secondFramePercentage);
-    const yTopSecond = conditionalRound(height, secondFramePercentage);
-    const yBottomSecond = height - conditionalRound(height, secondFramePercentage);
-    
-    // Return array of points
-    return [
-      // First frame - outer points
-      { x: xLeftFirst, y: yTopFirst },
-      { x: Math.floor(width / 2), y: yTopFirst },
-      { x: xRightFirst, y: yTopFirst },
-      { x: xLeftFirst, y: Math.floor(height / 2) },
-      { x: xRightFirst, y: Math.floor(height / 2) },
-      { x: xLeftFirst, y: yBottomFirst },
-      { x: Math.floor(width / 2), y: yBottomFirst },
-      { x: xRightFirst, y: yBottomFirst },
+    // Capture the screen (canvas with the dot)
+    const canvas = canvasRef.current;
+    if (canvas) {
+      const screenImage = canvas.toDataURL('image/png');
+      console.log(`Saving screen capture as ${screenFilename}`);
       
-      // Second frame - inner points
-      { x: xLeftSecond, y: yTopSecond },
-      { x: Math.floor(width / 2), y: yTopSecond },
-      { x: xRightSecond, y: yTopSecond },
-      { x: xLeftSecond, y: Math.floor(height / 2) },
-      { x: xRightSecond, y: Math.floor(height / 2) },
-      { x: xLeftSecond, y: yBottomSecond },
-      { x: Math.floor(width / 2), y: yBottomSecond },
-      { x: xRightSecond, y: yBottomSecond }
-    ];
+      // In a real implementation, you would send this to a server endpoint
+      if (typeof fetch === 'function') {
+        fetch('/api/save-capture', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            imageData: screenImage,
+            filename: screenFilename,
+            type: 'screen',
+            folder: `session_${new Date().toISOString().replace(/[:\.]/g, '-')}`
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log('Screen save result:', data);
+        })
+        .catch(err => {
+          console.error('Error saving screen image:', err);
+        });
+      }
+    }
+    
+    // Capture the webcam frame
+    if (window.videoElement) {
+      const tempCanvas = document.createElement('canvas');
+      const ctx = tempCanvas.getContext('2d');
+      tempCanvas.width = window.videoElement.videoWidth;
+      tempCanvas.height = window.videoElement.videoHeight;
+      ctx.drawImage(window.videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
+      const webcamImage = tempCanvas.toDataURL('image/png');
+      
+      console.log(`Saving webcam capture as ${webcamFilename}`);
+      // In a real implementation, you would send this to a server endpoint
+      if (typeof fetch === 'function') {
+        fetch('/api/save-capture', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            imageData: webcamImage,
+            filename: webcamFilename,
+            type: 'webcam',
+            folder: `session_${new Date().toISOString().replace(/[:\.]/g, '-')}`
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log('Webcam save result:', data);
+        })
+        .catch(err => {
+          console.error('Error saving webcam image:', err);
+        });
+      }
+    }
+    
+    // Increment the capture counter
+    setCaptureCount(prevCount => prevCount + 1);
+    
+    // Update status
+    setProcessStatus('Images captured and saved');
+    
+    // Show TopBar again after a brief delay
+    setTimeout(() => {
+      if (typeof onActionClick === 'function') {
+        // Signal to parent to show the TopBar again
+        onActionClick('toggleTopBar', true);
+      }
+    }, 1000);
+    
+    // Reset capturing state
+    setIsCapturing(false);
   };
 
-  // Action handlers for each button
+  // Handle Set Random button
   const handleSetRandom = () => {
     if (isCapturing) return;
     
@@ -258,7 +296,7 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
     
     // Start countdown and then capture
     startCountdown(3, () => {
-      captureImage();
+      captureImages(x, y);
       
       // Schedule next capture after delay
       setTimeout(() => {
@@ -271,6 +309,11 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
   const handleRandomDot = () => {
     if (isCapturing) return;
     
+    // Hide the TopBar before showing the dot
+    if (typeof onActionClick === 'function') {
+      onActionClick('toggleTopBar', false);
+    }
+    
     // Show canvas if not already visible
     setShowCanvas(true);
     
@@ -281,8 +324,67 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
       drawDot(x, y);
       
       // Start countdown and then capture
-      startCountdown(3, captureImage);
+      startCountdown(3, () => {
+        // Access the webcam
+        triggerCameraAccess(true);
+        
+        // Wait briefly for camera to initialize
+        setTimeout(() => {
+          captureImages(x, y);
+        }, 500);
+      });
     }, 100);
+  };
+
+  // Generate calibration points based on canvas dimensions
+  const generateCalibrationPoints = () => {
+    if (!canvasRef.current) return [];
+    
+    const width = canvasRef.current.width;
+    const height = canvasRef.current.height;
+    
+    // Helper function to handle conditional rounding
+    const conditionalRound = (dimension, percentage) => {
+      const result = dimension * percentage;
+      return Math.round(result);
+    };
+    
+    const firstFramePercentage = 0.12;
+    const secondFramePercentage = 0.26;
+    
+    // Calculate points
+    const xLeftFirst = conditionalRound(width, firstFramePercentage);
+    const xRightFirst = width - conditionalRound(width, firstFramePercentage);
+    const yTopFirst = conditionalRound(height, firstFramePercentage);
+    const yBottomFirst = height - conditionalRound(height, firstFramePercentage);
+    
+    const xLeftSecond = conditionalRound(width, secondFramePercentage);
+    const xRightSecond = width - conditionalRound(width, secondFramePercentage);
+    const yTopSecond = conditionalRound(height, secondFramePercentage);
+    const yBottomSecond = height - conditionalRound(height, secondFramePercentage);
+    
+    // Return array of points
+    return [
+      // First frame - outer points
+      { x: xLeftFirst, y: yTopFirst },
+      { x: Math.floor(width / 2), y: yTopFirst },
+      { x: xRightFirst, y: yTopFirst },
+      { x: xLeftFirst, y: Math.floor(height / 2) },
+      { x: xRightFirst, y: Math.floor(height / 2) },
+      { x: xLeftFirst, y: yBottomFirst },
+      { x: Math.floor(width / 2), y: yBottomFirst },
+      { x: xRightFirst, y: yBottomFirst },
+      
+      // Second frame - inner points
+      { x: xLeftSecond, y: yTopSecond },
+      { x: Math.floor(width / 2), y: yTopSecond },
+      { x: xRightSecond, y: yTopSecond },
+      { x: xLeftSecond, y: Math.floor(height / 2) },
+      { x: xRightSecond, y: Math.floor(height / 2) },
+      { x: xLeftSecond, y: yBottomSecond },
+      { x: Math.floor(width / 2), y: yBottomSecond },
+      { x: xRightSecond, y: yBottomSecond }
+    ];
   };
 
   // Set Calibrate Button - Start calibration sequence
@@ -308,7 +410,7 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
       
       // Start countdown for first point
       startCountdown(3, () => {
-        captureImage();
+        captureImages(points[0].x, points[0].y);
         setTimeout(() => moveToNextCalibrationPoint(), 1000);
       });
     }, 100);
@@ -336,7 +438,7 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
     
     // Start countdown for this point
     startCountdown(3, () => {
-      captureImage();
+      captureImages(nextPoint.x, nextPoint.y);
       setTimeout(() => moveToNextCalibrationPoint(), 1000);
     });
   };
@@ -430,6 +532,8 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
       console.log(`Updated backend parameters: ${newParametersState}`);
     }
   };
+
+  // Toggle camera preview
   const handleToggleCamera = () => {
     const newCameraState = !isCameraActive;
     setIsCameraActive(newCameraState);
@@ -484,82 +588,41 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
       text: "Draw Head pose", 
       abbreviatedText: "Head pose", 
       onClick: handleToggleHeadPose,
-      active: showHeadPose  // Add active state for visual feedback
+      active: showHeadPose
     },
     { 
       text: "Show Bounding Box", 
       abbreviatedText: "☐ Box", 
       onClick: handleToggleBoundingBox,
-      active: showBoundingBox  // Add active state for visual feedback
+      active: showBoundingBox
     },
     { 
       text: isCameraActive ? "Stop Camera" : "Show Preview", 
       abbreviatedText: isCameraActive ? "Stop" : "Preview", 
       onClick: handleToggleCamera,
-      active: isCameraActive  // Add active state for visual feedback
+      active: isCameraActive
     },
     { 
       text: "😷 Show Mask", 
       abbreviatedText: "😷 Mask", 
       onClick: handleToggleMask,
-      active: showMask  // Add active state for visual feedback
+      active: showMask
     },
     { 
       text: "Parameters", 
       abbreviatedText: "Values", 
       onClick: handleToggleParameters,
-      active: showParameters  // Add active state for visual feedback
+      active: showParameters
     }
   ];
-  // Update ActionButton component to include active state
-  const EnhancedActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabled = false, active = false }) => {
-    const [isAbbreviated, setIsAbbreviated] = useState(false);
-    
-    // Check window size and set abbreviated mode
-    useEffect(() => {
-      const handleResize = () => {
-        const width = window.innerWidth;
-        setIsAbbreviated(width < 768);
-      };
-      
-      if (typeof window !== 'undefined') {
-        window.addEventListener('resize', handleResize);
-        handleResize(); // Initial call
-        
-        return () => window.removeEventListener('resize', handleResize);
-      }
-    }, []);
 
-    return (
-      <button
-        onClick={onClick}
-        className={`transition-colors py-2 px-2 md:px-4 rounded-md text-xs md:text-sm font-medium ${customClass} ${active ? 'active-button' : ''}`}
-        style={{ 
-          backgroundColor: active 
-            ? 'rgba(0, 102, 204, 0.7)' 
-            : disabled 
-              ? 'rgba(200, 200, 200, 0.5)' 
-              : 'rgba(124, 255, 218, 0.5)', 
-          color: active ? 'white' : 'black',
-          borderRadius: '7px',
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          fontWeight: active ? 'bold' : 'normal',
-          boxShadow: active ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
-        }}
-        disabled={disabled}
-      >
-        {isAbbreviated ? abbreviatedText : text}
-      </button>
-    );
-  };
-  
   // Mobile layout - 2x5 grid
   return (
     <div>
       {isCompactMode ? (
         <div className="grid grid-cols-2 gap-2 mb-4">
           {buttons.filter(b => !b.divider).map((button, index) => (
-            <EnhancedActionButton 
+            <ActionButton 
               key={index}
               text={button.text}
               abbreviatedText={button.abbreviatedText}
@@ -572,13 +635,13 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
       ) : (
         <div className="space-y-2 mb-4">
           <div className="grid grid-cols-2 gap-2">
-            <EnhancedActionButton 
+            <ActionButton 
               text="Set Random"
               abbreviatedText="SRandom" 
               onClick={handleSetRandom}
               disabled={isCapturing}
             />
-            <EnhancedActionButton 
+            <ActionButton 
               text="Random Dot"
               abbreviatedText="Random" 
               onClick={handleRandomDot}
@@ -586,13 +649,13 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <EnhancedActionButton 
+            <ActionButton 
               text="Set Calibrate"
               abbreviatedText="Calibrate" 
               onClick={handleSetCalibrate}
               disabled={isCapturing}
             />
-            <EnhancedActionButton 
+            <ActionButton 
               text="Clear All"
               abbreviatedText="Clear" 
               onClick={handleClearAll}
@@ -602,13 +665,13 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
           <hr className="my-3 border-gray-200" />
           
           <div className="grid grid-cols-2 gap-2">
-            <EnhancedActionButton 
+            <ActionButton 
               text="Draw Head pose"
               abbreviatedText="Head pose" 
               onClick={handleToggleHeadPose}
               active={showHeadPose}
             />
-            <EnhancedActionButton 
+            <ActionButton 
               text="Show Bounding Box"
               abbreviatedText="☐ Box" 
               onClick={handleToggleBoundingBox}
@@ -616,13 +679,13 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <EnhancedActionButton 
+            <ActionButton 
               text={isCameraActive ? "Stop Camera" : "Show Preview"}
               abbreviatedText={isCameraActive ? "Stop" : "Preview"}
               onClick={handleToggleCamera}
               active={isCameraActive}
             />
-            <EnhancedActionButton 
+            <ActionButton 
               text="😷 Show Mask"
               abbreviatedText="😷 Mask" 
               onClick={handleToggleMask}
@@ -630,7 +693,7 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <EnhancedActionButton 
+            <ActionButton 
               text="Parameters"
               abbreviatedText="Values" 
               onClick={handleToggleParameters}
@@ -686,5 +749,8 @@ const ActionButtonGroup = ({ triggerCameraAccess, isCompactMode, onActionClick }
     </div>
   );
 };
+
+// Create a client-only version of ActionButtonGroup
+const ActionButtonGroup = dynamic(() => Promise.resolve(ActionButtonGroupInner), { ssr: false });
 
 export { ActionButton, ActionButtonGroup };
