@@ -5,9 +5,6 @@ import path from 'path';
 // Store default folder name - use a fixed name instead of timestamp-based folder
 const DEFAULT_FOLDER = 'eye_tracking_captures';
 
-// Track the current capture number
-let currentCaptureNumber = 1;
-
 // Function to get the next available number for naming files
 const getNextCaptureNumber = (capturesDir) => {
   try {
@@ -16,17 +13,22 @@ const getNextCaptureNumber = (capturesDir) => {
       return 1;
     }
     
-    // Look for existing screen capture files to determine the next number
+    // Look for all capture files to determine the next number (screen, webcam, and parameters)
     const files = fs.readdirSync(capturesDir);
-    const screenFiles = files.filter(file => file.startsWith('screen_') && file.endsWith('.jpg'));
+    const captureFiles = files.filter(file => 
+      (file.startsWith('screen_') || 
+       file.startsWith('webcam_') || 
+       file.startsWith('parameter_')) && 
+      file.match(/\_\d{3}\.(jpg|csv)$/)
+    );
     
-    if (screenFiles.length === 0) {
+    if (captureFiles.length === 0) {
       return 1;
     }
     
     // Extract numbers from filenames and find the highest
-    const numbers = screenFiles.map(file => {
-      const match = file.match(/screen_(\d+)\.jpg/);
+    const numbers = captureFiles.map(file => {
+      const match = file.match(/\_(\d{3})\.(jpg|csv)$/);
       return match ? parseInt(match[1], 10) : 0;
     });
     
@@ -66,27 +68,20 @@ export default async function handler(req, res) {
     const sessionDir = path.join(capturesDir, captureFolder);
     if (!fs.existsSync(sessionDir)) {
       fs.mkdirSync(sessionDir, { recursive: true });
-      
-      // Initialize the capture number if this is a new folder
-      currentCaptureNumber = 1;
-    } else if (currentCaptureNumber === 1) {
-      // If the folder exists and we haven't determined the next number yet
-      currentCaptureNumber = getNextCaptureNumber(sessionDir);
     }
     
-    // Check if we need to use continuous numbering
+    // Determine the next capture number
+    const nextCaptureNumber = getNextCaptureNumber(sessionDir);
+    
+    // Generate filename with appropriate numbering
     let finalFilename = filename;
     
-    // If the filename includes a counter pattern (like screen_001.jpg), replace it with the continuous number
-    if (filename.match(/_(0+\d+)\./)) {
-      const paddedNumber = String(currentCaptureNumber).padStart(3, '0');
-      const prefix = filename.split('_')[0]; // Get 'screen', 'webcam', etc.
-      finalFilename = `${prefix}_${paddedNumber}.jpg`;
-      
-      // Only increment the counter after a screen image (to avoid incrementing multiple times for one capture)
-      if (type === 'screen') {
-        currentCaptureNumber++;
-      }
+    // If the filename includes a counter pattern (like screen_001.jpg), replace it with the next available number
+    if (filename.match(/_(0+\d+)\.(jpg|csv)$/)) {
+      const paddedNumber = String(nextCaptureNumber).padStart(3, '0');
+      const prefix = filename.split('_')[0]; // Get 'screen', 'webcam', 'parameter', etc.
+      const extension = filename.match(/\.(jpg|csv)$/)[0]; // Get the file extension
+      finalFilename = `${prefix}_${paddedNumber}${extension}`;
     }
     
     let buffer;
@@ -129,7 +124,7 @@ export default async function handler(req, res) {
       message: `Successfully saved ${type} file: ${finalFilename}`,
       path: `/captures/${captureFolder}/${finalFilename}`,
       folder: captureFolder,
-      captureNumber: currentCaptureNumber - 1 // Return the number that was just used
+      captureNumber: nextCaptureNumber
     });
   } catch (error) {
     console.error('Error saving file:', error);

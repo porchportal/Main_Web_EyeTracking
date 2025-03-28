@@ -1,26 +1,74 @@
-// components/Action/SetCalibrateAction.js
-import React, { useState } from 'react';
-import { showImagePreview } from './DotCaptureUtil';
-import ImageProcessor from './ImageProcessor';
+// components/SetCalibrateButton.js
+import React, { useState, useEffect } from 'react';
+import CaptureHandler from './CaptureHandler';
 
-const SetCalibrateAction = ({ canvasRef, onStatusUpdate, triggerCameraAccess }) => {
+const SetCalibrateButton = ({ 
+  canvasRef, 
+  setOutputText, 
+  triggerCameraAccess, 
+  toggleTopBar 
+}) => {
+  // State for calibration
   const [isCapturing, setIsCapturing] = useState(false);
   const [calibrationPoints, setCalibrationPoints] = useState([]);
   const [currentCalibrationIndex, setCurrentCalibrationIndex] = useState(0);
-  const [imageProcessor] = useState(() => new ImageProcessor());
+  const [remainingCaptures, setRemainingCaptures] = useState(0);
+  const [countdownValue, setCountdownValue] = useState(null);
   const [captureCounter, setCaptureCounter] = useState(1);
+  const [processStatus, setProcessStatus] = useState('');
+
+  // Initialize CaptureHandler
+  const [captureHandler] = useState(() => new CaptureHandler(
+    saveImageToServer,
+    setCaptureCounter,
+    setProcessStatus,
+    toggleTopBar
+  ));
+
+  // Function to save images to server via API
+  async function saveImageToServer(imageData, filename, type, folder) {
+    try {
+      const response = await fetch('/api/save-capture', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          imageData,
+          filename,
+          type,
+          folder
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server responded with ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log(`Saved ${type} image:`, result);
+      return result;
+    } catch (error) {
+      console.error(`Error saving ${type} image:`, error);
+      throw error;
+    }
+  }
 
   // Generate calibration points based on canvas dimensions
   const generateCalibrationPoints = () => {
-    if (!canvasRef.current) return [];
+    if (!canvasRef.current) {
+      console.error("Canvas reference is null");
+      return [];
+    }
     
     const width = canvasRef.current.width;
     const height = canvasRef.current.height;
     
-    // Helper function to handle conditional rounding
+    // Helper function to handle conditional rounding from Python code
     const conditionalRound = (dimension, percentage) => {
       const result = dimension * percentage;
-      return Math.round(result);
+      const check = (result * 10) % 2 === 0;
+      return check ? Math.round(result) : Math.floor(result);
     };
     
     const firstFramePercentage = 0.12;
@@ -37,146 +85,88 @@ const SetCalibrateAction = ({ canvasRef, onStatusUpdate, triggerCameraAccess }) 
     const yTopSecond = conditionalRound(height, secondFramePercentage);
     const yBottomSecond = height - conditionalRound(height, secondFramePercentage);
     
-    // Return array of points
+    // Return array of points with exact same order as Python code
     return [
       // First frame - outer points
-      { x: xLeftFirst, y: yTopFirst },
-      { x: Math.floor(width / 2), y: yTopFirst },
-      { x: xRightFirst, y: yTopFirst },
-      { x: xLeftFirst, y: Math.floor(height / 2) },
-      { x: xRightFirst, y: Math.floor(height / 2) },
-      { x: xLeftFirst, y: yBottomFirst },
-      { x: Math.floor(width / 2), y: yBottomFirst },
-      { x: xRightFirst, y: yBottomFirst },
+      { x: xLeftFirst, y: yTopFirst },           // dot1
+      { x: Math.floor(width / 2), y: yTopFirst }, // dot2
+      { x: xRightFirst, y: yTopFirst },          // dot3
+      { x: xLeftFirst, y: Math.floor(height / 2) }, // dot4
+      { x: xRightFirst, y: Math.floor(height / 2) }, // dot5
+      { x: xLeftFirst, y: yBottomFirst },        // dot6
+      { x: Math.floor(width / 2), y: yBottomFirst }, // dot7
+      { x: xRightFirst, y: yBottomFirst },       // dot8
       
       // Second frame - inner points
-      { x: xLeftSecond, y: yTopSecond },
-      { x: Math.floor(width / 2), y: yTopSecond },
-      { x: xRightSecond, y: yTopSecond },
-      { x: xLeftSecond, y: Math.floor(height / 2) },
-      { x: xRightSecond, y: Math.floor(height / 2) },
-      { x: xLeftSecond, y: yBottomSecond },
-      { x: Math.floor(width / 2), y: yBottomSecond },
-      { x: xRightSecond, y: yBottomSecond }
+      { x: xLeftSecond, y: yTopSecond },         // dot9
+      { x: Math.floor(width / 2), y: yTopSecond }, // dot10
+      { x: xRightSecond, y: yTopSecond },        // dot11
+      { x: xLeftSecond, y: Math.floor(height / 2) }, // dot12
+      { x: xRightSecond, y: Math.floor(height / 2) }, // dot13
+      { x: xLeftSecond, y: yBottomSecond },      // dot14
+      { x: Math.floor(width / 2), y: yBottomSecond }, // dot15
+      { x: xRightSecond, y: yBottomSecond }      // dot16
     ];
   };
 
   // Draw a dot on the canvas
-  const drawDot = (x, y, color = 'red', radius = 5) => {
+  const drawDot = (x, y, color = 'red', radius = 8) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) {
+      console.error("Canvas reference is null in drawDot");
+      return null;
+    }
     
     const ctx = canvas.getContext('2d');
     
-    // Clear previous dot
+    // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Draw new dot
+    // Draw dot with glow effect
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
     
-    return { x, y }; // Return the position for reference
+    // Add glow effect
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    return { x, y };
   };
 
   // Start countdown timer
   const startCountdown = (count, onComplete) => {
-    // Check for dot position to determine if we should show countdown below instead of above
-    const canvas = canvasRef.current;
-    const dot = canvas ? document.querySelector('.calibration-dot') : null;
-    const dotRect = dot ? dot.getBoundingClientRect() : null;
-    const canvasRect = canvas ? canvas.getBoundingClientRect() : null;
+    setCountdownValue(count);
+    setIsCapturing(true);
     
-    // Calculate if dot is near the top of the screen
-    const isNearTop = dotRect && canvasRect 
-      ? (dotRect.top - canvasRect.top) < (canvas.height * 0.2)
-      : false;
-    
-    // Update status with countdown
-    onStatusUpdate({
-      countdownValue: {
-        value: count,
-        isNearTop: isNearTop
-      },
-      isCapturing: true
-    });
+    // Update status
+    setProcessStatus(`Calibration countdown: ${count}`);
+    if (setOutputText) {
+      setOutputText(`Calibration countdown: ${count}`);
+    }
     
     const timer = setTimeout(() => {
       if (count > 1) {
         startCountdown(count - 1, onComplete);
       } else {
-        // When count is 1, immediately clear countdown and execute callback
-        onStatusUpdate({
-          countdownValue: null
-        });
+        // Final countdown step
+        setCountdownValue(null);
+        setProcessStatus('Capturing...');
         
         // Execute completion callback
-        if (onComplete) onComplete();
+        if (onComplete) {
+          onComplete();
+        }
       }
     }, 800);
     
     return () => clearTimeout(timer);
-  };
-
-  // Capture images and show preview
-  const captureImages = async (position) => {
-    try {
-      // Trigger camera access if needed
-      if (triggerCameraAccess) {
-        await triggerCameraAccess();
-        // Small delay to ensure camera is initialized
-        await new Promise(resolve => setTimeout(resolve, 200));
-      }
-      
-      // Format counter for filenames
-      const counter = String(captureCounter).padStart(3, '0');
-      const screenFilename = `cal_screen_${counter}.jpg`;
-      const webcamFilename = `cal_webcam_${counter}.jpg`;
-      
-      // Capture screen image from canvas
-      const screenImage = await imageProcessor.captureScreenImage(
-        canvasRef, 
-        screenFilename
-      );
-      
-      // Capture webcam image
-      const webcamImage = await imageProcessor.captureWebcamImage(
-        webcamFilename
-      );
-      
-      // Increment counter for next capture
-      setCaptureCounter(prev => prev + 1);
-      
-      // Show preview for exactly 2 seconds using showImagePreview utility
-      if (screenImage || webcamImage) {
-        const previewElement = showImagePreview(screenImage, webcamImage, position);
-        
-        // Wait exactly 2 seconds
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Remove preview
-        if (previewElement && previewElement.parentNode) {
-          // Add fade-out animation
-          previewElement.style.transition = 'opacity 0.3s ease';
-          previewElement.style.opacity = '0';
-          
-          // Remove after animation completes
-          setTimeout(() => {
-            previewElement.remove();
-          }, 300);
-        }
-      }
-      
-      // Stop the webcam to free resources
-      imageProcessor.stopWebcam();
-      
-    } catch (error) {
-      console.error('Error capturing calibration point:', error);
-      onStatusUpdate({
-        processStatus: `Error: ${error.message}`
-      });
-    }
   };
 
   // Move to next calibration point
@@ -186,20 +176,18 @@ const SetCalibrateAction = ({ canvasRef, onStatusUpdate, triggerCameraAccess }) 
     // Check if we've completed all points
     if (nextIndex >= calibrationPoints.length) {
       // Finish calibration
-      onStatusUpdate({
-        processStatus: 'Calibration completed',
-        remainingCaptures: 0,
-        isCapturing: false
-      });
-      
+      setProcessStatus('Calibration completed');
+      setRemainingCaptures(0);
       setIsCapturing(false);
       
-      // Clear status after a delay
-      setTimeout(() => {
-        onStatusUpdate({
-          processStatus: ''
-        });
-      }, 2000);
+      if (setOutputText) {
+        setOutputText('Calibration sequence completed successfully');
+      }
+      
+      // Show TopBar again
+      if (toggleTopBar) {
+        toggleTopBar(true);
+      }
       
       return;
     }
@@ -208,10 +196,12 @@ const SetCalibrateAction = ({ canvasRef, onStatusUpdate, triggerCameraAccess }) 
     setCurrentCalibrationIndex(nextIndex);
     
     // Update progress indicators
-    onStatusUpdate({
-      processStatus: `Calibration Progress: ${nextIndex + 1}/${calibrationPoints.length}`,
-      remainingCaptures: calibrationPoints.length - nextIndex
-    });
+    setProcessStatus(`Calibration Progress: ${nextIndex + 1}/${calibrationPoints.length}`);
+    setRemainingCaptures(calibrationPoints.length - nextIndex);
+    
+    if (setOutputText) {
+      setOutputText(`Calibration point ${nextIndex + 1} of ${calibrationPoints.length}`);
+    }
     
     // Draw next point
     const nextPoint = calibrationPoints[nextIndex];
@@ -219,14 +209,22 @@ const SetCalibrateAction = ({ canvasRef, onStatusUpdate, triggerCameraAccess }) 
     
     // Start countdown for this point
     startCountdown(3, () => {
-      captureImages(dotPosition);
-      setTimeout(() => moveToNextCalibrationPoint(), 2300); // Wait for preview duration plus a small buffer
+      // Capture images using CaptureHandler
+      captureHandler.captureAndShowPreview(captureCounter, canvasRef, dotPosition);
+      
+      // Wait for preview duration plus a small buffer before moving to next point
+      setTimeout(() => moveToNextCalibrationPoint(), 2300);
     });
   };
 
   // Set Calibrate Button - Start calibration sequence
   const handleSetCalibrate = () => {
     if (isCapturing) return;
+    
+    // Hide the TopBar before starting calibration
+    if (toggleTopBar) {
+      toggleTopBar(false);
+    }
     
     setIsCapturing(true);
     
@@ -238,50 +236,110 @@ const SetCalibrateAction = ({ canvasRef, onStatusUpdate, triggerCameraAccess }) 
     if (points.length === 0) {
       console.error("Failed to generate calibration points");
       setIsCapturing(false);
+      
+      if (setOutputText) {
+        setOutputText("Error: Failed to generate calibration points");
+      }
+      
       return;
     }
     
     // Start calibration sequence with first point
-    onStatusUpdate({
-      processStatus: `Calibration Progress: 1/${points.length}`,
-      remainingCaptures: points.length,
-      isCapturing: true
-    });
+    setProcessStatus(`Calibration Progress: 1/${points.length}`);
+    setRemainingCaptures(points.length);
+    
+    if (setOutputText) {
+      setOutputText(`Starting calibration sequence with ${points.length} points`);
+    }
     
     // Draw first calibration point
     const firstPoint = points[0];
     const dotPosition = drawDot(firstPoint.x, firstPoint.y);
     
+    // Make sure we have camera access before starting
+    if (triggerCameraAccess) {
+      triggerCameraAccess(true);
+    }
+    
     // Start countdown for first point
     startCountdown(3, () => {
-      captureImages(dotPosition);
-      setTimeout(() => moveToNextCalibrationPoint(), 2300); // Wait for preview duration plus a small buffer
+      // Capture images using CaptureHandler
+      captureHandler.captureAndShowPreview(captureCounter, canvasRef, dotPosition);
+      
+      // Wait for preview duration plus a small buffer before moving to next point
+      setTimeout(() => moveToNextCalibrationPoint(), 2300);
     });
   };
+  
+  // Create a countdown overlay if countdown is active
+  const renderCountdownOverlay = () => {
+    if (countdownValue === null || !canvasRef.current) return null;
+    
+    // Check if we have a current calibration point
+    const currentPoint = calibrationPoints[currentCalibrationIndex];
+    if (!currentPoint) return null;
+    
+    return (
+      <div
+        className="calibration-countdown"
+        style={{
+          position: 'absolute',
+          left: `${currentPoint.x}px`,
+          top: `${currentPoint.y - 60}px`,
+          transform: 'translateX(-50%)',
+          backgroundColor: 'rgba(255, 255, 255, 0.8)',
+          color: 'red',
+          fontSize: '36px',
+          fontWeight: 'bold',
+          padding: '5px 15px',
+          borderRadius: '50%',
+          boxShadow: '0 0 10px rgba(0, 0, 0, 0.3)',
+          zIndex: 9999
+        }}
+      >
+        {countdownValue}
+      </div>
+    );
+  };
 
-  return {
-    component: (
+  // Use style similar to the ActionButton component
+  return (
+    <div className="set-calibrate-container">
       <button
         onClick={handleSetCalibrate}
-        disabled={isCapturing}
-        className="app-button w-full"
-        style={{
-          backgroundColor: '#7CFFDA',
-          border: '1px solid #000',
-          padding: '3px 10px',
+        className="transition-colors py-2 px-4 rounded-md text-sm font-medium"
+        style={{ 
+          backgroundColor: isCapturing 
+            ? 'rgba(200, 200, 200, 0.5)' 
+            : 'rgba(124, 255, 218, 0.5)', 
+          color: 'black',
+          borderRadius: '7px',
           cursor: isCapturing ? 'not-allowed' : 'pointer',
-          opacity: isCapturing ? 0.6 : 1
+          width: '100%'
         }}
+        disabled={isCapturing}
       >
         Set Calibrate
       </button>
-    ),
-    isCapturing,
-    drawDot,
-    calibrationPoints,
-    currentCalibrationIndex,
-    handleAction: handleSetCalibrate
-  };
+      
+      {/* Display calibration status */}
+      {(processStatus || remainingCaptures > 0) && (
+        <div className="status-display mt-2 p-2 bg-blue-50 rounded-md">
+          {processStatus && (
+            <div className="text-sm font-medium text-blue-800">{processStatus}</div>
+          )}
+          {remainingCaptures > 0 && (
+            <div className="text-sm font-medium text-yellow-600">
+              Remaining points: {remainingCaptures}
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Render countdown overlay */}
+      {renderCountdownOverlay()}
+    </div>
+  );
 };
 
-export default SetCalibrateAction;
+export default SetCalibrateButton;
