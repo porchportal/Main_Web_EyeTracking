@@ -21,6 +21,9 @@
   position: relative;
   z-index: 10;
 }
+.topbar-hidden .preview-area {
+  height: 100vh;
+}
 
 /* Left section - Logo and Time/Delay controls */
 .topbar-left {
@@ -216,7 +219,9 @@
   background-color: white;
   position: relative;
   flex: 1;
-  border-top: 1px solid #e0e0e0;
+  width: 100%;
+  height: calc(100vh - 120px); /* Adjust based on TopBar height */
+  border: none;
   overflow: hidden;
 }
 
@@ -227,6 +232,42 @@
   transform: translate(-50%, -50%);
   font-size: 16px;
   color: #777;
+}
+
+.size-indicator {
+  margin-top: 8px;
+  font-size: 14px;
+  color: #999;
+}
+
+/* Restore button container - positioned at top right */
+.restore-button-container {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 50;
+}
+
+/* Restore button styling */
+.restore-btn {
+  background-color: #7CFFDA;
+  border: none;
+  color: #333;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  cursor: pointer;
+  border-radius: 4px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+}
+
+.restore-btn:hover {
+  background-color: #6be9c6;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Metrics display - Completely fixed positioning */
@@ -249,6 +290,66 @@
   font-size: 16px;
   margin: 8px 0;
   white-space: nowrap;
+}
+
+/* Camera permission popup */
+.permission-popup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.permission-dialog {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.permission-title {
+  font-size: 20px;
+  margin-top: 0;
+  color: #333;
+}
+
+.permission-message {
+  font-size: 16px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  color: #555;
+}
+
+.permission-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* Canvas container */
+.canvas-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none !important; /* Remove border that causes lines */
+  background-color: white;
+  overflow: hidden;
+}
+
+.tracking-canvas {
+  width: 100%;
+  height: 100%;
+  display: block; /* Removes inline spacing issues */
 }
 
 /* Responsive adjustments */
