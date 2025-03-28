@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import TopBar from './components-gui/topBar';
 import DisplayResponse from './components-gui/displayResponse';
 import { ActionButtonGroup } from './components-gui/actionButton';
+import StatusIndicator from './components-gui/StatusIndicator'; // Import the new StatusIndicator component
 
 // Dynamically load the video processor component (not the hook directly)
 const VideoProcessorComponent = dynamic(
