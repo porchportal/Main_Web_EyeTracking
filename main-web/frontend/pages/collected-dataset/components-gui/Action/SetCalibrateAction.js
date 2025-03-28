@@ -1,10 +1,14 @@
 // components/Action/SetCalibrateAction.js
 import React, { useState } from 'react';
+import { showImagePreview } from './DotCaptureUtil';
+import ImageProcessor from './ImageProcessor';
 
 const SetCalibrateAction = ({ canvasRef, onStatusUpdate, triggerCameraAccess }) => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [calibrationPoints, setCalibrationPoints] = useState([]);
   const [currentCalibrationIndex, setCurrentCalibrationIndex] = useState(0);
+  const [imageProcessor] = useState(() => new ImageProcessor());
+  const [captureCounter, setCaptureCounter] = useState(1);
 
   // Generate calibration points based on canvas dimensions
   const generateCalibrationPoints = () => {
@@ -77,7 +81,6 @@ const SetCalibrateAction = ({ canvasRef, onStatusUpdate, triggerCameraAccess }) 
   };
 
   // Start countdown timer
-  // Updated startCountdown function for SetCalibrateAction.js
   const startCountdown = (count, onComplete) => {
     // Check for dot position to determine if we should show countdown below instead of above
     const canvas = canvasRef.current;
@@ -116,13 +119,63 @@ const SetCalibrateAction = ({ canvasRef, onStatusUpdate, triggerCameraAccess }) 
     return () => clearTimeout(timer);
   };
 
-  // Simulate capturing an image
-  const captureImage = (position) => {
-    console.log('Capturing calibration point at position:', position);
-    
-    // Trigger camera access if needed
-    if (triggerCameraAccess) {
-      triggerCameraAccess();
+  // Capture images and show preview
+  const captureImages = async (position) => {
+    try {
+      // Trigger camera access if needed
+      if (triggerCameraAccess) {
+        await triggerCameraAccess();
+        // Small delay to ensure camera is initialized
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      
+      // Format counter for filenames
+      const counter = String(captureCounter).padStart(3, '0');
+      const screenFilename = `cal_screen_${counter}.jpg`;
+      const webcamFilename = `cal_webcam_${counter}.jpg`;
+      
+      // Capture screen image from canvas
+      const screenImage = await imageProcessor.captureScreenImage(
+        canvasRef, 
+        screenFilename
+      );
+      
+      // Capture webcam image
+      const webcamImage = await imageProcessor.captureWebcamImage(
+        webcamFilename
+      );
+      
+      // Increment counter for next capture
+      setCaptureCounter(prev => prev + 1);
+      
+      // Show preview for exactly 2 seconds using showImagePreview utility
+      if (screenImage || webcamImage) {
+        const previewElement = showImagePreview(screenImage, webcamImage, position);
+        
+        // Wait exactly 2 seconds
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Remove preview
+        if (previewElement && previewElement.parentNode) {
+          // Add fade-out animation
+          previewElement.style.transition = 'opacity 0.3s ease';
+          previewElement.style.opacity = '0';
+          
+          // Remove after animation completes
+          setTimeout(() => {
+            previewElement.remove();
+          }, 300);
+        }
+      }
+      
+      // Stop the webcam to free resources
+      imageProcessor.stopWebcam();
+      
+    } catch (error) {
+      console.error('Error capturing calibration point:', error);
+      onStatusUpdate({
+        processStatus: `Error: ${error.message}`
+      });
     }
   };
 
@@ -166,8 +219,8 @@ const SetCalibrateAction = ({ canvasRef, onStatusUpdate, triggerCameraAccess }) 
     
     // Start countdown for this point
     startCountdown(3, () => {
-      captureImage(dotPosition);
-      setTimeout(() => moveToNextCalibrationPoint(), 1000);
+      captureImages(dotPosition);
+      setTimeout(() => moveToNextCalibrationPoint(), 2300); // Wait for preview duration plus a small buffer
     });
   };
 
@@ -201,8 +254,8 @@ const SetCalibrateAction = ({ canvasRef, onStatusUpdate, triggerCameraAccess }) 
     
     // Start countdown for first point
     startCountdown(3, () => {
-      captureImage(dotPosition);
-      setTimeout(() => moveToNextCalibrationPoint(), 1000);
+      captureImages(dotPosition);
+      setTimeout(() => moveToNextCalibrationPoint(), 2300); // Wait for preview duration plus a small buffer
     });
   };
 

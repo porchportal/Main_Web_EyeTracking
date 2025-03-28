@@ -1,22 +1,29 @@
 // DotCaptureUtil.js
 // Utility functions for dot capture and preview display
 
-// Show preview of captured images
+// Show preview of captured images for exactly 2 seconds
+// DotCaptureUtil.js
+// Utility functions for dot capture and preview display
+
+// Improved function to show preview of captured images for exactly 2 seconds
 export const showImagePreview = (screenImage, webcamImage, dotPosition) => {
-    // Create a preview container
+    // Create a preview container that centers in the screen
     const previewContainer = document.createElement('div');
     previewContainer.className = 'capture-preview-container';
     previewContainer.style.cssText = `
       position: fixed;
-      bottom: 20px;
-      left: 20px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       display: flex;
-      gap: 10px;
-      background-color: rgba(0, 0, 0, 0.7);
-      padding: 10px;
-      border-radius: 8px;
+      gap: 20px;
+      background-color: rgba(0, 0, 0, 0.85);
+      padding: 20px;
+      border-radius: 12px;
       z-index: 9999;
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+      opacity: 1;
+      transition: opacity 0.2s ease-in-out;
     `;
     
     // Add screen capture preview if available
@@ -31,18 +38,19 @@ export const showImagePreview = (screenImage, webcamImage, dotPosition) => {
       const screenImg = document.createElement('img');
       screenImg.src = screenImage;
       screenImg.style.cssText = `
-        max-width: 200px;
-        max-height: 150px;
-        border: 2px solid white;
-        border-radius: 4px;
+        max-width: 350px;
+        max-height: 250px;
+        border: 3px solid white;
+        border-radius: 8px;
       `;
       
       const screenLabel = document.createElement('div');
       screenLabel.textContent = 'Screen Capture';
       screenLabel.style.cssText = `
         color: white;
-        font-size: 12px;
-        margin-top: 5px;
+        font-size: 14px;
+        margin-top: 10px;
+        font-weight: bold;
       `;
       
       screenPreview.appendChild(screenImg);
@@ -62,18 +70,19 @@ export const showImagePreview = (screenImage, webcamImage, dotPosition) => {
       const webcamImg = document.createElement('img');
       webcamImg.src = webcamImage;
       webcamImg.style.cssText = `
-        max-width: 200px;
-        max-height: 150px;
-        border: 2px solid white;
-        border-radius: 4px;
+        max-width: 350px;
+        max-height: 250px;
+        border: 3px solid white;
+        border-radius: 8px;
       `;
       
       const webcamLabel = document.createElement('div');
       webcamLabel.textContent = 'Webcam Capture';
       webcamLabel.style.cssText = `
         color: white;
-        font-size: 12px;
-        margin-top: 5px;
+        font-size: 14px;
+        margin-top: 10px;
+        font-weight: bold;
       `;
       
       webcamPreview.appendChild(webcamImg);
@@ -81,26 +90,67 @@ export const showImagePreview = (screenImage, webcamImage, dotPosition) => {
       previewContainer.appendChild(webcamPreview);
     }
     
-    // Add info about dot position
+    // Add dot position info if available
     if (dotPosition) {
       const positionInfo = document.createElement('div');
       positionInfo.textContent = `Dot position: x=${Math.round(dotPosition.x)}, y=${Math.round(dotPosition.y)}`;
       positionInfo.style.cssText = `
         color: #ffcc00;
-        font-size: 12px;
+        font-size: 14px;
         position: absolute;
-        top: -20px;
-        left: 10px;
+        top: -25px;
+        left: 0;
+        width: 100%;
+        text-align: center;
       `;
       previewContainer.appendChild(positionInfo);
     }
     
+    // Add timer countdown
+    const timerElement = document.createElement('div');
+    timerElement.textContent = '2.0s';
+    timerElement.style.cssText = `
+      position: absolute;
+      bottom: -25px;
+      right: 20px;
+      color: white;
+      font-size: 12px;
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 3px 8px;
+      border-radius: 4px;
+    `;
+    previewContainer.appendChild(timerElement);
+    
     // Add the preview to the document
     document.body.appendChild(previewContainer);
+    
+    // Start countdown timer
+    let timeLeft = 2.0;
+    const interval = setInterval(() => {
+      timeLeft -= 0.1;
+      if (timeLeft <= 0) {
+        clearInterval(interval);
+        timerElement.textContent = 'Closing...';
+        
+        // Fade out the preview
+        previewContainer.style.opacity = '0';
+        
+        // Remove after fade animation
+        setTimeout(() => {
+          if (previewContainer && previewContainer.parentNode) {
+            previewContainer.parentNode.removeChild(previewContainer);
+          }
+        }, 200);
+      } else {
+        timerElement.textContent = `${timeLeft.toFixed(1)}s`;
+      }
+    }, 100);
     
     return previewContainer;
   };
   
+  // Other utility functions remain the same...
+    
   // Create and append a countdown element above a dot
   export const createDotCountdown = (position, canvasRect) => {
     // Create the countdown element directly above the dot

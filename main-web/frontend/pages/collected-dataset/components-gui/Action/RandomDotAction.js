@@ -1,5 +1,5 @@
 // RandomDotActions.js
-// Handles the random dot generation and countdown functionality
+// Handles the random dot generation and countdown functionality without starting camera preview
 
 import { 
   createDotCountdown, 
@@ -23,11 +23,19 @@ class RandomDotActions {
     this.saveImageToServer = config.saveImageToServer;
     this.setCaptureCounter = config.setCaptureCounter;
     this.captureCounter = config.captureCounter;
+    
+    // Initialize capture handler
+    this.captureHandler = new CaptureHandler(
+      this.saveImageToServer,
+      this.setCaptureCounter,
+      this.setProcessStatus,
+      this.toggleTopBar
+    );
   }
 
   // Initialize capture handler
   initCaptureHandler() {
-    return new CaptureHandler(
+    return this.captureHandler || new CaptureHandler(
       this.saveImageToServer,
       this.setCaptureCounter,
       this.setProcessStatus,
@@ -36,7 +44,7 @@ class RandomDotActions {
   }
 
   // Main function to handle random dot generation and capture
-  handleRandomDot = () => {
+  handleRandomDot = async () => {
     // Hide the TopBar before showing dot
     if (typeof this.toggleTopBar === 'function') {
       this.toggleTopBar(false);
@@ -56,7 +64,7 @@ class RandomDotActions {
     }
     
     // Give the component time to update
-    setTimeout(() => {
+    setTimeout(async () => {
       const canvas = this.canvasRef.current;
       if (canvas) {
         // Make sure canvas dimensions are properly set
@@ -91,19 +99,37 @@ class RandomDotActions {
         let count = 3;
         countdownElement.textContent = count;
         
-        const countdownInterval = setInterval(() => {
+        const countdownInterval = setInterval(async () => {
           count--;
           if (count <= 0) {
             clearInterval(countdownInterval);
             countdownElement.remove();
             
-            // Capture and show preview of both canvas and webcam
-            captureHandler.captureAndShowPreview(
-              this.captureCounter,
-              this.canvasRef,
-              position,
-              this.triggerCameraAccess
-            );
+            // Capture images and show preview
+            try {
+              // Don't trigger camera preview, just capture the available images
+              await captureHandler.captureAndShowPreview(
+                this.captureCounter,
+                this.canvasRef,
+                position
+              );
+              
+              // Set capturing state to false after reasonable delay
+              // This allows the preview to be shown before resetting state
+              setTimeout(() => {
+                this.setIsCapturing(false);
+              }, 2200); // Wait a bit longer than the preview duration
+              
+            } catch (error) {
+              console.error("Error in capture and preview process:", error);
+              this.setProcessStatus('Error during capture process');
+              this.setIsCapturing(false);
+              
+              // Clear error message after delay
+              setTimeout(() => {
+                this.setProcessStatus('');
+              }, 3000);
+            }
           } else {
             countdownElement.textContent = count;
           }

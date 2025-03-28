@@ -278,30 +278,27 @@ const WhiteScreenMain = ({
     }
   };
   
-  // Capture images function
-  const captureImage = async () => {
+  // Modified captureImage function in WhiteScreenMain.js
+
+// Modified captureImage function for WhiteScreenMain.js
+
+// Fixed captureImage function for WhiteScreenMain.js
+const captureImage = async () => {
     console.log("Capturing images...");
     setIsCapturing(true);
     
     try {
-      // Enable camera if function provided
-      if (triggerCameraAccess) {
-        console.log("Triggering camera access");
-        triggerCameraAccess(true); // Force enable camera
-      }
-      
-      // Wait briefly for camera to initialize
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
       // Generate filenames with counter
       const screenFilename = `screen_${String(captureCounter).padStart(3, '0')}.jpg`;
       const webcamFilename = `webcam_${String(captureCounter).padStart(3, '0')}.jpg`;
+      const parameterFilename = `parameter_${String(captureCounter).padStart(3, '0')}.csv`;
       
       // Capture screen image (canvas with dot)
       const canvas = activeCanvasRef.current;
+      let screenImage = null;
       if (canvas) {
         console.log("Capturing screen from canvas");
-        const screenImage = canvas.toDataURL('image/png');
+        screenImage = canvas.toDataURL('image/png');
         await saveImageToServer(screenImage, screenFilename, 'screen');
         console.log(`Saved screen image: ${screenFilename}`);
       } else {
@@ -309,6 +306,7 @@ const WhiteScreenMain = ({
       }
       
       // Capture webcam image if available
+      let webcamImage = null;
       if (window.videoElement) {
         console.log("Capturing from webcam");
         const tempCanvas = document.createElement('canvas');
@@ -316,27 +314,124 @@ const WhiteScreenMain = ({
         tempCanvas.width = window.videoElement.videoWidth;
         tempCanvas.height = window.videoElement.videoHeight;
         ctx.drawImage(window.videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
-        const webcamImage = tempCanvas.toDataURL('image/png');
+        webcamImage = tempCanvas.toDataURL('image/png');
         
         await saveImageToServer(webcamImage, webcamFilename, 'webcam');
         console.log(`Saved webcam image: ${webcamFilename}`);
       } else {
-        console.log("Webcam element not available");
+        // Try to silently capture from webcam
+        try {
+          // Create a temporary stream for just this capture
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: true, 
+            audio: false 
+          });
+          
+          // Create a hidden video element to receive the stream
+          const tempVideo = document.createElement('video');
+          tempVideo.autoplay = true;
+          tempVideo.playsInline = true;
+          tempVideo.muted = true;
+          tempVideo.style.position = 'absolute';
+          tempVideo.style.left = '-9999px'; // Position off-screen
+          tempVideo.style.opacity = '0';
+          document.body.appendChild(tempVideo);
+          
+          // Set the stream to the video element
+          tempVideo.srcObject = stream;
+          
+          // Wait for video to initialize
+          await new Promise((resolve) => {
+            const timeoutId = setTimeout(() => {
+              console.warn("Video loading timed out, continuing anyway");
+              resolve();
+            }, 1000);
+            
+            tempVideo.onloadeddata = () => {
+              clearTimeout(timeoutId);
+              resolve();
+            };
+          });
+          
+          // Small delay to ensure a clear frame
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+          // Capture the frame to a canvas
+          const tempCanvas = document.createElement('canvas');
+          tempCanvas.width = tempVideo.videoWidth || 640;
+          tempCanvas.height = tempVideo.videoHeight || 480;
+          const ctx = tempCanvas.getContext('2d');
+          ctx.drawImage(tempVideo, 0, 0, tempCanvas.width, tempCanvas.height);
+          
+          // Get image data
+          webcamImage = tempCanvas.toDataURL('image/png');
+          console.log(`Captured webcam silently: ${webcamFilename}`);
+          
+          await saveImageToServer(webcamImage, webcamFilename, 'webcam');
+          
+          // IMPORTANT: Clean up - stop stream and remove video element
+          stream.getTracks().forEach(track => track.stop());
+          tempVideo.srcObject = null;
+          if (tempVideo.parentNode) {
+            tempVideo.parentNode.removeChild(tempVideo);
+          }
+          
+        } catch (webcamError) {
+          console.log("Webcam element not available and silent capture failed:", webcamError);
+        }
       }
+      
+      // Save parameters to CSV
+      try {
+        // Create CSV content with two columns: name and value
+        const csvData = [
+          "name,value",
+          `dot_x,${currentDot ? currentDot.x : 0}`,
+          `dot_y,${currentDot ? currentDot.y : 0}`,
+          `canvas_width,${canvas ? canvas.width : 0}`,
+          `canvas_height,${canvas ? canvas.height : 0}`,
+          `window_width,${window.innerWidth}`,
+          `window_height,${window.innerHeight}`,
+          `timestamp,${new Date().toISOString()}`
+        ].join('\n');
+        
+        // Convert CSV to data URL
+        const csvBlob = new Blob([csvData], { type: 'text/csv' });
+        const csvReader = new FileReader();
+        
+        const csvDataUrl = await new Promise((resolve) => {
+          csvReader.onloadend = () => resolve(csvReader.result);
+          csvReader.readAsDataURL(csvBlob);
+        });
+        
+        // Save CSV using the same API
+        await saveImageToServer(csvDataUrl, parameterFilename, 'parameters');
+        console.log(`Saved parameters CSV: ${parameterFilename}`);
+        
+      } catch (csvError) {
+        console.error("Error saving parameter CSV:", csvError);
+      }
+      
+      // THIS IS THE MISSING PIECE - Show preview after capturing
+      console.log("Showing image preview with:", { 
+        hasScreenImage: !!screenImage, 
+        hasWebcamImage: !!webcamImage 
+      });
+      showCapturePreview(screenImage, webcamImage, currentDot);
       
       // Increment the counter for next capture
       setCaptureCounter(prev => prev + 1);
       
       // Update status
       setIsCapturing(false);
-      setProcessStatus(`Captured coordinates: x=${currentDot?.x}, y=${currentDot?.y}`);
+      setProcessStatus(`Captured with dot at: x=${currentDot?.x}, y=${currentDot?.y}`);
       
       // Update parent component
       if (onStatusUpdate) {
-        onStatusUpdate(`Images saved: ${screenFilename} and ${webcamFilename}`);
+        onStatusUpdate(`Images and parameters saved for capture #${captureCounter}`);
       }
       
-      // Show TopBar again after capture
+      // Show TopBar again after capture with a delay to let preview finish
       setTimeout(() => {
         console.log("Showing TopBar after capture");
         if (typeof toggleTopBar === 'function') {
@@ -344,7 +439,7 @@ const WhiteScreenMain = ({
         } else if (typeof window !== 'undefined' && window.toggleTopBar) {
           window.toggleTopBar(true);
         }
-      }, 1500);
+      }, 2500); // Increased to wait for preview to finish
     } catch (error) {
       console.error('Error during capture:', error);
       setIsCapturing(false);
@@ -355,6 +450,114 @@ const WhiteScreenMain = ({
     setTimeout(() => {
       setProcessStatus('');
     }, 3000);
+  };
+  // Add this new function to show a preview of captured images
+  const showCapturePreview = (screenImage, webcamImage, dotPosition) => {
+    if (!screenImage && !webcamImage) return;
+    
+    // Create a container for the preview
+    const previewContainer = document.createElement('div');
+    previewContainer.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      gap: 20px;
+      background-color: rgba(0, 0, 0, 0.85);
+      padding: 20px;
+      border-radius: 12px;
+      z-index: 9999;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+    `;
+    
+    // Add screen image preview
+    if (screenImage) {
+      const screenPreview = document.createElement('div');
+      screenPreview.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      `;
+      
+      const screenImg = document.createElement('img');
+      screenImg.src = screenImage;
+      screenImg.style.cssText = `
+        max-width: 300px;
+        max-height: 200px;
+        border: 3px solid white;
+        border-radius: 8px;
+      `;
+      
+      const screenLabel = document.createElement('div');
+      screenLabel.textContent = 'Screen Capture';
+      screenLabel.style.cssText = `
+        color: white;
+        font-size: 14px;
+        margin-top: 10px;
+        font-weight: bold;
+      `;
+      
+      screenPreview.appendChild(screenImg);
+      screenPreview.appendChild(screenLabel);
+      previewContainer.appendChild(screenPreview);
+    }
+    
+    // Add webcam image preview
+    if (webcamImage) {
+      const webcamPreview = document.createElement('div');
+      webcamPreview.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      `;
+      
+      const webcamImg = document.createElement('img');
+      webcamImg.src = webcamImage;
+      webcamImg.style.cssText = `
+        max-width: 300px;
+        max-height: 200px;
+        border: 3px solid white;
+        border-radius: 8px;
+      `;
+      
+      const webcamLabel = document.createElement('div');
+      webcamLabel.textContent = 'Webcam Capture';
+      webcamLabel.style.cssText = `
+        color: white;
+        font-size: 14px;
+        margin-top: 10px;
+        font-weight: bold;
+      `;
+      
+      webcamPreview.appendChild(webcamImg);
+      webcamPreview.appendChild(webcamLabel);
+      previewContainer.appendChild(webcamPreview);
+    }
+    
+    // Add position indicator if available
+    if (dotPosition) {
+      const positionInfo = document.createElement('div');
+      positionInfo.textContent = `Dot position: x=${Math.round(dotPosition.x)}, y=${Math.round(dotPosition.y)}`;
+      positionInfo.style.cssText = `
+        color: #ffcc00;
+        font-size: 14px;
+        position: absolute;
+        top: -30px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+      `;
+      previewContainer.appendChild(positionInfo);
+    }
+    
+    // Add the preview to the document
+    document.body.appendChild(previewContainer);
+    
+    // Remove preview after 2 seconds
+    setTimeout(() => {
+      document.body.removeChild(previewContainer);
+    }, 2000);
   };
   
   // Random Dot action
