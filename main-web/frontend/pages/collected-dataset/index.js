@@ -446,16 +446,19 @@ export default function CollectedDatasetPage() {
     }
 
     // Add this new helper function for silent capturing:
-    // Enhanced captureImagesWithoutPreview function with better debugging
+    // Modified captureImagesWithoutPreview function for improved file saving with continuous numbering
     const captureImagesWithoutPreview = async (x, y) => {
       try {
-        // Get formatted counter for filenames
+        // Define a fixed folder name for all captures
+        const captureFolder = 'eye_tracking_captures';
+        
+        // Format counter for filenames - the server will handle the actual numbering
         const counter = String(captureCounter).padStart(3, '0');
         const screenFilename = `screen_${counter}.jpg`;
         const webcamFilename = `webcam_${counter}.jpg`;
         const parameterFilename = `parameter_${counter}.csv`;
         
-        console.log(`Starting capture process for capture #${counter}`);
+        console.log(`Starting capture process with counter ${counter}`);
         console.log(`Dot position: x=${x}, y=${y}`);
         
         // Store these variables to use later for preview
@@ -463,6 +466,7 @@ export default function CollectedDatasetPage() {
         let webcamImageData = null;
         let screenImagePath = null;
         let webcamImagePath = null;
+        let usedCaptureNumber = captureCounter;
         
         // 1. Capture screen image from canvas
         const canvas = canvasRef.current;
@@ -490,6 +494,12 @@ export default function CollectedDatasetPage() {
               const screenResult = await screenResponse.json();
               console.log(`Screen image saved: ${screenResult.path}`);
               screenImagePath = screenResult.path;
+              
+              // If the server provides a capture number, use it for the next files
+              if (screenResult.captureNumber) {
+                usedCaptureNumber = screenResult.captureNumber;
+                console.log(`Server assigned capture number: ${usedCaptureNumber}`);
+              }
             } else {
               console.error(`Failed to save screen image: ${screenResponse.status} ${screenResponse.statusText}`);
             }
@@ -499,6 +509,10 @@ export default function CollectedDatasetPage() {
         } else {
           console.error("Canvas reference is null, cannot capture screen");
         }
+        
+        // Update filenames with server-assigned capture number
+        const updatedWebcamFilename = `webcam_${String(usedCaptureNumber).padStart(3, '0')}.jpg`;
+        const updatedParameterFilename = `parameter_${String(usedCaptureNumber).padStart(3, '0')}.csv`;
         
         // 2. Silently capture webcam image without showing preview
         try {
@@ -561,7 +575,7 @@ export default function CollectedDatasetPage() {
             webcamImageData = tempCanvas.toDataURL('image/png');
             console.log(`Webcam image captured successfully, size: ${webcamImageData.length} chars`);
             
-            // Save webcam image via API
+            // Save webcam image via API - using the updated filename
             const webcamResponse = await fetch('/api/save-capture', {
               method: 'POST',
               headers: {
@@ -569,7 +583,7 @@ export default function CollectedDatasetPage() {
               },
               body: JSON.stringify({
                 imageData: webcamImageData,
-                filename: webcamFilename,
+                filename: updatedWebcamFilename,
                 type: 'webcam',
                 folder: captureFolder
               })
@@ -603,7 +617,7 @@ export default function CollectedDatasetPage() {
           console.error("Error capturing webcam silently:", webcamError);
         }
         
-        // 3. Create and save a CSV with parameters
+        // 3. Create and save a CSV with parameters - using the updated filename
         try {
           console.log("Creating parameter CSV");
           // Create CSV content with two columns: name and value
@@ -639,7 +653,7 @@ export default function CollectedDatasetPage() {
             },
             body: JSON.stringify({
               imageData: csvDataUrl,
-              filename: parameterFilename,
+              filename: updatedParameterFilename,
               type: 'parameters',
               folder: captureFolder
             })
@@ -656,11 +670,10 @@ export default function CollectedDatasetPage() {
           console.error("Error saving parameter CSV:", csvError);
         }
         
-        // 4. Increment counter for next capture
-        setCaptureCounter(prev => prev + 1);
+        // 4. Update counter for next capture based on server response or increment
+        setCaptureCounter(usedCaptureNumber + 1);
         
         // 5. Show preview with ORIGINAL IMAGE DATA (not paths from server)
-        // This is crucial - we use the actual image data we captured, not URLs
         console.log("Capture complete. Showing preview with in-memory image data:");
         console.log("- Screen image size:", screenImageData ? screenImageData.length : 'N/A');
         console.log("- Webcam image size:", webcamImageData ? webcamImageData.length : 'N/A');
@@ -674,7 +687,7 @@ export default function CollectedDatasetPage() {
         }
         
         // 6. Show status message
-        setOutputText(`Captured: ${screenFilename}, ${webcamImageData ? webcamFilename : 'no webcam'}, ${parameterFilename}`);
+        setOutputText(`Captured: screen_${String(usedCaptureNumber).padStart(3, '0')}.jpg, ${webcamImageData ? `webcam_${String(usedCaptureNumber).padStart(3, '0')}.jpg` : 'no webcam'}, parameter_${String(usedCaptureNumber).padStart(3, '0')}.csv`);
         
         // 7. Show TopBar again after capture
         setTimeout(() => {

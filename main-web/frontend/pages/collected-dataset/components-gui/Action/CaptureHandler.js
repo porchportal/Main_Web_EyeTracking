@@ -1,4 +1,4 @@
-// CaptureHandler.js - Simplified with correct flow
+// CaptureHandler.js - With fixed capture numbering
 
 class CaptureHandler {
     constructor(saveFunction, counterSetter, statusSetter, toggleTopBarFunction) {
@@ -6,10 +6,11 @@ class CaptureHandler {
       this.setCaptureCounter = counterSetter;
       this.setProcessStatus = statusSetter;
       this.toggleTopBar = toggleTopBarFunction;
+      this.captureFolder = 'eye_tracking_captures'; // Use fixed folder name
     }
   
     // Show preview of the SAVED images for exactly 2 seconds
-    showSavedImagesPreview(screenImageUrl, webcamImageUrl, dotPosition) {
+    showCapturePreview(screenImage, webcamImage, dotPosition) {
       // Create a centered preview container
       const previewContainer = document.createElement('div');
       previewContainer.style.cssText = `
@@ -22,12 +23,16 @@ class CaptureHandler {
         background-color: rgba(0, 0, 0, 0.85);
         padding: 20px;
         border-radius: 12px;
-        z-index: 9999;
+        z-index: 999999;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+        opacity: 1;
+        transition: opacity 0.3s ease;
       `;
       
       // Function to create an image preview element
-      const createImagePreview = (imageUrl, label) => {
+      const createImagePreview = (imageData, label) => {
+        if (!imageData) return null;
+        
         const preview = document.createElement('div');
         preview.style.cssText = `
           display: flex;
@@ -36,13 +41,18 @@ class CaptureHandler {
         `;
         
         const img = document.createElement('img');
-        img.src = imageUrl;
+        img.src = imageData;
         img.style.cssText = `
-          max-width: 350px;
-          max-height: 250px;
+          max-width: 320px;
+          max-height: 240px;
           border: 3px solid white;
           border-radius: 8px;
+          background-color: #333;
         `;
+        
+        // Event listeners for image loading
+        img.onload = () => console.log(`${label} image loaded successfully`);
+        img.onerror = (e) => console.error(`Error loading ${label} image:`, e);
         
         const textLabel = document.createElement('div');
         textLabel.textContent = label;
@@ -58,14 +68,30 @@ class CaptureHandler {
         return preview;
       };
       
+      // Add debug info
+      const debugInfo = document.createElement('div');
+      debugInfo.style.cssText = `
+        position: absolute;
+        top: -30px;
+        left: 0;
+        width: 100%;
+        color: white;
+        font-size: 12px;
+        text-align: center;
+      `;
+      debugInfo.textContent = `Screen: ${screenImage ? 'YES' : 'NO'}, Webcam: ${webcamImage ? 'YES' : 'NO'}`;
+      previewContainer.appendChild(debugInfo);
+      
       // Add screen capture preview
-      if (screenImageUrl) {
-        previewContainer.appendChild(createImagePreview(screenImageUrl, 'Screen Capture'));
+      const screenPreview = createImagePreview(screenImage, 'Screen Capture');
+      if (screenPreview) {
+        previewContainer.appendChild(screenPreview);
       }
       
       // Add webcam capture preview
-      if (webcamImageUrl) {
-        previewContainer.appendChild(createImagePreview(webcamImageUrl, 'Webcam Capture'));
+      const webcamPreview = createImagePreview(webcamImage, 'Webcam Capture');
+      if (webcamPreview) {
+        previewContainer.appendChild(webcamPreview);
       }
       
       // Add dot position info if available
@@ -76,7 +102,7 @@ class CaptureHandler {
           color: #ffcc00;
           font-size: 14px;
           position: absolute;
-          top: -25px;
+          top: -50px;
           left: 0;
           width: 100%;
           text-align: center;
@@ -108,29 +134,36 @@ class CaptureHandler {
         timeLeft -= 0.1;
         if (timeLeft <= 0) {
           clearInterval(interval);
-          timerElement.textContent = 'Closing...';
+          // Fade out
+          previewContainer.style.opacity = '0';
+          // Remove after fade
+          setTimeout(() => {
+            if (previewContainer.parentNode) {
+              previewContainer.parentNode.removeChild(previewContainer);
+            }
+          }, 300);
         } else {
           timerElement.textContent = `${timeLeft.toFixed(1)}s`;
         }
       }, 100);
       
-      // Remove preview after exactly 2 seconds
-      return new Promise(resolve => {
-        setTimeout(() => {
-          if (previewContainer && previewContainer.parentNode) {
-            previewContainer.parentNode.removeChild(previewContainer);
-          }
-          resolve();
-        }, 2000);
-      });
+      // Safety cleanup after 5 seconds in case anything goes wrong
+      setTimeout(() => {
+        if (previewContainer.parentNode) {
+          previewContainer.parentNode.removeChild(previewContainer);
+        }
+      }, 5000);
     }
   
     // Take a webcam picture and immediately stop the stream
-    async captureWebcamImage(filename) {
+    async captureWebcamImage(captureNumber) {
       let stream = null;
       let tempVideo = null;
       
       try {
+        // Format the filename with the current counter
+        const filename = `webcam_${String(captureNumber).padStart(3, '0')}.jpg`;
+        
         // Create a new stream just for this capture
         stream = await navigator.mediaDevices.getUserMedia({
           video: true,
@@ -153,7 +186,7 @@ class CaptureHandler {
         // Wait for video to initialize
         await new Promise((resolve) => {
           const timeoutId = setTimeout(() => {
-            console.log("Video loading timed out, continuing anyway");
+            console.warn("Video loading timed out, continuing anyway");
             resolve();
           }, 1000);
           
@@ -166,26 +199,38 @@ class CaptureHandler {
         // Small delay to ensure a clear frame
         await new Promise(resolve => setTimeout(resolve, 200));
         
-        // Capture the frame
-        const canvas = document.createElement('canvas');
-        canvas.width = tempVideo.videoWidth || 640;
-        canvas.height = tempVideo.videoHeight || 480;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
-        
-        // Get image data
-        const imageData = canvas.toDataURL('image/png');
-        
-        // Save the image
-        if (this.saveImageToServer) {
-          await this.saveImageToServer(imageData, filename, 'webcam');
-          console.log(`Saved webcam image: ${filename}`);
+        // Check if video dimensions are valid
+        if (tempVideo.videoWidth === 0 || tempVideo.videoHeight === 0) {
+          console.warn("Video dimensions are invalid, using default dimensions");
         }
         
-        return imageData;
+        // Capture the frame
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = tempVideo.videoWidth || 640;
+        tempCanvas.height = tempVideo.videoHeight || 480;
+        const ctx = tempCanvas.getContext('2d');
+        
+        try {
+          ctx.drawImage(tempVideo, 0, 0, tempCanvas.width, tempCanvas.height);
+          
+          // Get image data
+          const imageData = tempCanvas.toDataURL('image/png');
+          
+          // Save the image
+          if (this.saveImageToServer) {
+            const saveResponse = await this.saveImageToServer(imageData, filename, 'webcam', this.captureFolder);
+            console.log(`Saved webcam image: ${filename}`);
+            return { imageData, saveResponse };
+          }
+          
+          return { imageData, saveResponse: null };
+        } catch (drawError) {
+          console.error("Error drawing video to canvas:", drawError);
+          return { imageData: null, saveResponse: null };
+        }
       } catch (error) {
         console.error("Error capturing webcam image:", error);
-        return null;
+        return { imageData: null, saveResponse: null };
       } finally {
         // IMPORTANT: Always stop the stream and clean up, even if there was an error
         if (stream) {
@@ -202,26 +247,65 @@ class CaptureHandler {
     }
   
     // Capture screen image from canvas
-    async captureScreenImage(canvasRef, filename) {
+    async captureScreenImage(canvasRef, captureNumber) {
       try {
+        // Format the filename with the current counter
+        const filename = `screen_${String(captureNumber).padStart(3, '0')}.jpg`;
+        
         const canvas = canvasRef.current;
         if (!canvas) {
           console.error("Canvas reference is null");
-          return null;
+          return { imageData: null, saveResponse: null };
         }
-  
+        
         // Get image data
         const imageData = canvas.toDataURL('image/png');
         
         // Save the image
         if (this.saveImageToServer) {
-          await this.saveImageToServer(imageData, filename, 'screen');
-          console.log(`Saved screen image: ${filename}`);
+          const saveResponse = await this.saveImageToServer(imageData, filename, 'screen', this.captureFolder);
+          console.log(`Saved screen image: ${filename}, response:`, saveResponse);
+          return { imageData, saveResponse };
         }
         
-        return imageData;
+        return { imageData, saveResponse: null };
       } catch (error) {
         console.error("Error capturing screen image:", error);
+        return { imageData: null, saveResponse: null };
+      }
+    }
+    
+    // Save parameter CSV
+    async saveParameterCSV(captureNumber, params) {
+      try {
+        // Format the filename with the current counter
+        const filename = `parameter_${String(captureNumber).padStart(3, '0')}.csv`;
+        
+        // Create CSV content with two columns: name and value
+        const csvData = [
+          "name,value",
+          ...Object.entries(params).map(([name, value]) => `${name},${value}`)
+        ].join('\n');
+        
+        // Convert CSV to data URL
+        const csvBlob = new Blob([csvData], { type: 'text/csv' });
+        const csvReader = new FileReader();
+        
+        const csvDataUrl = await new Promise((resolve) => {
+          csvReader.onloadend = () => resolve(csvReader.result);
+          csvReader.readAsDataURL(csvBlob);
+        });
+        
+        // Save CSV using the API
+        if (this.saveImageToServer) {
+          const saveResponse = await this.saveImageToServer(csvDataUrl, filename, 'parameters', this.captureFolder);
+          console.log(`Saved parameter CSV: ${filename}`);
+          return saveResponse;
+        }
+        
+        return null;
+      } catch (csvError) {
+        console.error("Error saving parameter CSV:", csvError);
         return null;
       }
     }
@@ -229,42 +313,67 @@ class CaptureHandler {
     // Main capture and show process
     async captureAndShowPreview(captureCounter, canvasRef, position) {
       try {
-        // Prepare filenames
-        const screenFilename = `screen_${String(captureCounter).padStart(3, '0')}.jpg`;
-        const webcamFilename = `webcam_${String(captureCounter).padStart(3, '0')}.jpg`;
+        console.log(`Starting capture process with counter: ${captureCounter}`);
         
         // Step 1: Capture screen image
-        const screenImage = await this.captureScreenImage(canvasRef, screenFilename);
+        const { imageData: screenImage, saveResponse: screenResponse } = await this.captureScreenImage(canvasRef, captureCounter);
+        
+        // Get the capture number from the response if available (for continuous numbering)
+        let usedCaptureNumber = captureCounter;
+        if (screenResponse && screenResponse.captureNumber) {
+          usedCaptureNumber = screenResponse.captureNumber;
+          console.log(`Server assigned capture number: ${usedCaptureNumber}`);
+        }
         
         // Step 2: Capture webcam image (and immediately stop stream)
-        const webcamImage = await this.captureWebcamImage(webcamFilename);
+        const { imageData: webcamImage } = await this.captureWebcamImage(usedCaptureNumber);
         
-        // Step 3: Increment counter for next capture
+        // Step 3: Save parameters
+        const params = {
+          dot_x: position ? position.x : 0,
+          dot_y: position ? position.y : 0,
+          canvas_width: canvasRef.current ? canvasRef.current.width : 0,
+          canvas_height: canvasRef.current ? canvasRef.current.height : 0,
+          window_width: window.innerWidth,
+          window_height: window.innerHeight,
+          timestamp: new Date().toISOString()
+        };
+        
+        await this.saveParameterCSV(usedCaptureNumber, params);
+        
+        // Step 4: Increment counter for next capture
         if (this.setCaptureCounter) {
-          this.setCaptureCounter(prev => prev + 1);
+          // If the server is managing numbering, use the next number
+          if (screenResponse && screenResponse.captureNumber) {
+            this.setCaptureCounter(screenResponse.captureNumber + 1);
+          } else {
+            this.setCaptureCounter(prev => prev + 1);
+          }
         }
         
-        // Step 4: Update status
+        // Step 5: Update status
         if (this.setProcessStatus) {
-          this.setProcessStatus('Images captured successfully');
+          this.setProcessStatus(`Captured with dot at: x=${position?.x}, y=${position?.y}`);
         }
         
-        // Step 5: Show preview of the saved images
-        await this.showSavedImagesPreview(screenImage, webcamImage, position);
+        // Step 6: Show preview using the in-memory image data
+        this.showCapturePreview(screenImage, webcamImage, position);
         
-        // Step 6: Show TopBar again after preview is done
-        if (typeof this.toggleTopBar === 'function') {
-          this.toggleTopBar(true);
-        } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-          window.toggleTopBar(true);
-        }
+        // Step 7: Show TopBar again after preview is done
+        setTimeout(() => {
+          if (typeof this.toggleTopBar === 'function') {
+            this.toggleTopBar(true);
+          } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+            window.toggleTopBar(true);
+          }
+        }, 2200); // Wait longer than the preview duration
         
-        // Step 7: Clear status
+        // Step 8: Clear status after a delay
         setTimeout(() => {
           if (this.setProcessStatus) {
             this.setProcessStatus('');
           }
-        }, 500);
+        }, 3000);
         
       } catch (error) {
         console.error('Error during capture and preview:', error);
@@ -273,6 +382,15 @@ class CaptureHandler {
         if (this.setProcessStatus) {
           this.setProcessStatus('Error: ' + error.message);
         }
+        
+        // Show TopBar again even if there was an error
+        setTimeout(() => {
+          if (typeof this.toggleTopBar === 'function') {
+            this.toggleTopBar(true);
+          } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+            window.toggleTopBar(true);
+          }
+        }, 1500);
         
         // Clear error message after delay
         setTimeout(() => {

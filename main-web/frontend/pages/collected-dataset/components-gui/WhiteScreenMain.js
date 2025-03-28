@@ -23,7 +23,7 @@ const WhiteScreenMain = ({
   
   // Track capture session
   const [captureCounter, setCaptureCounter] = useState(1);
-  const [captureFolder, setCaptureFolder] = useState('');
+  const [captureFolder] = useState('eye_tracking_captures'); // Fixed folder name
   
   // Configuration state
   const [randomTimes, setRandomTimes] = useState(1);
@@ -34,15 +34,6 @@ const WhiteScreenMain = ({
   // Debug state to make visibility easier to track
   const [canvasVisible, setCanvasVisible] = useState(false);
   const [forceShowCountdown, setForceShowCountdown] = useState(false);
-  
-  // Create a capture folder on first render
-  useEffect(() => {
-    if (!captureFolder) {
-      const timestamp = new Date().toISOString().replace(/[:\.]/g, '-');
-      setCaptureFolder(`session_${timestamp}`);
-      console.log(`Created capture folder: session_${timestamp}`);
-    }
-  }, [captureFolder]);
   
   // Set up canvas when component mounts
   useEffect(() => {
@@ -91,6 +82,185 @@ const WhiteScreenMain = ({
       
       setCanvasVisible(true);
     };
+  
+  // Add this helper function to show a preview of the captured images
+  const showCapturePreview = (screenImage, webcamImage, dotPosition) => {
+    if (!screenImage && !webcamImage) {
+      console.warn("No images available to preview");
+      return;
+    }
+
+    // Remove any existing preview containers first (in case of overlapping)
+    try {
+      const existingPreviews = document.querySelectorAll('.capture-preview-container');
+      existingPreviews.forEach(preview => {
+        if (preview.parentNode) {
+          console.log("Removing existing preview container");
+          preview.parentNode.removeChild(preview);
+        }
+      });
+    } catch (cleanupError) {
+      console.error("Error cleaning up existing previews:", cleanupError);
+    }
+    
+    // Create a new preview container with z-index higher than everything else
+    const previewContainer = document.createElement('div');
+    previewContainer.className = 'capture-preview-container';
+    previewContainer.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: flex;
+      gap: 20px;
+      background-color: rgba(0, 0, 0, 0.85);
+      padding: 20px;
+      border-radius: 12px;
+      z-index: 999999;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+    `;
+    
+    console.log("Preview container created");
+    
+    // Add debug info div
+    const debugInfo = document.createElement('div');
+    debugInfo.style.cssText = `
+      position: absolute;
+      top: -30px;
+      left: 0;
+      width: 100%;
+      color: white;
+      font-size: 12px;
+      text-align: center;
+    `;
+    debugInfo.textContent = `Screen: ${screenImage ? 'YES' : 'NO'}, Webcam: ${webcamImage ? 'YES' : 'NO'}`;
+    previewContainer.appendChild(debugInfo);
+    
+    // Function to add an image to the preview
+    const addImagePreview = (image, label) => {
+      try {
+        console.log(`Adding ${label} preview, image data length: ${image ? image.length : 'N/A'}`);
+        
+        const preview = document.createElement('div');
+        preview.style.cssText = `
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        `;
+        
+        const img = document.createElement('img');
+        img.src = image;
+        img.alt = label;
+        img.style.cssText = `
+          max-width: 320px;
+          max-height: 240px;
+          border: 3px solid white;
+          border-radius: 8px;
+          background-color: #333;
+        `;
+        
+        // Event listeners for image loading
+        img.onload = () => console.log(`${label} image loaded successfully`);
+        img.onerror = (e) => console.error(`Error loading ${label} image:`, e);
+        
+        const labelElement = document.createElement('div');
+        labelElement.textContent = label;
+        labelElement.style.cssText = `
+          color: white;
+          font-size: 14px;
+          margin-top: 10px;
+          font-weight: bold;
+        `;
+        
+        preview.appendChild(img);
+        preview.appendChild(labelElement);
+        previewContainer.appendChild(preview);
+        console.log(`${label} preview element added to container`);
+        return true;
+      } catch (error) {
+        console.error(`Error adding ${label} preview:`, error);
+        return false;
+      }
+    };
+    
+    // Add both images to preview if available
+    if (screenImage) {
+      addImagePreview(screenImage, 'Screen Capture');
+    }
+    
+    if (webcamImage) {
+      addImagePreview(webcamImage, 'Webcam Capture');
+    }
+    
+    // Add dot position info if available
+    if (dotPosition) {
+      const positionInfo = document.createElement('div');
+      positionInfo.textContent = `Dot position: x=${Math.round(dotPosition.x)}, y=${Math.round(dotPosition.y)}`;
+      positionInfo.style.cssText = `
+        color: #ffcc00;
+        font-size: 14px;
+        position: absolute;
+        top: -50px;
+        left: 0;
+        width: 100%;
+        text-align: center;
+      `;
+      previewContainer.appendChild(positionInfo);
+      console.log("Dot position info added");
+    }
+    
+    // Add countdown timer
+    const timerElement = document.createElement('div');
+    timerElement.textContent = '2.0s';
+    timerElement.style.cssText = `
+      position: absolute;
+      bottom: -25px;
+      right: 20px;
+      color: white;
+      font-size: 12px;
+      background-color: rgba(0, 0, 0, 0.7);
+      padding: 3px 8px;
+      border-radius: 4px;
+    `;
+    previewContainer.appendChild(timerElement);
+    
+    // Add to document body
+    try {
+      document.body.appendChild(previewContainer);
+      console.log("Preview container added to DOM");
+    } catch (appendError) {
+      console.error("Error adding preview container to DOM:", appendError);
+    }
+    
+    // Countdown and remove the preview after 2 seconds
+    let timeLeft = 2.0;
+    const interval = setInterval(() => {
+      timeLeft -= 0.1;
+      if (timeLeft <= 0) {
+        clearInterval(interval);
+        // Fade out
+        previewContainer.style.transition = 'opacity 0.3s ease';
+        previewContainer.style.opacity = '0';
+        // Remove after fade
+        setTimeout(() => {
+          if (previewContainer.parentNode) {
+            console.log("Removing preview container from DOM");
+            previewContainer.parentNode.removeChild(previewContainer);
+          }
+        }, 300);
+      } else {
+        timerElement.textContent = `${timeLeft.toFixed(1)}s`;
+      }
+    }, 100);
+    
+    // Safety cleanup after 5 seconds in case anything goes wrong
+    setTimeout(() => {
+      if (previewContainer.parentNode) {
+        console.log("Safety cleanup of preview container");
+        previewContainer.parentNode.removeChild(previewContainer);
+      }
+    }, 5000);
+  };
     
     // Initial sizing
     updateDimensions();
@@ -163,16 +333,6 @@ const WhiteScreenMain = ({
     
     return { x, y };
   };
-  
-  // Debugging log for currentDot state changes
-  useEffect(() => {
-    console.log("currentDot state changed:", currentDot);
-  }, [currentDot]);
-  
-  // Debugging log for countdownValue state changes
-  useEffect(() => {
-    console.log("countdownValue state changed:", countdownValue);
-  }, [countdownValue]);
   
   // Clear the canvas
   const clearCanvas = () => {
@@ -271,13 +431,18 @@ const WhiteScreenMain = ({
       
       const result = await response.json();
       console.log(`Saved ${type} image:`, result);
+      
+      // If the server returns a new capture number, update our counter
+      if (result.captureNumber) {
+        setCaptureCounter(result.captureNumber + 1);
+      }
+      
       return result;
     } catch (error) {
       console.error(`Error saving ${type} image:`, error);
       throw error;
     }
   };
-  
   // Modified captureImage function in WhiteScreenMain.js
 
 // Modified captureImage function for WhiteScreenMain.js
@@ -1054,7 +1219,7 @@ const captureImage = async () => {
         </div>
       </div>
       
-      {/* Manual test button for direct testing */}
+      {/* Manual test button for direct testing
       <button
         onClick={handleRandomDot}
         style={{
@@ -1073,7 +1238,7 @@ const captureImage = async () => {
         }}
       >
         TEST DOT NOW
-      </button>
+      </button> */}
     </div>
   );
 };
