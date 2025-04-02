@@ -1,4 +1,24 @@
 {
+  "pages/collected-dataset/components-gui/actionButton.js -> ./Action/CalibrateHandler": {
+    "id": "pages/collected-dataset/components-gui/actionButton.js -> ./Action/CalibrateHandler",
+    "files": [
+      "static/chunks/_pages-dir-browser_pages_collected-dataset_components-gui_Action_CalibrateHandler_js.js"
+    ]
+  },
+  "pages/collected-dataset/components-gui/actionButton.js -> ./Action/CalibratePoints": {
+    "id": "pages/collected-dataset/components-gui/actionButton.js -> ./Action/CalibratePoints",
+    "files": []
+  },
+  "pages/collected-dataset/index.js -> ./components-gui/Action/CalibrateHandler": {
+    "id": "pages/collected-dataset/index.js -> ./components-gui/Action/CalibrateHandler",
+    "files": [
+      "static/chunks/_pages-dir-browser_pages_collected-dataset_components-gui_Action_CalibrateHandler_js.js"
+    ]
+  },
+  "pages/collected-dataset/index.js -> ./components-gui/Action/CalibratePoints": {
+    "id": "pages/collected-dataset/index.js -> ./components-gui/Action/CalibratePoints",
+    "files": []
+  },
   "pages/collected-dataset/index.js -> ./components-gui/VideoProcessorComponent": {
     "id": "pages/collected-dataset/index.js -> ./components-gui/VideoProcessorComponent",
     "files": [

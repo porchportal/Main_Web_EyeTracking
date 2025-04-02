@@ -363,34 +363,90 @@ export default function CollectedDatasetPage() {
       return;
     }
     
-    // Check if camera is active or not required for this action
-    const requiresCamera = ['headPose', 'boundingBox', 'mask', 'parameters'].includes(actionType);
+    // Check if we have registered WhiteScreenMain actions
+    const hasWhiteScreenAction = 
+      typeof window !== 'undefined' && 
+      window.whiteScreenActions && 
+      typeof window.whiteScreenActions[actionType] === 'function';
     
-    // Show warning if trying to use features requiring camera without camera being active
-    if (requiresCamera && !showCamera) {
-      setShowWarning(true);
-      setWarningMessage('Please activate the camera by clicking "Show Preview" first');
+    // For calibration action, try to use WhiteScreenMain's action
+    if (actionType === 'calibrate' && hasWhiteScreenAction) {
+      setOutputText('Starting calibration sequence...');
       
-      // Highlight the Show Preview button
-      highlightPreviewButton();
-      
-      // Auto-hide warning after 3 seconds
-      setTimeout(() => {
-        setShowWarning(false);
-      }, 3000);
-      
-      // Update output text
-      setOutputText('Camera preview needed for this feature');
-      
+      // Directly call WhiteScreenMain's calibration method
+      try {
+        window.whiteScreenActions.calibrate();
+      } catch (error) {
+        console.error('Error calling WhiteScreenMain calibration:', error);
+        setOutputText(`Calibration error: ${error.message}`);
+        // Show TopBar again in case of error
+        setShowTopBar(true);
+      }
+      return;
+    }
+    
+    // For other actions that WhiteScreenMain handles
+    if (hasWhiteScreenAction && ['randomDot', 'setRandom', 'clearAll'].includes(actionType)) {
+      try {
+        window.whiteScreenActions[actionType]();
+        setOutputText(`Action triggered: ${actionType}`);
+      } catch (error) {
+        console.error(`Error calling WhiteScreenMain action ${actionType}:`, error);
+        setOutputText(`Action error: ${error.message}`);
+      }
       return;
     }
     
     // Clear any existing warnings
     setShowWarning(false);
-    
-    // Special case for Random Dot - connect to WhiteScreenMain
-    // Replace the randomDot case in handleActionButtonClick with this implementation:
 
+    if (actionType === 'calibrate') {
+      // Hide topBar before starting calibration
+      setShowTopBar(false);
+      
+      // Dynamic import of required modules
+      Promise.all([
+        import('./components-gui/Action/CalibrateHandler'),
+        import('./components-gui/Action/CalibratePoints')
+      ]).then(([CalibrateHandlerModule, CalibratePointsModule]) => {
+        const CalibrateHandler = CalibrateHandlerModule.default;
+        const { generateCalibrationPoints } = CalibratePointsModule;
+        
+        // Create a new handler with proper configuration
+        const calibrateHandler = new CalibrateHandler({
+          canvasRef,
+          toggleTopBar: (show) => {
+            setShowTopBar(show);
+          },
+          setOutputText: (text) => {
+            setOutputText(text);
+          },
+          captureCounter,
+          setCaptureCounter,
+          captureFolder: 'eye_tracking_captures',
+          onComplete: () => {
+            setOutputText('Calibration completed successfully');
+            setShowTopBar(true);
+          }
+        });
+        
+        // Start the calibration process
+        calibrateHandler.startCalibration().catch(error => {
+          console.error('Error during calibration:', error);
+          setOutputText(`Calibration error: ${error.message}`);
+          
+          // Show TopBar again in case of error
+          setShowTopBar(true);
+        });
+      }).catch(error => {
+        console.error('Error loading calibration modules:', error);
+        setOutputText('Failed to load calibration modules');
+        setShowTopBar(true);
+      });
+      
+      return; // Exit early after starting calibration
+    }
+    
     // Special case for Random Dot - connect to WhiteScreenMain
     if (actionType === 'randomDot') {
       // Hide topBar before displaying the dot
@@ -1303,7 +1359,7 @@ export default function CollectedDatasetPage() {
       
 
       {/* TopBar component with onButtonClick handler - conditionally rendered */}
-      {showTopBar && (
+      {/* {showTopBar && (
         <TopBar 
           onButtonClick={handleTopBarButtonClick} 
           onCameraAccess={() => setShowPermissionPopup(true)}
@@ -1311,6 +1367,17 @@ export default function CollectedDatasetPage() {
           onOutputChange={(text) => setOutputText(text)}
           onToggleTopBar={toggleTopBar}
           onToggleMetrics={toggleMetrics} // Make sure this is connected
+          canvasRef={canvasRef}
+        />
+      )} */}
+      {showTopBar && (
+        <TopBar 
+          onButtonClick={handleActionButtonClick} // ✅ THIS FIX IS CRITICAL
+          onCameraAccess={() => setShowPermissionPopup(true)}
+          outputText={outputText}
+          onOutputChange={(text) => setOutputText(text)}
+          onToggleTopBar={toggleTopBar}
+          onToggleMetrics={toggleMetrics}
           canvasRef={canvasRef}
         />
       )}

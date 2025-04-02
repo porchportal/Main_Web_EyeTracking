@@ -891,21 +891,23 @@ const captureImage = async () => {
       return Math.round(dimension * percentage);
     };
     
-    const firstFramePercentage = 0.12;
-    const secondFramePercentage = 0.26;
+    // Define percentage values for outer and inner frames
+    const firstFramePercentage = 0.12;  // Outer frame at 12% from edges
+    const secondFramePercentage = 0.26; // Inner frame at 26% from edges
     
-    // Calculate points (outer and inner frame)
+    // Calculate points for outer frame (first frame)
     const xLeftFirst = conditionalRound(width, firstFramePercentage);
     const xRightFirst = width - conditionalRound(width, firstFramePercentage);
     const yTopFirst = conditionalRound(height, firstFramePercentage);
     const yBottomFirst = height - conditionalRound(height, firstFramePercentage);
     
+    // Calculate points for inner frame (second frame)
     const xLeftSecond = conditionalRound(width, secondFramePercentage);
     const xRightSecond = width - conditionalRound(width, secondFramePercentage);
     const yTopSecond = conditionalRound(height, secondFramePercentage);
     const yBottomSecond = height - conditionalRound(height, secondFramePercentage);
     
-    // Return array of points in sequence
+    // Return array of points in specific order
     return [
       // First frame - outer points
       { x: xLeftFirst, y: yTopFirst },
@@ -928,35 +930,281 @@ const captureImage = async () => {
       { x: xRightSecond, y: yBottomSecond }
     ];
   };
-  
-  // Handle calibration sequence
-  const handleSetCalibrate = () => {
-    if (isCapturing) return;
+  // In WhiteScreenMain.js - Update the useEffect for button click registration
+
+  // Make sure the calibrate action is properly registered
+  useEffect(() => {
+    // Skip during SSR
+    if (typeof window === 'undefined') return;
     
-    // Generate calibration points
-    const points = generateCalibrationPoints();
-    if (points.length === 0) {
-      setProcessStatus('Failed to generate calibration points');
-      return;
+    console.log("Registering action handlers with parent");
+    
+    if (onButtonClick) {
+      // Create action handlers with proper method references
+      const actionHandlers = {
+        randomDot: handleRandomDot,
+        setRandom: handleSetRandom,
+        calibrate: handleSetCalibrate, // Make sure this handler exists
+        clearAll: clearCanvas
+      };
+      
+      // Store in parent component context
+      onButtonClick('registerActions', actionHandlers);
+      
+      // Also make them globally available for direct access
+      window.whiteScreenActions = actionHandlers;
     }
     
-    setCalibrationPoints(points);
-    setCurrentCalibrationIndex(0);
-    setIsCapturing(true);
-    setRemainingCaptures(points.length);
-    setProcessStatus(`Calibration 1/${points.length}`);
-    
-    // Draw first point and start
-    const firstPoint = points[0];
-    drawDot(firstPoint.x, firstPoint.y);
-    
-    // Start countdown for first point
-    startCountdown(3, () => {
-      captureImage();
-      setTimeout(() => moveToNextCalibrationPoint(), 1000);
-    });
+    // Cleanup on unmount
+    return () => {
+      if (typeof window !== 'undefined' && window.whiteScreenActions) {
+        window.whiteScreenActions = null;
+      }
+    };
+  }, [onButtonClick]);
+
+  // Add this import at the top of WhiteScreenMain.js
+
+  // Replace the handleSetCalibrate function with this improved version
+  const handleSetCalibrate = async () => {
+    try {
+      // STEP 1: HIDE THE TOP BAR IMMEDIATELY (before anything else happens)
+      if (typeof toggleTopBar === 'function') {
+        toggleTopBar(false);
+      } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+        window.toggleTopBar(false);
+      }
+      
+      // Add a small delay to ensure UI updates
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // STEP 2: Initial setup
+      setIsCapturing(true);
+      setProcessStatus('Starting calibration sequence...');
+      
+      if (onStatusUpdate) {
+        onStatusUpdate({
+          processStatus: 'Starting calibration sequence',
+          isCapturing: true
+        });
+      }
+      
+      // Create a status indicator
+      const statusIndicator = document.createElement('div');
+      statusIndicator.className = 'calibrate-status-indicator';
+      statusIndicator.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        background-color: rgba(0, 102, 204, 0.9);
+        color: white;
+        font-size: 14px;
+        font-weight: bold;
+        padding: 8px 12px;
+        border-radius: 6px;
+        z-index: 9999;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      `;
+      statusIndicator.textContent = 'Calibrate Set Active: Initializing...';
+      document.body.appendChild(statusIndicator);
+      
+      // STEP 3: Setup canvas and generate points
+      const canvas = activeCanvasRef.current;
+      if (!canvas) {
+        throw new Error("Canvas reference is null");
+      }
+      
+      // Ensure canvas dimensions are set
+      const parent = canvas.parentElement;
+      if (parent) {
+        canvas.width = parent.clientWidth;
+        canvas.height = parent.clientHeight;
+      }
+      
+      console.log("Canvas dimensions for calibration:", { width: canvas.width, height: canvas.height });
+      
+      // Generate calibration points using the imported function
+      const points = generateCalibrationPoints(canvas.width, canvas.height);
+      setCalibrationPoints(points);
+      
+      console.log(`Generated ${points.length} calibration points`);
+      
+      if (!points || points.length === 0) {
+        throw new Error('Failed to generate calibration points');
+      }
+      
+      setRemainingCaptures(points.length);
+      
+      // STEP 4: Process each calibration point in sequence
+      for (let i = 0; i < points.length; i++) {
+        // Update state
+        setCurrentCalibrationIndex(i);
+        setRemainingCaptures(points.length - i);
+        
+        // Update status
+        const statusText = `Calibration ${i + 1}/${points.length}`;
+        setProcessStatus(statusText);
+        statusIndicator.textContent = `Calibrate Set Active: Processing point ${i + 1}/${points.length}`;
+        
+        if (onStatusUpdate) {
+          onStatusUpdate(statusText);
+        }
+        
+        // STEP 5: Draw the red dot FIRST, before any countdown
+        const point = points[i];
+        drawDot(point.x, point.y);
+        
+        // Wait a moment to ensure dot is visible
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        // STEP 6: Get canvas position for absolute positioning
+        const canvasRect = canvas.getBoundingClientRect();
+        
+        // Create countdown element above the dot
+        const countdownElement = document.createElement('div');
+        countdownElement.className = 'calibrate-countdown';
+        
+        // Position it above the dot
+        const absoluteX = canvasRect.left + point.x;
+        const absoluteY = canvasRect.top + point.y;
+        
+        countdownElement.style.cssText = `
+          position: fixed;
+          left: ${absoluteX}px;
+          top: ${absoluteY - 60}px;
+          transform: translateX(-50%);
+          color: red;
+          font-size: 36px;
+          font-weight: bold;
+          text-shadow: 0 0 10px white, 0 0 20px white;
+          z-index: 9999;
+          background-color: rgba(255, 255, 255, 0.8);
+          border: 2px solid red;
+          border-radius: 50%;
+          width: 50px;
+          height: 50px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        `;
+        document.body.appendChild(countdownElement);
+        
+        // STEP 7: Run 3-2-1 countdown (the dot stays visible during this time)
+        for (let count = 3; count > 0; count--) {
+          countdownElement.textContent = count;
+          statusIndicator.textContent = `Calibrate Set Active: countdown ${count} (${i + 1}/${points.length})`;
+          
+          // Wait for next countdown step
+          await new Promise(resolve => setTimeout(resolve, 800));
+        }
+        
+        // STEP 8: Show capturing indicator
+        countdownElement.textContent = "✓";
+        statusIndicator.textContent = `Capturing point ${i + 1}/${points.length}`;
+        
+        // STEP 9: Remove countdown element but KEEP the dot visible
+        setTimeout(() => {
+          if (countdownElement.parentNode) {
+            countdownElement.parentNode.removeChild(countdownElement);
+          }
+        }, 300);
+        
+        // STEP 10: Capture images (the dot is still visible)
+        await captureImage();
+        
+        // STEP 11: Wait for preview to complete before moving to next point
+        // During this time, the dot remains visible
+        await new Promise(resolve => setTimeout(resolve, 2300));
+      }
+      
+      // STEP 12: Calibration complete
+      statusIndicator.textContent = 'Calibration completed';
+      setProcessStatus('Calibration completed');
+      if (onStatusUpdate) {
+        onStatusUpdate('Calibration completed successfully');
+      }
+      
+      setRemainingCaptures(0);
+      
+      // Remove status indicator after a delay
+      setTimeout(() => {
+        if (statusIndicator.parentNode) {
+          statusIndicator.parentNode.removeChild(statusIndicator);
+        }
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Calibration error:', error);
+      setProcessStatus(`Error: ${error.message}`);
+      if (onStatusUpdate) {
+        onStatusUpdate(`Calibration error: ${error.message}`);
+      }
+    } finally {
+      setIsCapturing(false);
+      
+      // Show TopBar again
+      if (typeof toggleTopBar === 'function') {
+        toggleTopBar(true);
+      } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+        window.toggleTopBar(true);
+      }
+    }
   };
-  
+
+  // Fix for startCountdown function to hide TopBar immediately
+  // const startCountdown = (count, onComplete) => {
+  //   console.log("Starting countdown from:", count);
+    
+  //   // Hide TopBar immediately when countdown starts
+  //   if (typeof toggleTopBar === 'function') {
+  //     toggleTopBar(false);
+  //   } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+  //     window.toggleTopBar(false);
+  //   }
+    
+  //   // Set countdown value in state
+  //   setCountdownValue(count);
+  //   setForceShowCountdown(true);
+  //   setIsCapturing(true);
+    
+  //   // Update status for parent component
+  //   if (onStatusUpdate) {
+  //     onStatusUpdate({
+  //       countdownValue: count,
+  //       processStatus: `Countdown: ${count}`,
+  //       isCapturing: true
+  //     });
+  //   }
+    
+  //   const timer = setTimeout(() => {
+  //     if (count > 1) {
+  //       startCountdown(count - 1, onComplete);
+  //     } else {
+  //       // Final countdown step
+  //       console.log("Countdown finished, clearing countdown display");
+  //       setCountdownValue(null);
+  //       setForceShowCountdown(false);
+        
+  //       // Update status for parent component
+  //       if (onStatusUpdate) {
+  //         onStatusUpdate({
+  //           countdownValue: null,
+  //           processStatus: 'Capturing...',
+  //           isCapturing: true
+  //         });
+  //       }
+        
+  //       // Execute completion callback immediately
+  //       if (onComplete) {
+  //         console.log("Executing completion callback");
+  //         onComplete();
+  //       }
+  //     }
+  //   }, 800);
+    
+  //   return () => clearTimeout(timer);
+  // };
   // Move to next calibration point
   const moveToNextCalibrationPoint = () => {
     const nextIndex = currentCalibrationIndex + 1;
@@ -1016,26 +1264,26 @@ const captureImage = async () => {
     }
   };
   
-  // Pass actions up to parent component
-  useEffect(() => {
-    // Skip during SSR
-    if (typeof window === 'undefined') return;
+  // // Pass actions up to parent component
+  // useEffect(() => {
+  //   // Skip during SSR
+  //   if (typeof window === 'undefined') return;
     
-    console.log("Registering action handlers with parent");
+  //   console.log("Registering action handlers with parent");
     
-    if (onButtonClick) {
-      // Create action handlers
-      const actionHandlers = {
-        randomDot: handleRandomDot,
-        setRandom: handleSetRandom,
-        calibrate: handleSetCalibrate,
-        clearAll: clearCanvas
-      };
+  //   if (onButtonClick) {
+  //     // Create action handlers
+  //     const actionHandlers = {
+  //       randomDot: handleRandomDot,
+  //       setRandom: handleSetRandom,
+  //       calibrate: handleSetCalibrate,
+  //       clearAll: clearCanvas
+  //     };
       
-      // Store in parent component context
-      onButtonClick('registerActions', actionHandlers);
-    }
-  }, [onButtonClick]);
+  //     // Store in parent component context
+  //     onButtonClick('registerActions', actionHandlers);
+  //   }
+  // }, [onButtonClick]);
   
   // Update parent with status changes
   useEffect(() => {
