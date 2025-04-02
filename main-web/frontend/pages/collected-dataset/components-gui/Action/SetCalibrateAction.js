@@ -1,112 +1,73 @@
-// SetCalibrateAction.js - Updated version with proper imports
+// SetCalibrateAction.js - Uses fixed dot positions from CalibratePoints.js
 import CalibrateHandler from './CalibrateHandler';
-import { generateCalibrationPoints } from './CalibratePoints';
+import { generateCalibrationPoints } from './CalibratePoints'; // dot source
 
 const SetCalibrateAction = ({ 
   canvasRef, 
   onStatusUpdate, 
   setCaptureCounter,
-  saveImageToServer,
   toggleTopBar,
   captureCounter = 1
 }) => {
-  // Pre-check for canvas readiness
-  const isCanvasReady = () => {
-    const canvas = canvasRef.current;
-    return canvas && canvas.width > 0 && canvas.height > 0;
-  };
-
-  // Utility to wait for canvas to be ready
+  // Wait until canvas is fully ready
   const waitForCanvas = async (maxTries = 20, interval = 100) => {
     for (let i = 0; i < maxTries; i++) {
-      if (isCanvasReady()) {
-        return canvasRef.current;
+      const canvas = canvasRef.current;
+      if (canvas && canvas.width > 0 && canvas.height > 0) {
+        return canvas;
       }
       await new Promise(resolve => setTimeout(resolve, interval));
     }
     throw new Error("Canvas not ready after multiple attempts");
   };
 
-  // Main handler function for the Set Calibrate button
+  // Calibration trigger function
   const handleSetCalibrate = async () => {
     try {
-      // Hide TopBar first
-      if (toggleTopBar) {
-        toggleTopBar(false);
-      }
-      
-      // Update status
-      if (onStatusUpdate) {
-        onStatusUpdate({
-          processStatus: 'Starting calibration sequence',
-          isCapturing: true
-        });
-      }
-      
-      // Wait for canvas to be ready
-      console.log("Waiting for canvas to be ready...");
+      if (toggleTopBar) toggleTopBar(false); // Hide UI
+
+      onStatusUpdate?.({
+        processStatus: 'Waiting for canvas...',
+        isCapturing: true
+      });
+
       const canvas = await waitForCanvas();
-      console.log(`Canvas ready: ${canvas.width}x${canvas.height}`);
-      
-      // Check if canvas dimensions are valid
-      if (canvas.width === 0 || canvas.height === 0) {
-        throw new Error("Canvas has zero dimensions");
-      }
-      
-      // First test if we can generate points
-      const testPoints = generateCalibrationPoints(canvas.width, canvas.height);
-      if (!testPoints || testPoints.length === 0) {
-        throw new Error("Failed to generate calibration points");
-      }
-      
-      // Create a handler for the calibration process
+      const points = generateCalibrationPoints(canvas.width, canvas.height); // ← fixed points here
+
+      // CalibrateHandler initialized with fixed points
       const calibrateHandler = new CalibrateHandler({
         canvasRef,
+        calibrationPoints: points,
         toggleTopBar,
         setOutputText: (status) => {
-          if (onStatusUpdate) {
-            if (typeof status === 'string') {
-              onStatusUpdate(status);
-            } else {
-              onStatusUpdate({
-                processStatus: status,
-                isCapturing: true
-              });
-            }
-          }
+          onStatusUpdate?.({
+            processStatus: typeof status === 'string' ? status : status.processStatus,
+            countdownValue: status?.countdownValue,
+            isCapturing: true
+          });
         },
         captureCounter,
         setCaptureCounter,
         captureFolder: 'eye_tracking_captures',
         onComplete: () => {
-          // Update parent component when complete
-          if (onStatusUpdate) {
-            onStatusUpdate({
-              processStatus: 'Calibration completed',
-              isCapturing: false
-            });
-          }
+          onStatusUpdate?.({
+            processStatus: 'Calibration completed',
+            isCapturing: false
+          });
+          toggleTopBar?.(true);
         }
       });
-      
-      // Start the calibration process
+
+      // Start the dot sequence
       await calibrateHandler.startCalibration();
-      
-    } catch (error) {
-      console.error('Error in calibration:', error);
-      
-      // Update parent with error
-      if (onStatusUpdate) {
-        onStatusUpdate({
-          processStatus: `Calibration error: ${error.message}`,
-          isCapturing: false
-        });
-      }
-      
-      // Show TopBar again
-      if (toggleTopBar) {
-        toggleTopBar(true);
-      }
+
+    } catch (err) {
+      console.error('Calibration error:', err);
+      onStatusUpdate?.({
+        processStatus: `Calibration failed: ${err.message}`,
+        isCapturing: false
+      });
+      toggleTopBar?.(true);
     }
   };
 

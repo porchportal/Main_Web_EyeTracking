@@ -1,14 +1,13 @@
 // RandomDotActions.js
-// Handles the random dot generation and countdown functionality without starting camera preview
+// Handles the random dot generation and countdown functionality
 
-import { 
-  createDotCountdown, 
-  drawRedDot, 
-  initializeCanvas, 
-  getRandomPosition 
-} from './DotCaptureUtil';
+import {
+  initializeCanvas,
+  getRandomPosition,
+  drawRedDot,
+  captureAndPreviewProcess
+} from './countSave';
 
-import CaptureHandler from './CaptureHandler';
 
 class RandomDotActions {
   constructor(config) {
@@ -23,24 +22,6 @@ class RandomDotActions {
     this.saveImageToServer = config.saveImageToServer;
     this.setCaptureCounter = config.setCaptureCounter;
     this.captureCounter = config.captureCounter;
-    
-    // Initialize capture handler
-    this.captureHandler = new CaptureHandler(
-      this.saveImageToServer,
-      this.setCaptureCounter,
-      this.setProcessStatus,
-      this.toggleTopBar
-    );
-  }
-
-  // Initialize capture handler
-  initCaptureHandler() {
-    return this.captureHandler || new CaptureHandler(
-      this.saveImageToServer,
-      this.setCaptureCounter,
-      this.setProcessStatus,
-      this.toggleTopBar
-    );
   }
 
   // Main function to handle random dot generation and capture
@@ -86,54 +67,35 @@ class RandomDotActions {
         // Store current dot position
         this.setCurrentDot(position);
         
-        // Get the canvas position relative to the viewport
-        const canvasRect = canvas.getBoundingClientRect();
-        
-        // Create the countdown element directly above the dot
-        const countdownElement = createDotCountdown(position, canvasRect);
-        
-        // Initialize the capture handler
-        const captureHandler = this.initCaptureHandler();
-        
-        // Manual countdown implementation
-        let count = 3;
-        countdownElement.textContent = count;
-        
-        const countdownInterval = setInterval(async () => {
-          count--;
-          if (count <= 0) {
-            clearInterval(countdownInterval);
-            countdownElement.remove();
-            
-            // Capture images and show preview
-            try {
-              // Don't trigger camera preview, just capture the available images
-              await captureHandler.captureAndShowPreview(
-                this.captureCounter,
-                this.canvasRef,
-                position
-              );
-              
-              // Set capturing state to false after reasonable delay
-              // This allows the preview to be shown before resetting state
-              setTimeout(() => {
-                this.setIsCapturing(false);
-              }, 2200); // Wait a bit longer than the preview duration
-              
-            } catch (error) {
-              console.error("Error in capture and preview process:", error);
-              this.setProcessStatus('Error during capture process');
-              this.setIsCapturing(false);
-              
-              // Clear error message after delay
-              setTimeout(() => {
-                this.setProcessStatus('');
-              }, 3000);
-            }
-          } else {
-            countdownElement.textContent = count;
-          }
-        }, 800);
+        try {
+          // Use the shared capture and preview process
+          await captureAndPreviewProcess({
+            canvasRef: this.canvasRef,
+            position,
+            captureCounter: this.captureCounter,
+            saveImageToServer: this.saveImageToServer,
+            setCaptureCounter: this.setCaptureCounter,
+            setProcessStatus: this.setProcessStatus,
+            toggleTopBar: this.toggleTopBar,
+            onStatusUpdate: this.onStatusUpdate,
+            captureFolder: 'eye_tracking_captures'
+          });
+          
+          // Set capturing state to false after reasonable delay
+          setTimeout(() => {
+            this.setIsCapturing(false);
+          }, 2200); // Wait a bit longer than the preview duration
+          
+        } catch (error) {
+          console.error("Error in capture and preview process:", error);
+          this.setProcessStatus('Error during capture process');
+          this.setIsCapturing(false);
+          
+          // Clear error message after delay
+          setTimeout(() => {
+            this.setProcessStatus('');
+          }, 3000);
+        }
       } else {
         console.error("Canvas reference is null - cannot draw dot");
         this.setProcessStatus('Error: Canvas not available');
