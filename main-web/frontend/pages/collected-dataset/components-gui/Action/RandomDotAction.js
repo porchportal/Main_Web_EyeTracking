@@ -2,7 +2,7 @@
 // Handles the random dot generation and countdown functionality
 
 import {
-  initializeCanvas,
+  // initializeCanvas,
   getRandomPosition,
   drawRedDot,
   captureAndPreviewProcess
@@ -50,11 +50,14 @@ class RandomDotActions {
       if (canvas) {
         // Make sure canvas dimensions are properly set
         const parent = canvas.parentElement;
-        if (!initializeCanvas(canvas, parent)) {
-          console.error("Could not initialize canvas");
-          this.setProcessStatus('Error: Canvas initialization failed');
-          this.setIsCapturing(false);
-          return;
+        // if (!initializeCanvas(canvas, parent)) {
+        //   console.error("Could not initialize canvas");
+        //   this.setProcessStatus('Error: Canvas initialization failed');
+        //   this.setIsCapturing(false);
+        //   return;
+        // }
+        if (typeof window !== 'undefined' && window.initializeCanvas) {
+          window.initializeCanvas(canvas, parent);
         }
         
         // Generate random position

@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@next/swc-darwin-arm64": "^15.2.4",
     "autoprefixer": "^10.4.14",
     "formidable": "^3.5.2",
     "next": "^15.2.3",

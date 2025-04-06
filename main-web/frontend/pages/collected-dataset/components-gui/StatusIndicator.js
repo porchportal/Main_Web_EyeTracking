@@ -1,18 +1,24 @@
 // components-gui/StatusIndicator.js
-import React from 'react';
+import React, { useEffect } from 'react';
 
 const StatusIndicator = ({ 
   isTopBarShown = true, 
   isCanvasVisible = false,
+  onStatusChange = () => {},
   style = {} 
 }) => {
+  useEffect(() => {
+    const message = `TopBar ${isTopBarShown ? 'shown' : 'hidden'}, Canvas: ${isCanvasVisible ? 'Visible' : 'Hidden'}`;
+    onStatusChange(message);
+  }, [isTopBarShown, isCanvasVisible, onStatusChange]);
+
   return (
     <div 
       className="status-indicator"
       style={{
         position: 'fixed',
         top: '10px',
-        right: '10px',
+        right: '60px',
         display: 'flex',
         flexDirection: 'column',
         backgroundColor: 'rgba(255, 255, 255, 0.9)',

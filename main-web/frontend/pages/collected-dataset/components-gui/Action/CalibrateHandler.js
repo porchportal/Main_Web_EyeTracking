@@ -1,9 +1,7 @@
-// CalibrateHandler.js - Handles the calibration process
+// CalibrateHandler.js - Using the existing CaptureHandler class
 import { generateCalibrationPoints } from './CalibratePoints';
-import {
-  drawRedDot,
-  captureAndPreviewProcess
-} from './countSave';
+import CaptureHandler from './CaptureHandler';
+import { drawRedDot } from './DotCaptureUtil';
 
 class CalibrateHandler {
   constructor(config) {
@@ -17,6 +15,57 @@ class CalibrateHandler {
 
     // Accept passed-in calibration points (from SetCalibrateAction.js)
     this.calibrationPoints = config.calibrationPoints || [];
+
+    // Create a CaptureHandler instance for handling the captures
+    this.captureHandler = new CaptureHandler(
+      // Pass saveImageToServer function
+      async (imageData, filename, type, folder) => {
+        try {
+          const response = await fetch('/api/save-capture', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              imageData,
+              filename,
+              type,
+              folder: this.captureFolder
+            })
+          });
+          
+          if (!response.ok) {
+            console.warn(`Server responded with ${response.status}`);
+            return {};
+          }
+          
+          return await response.json();
+        } catch (err) {
+          console.error(`Error saving ${type}:`, err);
+          return {};
+        }
+      },
+      // Pass setCaptureCounter function
+      (newCounter) => {
+        if (typeof newCounter === 'function') {
+          this.captureCounter = newCounter(this.captureCounter);
+        } else {
+          this.captureCounter = newCounter;
+        }
+        
+        if (this.setCaptureCounter) {
+          this.setCaptureCounter(this.captureCounter);
+        }
+      },
+      // Pass setProcessStatus function
+      (status) => {
+        if (this.setOutputText) {
+          this.setOutputText(status);
+        }
+      },
+      // Pass toggleTopBar function
+      this.toggleTopBar
+    );
 
     // Internals
     this.isProcessing = false;
@@ -54,55 +103,90 @@ class CalibrateHandler {
         throw new Error("Invalid calibration point");
       }
 
-      const canvas = this.canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      drawRedDot(ctx, point.x, point.y);
-
       if (this.statusIndicator) {
         this.statusIndicator.textContent = `Processing point ${index + 1}/${total}`;
       }
 
-      await captureAndPreviewProcess({
-        canvasRef: this.canvasRef,
-        position: point,
-        captureCounter: this.captureCounter,
-        saveImageToServer: async (imageData, filename, type, folder) => {
-          const response = await fetch('/api/save-capture', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imageData,
-              filename,
-              type,
-              folder: this.captureFolder
-            })
-          });
-
-          if (!response.ok) {
-            throw new Error(`Server error: ${response.status}`);
-          }
-
-          return await response.json();
-        },
-        setCaptureCounter: (newCounter) => {
-          this.captureCounter = newCounter;
-          this.setCaptureCounter?.(newCounter);
-        },
-        setProcessStatus: (status) => {
-          this.setOutputText?.(status);
-        },
-        toggleTopBar: this.toggleTopBar,
-        onStatusUpdate: (status) => {
-          const msg = typeof status === 'string' ? status : `Point ${index + 1}/${total} - ${status.countdownValue || status.processStatus}`;
-          this.setOutputText?.(msg);
-        },
-        captureFolder: this.captureFolder
-      });
-
+      // Draw the dot
+      const canvas = this.canvasRef.current;
+      if (!canvas) {
+        throw new Error("Canvas not available");
+      }
+      
+      const ctx = canvas.getContext('2d');
+      drawRedDot(ctx, point.x, point.y);
+      
+      // Create countdown element
+      const canvasRect = canvas.getBoundingClientRect();
+      const countdownElement = document.createElement('div');
+      countdownElement.className = 'calibrate-countdown';
+      countdownElement.style.cssText = `
+        position: fixed;
+        left: ${canvasRect.left + point.x}px;
+        top: ${canvasRect.top + point.y - 60}px;
+        transform: translateX(-50%);
+        color: red;
+        font-size: 36px;
+        font-weight: bold;
+        text-shadow: 0 0 10px white, 0 0 20px white;
+        z-index: 9999;
+        background-color: rgba(255, 255, 255, 0.8);
+        border: 2px solid red;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      `;
+      document.body.appendChild(countdownElement);
+      
+      // Run countdown
+      for (let count = 3; count > 0; count--) {
+        countdownElement.textContent = count;
+        this.setOutputText?.(`Point ${index + 1}/${total} - countdown ${count}`);
+        
+        // Make sure dot remains visible during countdown
+        drawRedDot(ctx, point.x, point.y);
+        
+        // Wait for next countdown step
+        await new Promise(resolve => setTimeout(resolve, 800));
+      }
+      
+      // Show capturing indicator
+      countdownElement.textContent = "✓";
+      this.setOutputText?.(`Capturing point ${index + 1}/${total}`);
+      
+      // Remove countdown element
+      setTimeout(() => {
+        if (countdownElement.parentNode) {
+          countdownElement.parentNode.removeChild(countdownElement);
+        }
+      }, 300);
+      
+      // Use CaptureHandler to handle the capture process
+      const captureResult = await this.captureHandler.captureAndShowPreview(
+        this.captureCounter,
+        this.canvasRef,
+        point
+      );
+      
+      // Add null check before using the result
+      if (!captureResult) {
+        console.warn(`No capture result for point ${index + 1}`);
+        // You might want to set a default or retry logic here
+      }
+      
+      // Wait for the preview to complete
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      
       return true;
     } catch (err) {
       console.error(`Error processing point ${index + 1}:`, err);
-      this.statusIndicator.textContent = `Error: ${err.message}`;
+      if (this.statusIndicator) {
+        this.statusIndicator.textContent = `Error: ${err.message}`;
+      }
       this.setOutputText?.(`Error: ${err.message}`);
       return false;
     }
@@ -112,7 +196,11 @@ class CalibrateHandler {
     if (this.isProcessing) return false;
     this.isProcessing = true;
 
-    this.toggleTopBar?.(false);
+
+
+    if (this.toggleTopBar) {
+      this.toggleTopBar(false);
+    }
 
     const indicator = this.createStatusIndicator();
     indicator.textContent = 'Initializing calibration...';
@@ -133,24 +221,79 @@ class CalibrateHandler {
       }
 
       this.setOutputText?.(`Starting calibration with ${this.calibrationPoints.length} points`);
-
+      
+      let successCount = 0;
       for (let i = 0; i < this.calibrationPoints.length; i++) {
-        const success = await this.processCalibrationPoint(this.calibrationPoints[i], i, this.calibrationPoints.length);
-        if (!success) break;
+        const success = await this.processCalibrationPoint(
+          this.calibrationPoints[i], 
+          i, 
+          this.calibrationPoints.length
+        );
+        
+        if (success) {
+          successCount++;
+        }
+        
+        // Small delay between points
+        await new Promise(resolve => setTimeout(resolve, 800));
       }
 
-      this.setOutputText?.('Calibration completed');
-      this.statusIndicator.textContent = 'Calibration completed';
-      this.toggleTopBar?.(true);
-      this.onComplete?.();
+      this.setOutputText?.(`Calibration completed: ${successCount}/${this.calibrationPoints.length} points captured`);
+      if (this.statusIndicator) {
+        this.statusIndicator.textContent = `Calibration complete: ${successCount}/${this.calibrationPoints.length} points`;
+      }
+      
+      // Turn TopBar back on
+      if (this.toggleTopBar) {
+        this.toggleTopBar(true);
+      }
+      
+      if (this.onComplete) {
+        this.onComplete();
+      }
 
     } catch (error) {
-      console.error('Calibration error:', error);
-      this.setOutputText?.(`Calibration error: ${error.message}`);
-      this.statusIndicator.textContent = `Error: ${error.message}`;
-      this.toggleTopBar?.(true);
+      // console.error('Calibration error:', error);
+      // this.setOutputText?.(`Calibration error: ${error.message}`);
+      // if (this.statusIndicator) {
+      //   this.statusIndicator.textContent = `Error: ${error.message}`;
+      // }
+      
+      // // Make sure we turn TopBar back on even on error
+      // if (this.toggleTopBar) {
+      //   this.toggleTopBar(true);
+      // }
+      console.error('Error during capture and preview:', error);
+  
+      // Show error message
+      if (this.setProcessStatus) {
+        this.setProcessStatus('Error: ' + error.message);
+      }
+      
+      // Show TopBar again even if there was an error
+      setTimeout(() => {
+        if (typeof this.toggleTopBar === 'function') {
+          this.toggleTopBar(true);
+        } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+          window.toggleTopBar(true);
+        }
+      }, 1500);
+      
+      // Return a default object to prevent null reference errors
+      return {
+        screenImage: '',
+        webcamImage: '',
+        success: false
+      };
     } finally {
       this.isProcessing = false;
+      
+      // Remove the status indicator after a delay
+      setTimeout(() => {
+        if (this.statusIndicator && this.statusIndicator.parentNode) {
+          this.statusIndicator.parentNode.removeChild(this.statusIndicator);
+        }
+      }, 3000);
     }
   }
 }

@@ -96,13 +96,13 @@ const CameraAccess = ({
             }
             
             // Notify parent component
-            if (onCameraReady) {
-              onCameraReady({
-                width: videoWidth,
-                height: videoHeight,
-                distance: 120
-              });
-            }
+            // if (onCameraReady) {
+            //   onCameraReady({
+            //     width: videoWidth,
+            //     height: videoHeight,
+            //     distance: 120
+            //   });
+            // }
             
             // Start processing frames
             startProcessing();
