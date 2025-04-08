@@ -215,7 +215,6 @@ export default function CollectedDatasetPage() {
       delete window.initializeCanvas;
     };
   }, [isHydrated]);
-
   // Improved canvas dimensions adjustment
   const adjustCanvasDimensions = () => {
     if (!isClient || !isHydrated || !previewAreaRef.current) return;
@@ -231,15 +230,19 @@ export default function CollectedDatasetPage() {
     // Get the size of the preview area
     const rect = container.getBoundingClientRect();
     
+    // Calculate proper height based on top bar visibility
+    const topBarHeight = showTopBar ? 120 : 0; // Adjust this value based on your top bar's actual height
+    
     console.log("Adjusting canvas dimensions", {
       containerWidth: rect.width,
       containerHeight: rect.height,
-      showTopBar: showTopBar
+      topBarVisible: showTopBar,
+      calculatedHeight: rect.height
     });
     
-    // Set canvas dimensions to match container size
+    // Set canvas dimensions to match container size with top bar adjustment
     canvas.width = rect.width;
-    canvas.height = rect.height - (showTopBar ? 0 : 0); // Adjust if needed
+    canvas.height = rect.height;
     
     // Clear the canvas
     const ctx = canvas.getContext('2d');
@@ -251,7 +254,7 @@ export default function CollectedDatasetPage() {
     
     console.log(`Canvas dimensions adjusted: ${canvas.width}x${canvas.height}`);
     
-    // Update global reference
+    // Update global reference with current dimensions
     window.whiteScreenCanvas = canvas;
     window.canvasDimensions = {
       width: canvas.width,
@@ -415,6 +418,7 @@ export default function CollectedDatasetPage() {
     const processor = window.videoProcessor;
     if (!processor) {
       console.error('Video processor not available');
+      setOutputText('Error: Video processor not available');
       return;
     }
     
@@ -423,15 +427,20 @@ export default function CollectedDatasetPage() {
       setShowCameraPlaceholder(false);
       
       // Start video processing
-      processor.startVideoProcessing({
-        showHeadPose,
-        showBoundingBox,
-        showMask,
-        showParameters,
-        showProcessedImage: true
-      });
-      
-      setOutputText('Camera preview started');
+      try {
+        processor.startVideoProcessing({
+          showHeadPose,
+          showBoundingBox,
+          showMask,
+          showParameters,
+          showProcessedImage: true
+        });
+        
+        setOutputText('Camera preview started');
+      } catch (err) {
+        console.error('Error starting camera:', err);
+        setOutputText(`Camera error: ${err.message}`);
+      }
     } else {
       setShowCamera(false);
       
@@ -584,17 +593,21 @@ export default function CollectedDatasetPage() {
       case 'randomDot':
         setShowTopBar(false);
         setOutputText('Random dot action triggered');
-        
+        if (showCamera) {
+          toggleCamera(false);
+        }
+        console.log('Attempting to access Random Dot functionality');
         
         // Use the random dot functionality from actionButton.js by delegating to ActionButtonGroup
         // This assumes you have a ref to the ActionButtonGroup component
         if (actionButtonGroupRef.current && actionButtonGroupRef.current.handleRandomDot) {
+          console.log('Using ref method');
           actionButtonGroupRef.current.handleRandomDot();
-        } 
-        else {
-          if (showCamera) {
-            toggleCamera(false);
-          }
+        } else if (typeof window !== 'undefined' && window.actionButtonFunctions && 
+          typeof window.actionButtonFunctions.handleRandomDot === 'function') {
+          console.log('Using global bridge method');
+          window.actionButtonFunctions.handleRandomDot();
+        } else {
           // Fallback implementation
           const canvas = getMainCanvas();
           if (!canvas) {
@@ -768,69 +781,83 @@ export default function CollectedDatasetPage() {
         }
         break;
         
+      // Fixed calibrate case handler in index.js
       case 'calibrate':
-        // Special case for calibration
-        setOutputText('Starting calibration sequence...');
-        setShowTopBar(false);
-        
-        // Make sure we have a canvas to work with
-        
-        if (!canvas) {
-          console.error("Canvas not found for calibration");
-          setOutputText("Error: Canvas not available for calibration");
-          setShowTopBar(true);
-          return;
+        if (actionButtonGroupRef.current && actionButtonGroupRef.current.handleSetCalibrate) {
+          // Use the reference method if available
+          console.log('Using ActionButtonGroup ref method for calibration');
+          actionButtonGroupRef.current.handleSetCalibrate();
+        } 
+        else if (typeof window !== 'undefined' && window.actionButtonFunctions && 
+          typeof window.actionButtonFunctions.handleSetCalibrate === 'function') {
+          // Fallback to global method
+          console.log('Using global bridge method for calibration');
+          window.actionButtonFunctions.handleSetCalibrate();
         }
-        
-        // Import the necessary modules
-        Promise.all([
-          import('./components-gui/Action/CalibratePoints'),
-          import('./components-gui/Action/countSave'),
-          import('./components-gui/Helper/savefile')
-        ]).then(([
-          { generateCalibrationPoints },
-          { drawRedDot, runCountdown, showCapturePreview },
-          { captureImagesAtPoint }
-        ]) => {
-          // Generate calibration points
-          const points = generateCalibrationPoints(canvas.width, canvas.height);
+        else {
+          // Fallback implementation - use promise-based approach with properly scoped variables
+          setOutputText('Starting calibration sequence...');
+          setShowTopBar(false);
           
-          if (!points || points.length === 0) {
-            console.error("Failed to generate calibration points");
-            setOutputText("Error: Failed to generate calibration points");
+          // Make sure we have a canvas to work with
+          const canvas = getMainCanvas();
+          if (!canvas) {
+            console.error("Canvas not found for calibration");
+            setOutputText("Error: Canvas not available for calibration");
             setShowTopBar(true);
             return;
           }
           
-          // Create status indicator
-          const statusIndicator = document.createElement('div');
-          statusIndicator.className = 'calibrate-status-indicator';
-          statusIndicator.style.cssText = `
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background-color: rgba(0, 102, 204, 0.9);
-            color: white;
-            font-size: 14px;
-            font-weight: bold;
-            padding: 8px 12px;
-            border-radius: 6px;
-            z-index: 9999;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-          `;
-          statusIndicator.textContent = 'Calibration: Initializing...';
-          document.body.appendChild(statusIndicator);
-          
-          // Access webcam before starting calibration
-          // triggerCameraAccess(true);
-          
-          // Process points sequentially using async/await pattern
-          (async () => {
+          // Load all required modules first, then proceed with execution
+          Promise.all([
+            import('./components-gui/Action/CalibratePoints'),
+            import('./components-gui/Action/countSave'),
+            import('./components-gui/Helper/savefile')
+          ]).then(async ([
+            calibratePointsModule,
+            countSaveModule,
+            savefileModule
+          ]) => {
+            // Destructure the imported modules
+            const { generateCalibrationPoints } = calibratePointsModule;
+            const { drawRedDot, runCountdown, showCapturePreview } = countSaveModule;
+            const { captureImagesAtPoint } = savefileModule;
+            
             try {
-              let successCount = 0;
+              // Generate calibration points
+              const points = generateCalibrationPoints(canvas.width, canvas.height);
               
-              // Wait for camera to initialize
-              await new Promise(resolve => setTimeout(resolve, 500));
+              if (!points || points.length === 0) {
+                throw new Error("Failed to generate calibration points");
+              }
+              
+              // Create status indicator
+              const statusIndicator = document.createElement('div');
+              statusIndicator.className = 'calibrate-status-indicator';
+              statusIndicator.style.cssText = `
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                background-color: rgba(0, 102, 204, 0.9);
+                color: white;
+                font-size: 14px;
+                font-weight: bold;
+                padding: 8px 12px;
+                border-radius: 6px;
+                z-index: 9999;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+              `;
+              statusIndicator.textContent = 'Calibration: Initializing...';
+              document.body.appendChild(statusIndicator);
+              
+              // Access webcam before starting calibration if available
+              if (typeof triggerCameraAccess === 'function') {
+                triggerCameraAccess(true);
+                await new Promise(resolve => setTimeout(resolve, 500));
+              }
+              
+              // Process points sequentially
+              let successCount = 0;
               
               for (let i = 0; i < points.length; i++) {
                 const point = points[i];
@@ -847,7 +874,7 @@ export default function CollectedDatasetPage() {
                 // Draw the dot
                 drawRedDot(ctx, point.x, point.y);
                 
-                // Run countdown - using the same function as Random Dot
+                // Run countdown
                 await new Promise(resolve => {
                   runCountdown(
                     point,
@@ -861,11 +888,8 @@ export default function CollectedDatasetPage() {
                   );
                 });
                 
-                // Capture images at this point - using same function as Random Dot
+                // Capture images at this point
                 try {
-                  // Ensure camera is active
-                  // triggerCameraAccess(true);
-                  
                   const captureResult = await captureImagesAtPoint({
                     point: point,
                     captureCount: captureCounter,
@@ -905,12 +929,12 @@ export default function CollectedDatasetPage() {
               // Show TopBar again
               setTimeout(() => setShowTopBar(true), 2000);
             }
-          })();
-        }).catch(error => {
-          console.error("Failed to import required modules:", error);
-          setOutputText(`Calibration error: ${error.message}`);
-          setShowTopBar(true);
-        });
+          }).catch(error => {
+            console.error("Failed to import required modules:", error);
+            setOutputText(`Calibration error: ${error.message}`);
+            setShowTopBar(true);
+          });
+        }
         break;
         
       case 'clearAll':

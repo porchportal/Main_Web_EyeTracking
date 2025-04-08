@@ -1,6 +1,6 @@
-// Fixed SetCalibrateAction.js - Properly using the same process as Random Dot
+// Fixed SetCalibrateAction.js - Resolving reference errors
 import { generateCalibrationPoints } from './CalibratePoints';
-import { drawRedDot, runCountdown, createCountdownElement } from './countSave';
+import { drawRedDot, runCountdown, createCountdownElement, showCapturePreview } from './countSave';
 import { captureImagesAtPoint } from '../Helper/savefile';
 
 const SetCalibrateAction = ({ 
@@ -117,12 +117,7 @@ const SetCalibrateAction = ({
             captureCount: captureCounter,
             canvasRef: { current: canvas },
             setCaptureCount: setCaptureCounter,
-            showCapturePreview: (screenImage, webcamImage, point) => {
-              // Import this dynamically to avoid circular dependencies
-              import('./countSave').then(module => {
-                module.showCapturePreview(screenImage, webcamImage, point);
-              });
-            }
+            showCapturePreview
           });
           
           if (captureResult && (captureResult.screenImage || captureResult.success)) {

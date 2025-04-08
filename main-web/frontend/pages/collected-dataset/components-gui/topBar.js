@@ -27,8 +27,8 @@ const TopBar = ({
         setTimeout(() => btn.classList.remove('active-toggle'), 300);
       }
       
-      // onToggleTopBar();
-      onToggleTopBar('toggleTopBar');
+      onToggleTopBar();
+      // onToggleTopBar('toggleTopBar');
     }
   };
   
