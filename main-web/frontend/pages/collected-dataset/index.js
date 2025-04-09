@@ -498,101 +498,170 @@ export default function CollectedDatasetPage() {
     const delaySeconds = safeParams.delaySeconds || 3;
 
     switch (actionType) {
+
+
       case 'setRandom':
-      // Use the control values from the TopBar
-      setOutputText(`Starting ${randomTimes} random captures with ${delaySeconds}s delay...`);
-      
-      // Make sure we have a canvas to work with
-      const canvas = getMainCanvas();
-      if (!canvas) {
-        console.error("Canvas not found for random sequence");
-        setOutputText("Error: Canvas not available for random sequence");
-        return;
-      }
-      
-      // Initialize variables for tracking the sequence
-      let remainingCaptures = randomTimes;
-      let isSequenceRunning = true;
-      
-      // Define a function to run each capture in sequence
-      const runNextCapture = () => {
-        if (!isSequenceRunning || remainingCaptures <= 0) {
-          setOutputText('Random capture sequence completed');
-          return;
+        setOutputText('Starting random sequence...');
+        setShowTopBar(false);
+        if (showCamera) {
+          toggleCamera(false);
         }
-        
-        setOutputText(`Capture ${randomTimes - remainingCaptures + 1} of ${randomTimes}`);
-        
-        // Get a random position within the canvas
-        const position = getRandomPosition(canvas, 20);
-        
-        // Draw the dot
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        drawRedDot(ctx, position.x, position.y);
-        
-        // Run countdown and then capture
-        runCountdown(
-          position,
-          canvas,
-          (status) => {
-            // Update UI based on status
-            if (status.processStatus) {
-              setOutputText(status.processStatus);
-            }
-          },
-          () => {
-            // Enable camera before capture
-            // triggerCameraAccess(true);
-            
-            // Wait briefly for camera to initialize
-            setTimeout(() => {
-              // Use captureImagesAtPoint from savefile.js
-              import('./components-gui/Helper/savefile').then(({ captureImagesAtPoint }) => {
-                captureImagesAtPoint({
-                  point: position,
-                  captureCount: captureCounter,
-                  canvasRef: { current: canvas },
-                  setCaptureCount: setCaptureCounter,
-                  showCapturePreview
-                }).then(() => {
-                  setCaptureCounter(prev => prev + 1);
-                  
-                  // Decrement remaining captures
-                  remainingCaptures--;
-                  
-                  // Schedule next capture after specified delay
-                  if (remainingCaptures > 0) {
-                    setTimeout(runNextCapture, delaySeconds * 1000);
-                  } else {
-                    setOutputText('Random capture sequence completed');
-                  }
-                }).catch(err => {
-                  console.error("Error capturing images:", err);
-                  setOutputText(`Error: ${err.message}`);
-                  isSequenceRunning = false;
-                });
-              }).catch(err => {
-                console.error("Error importing savefile module:", err);
-                setOutputText(`Error: ${err.message}`);
-                isSequenceRunning = false;
-              });
-            }, 500);
+        // Use the imported module approach - similar to calibrate
+        if (actionButtonGroupRef.current && actionButtonGroupRef.current.handleSetRandom) {
+          // Use the reference method if available
+          console.log('Using ActionButtonGroup ref method for Set Random');
+          actionButtonGroupRef.current.handleSetRandom();
+        } 
+        else if (typeof window !== 'undefined' && window.actionButtonFunctions && 
+          typeof window.actionButtonFunctions.handleSetRandom === 'function') {
+          // Fallback to global method
+          console.log('Using global bridge method for Set Random');
+          window.actionButtonFunctions.handleSetRandom();
+        }
+        else {
+          // Make sure we have a canvas to work with
+          const canvas = getMainCanvas();
+          if (!canvas) {
+            console.error("Canvas not found for random sequence");
+            setOutputText("Error: Canvas not available for random sequence");
+            setShowTopBar(true);
+            return;
           }
-        );
-      };
-      
-      // Start the sequence
-      runNextCapture();
-      break;
+          
+          // Get control values from the TopBar
+          const timeInput = document.querySelector('.control-input-field');
+          const delayInput = document.querySelectorAll('.control-input-field')[1];
+          
+          // Default values if inputs can't be found
+          let times = 1;
+          let delay = 3;
+          
+          // Parse input values if available
+          if (timeInput) {
+            const parsedTime = parseInt(timeInput.value, 10);
+            if (!isNaN(parsedTime) && parsedTime > 0) {
+              times = parsedTime;
+            }
+          }
+          
+          if (delayInput) {
+            const parsedDelay = parseInt(delayInput.value, 10);
+            if (!isNaN(parsedDelay) && parsedDelay > 0) {
+              delay = parsedDelay;
+            }
+          }
+          
+          // Load all required modules first, then proceed with execution
+          Promise.all([
+            import('./components-gui/Action/countSave'),
+            import('./components-gui/Helper/savefile')
+          ]).then(async ([
+            countSaveModule,
+            savefileModule
+          ]) => {
+            // Destructure the imported modules
+            const { getRandomPosition, drawRedDot, runCountdown, showCapturePreview } = countSaveModule;
+            const { captureImagesAtPoint } = savefileModule;
+            
+            try {
+              // Process all captures sequentially
+              let successCount = 0;
+              let currentCapture = 1;
+              
+              while (currentCapture <= times) {
+                // Update status for current capture
+                setOutputText(`Capture ${currentCapture} of ${times}`);
+                
+                // Clear canvas before each capture
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Generate random position for this capture
+                const position = getRandomPosition(canvas, 20);
+                
+                // Draw the dot
+                drawRedDot(ctx, position.x, position.y);
+                
+                // Create a redrawInterval to ensure dot stays visible
+                let redrawInterval = setInterval(() => {
+                  drawRedDot(ctx, position.x, position.y, 12, false);
+                }, 200);
+                
+                // Run countdown and wait for it to complete
+                await new Promise(resolve => {
+                  runCountdown(
+                    position,
+                    canvas,
+                    (status) => {
+                      // Update UI based on status
+                      if (status.processStatus) {
+                        setOutputText(`Capture ${currentCapture}/${times}: ${status.processStatus}`);
+                      }
+                    },
+                    resolve // This will be called when countdown completes
+                  );
+                });
+                
+                // Clear redrawInterval after countdown
+                clearInterval(redrawInterval);
+                
+                // Wait briefly after countdown
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Capture images at this point
+                try {
+                  const captureResult = await captureImagesAtPoint({
+                    point: position,
+                    captureCount: captureCounter,
+                    canvasRef: { current: canvas },
+                    setCaptureCount: setCaptureCounter,
+                    showCapturePreview
+                  });
+                  
+                  if (captureResult && (captureResult.screenImage || captureResult.success)) {
+                    successCount++;
+                  }
+                  
+                  // Increment counter
+                  setCaptureCounter(prev => prev + 1);
+                } catch (error) {
+                  console.error(`Error capturing point ${currentCapture}:`, error);
+                }
+                
+                // Wait between captures for the specified delay time
+                if (currentCapture < times) {
+                  setOutputText(`Waiting ${delay}s before next capture...`);
+                  await new Promise(resolve => setTimeout(resolve, delay * 1000));
+                }
+                
+                // Move to next capture
+                currentCapture++;
+              }
+              
+              // Sequence complete
+              setOutputText(`Random capture sequence completed: ${successCount}/${times} captures successful`);
+              
+            } catch (error) {
+              console.error("Random sequence error:", error);
+              setOutputText(`Random sequence error: ${error.message}`);
+            } finally {
+              // Show TopBar again
+              setTimeout(() => setShowTopBar(true), 2000);
+            }
+          }).catch(error => {
+            console.error("Failed to import required modules:", error);
+            setOutputText(`Error: ${error.message}`);
+            setShowTopBar(true);
+          });
+        }
+        break;
 
 
       case 'randomDot':
-        setShowTopBar(false);
         setOutputText('Random dot action triggered');
+        setShowTopBar(false);
         if (showCamera) {
           toggleCamera(false);
         }

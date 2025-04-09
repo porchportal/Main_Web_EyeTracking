@@ -106,13 +106,29 @@ export const saveImageToServer = async (imageData, filename, type, folder = 'eye
       ].join('\n');
       await saveCSVToServer(csvData, parameterFilename, folder);
   
-      setCaptureCount(prev => prev + 1);
-      showCapturePreview(screenImage, webcamImage, point);
+      // Only increment the counter AFTER all files have been successfully saved
+      if (setCaptureCount) {
+        setCaptureCount(prev => prev + 1);
+      }
+      
+      // Show the preview AFTER saving everything
+      if (showCapturePreview && typeof showCapturePreview === 'function') {
+        showCapturePreview(screenImage, webcamImage, point);
+      }
+      
       return {
         screenImage: screenImage || canvas?.toDataURL('image/png'),
-        webcamImage: webcamImage || null
+        webcamImage: webcamImage || null,
+        success: true,
+        point
       };
     } catch (err) {
       console.error("captureImagesAtPoint failed:", err);
+      return { 
+        success: false, 
+        error: err.message,
+        screenImage: null,
+        webcamImage: null
+      };
     }
   };

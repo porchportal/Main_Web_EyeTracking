@@ -1,9 +1,8 @@
-// Fixed SetCalibrateAction.js - Resolving reference errors
-import { generateCalibrationPoints } from './CalibratePoints';
-import { drawRedDot, runCountdown, createCountdownElement, showCapturePreview } from './countSave';
+// Fixed SetRandomAction.js
+import { getRandomPosition, drawRedDot, runCountdown, showCapturePreview } from './countSave';
 import { captureImagesAtPoint } from '../Helper/savefile';
 
-const SetCalibrateAction = ({ 
+const SetRandomAction = ({ 
   canvasRef, 
   onStatusUpdate, 
   setCaptureCounter,
@@ -23,81 +22,84 @@ const SetCalibrateAction = ({
     throw new Error("Canvas not ready after multiple attempts");
   };
 
-  // Calibration trigger function - using the same process as Random Dot
-  const handleSetCalibrate = async () => {
+  // Main handler for Set Random button
+  const handleSetRandom = async () => {
     try {
-      // Hide UI
+      // Get control values from the TopBar
+      const timeInput = document.querySelector('.control-input-field');
+      const delayInput = document.querySelectorAll('.control-input-field')[1];
+      
+      // Default values if inputs can't be found
+      let times = 1;
+      let delay = 3;
+      
+      // Parse input values if available
+      if (timeInput) {
+        const parsedTime = parseInt(timeInput.value, 10);
+        if (!isNaN(parsedTime) && parsedTime > 0) {
+          times = parsedTime;
+        }
+      }
+      
+      if (delayInput) {
+        const parsedDelay = parseInt(delayInput.value, 10);
+        if (!isNaN(parsedDelay) && parsedDelay > 0) {
+          delay = parsedDelay;
+        }
+      }
+      
+      // Hide UI during capture process
       if (toggleTopBar) toggleTopBar(false);
-
+      
       onStatusUpdate?.({
-        processStatus: 'Initializing calibration...',
-        isCapturing: true
+        processStatus: `Starting ${times} random captures with ${delay}s delay...`,
+        isCapturing: true,
+        remainingCaptures: times
       });
-
+      
       // Wait for canvas to be ready
       const canvas = await waitForCanvas();
       
-      // Generate calibration points
-      const points = generateCalibrationPoints(canvas.width, canvas.height);
-      
-      if (!points || points.length === 0) {
-        throw new Error("Failed to generate calibration points");
-      }
-      
-      // Create status indicator
-      const statusIndicator = document.createElement('div');
-      statusIndicator.className = 'calibrate-status-indicator';
-      statusIndicator.style.cssText = `
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        background-color: rgba(0, 102, 204, 0.9);
-        color: white;
-        font-size: 14px;
-        font-weight: bold;
-        padding: 8px 12px;
-        border-radius: 6px;
-        z-index: 9999;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-      `;
-      statusIndicator.textContent = 'Calibration: Initializing...';
-      document.body.appendChild(statusIndicator);
-      
-      // Access webcam before starting calibration
-      if (triggerCameraAccess) triggerCameraAccess(true);
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Process each calibration point
+      // Process all captures sequentially
       let successCount = 0;
-      for (let i = 0; i < points.length; i++) {
-        const point = points[i];
-        
-        statusIndicator.textContent = `Calibration: Point ${i + 1}/${points.length}`;
-        
+      let currentCapture = 1;
+      
+      while (currentCapture <= times) {
+        // Update status for current capture
         onStatusUpdate?.({
-          processStatus: `Processing point ${i + 1}/${points.length}`,
+          processStatus: `Capture ${currentCapture} of ${times}`,
+          remainingCaptures: times - currentCapture + 1,
           isCapturing: true
         });
         
-        // Clear the canvas before drawing new point
+        // Clear canvas before each capture
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        // Draw the dot - JUST LIKE RANDOM DOT
-        drawRedDot(ctx, point.x, point.y);
+        // Generate random position for this capture
+        const position = getRandomPosition(canvas, 20);
         
-        // Run countdown - JUST LIKE RANDOM DOT
+        // Draw the dot
+        drawRedDot(ctx, position.x, position.y);
+        
+        // Create a redrawInterval to ensure dot stays visible
+        let redrawInterval = setInterval(() => {
+          drawRedDot(ctx, position.x, position.y, 12, false);
+        }, 200);
+        
+        // Run countdown and wait for it to complete
         await new Promise(resolve => {
           runCountdown(
-            point,
+            position,
             canvas,
             (status) => {
               // Update UI based on status
               if (status.processStatus) {
                 onStatusUpdate?.({
-                  processStatus: status.processStatus,
+                  processStatus: `Capture ${currentCapture}/${times}: ${status.processStatus}`,
+                  remainingCaptures: times - currentCapture + 1,
                   isCapturing: true
                 });
               }
@@ -106,14 +108,19 @@ const SetCalibrateAction = ({
           );
         });
         
-        // Capture images at this point - JUST LIKE RANDOM DOT
+        // Clear redrawInterval after countdown
+        clearInterval(redrawInterval);
+        
+        // Trigger camera access before capture
+        if (triggerCameraAccess) triggerCameraAccess(true);
+        
+        // Wait briefly for camera to initialize
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Capture images at this point
         try {
-          // Trigger camera access again to ensure it's on
-          if (triggerCameraAccess) triggerCameraAccess(true);
-          
-          // Use the same captureImagesAtPoint function used by Random Dot
           const captureResult = await captureImagesAtPoint({
-            point: point,
+            point: position,
             captureCount: captureCounter,
             canvasRef: { current: canvas },
             setCaptureCount: setCaptureCounter,
@@ -129,45 +136,52 @@ const SetCalibrateAction = ({
             setCaptureCounter(prev => prev + 1);
           }
         } catch (error) {
-          console.error(`Error capturing point ${i+1}:`, error);
+          console.error(`Error capturing point ${currentCapture}:`, error);
         }
         
-        // Wait between points
-        await new Promise(resolve => setTimeout(resolve, 1200));
+        // Wait between captures for the specified delay time
+        if (currentCapture < times) {
+          onStatusUpdate?.({
+            processStatus: `Waiting ${delay}s before next capture...`,
+            remainingCaptures: times - currentCapture,
+            isCapturing: true
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, delay * 1000));
+        }
+        
+        // Move to next capture
+        currentCapture++;
       }
       
-      // Calibration complete
-      statusIndicator.textContent = `Calibration complete: ${successCount}/${points.length} points`;
+      // Sequence complete
       onStatusUpdate?.({
-        processStatus: `Calibration completed: ${successCount}/${points.length} points captured`,
+        processStatus: `Random capture sequence completed: ${successCount}/${times} captures successful`,
+        remainingCaptures: 0,
         isCapturing: false
       });
-      
-      // Remove the status indicator after a delay
-      setTimeout(() => {
-        if (statusIndicator.parentNode) {
-          statusIndicator.parentNode.removeChild(statusIndicator);
-        }
-      }, 3000);
       
       // Turn TopBar back on
       if (toggleTopBar) {
         toggleTopBar(true);
       }
-
+      
     } catch (err) {
-      console.error('Calibration error:', err);
+      console.error('Random sequence error:', err);
       onStatusUpdate?.({
-        processStatus: `Calibration failed: ${err.message}`,
-        isCapturing: false
+        processStatus: `Random sequence failed: ${err.message}`,
+        isCapturing: false,
+        remainingCaptures: 0
       });
+      
+      // Make sure to restore the UI
       if (toggleTopBar) toggleTopBar(true);
     }
   };
 
   return {
-    handleAction: handleSetCalibrate
+    handleAction: handleSetRandom
   };
 };
 
-export default SetCalibrateAction;
+export default SetRandomAction;

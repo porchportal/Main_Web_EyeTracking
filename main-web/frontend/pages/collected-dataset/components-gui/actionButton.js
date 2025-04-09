@@ -637,84 +637,148 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       setProcessStatus(`Error: ${err.message}`);
     });
   };
+  // This partial file shows only the fixed handleSetRandom function
 
-  // Handle Set Random button
   // Refactored handleSetRandom function using handleDotProcess
+  // Improved handleSetRandom function using handleDotProcess
   const handleSetRandom = async () => {
     if (isCapturing) return;
     
-    // Read values from state (which are synced with the TopBar inputs)
-    const times = randomTimes;
-    const delay = delaySeconds;
-    
-    // Validate inputs
-    if (times <= 0) {
-      setProcessStatus('Error: Number of times must be greater than 0');
-      return;
-    }
-    
-    if (delay <= 0) {
-      setProcessStatus('Error: Delay must be greater than 0 seconds');
-      return;
-    }
-    
-    // Show canvas if not already visible
-    setShowCanvas(true);
-    
-    // Update status
-    setRemainingCaptures(times);
-    setProcessStatus(`Starting ${times} random captures with ${delay}s delay...`);
-    
-    // Process all random captures sequentially
-    let remaining = times;
-    let currentIndex = 1;
-    
-    while (remaining > 0) {
-      setProcessStatus(`Capture ${currentIndex} of ${times}`);
-      setRemainingCaptures(remaining);
+    try {
+      // Read values from TopBar inputs
+      const timeInput = document.querySelector('.control-input-field');
+      const delayInput = document.querySelectorAll('.control-input-field')[1];
       
-      // Use the consolidated function for each random dot
-      const result = await handleDotProcess({
-        useRandomPosition: true,
-        onStatusUpdate: (status) => {
-          if (status.processStatus) {
-            setProcessStatus(`Capture ${currentIndex}/${times}: ${status.processStatus}`);
-          }
-          if (status.isCapturing !== undefined) {
-            setIsCapturing(status.isCapturing);
-          }
-        },
-        toggleTopBar: (show) => {
-          if (typeof onActionClick === 'function') {
-            onActionClick('toggleTopBar', show);
-          }
-        },
-        triggerCameraAccess,
-        setIsCapturing,
-        captureCount,
-        setCaptureCount
-      });
+      // Default values if inputs can't be found
+      let times = randomTimes || 1; // Use state as backup
+      let delay = delaySeconds || 3; // Use state as backup
       
-      // Check for success
-      if (!result.success) {
-        setProcessStatus(`Error during capture ${currentIndex}: ${result.error}`);
-        break;
+      // Parse input values if available
+      if (timeInput) {
+        const parsedTime = parseInt(timeInput.value, 10);
+        if (!isNaN(parsedTime) && parsedTime > 0) {
+          times = parsedTime;
+          // Also update state
+          setRandomTimes(times);
+        }
       }
       
-      remaining--;
-      currentIndex++;
+      if (delayInput) {
+        const parsedDelay = parseInt(delayInput.value, 10);
+        if (!isNaN(parsedDelay) && parsedDelay > 0) {
+          delay = parsedDelay;
+          // Also update state
+          setDelaySeconds(delay);
+        }
+      }
       
-      // Wait for the specified delay before next capture (if any remain)
-      if (remaining > 0) {
-        setProcessStatus(`Waiting ${delay}s before next capture...`);
-        await new Promise(resolve => setTimeout(resolve, delay * 1000));
+      // Validate inputs
+      if (times <= 0) {
+        setProcessStatus('Error: Number of times must be greater than 0');
+        return;
+      }
+      
+      if (delay <= 0) {
+        setProcessStatus('Error: Delay must be greater than 0 seconds');
+        return;
+      }
+      
+      // Hide TopBar initially
+      if (typeof onActionClick === 'function') {
+        onActionClick('toggleTopBar', false);
+      } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+        window.toggleTopBar(false);
+      }
+      
+      // Show canvas if not already visible
+      setShowCanvas(true);
+      setIsCapturing(true);
+      
+      // Update status
+      setRemainingCaptures(times);
+      setProcessStatus(`Starting ${times} random captures with ${delay}s delay...`);
+      
+      // Process all random captures sequentially
+      let remainingCaptures = times;
+      let currentIndex = 1;
+      let successCount = 0;
+      
+      while (remainingCaptures > 0) {
+        setProcessStatus(`Capture ${currentIndex} of ${times}`);
+        setRemainingCaptures(remainingCaptures);
+        
+        // Use the consolidated handleDotProcess function for each random dot
+        const result = await handleDotProcess({
+          useRandomPosition: true,
+          onStatusUpdate: (status) => {
+            if (status.processStatus) {
+              setProcessStatus(`Capture ${currentIndex}/${times}: ${status.processStatus}`);
+            }
+            if (status.isCapturing !== undefined) {
+              setIsCapturing(status.isCapturing);
+            }
+          },
+          toggleTopBar: (show) => {
+            // Don't show the TopBar between captures, only at the end
+            if (show && remainingCaptures > 1) return;
+            
+            if (typeof onActionClick === 'function') {
+              onActionClick('toggleTopBar', show);
+            } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+              window.toggleTopBar(show);
+            }
+          },
+          triggerCameraAccess,
+          setIsCapturing,
+          captureCount,
+          setCaptureCount: setCaptureCount,
+          postCountdownDelay: 500
+        });
+        
+        // Check for success
+        if (!result.success) {
+          setProcessStatus(`Error during capture ${currentIndex}: ${result.error}`);
+          break;
+        } else if (result.captureResult && 
+                (result.captureResult.screenImage || result.captureResult.success)) {
+          successCount++;
+        }
+        
+        remainingCaptures--;
+        currentIndex++;
+        
+        // Wait for the specified delay before next capture (if any remain)
+        if (remainingCaptures > 0) {
+          setProcessStatus(`Waiting ${delay}s before next capture...`);
+          await new Promise(resolve => setTimeout(resolve, delay * 1000));
+        }
+      }
+      
+      // Signal completion
+      setProcessStatus(`Random capture sequence completed: ${successCount}/${times} captures successful`);
+      setRemainingCaptures(0);
+      
+      // Make sure TopBar is shown at the end
+      if (typeof onActionClick === 'function') {
+        onActionClick('toggleTopBar', true);
+      } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+        window.toggleTopBar(true);
+      }
+      
+    } catch (error) {
+      console.error("Random sequence error:", error);
+      setProcessStatus(`Random sequence failed: ${error.message}`);
+      
+      // Reset capturing state
+      setIsCapturing(false);
+      
+      // Show TopBar again on error
+      if (typeof onActionClick === 'function') {
+        onActionClick('toggleTopBar', true);
+      } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+        window.toggleTopBar(true);
       }
     }
-    
-    // Signal completion
-    setProcessStatus(remaining === 0 ? 'Random capture sequence completed' : 'Random capture sequence interrupted');
-    setRemainingCaptures(0);
-    setIsCapturing(false);
   };
 
   // Refactored handleSetCalibrate function using handleDotProcess
