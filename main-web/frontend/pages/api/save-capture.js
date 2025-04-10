@@ -2,43 +2,44 @@
 import fs from 'fs';
 import path from 'path';
 
-// Store default folder name - use a fixed name instead of timestamp-based folder
 const DEFAULT_FOLDER = 'eye_tracking_captures';
 
-// Function to get the next available number for naming files
-const getNextCaptureNumber = (capturesDir) => {
+/**
+ * Find the highest existing capture number
+ * @param {string} capturesDir - Directory to check for capture files
+ * @returns {number} - Highest existing capture number
+ */
+const getHighestExistingNumber = (capturesDir) => {
   try {
-    // If the captures directory doesn't exist yet, start from 1
-    if (!fs.existsSync(capturesDir)) {
-      return 1;
-    }
-    
-    // Look for all capture files to determine the next number (screen, webcam, and parameters)
+    if (!fs.existsSync(capturesDir)) return 0;
+
     const files = fs.readdirSync(capturesDir);
-    const captureFiles = files.filter(file => 
-      (file.startsWith('screen_') || 
-       file.startsWith('webcam_') || 
-       file.startsWith('parameter_')) && 
-      file.match(/\_\d{3}\.(jpg|csv)$/)
+    const captureFiles = files.filter(file =>
+      (file.startsWith('screen_') ||
+        file.startsWith('webcam_') ||
+        file.startsWith('parameter_')) &&
+      file.match(/\_\d{3}\.(jpg|png|csv)$/)
     );
-    
-    if (captureFiles.length === 0) {
-      return 1;
-    }
-    
-    // Extract numbers from filenames and find the highest
+
+    if (captureFiles.length === 0) return 0;
+
     const numbers = captureFiles.map(file => {
-      const match = file.match(/\_(\d{3})\.(jpg|csv)$/);
+      const match = file.match(/\_(\d{3})\.(jpg|png|csv)$/);
       return match ? parseInt(match[1], 10) : 0;
     });
-    
-    const maxNumber = Math.max(...numbers);
-    return maxNumber + 1;
+
+    return Math.max(...numbers);
   } catch (error) {
-    console.error('Error determining next capture number:', error);
-    return 1; // Fallback to 1 if there's an error
+    console.error('Error finding highest capture number:', error);
+    return 0;
   }
 };
+
+// Globals to track capture groups
+let currentCaptureGroup = null;
+let currentCaptureNumber = null;
+let captureGroupTimeout = null;
+const CAPTURE_GROUP_TIMEOUT = 5000; // 5 seconds
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -46,92 +47,114 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { imageData, filename, type, folder } = req.body;
-    
+    const { imageData, filename, type, folder, captureGroup } = req.body;
+
     if (!imageData || !filename || !type) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Missing required fields: imageData, filename, or type' 
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: imageData, filename, or type'
       });
     }
-    
-    // Use the provided folder, or use the default folder
+
     const captureFolder = folder || DEFAULT_FOLDER;
-    
-    // Ensure the base captures directory exists
+
     const capturesDir = path.join(process.cwd(), 'public', 'captures');
     if (!fs.existsSync(capturesDir)) {
       fs.mkdirSync(capturesDir, { recursive: true });
     }
-    
-    // Ensure the capture folder exists
+
     const sessionDir = path.join(capturesDir, captureFolder);
     if (!fs.existsSync(sessionDir)) {
       fs.mkdirSync(sessionDir, { recursive: true });
     }
+
+    // Handle capture grouping
+    let nextNumber;
     
-    // Determine the next capture number
-    const nextCaptureNumber = getNextCaptureNumber(sessionDir);
-    
-    // Generate filename with appropriate numbering
-    let finalFilename = filename;
-    
-    // If the filename includes a counter pattern (like screen_001.jpg), replace it with the next available number
-    if (filename.match(/_(0+\d+)\.(jpg|csv)$/)) {
-      const paddedNumber = String(nextCaptureNumber).padStart(3, '0');
-      const prefix = filename.split('_')[0]; // Get 'screen', 'webcam', 'parameter', etc.
-      const extension = filename.match(/\.(jpg|csv)$/)[0]; // Get the file extension
-      finalFilename = `${prefix}_${paddedNumber}${extension}`;
+    // If a captureGroup is provided and it matches the current one, use the same number
+    if (captureGroup && captureGroup === currentCaptureGroup && currentCaptureNumber) {
+      nextNumber = currentCaptureNumber;
+      
+      // Reset the timeout to keep this group alive
+      clearTimeout(captureGroupTimeout);
+      captureGroupTimeout = setTimeout(() => {
+        currentCaptureGroup = null;
+        currentCaptureNumber = null;
+      }, CAPTURE_GROUP_TIMEOUT);
+      
+      console.log(`Using existing capture group ${captureGroup} with number ${nextNumber}`);
+    } 
+    // If this is a new capture or the first file in a new group
+    else {
+      // Get next number from highest existing
+      nextNumber = getHighestExistingNumber(sessionDir) + 1;
+      
+      // If a group is specified, remember this number for this group
+      if (captureGroup) {
+        currentCaptureGroup = captureGroup;
+        currentCaptureNumber = nextNumber;
+        
+        // Set timeout to clear this group after some time
+        clearTimeout(captureGroupTimeout);
+        captureGroupTimeout = setTimeout(() => {
+          currentCaptureGroup = null;
+          currentCaptureNumber = null;
+        }, CAPTURE_GROUP_TIMEOUT);
+        
+        console.log(`Started new capture group ${captureGroup} with number ${nextNumber}`);
+      }
     }
     
+    const padded = String(nextNumber).padStart(3, '0');
+
+    // Determine prefix from incoming filename
+    const prefix = filename.split('_')[0];
+    const extension = filename.split('.').pop();
+    const finalFilename = `${prefix}_${padded}.${extension}`;
+
     let buffer;
-    
-    // Handle different file types
+
     if (type === 'parameters' && filename.endsWith('.csv')) {
-      // Handle CSV data
       if (!imageData.startsWith('data:')) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Invalid CSV data format. Expected data URL.' 
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid CSV data format. Expected data URL.'
         });
       }
-      
-      // Extract the base64 part
+
       const base64Data = imageData.split(',')[1];
       buffer = Buffer.from(base64Data, 'base64');
     } else {
-      // Handle image data (screen or webcam captures)
       if (!imageData.startsWith('data:image/')) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Invalid image data format. Expected base64 data URL.' 
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid image data format. Expected base64 data URL.'
         });
       }
-      
-      // Extract the base64 part
+
       const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
       buffer = Buffer.from(base64Data, 'base64');
     }
-    
-    // Save the file
+
     const filePath = path.join(sessionDir, finalFilename);
     fs.writeFileSync(filePath, buffer);
-    
-    // Log success and return response
-    console.log(`Successfully saved ${type} file: ${finalFilename} in folder ${captureFolder}`);
-    res.status(200).json({ 
-      success: true, 
-      message: `Successfully saved ${type} file: ${finalFilename}`,
+
+    console.log(`✅ Saved ${type} file as ${finalFilename}`);
+
+    res.status(200).json({
+      success: true,
+      message: `Saved ${type} as ${finalFilename}`,
+      filename: finalFilename,
+      number: nextNumber,
       path: `/captures/${captureFolder}/${finalFilename}`,
       folder: captureFolder,
-      captureNumber: nextCaptureNumber
+      group: captureGroup
     });
   } catch (error) {
-    console.error('Error saving file:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    console.error('❌ Error saving file:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message
     });
   }
 }

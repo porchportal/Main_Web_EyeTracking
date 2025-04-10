@@ -342,53 +342,56 @@ export const drawRedDot = (ctx, x, y, radius = 12, clearCanvas = true) => {
 };
 
 /**
+ * Capture images at a specific point
  * @param {Object} options - Capture options
  * @returns {Promise} - Promise that resolves with the capture result
  */
 export const captureImages = async (options) => {
-  const {
-    canvasRef,
-    position,
-    captureCounter,
-    setCaptureCounter,
-    setProcessStatus,
-    toggleTopBar,
-    captureFolder = 'eye_tracking_captures'
-  } = options;
-
-  if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
-    console.warn('[captureImages] Invalid position object:', position);
-    setProcessStatus?.('Error: Invalid capture position');
-    return null;
-  }
-
-  try {
-    // Call the captureImagesAtPoint from savefile.js
-    const result = await captureImagesAtPoint({
-      point: position,
-      captureCount: captureCounter,
-      canvasRef, 
-      setCaptureCount: setCaptureCounter,
-      showCapturePreview
-    });
-
-    return {
-      screenImage: result?.screenImage || '',
-      webcamImage: result?.webcamImage || '',
-      success: true
-    };
-  } catch (err) {
-    console.error('[captureImages] Unexpected error:', err);
-    setProcessStatus?.(`Error: ${err.message}`);
-    return {
-      screenImage: '',
-      webcamImage: '',
-      success: false,
-      error: err.message
-    };
-  }
-};
-
+    const {
+      canvasRef,
+      position,
+      captureCounter, 
+      setCaptureCounter,
+      setProcessStatus,
+      toggleTopBar,
+      captureFolder = 'eye_tracking_captures'
+    } = options;
+  
+    if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
+      console.warn('[captureImages] Invalid position object:', position);
+      setProcessStatus?.('Error: Invalid capture position');
+      return null;
+    }
+  
+    try {
+      // Call the captureImagesAtPoint from savefile.js with all necessary parameters
+      const result = await captureImagesAtPoint({
+        point: position,
+        captureCount: captureCounter,
+        canvasRef, 
+        setCaptureCount: setCaptureCounter,
+        showCapturePreview
+      });
+  
+      console.log('Capture successful with ID:', result.captureId);
+      
+      return {
+        screenImage: result?.screenImage || '',
+        webcamImage: result?.webcamImage || '',
+        success: true,
+        captureId: result?.captureId
+      };
+    } catch (err) {
+      console.error('[captureImages] Unexpected error:', err);
+      setProcessStatus?.(`Error: ${err.message}`);
+      return {
+        screenImage: '',
+        webcamImage: '',
+        success: false,
+        error: err.message
+      };
+    }
+  };
 /**
  * Generate a random dot position within the canvas
  * @param {HTMLCanvasElement} canvas - Canvas element

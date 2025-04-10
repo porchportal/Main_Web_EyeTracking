@@ -1,25 +1,46 @@
-// savefile.js
-// Centralized saving logic for screen, webcam, and parameter files
+// Helper/savefile.js - Fixed to keep the same number for all files in one capture
 
-export const saveImageToServer = async (imageData, filename, type, folder = 'eye_tracking_captures') => {
+/**
+ * Save an image or data to the server with group ID to ensure consistent numbering
+ * @param {string} imageData - Base64 encoded image data
+ * @param {string} filename - Filename pattern to save as
+ * @param {string} type - Type of file (screen, webcam, parameters)
+ * @param {string} folder - Folder to save in
+ * @param {string} captureGroup - Unique ID for grouping files from the same capture
+ * @returns {Promise<Object>} - Server response
+ */
+export const saveImageToServer = async (imageData, filename, type, folder = 'eye_tracking_captures', captureGroup = null) => {
     try {
       const response = await fetch('/api/save-capture', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ imageData, filename, type, folder })
+        body: JSON.stringify({ 
+          imageData, 
+          filename, 
+          type, 
+          folder,
+          captureGroup // Include the capture group ID
+        })
       });
       const result = await response.json();
-      console.log(`${type} save result:`, result);
       return result;
     } catch (error) {
-      console.error(`Error saving ${type} image:`, error);
+      console.error(`Error saving ${type}:`, error);
       return null;
     }
   };
   
-  export const saveCSVToServer = async (csvData, filename, folder = 'eye_tracking_captures') => {
+  /**
+   * Save CSV data to the server
+   * @param {string} csvData - CSV data
+   * @param {string} filename - Filename pattern to save as
+   * @param {string} folder - Folder to save in
+   * @param {string} captureGroup - Unique ID for grouping files from the same capture
+   * @returns {Promise<Object>} - Server response
+   */
+  export const saveCSVToServer = async (csvData, filename, folder = 'eye_tracking_captures', captureGroup = null) => {
     try {
       const csvBlob = new Blob([csvData], { type: 'text/csv' });
       const reader = new FileReader();
@@ -28,16 +49,7 @@ export const saveImageToServer = async (imageData, filename, type, folder = 'eye
         reader.readAsDataURL(csvBlob);
       });
   
-      const response = await fetch('/api/save-capture', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ imageData: csvDataUrl, filename, type: 'parameters', folder })
-      });
-  
-      const result = await response.json();
-      console.log('CSV save result:', result);
+      const result = await saveImageToServer(csvDataUrl, filename, 'parameters', folder, captureGroup);
       return result;
     } catch (error) {
       console.error('Error saving CSV:', error);
@@ -45,23 +57,40 @@ export const saveImageToServer = async (imageData, filename, type, folder = 'eye
     }
   };
   
-  export const captureImagesAtPoint = async ({ point, captureCount, canvasRef, setCaptureCount, showCapturePreview }) => {
+  /**
+   * Capture and save images at a specific point with consistent numbering
+   * @param {Object} options - Capture options
+   * @returns {Promise<Object>} - Capture results
+   */
+  export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef, setCaptureCount, showCapturePreview }) => {
     try {
-      const counter = String(captureCount).padStart(3, '0');
-      const screenFilename = `screen_${counter}.jpg`;
-      const webcamFilename = `webcam_${counter}.jpg`;
-      const parameterFilename = `parameter_${counter}.csv`;
       const folder = 'eye_tracking_captures';
-  
+      
+      // Create a unique ID for this capture group
+      const captureGroupId = `capture-${Date.now()}`;
+      console.log(`Generated capture group ID: ${captureGroupId}`);
+      
+      // File patterns for saving
+      const screenFilename = 'screen_001.jpg';  // Pattern only - server will assign number
+      const webcamFilename = 'webcam_001.jpg';  // Pattern only - server will assign number
+      const parameterFilename = 'parameter_001.csv';  // Pattern only - server will assign number
+      
+      // For logging
+      console.log("Starting capture with group ID:", captureGroupId);
+      
       const canvas = canvasRef.current;
       let screenImage = null;
       let webcamImage = null;
-  
+      let captureNumber = null;
+      
+      // 1. Prepare all data first
+      
+      // 1.1 Canvas/screen image
       if (canvas) {
         screenImage = canvas.toDataURL('image/png');
-        await saveImageToServer(screenImage, screenFilename, 'screen', folder);
       }
   
+      // 1.2 Webcam image
       const videoElement = window.videoElement || document.querySelector('video');
       if (videoElement) {
         const tempCanvas = document.createElement('canvas');
@@ -69,7 +98,6 @@ export const saveImageToServer = async (imageData, filename, type, folder = 'eye
         tempCanvas.height = videoElement.videoHeight || 480;
         tempCanvas.getContext('2d').drawImage(videoElement, 0, 0);
         webcamImage = tempCanvas.toDataURL('image/png');
-        await saveImageToServer(webcamImage, webcamFilename, 'webcam', folder);
       } else {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -85,7 +113,6 @@ export const saveImageToServer = async (imageData, filename, type, folder = 'eye
           tempCanvas.height = tempVideo.videoHeight;
           tempCanvas.getContext('2d').drawImage(tempVideo, 0, 0);
           webcamImage = tempCanvas.toDataURL('image/png');
-          await saveImageToServer(webcamImage, webcamFilename, 'webcam', folder);
           stream.getTracks().forEach(t => t.stop());
           tempVideo.remove();
         } catch (err) {
@@ -93,6 +120,7 @@ export const saveImageToServer = async (imageData, filename, type, folder = 'eye
         }
       }
   
+      // 1.3 Parameter data
       const csvData = [
         "name,value",
         `dot_x,${point.x}`,
@@ -101,26 +129,50 @@ export const saveImageToServer = async (imageData, filename, type, folder = 'eye
         `canvas_height,${canvas?.height || 0}`,
         `window_width,${window.innerWidth}`,
         `window_height,${window.innerHeight}`,
-        // `calibration_point_label,${point.label || ''}`,
-        `timestamp,${new Date().toISOString()}`
+        `timestamp,${new Date().toISOString()}`,
+        `group_id,${captureGroupId}`
       ].join('\n');
-      await saveCSVToServer(csvData, parameterFilename, folder);
-  
-      // Only increment the counter AFTER all files have been successfully saved
-      if (setCaptureCount) {
-        setCaptureCount(prev => prev + 1);
+      
+      // 2. Save all files with the same group ID so they get the same number
+      
+      // 2.1 Save parameter file
+      const paramResult = await saveCSVToServer(csvData, parameterFilename, folder, captureGroupId);
+      
+      if (paramResult && paramResult.success) {
+        captureNumber = paramResult.number;
+        console.log(`Server assigned capture number: ${captureNumber} for group: ${captureGroupId}`);
       }
       
-      // Show the preview AFTER saving everything
+      // 2.2 Save screen image if available
+      let screenResult = null;
+      if (screenImage) {
+        screenResult = await saveImageToServer(screenImage, screenFilename, 'screen', folder, captureGroupId);
+      }
+      
+      // 2.3 Save webcam image if available
+      let webcamResult = null;
+      if (webcamImage) {
+        webcamResult = await saveImageToServer(webcamImage, webcamFilename, 'webcam', folder, captureGroupId);
+      }
+      
+      // 3. Show preview if needed
       if (showCapturePreview && typeof showCapturePreview === 'function') {
         showCapturePreview(screenImage, webcamImage, point);
       }
       
+      // 4. Increment counter for next capture
+      if (setCaptureCount && typeof setCaptureCount === 'function') {
+        setCaptureCount(prevCount => prevCount + 1);
+      }
+      
+      // 5. Return results
       return {
-        screenImage: screenImage || canvas?.toDataURL('image/png'),
-        webcamImage: webcamImage || null,
+        screenImage,
+        webcamImage,
         success: true,
-        point
+        point,
+        captureNumber,
+        groupId: captureGroupId
       };
     } catch (err) {
       console.error("captureImagesAtPoint failed:", err);

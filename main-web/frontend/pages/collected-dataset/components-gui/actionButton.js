@@ -1,4 +1,3 @@
-// Modified ActionButton.js - Fixing canvas reference issues
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import dynamic from 'next/dynamic';
 import { generateCalibrationPoints } from './Action/CalibratePoints';
@@ -112,7 +111,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         handleSetCalibrate,
         handleClearAll
       };
-      console.log('Action button functions exposed to window.actionButtonFunctions');
+      // console.log('Action button functions exposed to window.actionButtonFunctions');
     }
     
     return () => {
@@ -175,7 +174,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
 
   const initializeCanvas = (canvas, parent) => {
     if (!canvas || !parent) {
-      console.warn('[initializeCanvas] Canvas or parent is null', { canvas, parent });
+      // console.warn('[initializeCanvas] Canvas or parent is null', { canvas, parent });
       return false;
     }
     
@@ -190,7 +189,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       ctx.fillStyle = 'white';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      console.log(`Canvas initialized with dimensions: ${canvas.width}x${canvas.height}`);
+      // console.log(`Canvas initialized with dimensions: ${canvas.width}x${canvas.height}`);
       return true;
     } catch (error) {
       console.error('[initializeCanvas] Error initializing canvas:', error);
@@ -204,13 +203,13 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     
     // Method 1: Check if we have a direct reference
     if (canvasRef.current) {
-      console.log("Using direct canvasRef.current reference");
+      // console.log("Using direct canvasRef.current reference");
       return canvasRef.current;
     }
     
     // Method 2: Try to get global reference
     if (typeof window !== 'undefined' && window.whiteScreenCanvas) {
-      console.log("Using global whiteScreenCanvas reference");
+      // console.log("Using global whiteScreenCanvas reference");
       canvasRef.current = window.whiteScreenCanvas; // Update our ref
       return window.whiteScreenCanvas;
     }
@@ -219,7 +218,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     if (typeof document !== 'undefined') {
       const canvasElement = document.querySelector('.tracking-canvas');
       if (canvasElement) {
-        console.log("Found canvas via DOM selector");
+        // console.log("Found canvas via DOM selector");
         canvasRef.current = canvasElement; // Update our ref
         if (typeof window !== 'undefined') {
           window.whiteScreenCanvas = canvasElement; // Update global ref too
@@ -228,7 +227,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       }
     }
     
-    console.warn("No canvas found via any method");
+    // console.warn("No canvas found via any method");
     return null;
   };
 
@@ -473,9 +472,9 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       await new Promise(resolve => setTimeout(resolve, postCountdownDelay));
       
       // Access webcam before capture
-      if (triggerCameraAccess) {
-        triggerCameraAccess(true);
-      }
+      // if (triggerCameraAccess) {
+      //   triggerCameraAccess(true);
+      // }
       
       // Ensure the dot is still visible after additional delay
       drawRedDot(ctx, dotPosition.x, dotPosition.y, dotRadius, false);
@@ -519,7 +518,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       });
       
       // Increment capture counter
-      setCaptureCount(prev => prev + 1);
+      // setCaptureCount(prev => prev + 1);
       
       // Set a safety timeout to clear the interval if previews weren't shown
       setTimeout(() => {
@@ -830,7 +829,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       ctx.fillStyle = 'white';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      console.log(`Canvas set to fullscreen: ${canvas.width}x${canvas.height}`);
+      // console.log(`Canvas set to fullscreen: ${canvas.width}x${canvas.height}`);
       
       // Import required functions
       const { generateCalibrationPoints } = await import('./Action/CalibratePoints');
@@ -940,7 +939,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
           }
           
           // Increment counter
-          setCaptureCount(prev => prev + 1);
+          // setCaptureCount(prev => prev + 1);
           
           // Wait between points
           await new Promise(resolve => setTimeout(resolve, 1200));
@@ -1070,9 +1069,9 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
           return;
         }
     
-        console.log('Canvas size:', canvas.width, canvas.height);
+        // console.log('Canvas size:', canvas.width, canvas.height);
         const points = generateCalibrationPoints(canvas.width, canvas.height);
-        console.log('Generated calibration points:', points);
+        // console.log('Generated calibration points:', points);
         setCalibrationPoints(points);
     
         const calibrateHandler = new CalibrateHandler({
@@ -1155,7 +1154,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       window.videoProcessor.updateOptions({
         showHeadPose: newHeadPoseState
       });
-      console.log(`Updated backend head pose: ${newHeadPoseState}`);
+      // console.log(`Updated backend head pose: ${newHeadPoseState}`);
     }
   };
 
@@ -1175,7 +1174,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       window.videoProcessor.updateOptions({
         showBoundingBox: newBoundingBoxState
       });
-      console.log(`Updated backend bounding box: ${newBoundingBoxState}`);
+      // console.log(`Updated backend bounding box: ${newBoundingBoxState}`);
     }
   };
 
@@ -1195,7 +1194,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       window.videoProcessor.updateOptions({
         showMask: newMaskState
       });
-      console.log(`Updated backend mask: ${newMaskState}`);
+      // console.log(`Updated backend mask: ${newMaskState}`);
     }
   };
 
@@ -1215,7 +1214,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       window.videoProcessor.updateOptions({
         showParameters: newParametersState
       });
-      console.log(`Updated backend parameters: ${newParametersState}`);
+      // console.log(`Updated backend parameters: ${newParametersState}`);
     }
   };
 
@@ -1240,7 +1239,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         showMask,
         showParameters
       });
-      console.log("Applied visualization settings to camera");
+      // console.log("Applied visualization settings to camera");
     }
   };
 
