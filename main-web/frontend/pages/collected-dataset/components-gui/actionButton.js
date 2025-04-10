@@ -201,20 +201,17 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
   const getMainCanvas = () => {
     // Try multiple methods to find the canvas
     
-    // Method 1: Check if we have a direct reference
     if (canvasRef.current) {
       // console.log("Using direct canvasRef.current reference");
       return canvasRef.current;
     }
     
-    // Method 2: Try to get global reference
     if (typeof window !== 'undefined' && window.whiteScreenCanvas) {
       // console.log("Using global whiteScreenCanvas reference");
       canvasRef.current = window.whiteScreenCanvas; // Update our ref
       return window.whiteScreenCanvas;
     }
-    
-    // Method 3: Try to find via DOM
+
     if (typeof document !== 'undefined') {
       const canvasElement = document.querySelector('.tracking-canvas');
       if (canvasElement) {
@@ -227,14 +224,52 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       }
     }
     
-    // console.warn("No canvas found via any method");
     return null;
+  };
+  const makeCanvasFullscreen = (canvas) => {
+    // First initialize with parent dimensions
+    const parent = canvas.parentElement || document.body;
+    initializeCanvas(canvas, parent);
+    
+    // Then force fullscreen styling
+    canvas.style.position = 'fixed';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    canvas.style.zIndex = '5';
+    
+    // Force dimensions to match window
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    // Clear and prepare canvas again
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    console.log(`Canvas set to fullscreen: ${canvas.width}x${canvas.height}`);
+  };
+  const restoreCanvasSize = (canvas) => {
+    // Restore original canvas styling
+    canvas.style.position = '';
+    canvas.style.top = '';
+    canvas.style.left = '';
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.zIndex = '';
+    
+    // Restore original dimensions
+    if (canvas.parentElement) {
+      initializeCanvas(canvas, canvas.parentElement);
+    }
   };
 
   const handlePermissionAccepted = () => {
     setShowPermissionPopup(false);
     if (triggerCameraAccess) {
-      triggerCameraAccess(true); // Force enable camera access
+      triggerCameraAccess(true);
     }
   };
 
@@ -243,35 +278,34 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     setShowPermissionPopup(false);
   };
 
+  // Helper function to restore the canvas to its original parent and styling
+  const restoreCanvas = (canvas, originalParent, originalStyle) => {
+    if (!canvas || !originalParent) return;
 
-
-  // Draw a dot on the canvas
-  const drawDot = (x, y, color = 'red', radius = 5) => {
-    const canvas = getMainCanvas();
-    if (!canvas) {
-      console.error("No canvas found for drawing dot");
-      setProcessStatus("Error: Canvas not available");
-      return null;
+    // Append the canvas back to its original parent if needed
+    if (canvas.parentElement !== originalParent) {
+      originalParent.appendChild(canvas);
     }
     
-    const parent = canvas.parentElement;
-    if (parent) {
-      initializeCanvas(canvas, parent);
-    }
+    // Restore the inline styles saved earlier
+    canvas.style.position = originalStyle.position;
+    canvas.style.top = originalStyle.top;
+    canvas.style.left = originalStyle.left;
+    canvas.style.width = originalStyle.width;
+    canvas.style.height = originalStyle.height;
+    canvas.style.zIndex = originalStyle.zIndex;
     
+    // Reset the dimensions based on the parent element’s size or fallback defaults
+    canvas.width = originalParent.clientWidth || 800;
+    canvas.height = originalParent.clientHeight || 600;
+    
+    // Clear the canvas and fill with a white background
     const ctx = canvas.getContext('2d');
-    
-    // Clear previous dot if any
-    clearCanvas();
-    
-    // Use drawRedDot from countSave.js
-    drawRedDot(ctx, x, y, radius, false);
-    
-    // Save current dot position
-    setCurrentDot({ x, y });
-    
-    return { x, y };
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
   };
+
 
   // Clear the canvas
   const clearCanvas = () => {
@@ -287,62 +321,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     setCurrentDot(null);
   };
-
-  // Generate a random position using getRandomPosition from countSave.js
-  const getRandomDotPosition = () => {
-    const canvas = getMainCanvas();
-    if (!canvas) {
-      console.warn("No canvas found for generating random position");
-      return { x: 100, y: 100 }; // Default fallback
-    }
-    
-    // Use getRandomPosition from countSave.js
-    return getRandomPosition(canvas, 20); // 20px padding from edges
-  };
-
-  // Countdown timer function
-  const startCountdown = (count, onComplete, directPosition = null) => {
-    setIsCapturing(true);
-    setCountdownValue(count);
-    
-    // Use the canvas and current dot to run countdown
-    const canvas = getMainCanvas();
-    
-    // Use either currentDot from state or directPosition parameter
-    const dotPosition = directPosition || currentDot;
-    
-    if (!canvas || !dotPosition) {
-      console.error("Canvas or dot position not available for countdown", {
-        canvas: !!canvas,
-        dotPosition,
-        currentDot
-      });
-      setIsCapturing(false);
-      if (typeof onActionClick === 'function') {
-        onActionClick('toggleTopBar', true);
-      }
-      setProcessStatus("Error: Could not start countdown");
-      return;
-    }
-    
-    // Use runCountdown from countSave.js
-    runCountdown(
-      dotPosition, 
-      canvas, 
-      (status) => {
-        // Update UI based on countdown status
-        if (status.countdownValue) {
-          setCountdownValue(status.countdownValue);
-        }
-        if (status.processStatus) {
-          setProcessStatus(status.processStatus);
-        }
-        setIsCapturing(status.isCapturing !== false);
-      }, 
-      onComplete
-    );
-  };
-
   // Add this function to actionButton.js
 
   /**
@@ -428,7 +406,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       }
       
       // Draw the dot
-      const dotRadius = 12;
+      const dotRadius = 10;
       drawRedDot(ctx, dotPosition.x, dotPosition.y, dotRadius, true);
       
       // Create a redraw interval to ensure dot stays visible
@@ -471,10 +449,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       // Add additional delay after countdown to keep dot visible longer
       await new Promise(resolve => setTimeout(resolve, postCountdownDelay));
       
-      // Access webcam before capture
-      // if (triggerCameraAccess) {
-      //   triggerCameraAccess(true);
-      // }
       
       // Ensure the dot is still visible after additional delay
       drawRedDot(ctx, dotPosition.x, dotPosition.y, dotRadius, false);
@@ -579,67 +553,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       };
     }
   };
-
-  // Function to capture images at the current dot position
-  const captureImagesFunc = (x, y) => {
-    const canvas = getMainCanvas();
-    if (!canvas) {
-      console.error("No canvas found for image capture");
-      setProcessStatus("Error: Canvas not available");
-      setIsCapturing(false);
-      return;
-    }
-
-    // Create a working canvasRef object to pass to captureImagesAtPoint
-    const tempCanvasRef = { current: canvas };
-    
-    // Use captureImagesAtPoint from countSave.js
-    captureImagesAtPoint({
-      point: { x, y },
-      captureCount: captureCount,
-      canvasRef: tempCanvasRef,
-      setCaptureCount: setCaptureCount,
-      showCapturePreview: (screenImage, webcamImage, point) => {
-        // Use imported showCapturePreview from countSave.js
-        if (!screenImage) {
-          console.warn("No screen image found. Using canvas as fallback.");
-          // Create a fallback image from canvas
-          if (canvas) {
-            const fallbackImage = canvas.toDataURL('image/png');
-            showCapturePreview(fallbackImage, webcamImage, point);
-          } else {
-            throw new Error("Canvas not available for fallback image");
-          }
-        } else {
-          showCapturePreview(screenImage, webcamImage, point);
-        }
-        // Update status
-        setProcessStatus('Images captured and saved');
-        
-        // Show TopBar again after a brief delay
-        setTimeout(() => {
-          if (typeof onActionClick === 'function') {
-            // Signal to parent to show the TopBar again
-            onActionClick('toggleTopBar', true);
-          }
-        }, 1000);
-        
-        // Reset capturing state
-        setIsCapturing(false);
-      }
-    }).then(() => {
-      // Increment the capture counter
-      setCaptureCount(prevCount => prevCount + 1);
-    }).catch(err => {
-      console.error('Error during image capture:', err);
-      setIsCapturing(false);
-      setProcessStatus(`Error: ${err.message}`);
-    });
-  };
   // This partial file shows only the fixed handleSetRandom function
-
-  // Refactored handleSetRandom function using handleDotProcess
-  // Improved handleSetRandom function using handleDotProcess
   const handleSetRandom = async () => {
     if (isCapturing) return;
     
@@ -647,136 +561,300 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       // Read values from TopBar inputs
       const timeInput = document.querySelector('.control-input-field');
       const delayInput = document.querySelectorAll('.control-input-field')[1];
-      
-      // Default values if inputs can't be found
-      let times = randomTimes || 1; // Use state as backup
-      let delay = delaySeconds || 3; // Use state as backup
+      let times = randomTimes || 1;
+      let delay = delaySeconds || 3;
       
       // Parse input values if available
       if (timeInput) {
         const parsedTime = parseInt(timeInput.value, 10);
         if (!isNaN(parsedTime) && parsedTime > 0) {
           times = parsedTime;
-          // Also update state
           setRandomTimes(times);
         }
       }
-      
+  
       if (delayInput) {
         const parsedDelay = parseInt(delayInput.value, 10);
         if (!isNaN(parsedDelay) && parsedDelay > 0) {
           delay = parsedDelay;
-          // Also update state
           setDelaySeconds(delay);
         }
       }
-      
-      // Validate inputs
-      if (times <= 0) {
-        setProcessStatus('Error: Number of times must be greater than 0');
-        return;
-      }
-      
-      if (delay <= 0) {
-        setProcessStatus('Error: Delay must be greater than 0 seconds');
-        return;
-      }
-      
-      // Hide TopBar initially
+  
+      // Hide TopBar
       if (typeof onActionClick === 'function') {
         onActionClick('toggleTopBar', false);
       } else if (typeof window !== 'undefined' && window.toggleTopBar) {
         window.toggleTopBar(false);
       }
-      
-      // Show canvas if not already visible
-      setShowCanvas(true);
+  
       setIsCapturing(true);
+      setShowCanvas(true);
+      
+      // Wait for UI updates
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Get canvas reference
+      const canvas = getMainCanvas();
+      if (!canvas) {
+        setProcessStatus("Error: Canvas not found");
+        setIsCapturing(false);
+        if (typeof onActionClick === 'function') {
+          onActionClick('toggleTopBar', true);
+        }
+        return;
+      }
+      
+      // Move canvas to body for maximum reliability
+      const originalParent = canvas.parentElement;
+      const originalStyle = {
+        position: canvas.style.position,
+        top: canvas.style.top,
+        left: canvas.style.left,
+        width: canvas.style.width,
+        height: canvas.style.height,
+        zIndex: canvas.style.zIndex
+      };
+      
+      // Detach from current parent and attach to body
+      document.body.appendChild(canvas);
+      
+      // Make canvas fullscreen with fixed positioning
+      canvas.style.position = 'fixed';
+      canvas.style.top = '0';
+      canvas.style.left = '0';
+      canvas.style.width = '100vw';
+      canvas.style.height = '100vh';
+      canvas.style.zIndex = '10';
+      
+      // Set dimensions to match window exactly
+      const canvasWidth = window.innerWidth;
+      const canvasHeight = window.innerHeight;
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      
+      console.log(`Canvas set to fullscreen: ${canvasWidth}x${canvasHeight}`);
+      
+      // Get context once
+      const ctx = canvas.getContext('2d');
+      
+      // Clear canvas with white background
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
       
       // Update status
       setRemainingCaptures(times);
       setProcessStatus(`Starting ${times} random captures with ${delay}s delay...`);
-      
-      // Process all random captures sequentially
-      let remainingCaptures = times;
-      let currentIndex = 1;
+  
       let successCount = 0;
-      
-      while (remainingCaptures > 0) {
-        setProcessStatus(`Capture ${currentIndex} of ${times}`);
-        setRemainingCaptures(remainingCaptures);
-        
-        // Use the consolidated handleDotProcess function for each random dot
-        const result = await handleDotProcess({
-          useRandomPosition: true,
-          onStatusUpdate: (status) => {
-            if (status.processStatus) {
-              setProcessStatus(`Capture ${currentIndex}/${times}: ${status.processStatus}`);
-            }
-            if (status.isCapturing !== undefined) {
-              setIsCapturing(status.isCapturing);
-            }
-          },
-          toggleTopBar: (show) => {
-            // Don't show the TopBar between captures, only at the end
-            if (show && remainingCaptures > 1) return;
-            
-            if (typeof onActionClick === 'function') {
-              onActionClick('toggleTopBar', show);
-            } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-              window.toggleTopBar(show);
-            }
-          },
-          triggerCameraAccess,
-          setIsCapturing,
-          captureCount,
-          setCaptureCount: setCaptureCount,
-          postCountdownDelay: 500
-        });
-        
-        // Check for success
-        if (!result.success) {
-          setProcessStatus(`Error during capture ${currentIndex}: ${result.error}`);
-          break;
-        } else if (result.captureResult && 
-                (result.captureResult.screenImage || result.captureResult.success)) {
-          successCount++;
+      let currentRedrawInterval = null;
+  
+      // Process all captures in sequence
+      for (let currentIndex = 1; currentIndex <= times; currentIndex++) {
+        // Reset canvas if dimensions changed
+        if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
+          console.warn(`Canvas size changed to ${canvas.width}x${canvas.height}, resetting to ${canvasWidth}x${canvasHeight}`);
+          canvas.width = canvasWidth;
+          canvas.height = canvasHeight;
+          
+          // Re-fill with white
+          ctx.fillStyle = 'white';
+          ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         }
         
-        remainingCaptures--;
-        currentIndex++;
+        // Clear any existing redraw interval
+        if (currentRedrawInterval) {
+          clearInterval(currentRedrawInterval);
+          currentRedrawInterval = null;
+        }
         
-        // Wait for the specified delay before next capture (if any remain)
-        if (remainingCaptures > 0) {
-          setProcessStatus(`Waiting ${delay}s before next capture...`);
-          await new Promise(resolve => setTimeout(resolve, delay * 1000));
+        setProcessStatus(`Capture ${currentIndex} of ${times}`);
+        setRemainingCaptures(times - currentIndex + 1);
+        
+        // Generate random position with extra padding for safety
+        const position = {
+          x: Math.floor(Math.random() * (canvasWidth - 200)) + 100,
+          y: Math.floor(Math.random() * (canvasHeight - 200)) + 100
+        };
+        
+        console.log(`Capture ${currentIndex}/${times} position: x=${position.x}, y=${position.y}`);
+        
+        // Draw the dot
+        const radius = 14; // Slightly larger for better visibility
+        drawRedDot(ctx, position.x, position.y, radius, false);
+        
+        // Create a reliable redraw function for this position
+        const redrawCurrentDot = () => {
+          if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+          }
+          
+          // Make sure the canvas is still in body
+          if (canvas.parentElement !== document.body) {
+            document.body.appendChild(canvas);
+          }
+          
+          // Redraw dot without clearing canvas
+          drawRedDot(ctx, position.x, position.y, radius, false);
+        };
+        
+        // Start redraw interval
+        currentRedrawInterval = setInterval(redrawCurrentDot, 50); // More frequent updates
+        
+        try {
+          // Create our own countdown manually
+          const dotRect = canvas.getBoundingClientRect();
+          const countdownElement = document.createElement('div');
+          countdownElement.style.cssText = `
+            position: fixed;
+            left: ${position.x}px;
+            top: ${position.y - 60}px;
+            transform: translateX(-50%);
+            color: red;
+            font-size: 36px;
+            font-weight: bold;
+            text-shadow: 0 0 10px white, 0 0 20px white;
+            z-index: 10000;
+            background-color: rgba(255, 255, 255, 0.8);
+            border: 2px solid red;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+          `;
+          document.body.appendChild(countdownElement);
+          
+          // Manual countdown
+          for (let count = 3; count > 0; count--) {
+            countdownElement.textContent = count;
+            setProcessStatus(`Capture ${currentIndex}/${times}: Countdown ${count}`);
+            
+            // Force redraw of dot during countdown
+            redrawCurrentDot();
+            
+            await new Promise(resolve => setTimeout(resolve, 800));
+            
+            // Force redraw again
+            redrawCurrentDot();
+          }
+          
+          // Show checkmark for completion
+          countdownElement.textContent = "✓";
+          redrawCurrentDot();
+          
+          // Remove countdown after brief delay
+          setTimeout(() => {
+            if (countdownElement.parentNode) {
+              countdownElement.parentNode.removeChild(countdownElement);
+            }
+          }, 300);
+          
+          // Ensure dot is visible before capture
+          redrawCurrentDot();
+          
+          // Wait briefly
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Force one final redraw before capture
+          redrawCurrentDot();
+          
+          // Log capture state
+          console.log(`Capturing point ${currentIndex}/${times} at position (${position.x}, ${position.y})`);
+          
+          // Capture images with fresh canvas reference
+          const captureResult = await captureImagesAtPoint({
+            point: position,
+            captureCount: captureCount,
+            canvasRef: { current: canvas },
+            setCaptureCount: setCaptureCount,
+            showCapturePreview
+          });
+          
+          // Stop redraw interval after capture
+          if (currentRedrawInterval) {
+            clearInterval(currentRedrawInterval);
+            currentRedrawInterval = null;
+          }
+          
+          if (captureResult && (captureResult.screenImage || captureResult.success)) {
+            successCount++;
+          }
+          
+          // Wait between captures - but only if there are more captures to go
+          if (currentIndex < times) {
+            setProcessStatus(`Waiting ${delay}s before next capture...`);
+            await new Promise(resolve => setTimeout(resolve, delay * 1000));
+          }
+        } catch (error) {
+          console.error(`Error in capture ${currentIndex}:`, error);
+          if (currentRedrawInterval) {
+            clearInterval(currentRedrawInterval);
+            currentRedrawInterval = null;
+          }
         }
       }
-      
-      // Signal completion
+  
+      // Completion notification
       setProcessStatus(`Random capture sequence completed: ${successCount}/${times} captures successful`);
       setRemainingCaptures(0);
-      
-      // Make sure TopBar is shown at the end
-      if (typeof onActionClick === 'function') {
-        onActionClick('toggleTopBar', true);
-      } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-        window.toggleTopBar(true);
-      }
-      
+  
+      // Restore canvas to original parent and styling
+      restoreCanvas(canvas, originalParent, originalStyle);
+
     } catch (error) {
       console.error("Random sequence error:", error);
       setProcessStatus(`Random sequence failed: ${error.message}`);
       
-      // Reset capturing state
+      // Cleanup on error
+      const canvas = getMainCanvas();
+      if (canvas) {
+        // Try to find original parent by className
+        const possibleParent = document.querySelector('.canvas-container');
+        if (possibleParent && canvas.parentElement !== possibleParent) {
+          possibleParent.appendChild(canvas);
+        }
+        
+        // Reset styling
+        canvas.style.position = '';
+        canvas.style.top = '';
+        canvas.style.left = '';
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        canvas.style.zIndex = '';
+        
+        // Reset dimensions
+        const parent = canvas.parentElement;
+        if (parent) {
+          canvas.width = parent.clientWidth || 800;
+          canvas.height = parent.clientHeight || 600;
+        } else {
+          canvas.width = 800;
+          canvas.height = 600;
+        }
+        
+        // Clear canvas
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+    } finally {
       setIsCapturing(false);
       
-      // Show TopBar again on error
-      if (typeof onActionClick === 'function') {
-        onActionClick('toggleTopBar', true);
-      } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-        window.toggleTopBar(true);
-      }
+      // Show TopBar again
+      setTimeout(() => {
+        if (typeof onActionClick === 'function') {
+          onActionClick('toggleTopBar', true);
+        } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+          window.toggleTopBar(true);
+        }
+      }, 1000);
     }
   };
 
@@ -785,6 +863,12 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
   const handleSetCalibrate = async () => {
     if (isCapturing) return;
     
+    // Track the canvas and its original properties for restoration
+    let canvas = null;
+    let originalParent = null;
+    let originalStyle = {};
+    let currentRedrawInterval = null;
+  
     try {
       // Hide TopBar
       if (typeof onActionClick === 'function') {
@@ -792,7 +876,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       } else if (typeof window !== 'undefined' && window.toggleTopBar) {
         window.toggleTopBar(false);
       }
-
+  
       setIsCapturing(true);
       setShowCanvas(true);
       setProcessStatus("Starting calibration sequence...");
@@ -800,44 +884,60 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       // Wait for UI updates to take effect
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Get canvas reference - using the fullscreen approach
-      const canvas = getMainCanvas();
+      // Get canvas reference
+      canvas = getMainCanvas();
       if (!canvas) {
-        throw new Error("Canvas not available for calibration");
+        setProcessStatus("Error: Canvas not found");
+        setIsCapturing(false);
+        if (typeof onActionClick === 'function') {
+          onActionClick('toggleTopBar', true);
+        }
+        return;
       }
       
-      // ---------- CRITICAL FIX: PROPER CANVAS SIZING ----------
-      // Get window dimensions for fullscreen calibration
-      const windowWidth = window.innerWidth;
-      const windowHeight = window.innerHeight;
+      // Save original parent and style
+      originalParent = canvas.parentElement;
+      originalStyle = {
+        position: canvas.style.position,
+        top: canvas.style.top,
+        left: canvas.style.left,
+        width: canvas.style.width,
+        height: canvas.style.height,
+        zIndex: canvas.style.zIndex
+      };
       
-      // Force the canvas to be fullscreen
-      canvas.width = windowWidth;
-      canvas.height = windowHeight;
+      // Move canvas to body for maximum reliability
+      document.body.appendChild(canvas);
       
-      // Ensure canvas appears above other elements
+      // Make canvas fullscreen with fixed positioning
       canvas.style.position = 'fixed';
       canvas.style.top = '0';
       canvas.style.left = '0';
       canvas.style.width = '100vw';
       canvas.style.height = '100vh';
-      canvas.style.zIndex = '1000';
+      canvas.style.zIndex = '10';
       
-      // Clear to white background
+      // Set dimensions to match window exactly
+      const canvasWidth = window.innerWidth;
+      const canvasHeight = window.innerHeight;
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      
+      console.log(`Canvas set to fullscreen: ${canvasWidth}x${canvasHeight}`);
+      
+      // Get context
       const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Clear canvas with white background
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
       ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // console.log(`Canvas set to fullscreen: ${canvas.width}x${canvas.height}`);
-      
-      // Import required functions
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+  
+      // Import required functions - use destructuring for cleaner code
       const { generateCalibrationPoints } = await import('./Action/CalibratePoints');
-      const { drawRedDot, runCountdown, showCapturePreview } = await import('./Action/countSave');
-      const { captureImagesAtPoint } = await import('./Helper/savefile');
       
-      // Generate calibration points based on the full canvas size
-      const points = generateCalibrationPoints(canvas.width, canvas.height);
+      // Generate calibration points based on the canvas size
+      const points = generateCalibrationPoints(canvasWidth, canvasHeight);
       
       if (!points || points.length === 0) {
         throw new Error("Failed to generate calibration points");
@@ -856,73 +956,118 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         font-weight: bold;
         padding: 10px 15px;
         border-radius: 8px;
-        z-index: 9999;
+        z-index: 10000;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       `;
       statusIndicator.textContent = 'Calibration: Initializing...';
       document.body.appendChild(statusIndicator);
-      
-      // Access webcam before starting calibration if available
-      // if (triggerCameraAccess) {
-      //   triggerCameraAccess(true);
-      //   await new Promise(resolve => setTimeout(resolve, 800));
-      // }
       
       // Process each calibration point
       let successCount = 0;
       for (let i = 0; i < points.length; i++) {
         const point = points[i];
         
+        // Clear any existing redraw interval
+        if (currentRedrawInterval) {
+          clearInterval(currentRedrawInterval);
+          currentRedrawInterval = null;
+        }
+        
+        // Update status displays
         statusIndicator.textContent = `Calibration: Point ${i + 1}/${points.length}`;
         setProcessStatus(`Processing calibration point ${i + 1}/${points.length}`);
         
-        // ---------- IMPORTANT: Redraw entire canvas for each point ----------
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Reset canvas if dimensions changed
+        if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
+          console.warn(`Canvas dimensions changed. Resetting to ${canvasWidth}x${canvasHeight}`);
+          canvas.width = canvasWidth;
+          canvas.height = canvasHeight;
+        }
+        
+        // Clear canvas with white background
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
         ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
         
-        // Draw the dot - using direct drawing rather than a helper function
-        // to ensure we have complete control
-        drawRedDot(ctx, point.x, point.y, 15, true);
+        // Draw the calibration point
+        const radius = 14; // Slightly larger for better visibility
+        drawRedDot(ctx, point.x, point.y, radius, false);
         
-        // Create a redraw interval to keep dot visible during the entire process
-        let redrawInterval = setInterval(() => {
-          drawRedDot(ctx, point.x, point.y, 15, false);
-        }, 100);
+        // Create redraw function for this point
+        const redrawCurrentDot = () => {
+          // Verify canvas dimensions and parent
+          if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+          }
+          
+          // Make sure canvas is still attached to body
+          if (canvas.parentElement !== document.body) {
+            document.body.appendChild(canvas);
+          }
+          
+          // Redraw dot without clearing
+          drawRedDot(ctx, point.x, point.y, radius, false);
+        };
+        
+        // Start redraw interval
+        currentRedrawInterval = setInterval(redrawCurrentDot, 50);
+        
+        // Create custom countdown element
+        const countdownElement = document.createElement('div');
+        countdownElement.style.cssText = `
+          position: fixed;
+          left: ${point.x}px;
+          top: ${point.y - 60}px;
+          transform: translateX(-50%);
+          color: red;
+          font-size: 36px;
+          font-weight: bold;
+          text-shadow: 0 0 10px white, 0 0 20px white;
+          z-index: 10000;
+          background-color: rgba(255, 255, 255, 0.8);
+          border: 2px solid red;
+          border-radius: 50%;
+          width: 50px;
+          height: 50px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        `;
+        document.body.appendChild(countdownElement);
         
         try {
-          // Run countdown
-          await new Promise((resolve, reject) => {
-            try {
-              runCountdown(
-                point,
-                canvas,
-                (status) => {
-                  // Update UI based on status
-                  if (status.processStatus) {
-                    setProcessStatus(`Point ${i+1}/${points.length}: ${status.processStatus}`);
-                  }
-                },
-                resolve // This resolves when countdown completes
-              );
-            } catch (error) {
-              reject(error);
+          // Manual countdown
+          for (let count = 3; count > 0; count--) {
+            countdownElement.textContent = count;
+            setProcessStatus(`Point ${i+1}/${points.length}: Countdown ${count}`);
+            
+            // Force redraw
+            redrawCurrentDot();
+            
+            await new Promise(resolve => setTimeout(resolve, 800));
+          }
+          
+          // Show checkmark
+          countdownElement.textContent = "✓";
+          redrawCurrentDot();
+          
+          // Remove countdown element after delay
+          setTimeout(() => {
+            if (countdownElement.parentNode) {
+              countdownElement.parentNode.removeChild(countdownElement);
             }
-          });
+          }, 300);
           
-          // Ensure the dot is still visible after countdown
-          drawRedDot(ctx, point.x, point.y, 15, false);
-          
-          // Wait a moment for visual consistency
-          await new Promise(resolve => setTimeout(resolve, 300));
-          
-          // Explicitly trigger camera access again before capture
-          // if (triggerCameraAccess) {
-          //   triggerCameraAccess(true);
-          //   await new Promise(resolve => setTimeout(resolve, 300));
-          // }
+          // Make sure dot is still visible
+          redrawCurrentDot();
           
           // Capture images at this point
+          console.log(`Capturing calibration point ${i+1}/${points.length} at (${point.x}, ${point.y})`);
+          
           const captureResult = await captureImagesAtPoint({
             point: point,
             captureCount: captureCount,
@@ -931,22 +1076,26 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
             showCapturePreview
           });
           
-          // Clear the redraw interval once capture is complete
-          clearInterval(redrawInterval);
-          
           if (captureResult && (captureResult.screenImage || captureResult.success)) {
             successCount++;
           }
-          
-          // Increment counter
-          // setCaptureCount(prev => prev + 1);
           
           // Wait between points
           await new Promise(resolve => setTimeout(resolve, 1200));
           
         } catch (error) {
           console.error(`Error processing calibration point ${i+1}:`, error);
-          clearInterval(redrawInterval);
+        } finally {
+          // Clean up countdown if it still exists
+          if (countdownElement.parentNode) {
+            countdownElement.parentNode.removeChild(countdownElement);
+          }
+          
+          // Clear redraw interval
+          if (currentRedrawInterval) {
+            clearInterval(currentRedrawInterval);
+            currentRedrawInterval = null;
+          }
         }
       }
       
@@ -961,29 +1110,53 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         }
       }, 3000);
       
-      // ---------- IMPORTANT: Reset canvas styling ----------
-      // Return canvas to normal styling after calibration
-      canvas.style.position = '';
-      canvas.style.top = '';
-      canvas.style.left = '';
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
-      canvas.style.zIndex = '';
-      
-      // Redraw canvas at original size with parent container
-      const parent = canvas.parentElement;
-      if (parent) {
-        canvas.width = parent.clientWidth || 800;
-        canvas.height = parent.clientHeight || 600;
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
+      // Restore canvas to original parent and styling
+      restoreCanvas(canvas, originalParent, originalStyle);
       
     } catch (error) {
       console.error("Calibration error:", error);
       setProcessStatus(`Calibration error: ${error.message}`);
+      
+      // Clean up redraw interval
+      if (currentRedrawInterval) {
+        clearInterval(currentRedrawInterval);
+      }
+      
+      // Restore canvas on error
+      if (canvas) {
+        // Try to find original parent by className if we don't have it
+        if (!originalParent) {
+          const possibleParent = document.querySelector('.canvas-container');
+          if (possibleParent && canvas.parentElement !== possibleParent) {
+            possibleParent.appendChild(canvas);
+          }
+        } else if (canvas.parentElement !== originalParent) {
+          originalParent.appendChild(canvas);
+        }
+        
+        // Reset styling
+        canvas.style.position = originalStyle.position || '';
+        canvas.style.top = originalStyle.top || '';
+        canvas.style.left = originalStyle.left || '';
+        canvas.style.width = originalStyle.width || '100%';
+        canvas.style.height = originalStyle.height || '100%';
+        canvas.style.zIndex = originalStyle.zIndex || '';
+        
+        // Reset dimensions
+        const parent = canvas.parentElement;
+        if (parent) {
+          canvas.width = parent.clientWidth || 800;
+          canvas.height = parent.clientHeight || 600;
+        } else {
+          canvas.width = 800;
+          canvas.height = 600;
+        }
+        
+        // Clear canvas
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
     } finally {
       setIsCapturing(false);
       
@@ -998,40 +1171,70 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     }
   };
 
-  // Schedule next random capture in sequence
-  const scheduleNextRandomCapture = (remaining, delay) => {
-    if (remaining <= 0) {
-      setProcessStatus('Random capture sequence completed');
-      setRemainingCaptures(0);
-      return;
-    }
+  // // Random Dot Button - Draw a random dot and capture
+  // const handleRandomDot = async () => {
+  //   if (isCapturing) return;
+  
+  //   // Get the canvas reference
+  //   const canvas = getMainCanvas();
+  //   if (!canvas) {
+  //     console.warn("Canvas not found for random dot process");
+  //     return;
+  //   }
     
-    setProcessStatus(`Capture ${randomTimes - remaining + 1} of ${randomTimes}`);
-    setRemainingCaptures(remaining);
+  //   // Save the original parent and inline styles for later restoration
+  //   const originalParent = canvas.parentElement;
+  //   const originalStyle = {
+  //     position: canvas.style.position,
+  //     top: canvas.style.top,
+  //     left: canvas.style.left,
+  //     width: canvas.style.width,
+  //     height: canvas.style.height,
+  //     zIndex: canvas.style.zIndex
+  //   };
     
-    // Generate random position and draw dot
-    const position = getRandomPosition();
-    const drawnPosition = drawDot(position.x, position.y);
+  //   // Detach canvas from its current parent and attach to body
+  //   document.body.appendChild(canvas);
     
-    if (!drawnPosition) {
-      console.error("Failed to draw dot");
-      setProcessStatus("Error: Failed to draw dot");
-      setIsCapturing(false);
-      return;
-    }
-    
-    // Start countdown and then capture
-    startCountdown(3, () => {
-      captureImagesFunc(position.x, position.y);
-      
-      // Schedule next capture after specified delay
-      setTimeout(() => {
-        scheduleNextRandomCapture(remaining - 1, delay);
-      }, delay * 1000);
-    });
-  };
+  //   // Make the canvas fullscreen with fixed positioning
+  //   canvas.style.position = 'fixed';
+  //   canvas.style.top = '0';
+  //   canvas.style.left = '0';
+  //   canvas.style.width = '100vw';
+  //   canvas.style.height = '100vh';
+  //   canvas.style.zIndex = '10';
 
-  // Random Dot Button - Draw a random dot and capture
+  //   const canvasWidth = window.innerWidth;
+  //   const canvasHeight = window.innerHeight;
+  //   canvas.width = canvasWidth;
+  //   canvas.height = canvasHeight;
+    
+  //   try {
+  //     // Execute the dot process with a random position using the consolidated function
+  //     await handleDotProcess({
+  //       useRandomPosition: true,
+  //       onStatusUpdate: (status) => {
+  //         if (status.processStatus) setProcessStatus(status.processStatus);
+  //         if (status.isCapturing !== undefined) setIsCapturing(status.isCapturing);
+  //       },
+  //       toggleTopBar: (show) => {
+  //         if (typeof onActionClick === 'function') {
+  //           onActionClick('toggleTopBar', show);
+  //         }
+  //       },
+  //       triggerCameraAccess,
+  //       setIsCapturing,
+  //       captureCount,
+  //       setCaptureCount,
+  //       postCountdownDelay: 1000
+  //     });
+  //   } catch (error) {
+  //     console.error("Error in random dot process:", error);
+  //   } finally {
+  //     // Restore the canvas to its original parent and styling using the helper function
+  //     restoreCanvas(canvas, originalParent, originalStyle);
+  //   }
+  // };
   const handleRandomDot = async () => {
     if (isCapturing) return;
     
@@ -1054,6 +1257,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       postCountdownDelay: 1000
     });
   };
+  
 
   // Load calibration setup
   useEffect(() => {
@@ -1067,6 +1271,9 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         if (!canvas) {
           console.warn("Canvas not available during setupCalibration");
           return;
+        }
+        if (canvas) {
+          makeCanvasFullscreen(canvas);
         }
     
         // console.log('Canvas size:', canvas.width, canvas.height);
@@ -1104,6 +1311,9 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
             setIsCapturing(false);
           }
         });
+        if (canvas) {
+          restoreCanvasSize(canvas);
+        }
     
       } catch (err) {
         console.error('Error initializing calibration:', err);
@@ -1112,21 +1322,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
 
     setupCalibration();
   }, [captureCount, onActionClick]);
-
-  // Wait for canvas to be ready
-  const waitForCanvasReady = async (checkVisible, maxTries = 15, interval = 100) => {
-    for (let i = 0; i < maxTries; i++) {
-      const canvas = getMainCanvas();
-      if (canvas && canvas.width > 0 && canvas.height > 0 && checkVisible()) {
-        return canvas;
-      }
-      await new Promise(res => setTimeout(res, interval));
-    }
-    throw new Error("Canvas is not ready after multiple attempts");
-  };
-
-  // Calibration handler
-  // Fixed handleSetCalibrate function for actionButton.js
   
   // Clear All Button - Reset everything
   const handleClearAll = () => {
@@ -1465,7 +1660,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            zIndex: 2000
+            zIndex: 15
           }}
         >
           <div 

@@ -9,14 +9,6 @@
     "id": "pages/collected-dataset/components-gui/actionButton.js -> ./Action/CalibratePoints",
     "files": []
   },
-  "pages/collected-dataset/components-gui/actionButton.js -> ./Action/countSave": {
-    "id": "pages/collected-dataset/components-gui/actionButton.js -> ./Action/countSave",
-    "files": []
-  },
-  "pages/collected-dataset/components-gui/actionButton.js -> ./Helper/savefile": {
-    "id": "pages/collected-dataset/components-gui/actionButton.js -> ./Helper/savefile",
-    "files": []
-  },
   "pages/collected-dataset/index.js -> ./components-gui/Action/CalibratePoints": {
     "id": "pages/collected-dataset/index.js -> ./components-gui/Action/CalibratePoints",
     "files": []

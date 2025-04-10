@@ -852,6 +852,11 @@ export default function CollectedDatasetPage() {
         
       // Fixed calibrate case handler in index.js
       case 'calibrate':
+        setOutputText('Starting calibration sequence...');
+        setShowTopBar(false);
+        if (showCamera) {
+          toggleCamera(false);
+        }
         if (actionButtonGroupRef.current && actionButtonGroupRef.current.handleSetCalibrate) {
           // Use the reference method if available
           console.log('Using ActionButtonGroup ref method for calibration');
@@ -864,10 +869,6 @@ export default function CollectedDatasetPage() {
           window.actionButtonFunctions.handleSetCalibrate();
         }
         else {
-          // Fallback implementation - use promise-based approach with properly scoped variables
-          setOutputText('Starting calibration sequence...');
-          setShowTopBar(false);
-          
           // Make sure we have a canvas to work with
           const canvas = getMainCanvas();
           if (!canvas) {
