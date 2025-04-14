@@ -2,9 +2,7 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/collected-dataset": "pages/collected-dataset.js",
   "/api/save-capture": "pages/api/save-capture.js",
-  "/": "pages/index.js",
-  "/testing-model": "pages/testing-model.js",
-  "/api/check-backend-connection": "pages/api/check-backend-connection.js"
+  "/collected-dataset": "pages/collected-dataset.js",
+  "/": "pages/index.js"
 }

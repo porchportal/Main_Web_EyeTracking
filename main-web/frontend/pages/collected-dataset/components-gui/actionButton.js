@@ -346,7 +346,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       captureCount,
       setCaptureCount,
       useRandomPosition = false,
-      postCountdownDelay = 500 // Default value if not provided
+      postCountdownDelay = 500 
     } = options;
     
     try {
@@ -375,26 +375,37 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         throw new Error("Canvas not available for dot process");
       }
       
-      // Ensure canvas dimensions are proper
-      if (canvas.width <= 0 || canvas.height <= 0) {
-        const parent = canvas.parentElement;
-        if (parent) {
-          // canvas.width = parent.clientWidth || 800;
-          // canvas.height = parent.clientHeight || 600;
-          canvas.width = parent.clientWidth;
-          canvas.height = parent.clientHeight;
-        } 
-        // else {
-        //   canvas.width = 800;
-        //   canvas.height = 600;
-        // }
-      }
+      // Save original state for restoration
+      const originalParent = canvas.parentElement;
+      const originalStyle = {
+        position: canvas.style.position,
+        top: canvas.style.top,
+        left: canvas.style.left,
+        width: canvas.style.width,
+        height: canvas.style.height,
+        zIndex: canvas.style.zIndex
+      };
+  
+      // Prepare canvas for fullscreen display
+      document.body.appendChild(canvas);
+      canvas.style.position = 'fixed';
+      canvas.style.top = '0';
+      canvas.style.left = '0';
+      canvas.style.width = '100vw';
+      canvas.style.height = '100vh';
+      canvas.style.zIndex = '10';
       
-      // Clear canvas and prepare for drawing
+      // Set dimensions to match window exactly
+      const canvasWidth = window.innerWidth;
+      const canvasHeight = window.innerHeight;
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      
+      // Clear canvas with white background
       const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
       ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
       
       // Get position for the dot - either use provided position or generate random one
       const dotPosition = useRandomPosition 
@@ -407,114 +418,117 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       
       // Draw the dot
       const dotRadius = 10;
-      drawRedDot(ctx, dotPosition.x, dotPosition.y, dotRadius, true);
+      drawRedDot(ctx, dotPosition.x, dotPosition.y, dotRadius, false);
       
       // Create a redraw interval to ensure dot stays visible
       let keepDotVisibleInterval = setInterval(() => {
         drawRedDot(ctx, dotPosition.x, dotPosition.y, dotRadius, false);
       }, 100);
       
-      // Set a flag for tracking if we've shown the previews
-      let previewsShown = false;
+      // Create a countdown element directly 
+      const countdownElement = document.createElement('div');
+      countdownElement.style.cssText = `
+        position: fixed;
+        left: ${dotPosition.x}px;
+        top: ${dotPosition.y - 60}px;
+        transform: translateX(-50%);
+        color: red;
+        font-size: 36px;
+        font-weight: bold;
+        text-shadow: 0 0 10px white, 0 0 20px white;
+        z-index: 10000;
+        background-color: rgba(255, 255, 255, 0.8);
+        border: 2px solid red;
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      `;
+      document.body.appendChild(countdownElement);
       
-      // Run countdown with dot position
-      await new Promise((resolve, reject) => {
-        try {
-          runCountdown(
-            dotPosition,
-            canvas,
-            (status) => {
-              // Update UI based on status
-              if (status.processStatus) {
-                onStatusUpdate?.(status);
-              }
-            },
-            resolve // This will be called when countdown completes
-          );
-        } catch (error) {
-          clearInterval(keepDotVisibleInterval);
-          reject(error);
-        }
-      });
-      
-      // After countdown completes, update the status
-      onStatusUpdate?.({
-        processStatus: 'Countdown complete, preparing capture...',
-        isCapturing: true
-      });
-      
-      // Ensure the dot is still visible after countdown
-      drawRedDot(ctx, dotPosition.x, dotPosition.y, dotRadius, false);
-      
-      // Add additional delay after countdown to keep dot visible longer
-      await new Promise(resolve => setTimeout(resolve, postCountdownDelay));
-      
-      
-      // Ensure the dot is still visible after additional delay
-      drawRedDot(ctx, dotPosition.x, dotPosition.y, dotRadius, false);
-      
-      // Wait briefly for camera to initialize, but continue showing the dot
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Use a function wrapper to handle original preview reference
-      const originalShowCapturePreview = window.showCapturePreview || showCapturePreview;
-      
-      // Create a modified preview function that knows when previews are shown
-      const previewTracker = (screenImage, webcamImage, point) => {
-        // Mark previews as shown
-        previewsShown = true;
+      // Manual countdown
+      for (let count = 3; count > 0; count--) {
+        countdownElement.textContent = count;
         
-        // Stop redrawing the dot once previews are shown
-        clearInterval(keepDotVisibleInterval);
-        
-        // Call the original preview function
-        originalShowCapturePreview(screenImage, webcamImage, point);
-        
-        // Update status
         onStatusUpdate?.({
-          processStatus: 'Images captured and saved',
-          isCapturing: false
+          processStatus: `Countdown: ${count}`,
+          countdownValue: count,
+          isCapturing: true
         });
-      };
-      
-      // Override the preview function temporarily
-      if (typeof window !== 'undefined') {
-        window.showCapturePreview = previewTracker;
+        
+        // Redraw the dot for reliability
+        drawRedDot(ctx, dotPosition.x, dotPosition.y, dotRadius, false);
+        
+        await new Promise(resolve => setTimeout(resolve, 800));
       }
       
-      // Capture images at the dot position
+      // Show checkmark
+      countdownElement.textContent = "✓";
+      
+      // Remove countdown element after delay
+      setTimeout(() => {
+        if (countdownElement.parentNode) {
+          countdownElement.parentNode.removeChild(countdownElement);
+        }
+      }, 300);
+      
+      // Wait after countdown completes
+      await new Promise(resolve => setTimeout(resolve, postCountdownDelay));
+      
+      // Ensure the dot is still visible
+      drawRedDot(ctx, dotPosition.x, dotPosition.y, dotRadius, false);
+      
+      // Capture images at this point
       const captureResult = await captureImagesAtPoint({
         point: dotPosition,
         captureCount: captureCount,
         canvasRef: { current: canvas },
         setCaptureCount: setCaptureCount,
-        showCapturePreview: previewTracker
+        showCapturePreview
       });
       
-      // Increment capture counter
-      // setCaptureCount(prev => prev + 1);
+      // Clear redraw interval
+      clearInterval(keepDotVisibleInterval);
       
-      // Set a safety timeout to clear the interval if previews weren't shown
-      setTimeout(() => {
-        if (!previewsShown) {
-          clearInterval(keepDotVisibleInterval);
-          
-          // Restore original preview function
-          if (typeof window !== 'undefined') {
-            window.showCapturePreview = originalShowCapturePreview;
-          }
-        }
-      }, 3000);
+      // Restore canvas to original state
+      if (originalParent && canvas.parentElement !== originalParent) {
+        originalParent.appendChild(canvas);
+      }
       
-      // Schedule TopBar to return
+      canvas.style.position = originalStyle.position || '';
+      canvas.style.top = originalStyle.top || '';
+      canvas.style.left = originalStyle.left || '';
+      canvas.style.width = originalStyle.width || '100%';
+      canvas.style.height = originalStyle.height || '100%';
+      canvas.style.zIndex = originalStyle.zIndex || '';
+      
+      // Reset dimensions
+      if (originalParent) {
+        canvas.width = originalParent.clientWidth || 800;
+        canvas.height = originalParent.clientHeight || 600;
+      }
+      
+      // Clear canvas
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Update status
+      onStatusUpdate?.({
+        processStatus: 'Capture completed',
+        isCapturing: false
+      });
+      
+      // Show TopBar again after a delay
       setTimeout(() => {
         if (typeof toggleTopBar === 'function') {
           toggleTopBar(true);
         } else if (typeof window !== 'undefined' && window.toggleTopBar) {
           window.toggleTopBar(true);
         }
-        setIsCapturing(false);
-      }, 2500);
+      }, 2000);
       
       return {
         success: true,
@@ -530,15 +544,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         isCapturing: false
       });
       
-      // Clean up
-      setIsCapturing(false);
-      
-      // Restore any overridden functions
-      if (typeof window !== 'undefined' && window.originalShowCapturePreview) {
-        window.showCapturePreview = window.originalShowCapturePreview;
-      }
-      
-      // Make sure TopBar returns if there's an error
+      // Show TopBar again if there's an error
       setTimeout(() => {
         if (typeof toggleTopBar === 'function') {
           toggleTopBar(true);
@@ -553,6 +559,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       };
     }
   };
+  
   // This partial file shows only the fixed handleSetRandom function
   const handleSetRandom = async () => {
     if (isCapturing) return;
