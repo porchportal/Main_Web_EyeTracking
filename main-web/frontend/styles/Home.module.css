@@ -105,6 +105,106 @@
 .backButton:hover {
   background-color: #d0d0d0;
 }
+.centerButtonContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  margin-top: 2rem;
+}
+
+.largerButton {
+  height: 60px;
+  width: 60%;
+  position: relative;
+  transition: background 0.3s ease;
+  /* Same blue gradient as other buttons by default */
+  background: linear-gradient(to bottom, rgba(173, 235, 254, 0.8), rgba(173, 235, 254, 0.4));
+}
+
+/* Default hover state (slightly brighter blue, same as other buttons) */
+.largerButton:hover {
+  background: linear-gradient(to bottom, rgba(173, 235, 254, 1), rgba(173, 235, 254, 0.6));
+}
+
+/* Ready state - only apply when hovered */
+.readyButton:hover {
+  background: linear-gradient(to bottom, rgba(100, 220, 120, 1), rgba(100, 220, 120, 0.6));
+}
+
+/* Not ready state - only apply when hovered */
+.notReadyButton:hover {
+  background: linear-gradient(to bottom, rgba(220, 100, 100, 1), rgba(220, 100, 100, 0.6));
+}
+
+.statusText {
+  margin: 5px 0 0 0;
+  font-size: 0.7rem;
+  font-weight: normal;
+}
+
+.statusToggleButton {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.statusToggleButton:hover {
+  background-color: #e0e0e0;
+}
+
+/* @media (max-width: 768px) {
+  .largerButton {
+    width: 100%;
+    height: 170px;
+  }
+} */
+
+.statusDisplay {
+  margin-bottom: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 1.1rem;
+  background-color: #f5f5f5;
+}
+
+.dummyControls {
+  display: flex;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.processingButton {
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.processingButton:first-child {
+  background-color: #a3e4a3;
+  color: #006400;
+}
+
+.processingButton:first-child:hover {
+  background-color: #8ad48a;
+}
+
+.processingButton:last-child {
+  background-color: #e4a3a3;
+  color: #640000;
+}
+
+.processingButton:last-child:hover {
+  background-color: #d48a8a;
+}
 
 /* Responsive styles */
 @media (max-width: 768px) {

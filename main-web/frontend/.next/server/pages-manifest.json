@@ -3,7 +3,5 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/": "pages/index.js",
-  "/collected-dataset": "pages/collected-dataset.js",
-  "/api/save-capture": "pages/api/save-capture.js",
-  "/api/check-backend-connection": "pages/api/check-backend-connection.js"
+  "/process_set": "pages/process_set.js"
 }
