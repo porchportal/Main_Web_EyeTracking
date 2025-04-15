@@ -258,7 +258,7 @@ class FrameShow_head_face:
         for landmark in face_landmarks:
             x = int(landmark.x * w)
             y = int(landmark.y * h)
-            cv2.circle(frame, (x, y), 1, (0, 255, 0), -1)
+            cv2.circle(frame, (x, y), 2, (0, 255, 0), -1)
     def dynamic_gamma_correction(self, frame: np.ndarray) -> np.ndarray:
         """
         Apply dynamic gamma correction based on frame brightness
@@ -348,13 +348,13 @@ class FrameShow_head_face:
             self.isEnhanceFace = isEnhanceFace
         
         all_element, (pitch, yaw, roll), (frame_width, frame_height), face_landmarks, frame = self.set_functional_process(frame, timestamp_ms, isVideo)
-        print(f"DEBUG - After set_functional_process - frame type: {type(frame)}, shape: {frame.shape if hasattr(frame, 'shape') else 'Unknown'}")
+        # print(f"DEBUG - After set_functional_process - frame type: {type(frame)}, shape: {frame.shape if hasattr(frame, 'shape') else 'Unknown'}")
     
         if self.isEnhanceFace:
-            self.Face_bounding_box = True
-            self.face_Label_display = True
+            # self.Face_bounding_box = True
+            # self.face_Label_display = True
             all_element, (pitch, yaw, roll), (frame_width, frame_height), face_landmarks, frame = self.enhance_image_set(frame, all_element.face_box)
-            print(f"DEBUG - After enhance_image_set - frame type: {type(frame)}, shape: {frame.shape if hasattr(frame, 'shape') else 'Unknown'}")
+            # print(f"DEBUG - After enhance_image_set - frame type: {type(frame)}, shape: {frame.shape if hasattr(frame, 'shape') else 'Unknown'}")
 
         if frame.dtype != np.uint8:
             frame = frame.astype(np.uint8)
@@ -373,7 +373,7 @@ class FrameShow_head_face:
                 cv2.arrowedLine(frame, base, (int(center_x + x3), int(center_y + y3)), (0, 0, 255), 6) # Draw roll arrow (red)
                 
         if self.Head_isMaskOn:
-            self.get_draw_mask_face(frame.copy(), face_landmarks)
+            self.get_draw_mask_face(frame, face_landmarks)
             
         metrics = all_data_output(
             head_pose_angles=(pitch, yaw, roll),

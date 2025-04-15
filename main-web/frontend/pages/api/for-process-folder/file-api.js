@@ -12,6 +12,15 @@ export default async function handler(req, res) {
       const capturePath = path.join(process.cwd(), 'public', 'captures', 'eye_tracking_captures');
       const enhancePath = path.join(process.cwd(), 'public', 'captures', 'enhance');
       
+      // Create folders if they don't exist
+      if (!fs.existsSync(path.join(process.cwd(), 'public', 'captures'))) {
+        fs.mkdirSync(path.join(process.cwd(), 'public', 'captures'), { recursive: true });
+      }
+      
+      if (!fs.existsSync(capturePath)) {
+        fs.mkdirSync(capturePath, { recursive: true });
+      }
+      
       // Create enhance directory if it doesn't exist
       if (!fs.existsSync(enhancePath)) {
         fs.mkdirSync(enhancePath, { recursive: true });

@@ -25,6 +25,16 @@ export default async function handler(req, res) {
       folderPath = path.join(process.cwd(), 'public', 'captures', 'eye_tracking_captures');
     }
     
+    // Make sure the folder exists
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath, { recursive: true });
+      
+      return res.status(404).json({
+        success: false,
+        error: `Folder not found: ${folderPath}`
+      });
+    }
+    
     const filePath = path.join(folderPath, filename);
     
     // Check if file exists

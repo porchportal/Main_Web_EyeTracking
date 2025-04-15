@@ -2,7 +2,6 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import styles from '../../styles/ProcessSet.module.css';
-import { useProcessStatus } from '../../utils/stateManager';
 import { useEffect, useState } from 'react';
 
 // Import API functions
@@ -22,12 +21,13 @@ import {
   FileList,
   ActionButtons,
   Notification,
-  ProcessSummary
+  ProcessSummary,
+  ProcessingProgress
 } from './ProcessSetUI';
 
 export default function ProcessSet() {
   const router = useRouter();
-  const { isProcessReady, setProcessStatus } = useProcessStatus();
+  const [isProcessReady, setIsProcessReady] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [backendConnected, setBackendConnected] = useState(false);
   const [files, setFiles] = useState({ capture: [], enhance: [] });
@@ -37,6 +37,7 @@ export default function ProcessSet() {
   const [previewImageData, setPreviewImageData] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState(null);
+  const [progressData, setProgressData] = useState(null);
   
   // Initialize component on mount
   useEffect(() => {
@@ -44,7 +45,7 @@ export default function ProcessSet() {
     initializeComponent();
     
     // Set up interval to check processing status
-    const statusInterval = setInterval(checkCurrentProcessingStatus, 5000);
+    const statusInterval = setInterval(checkCurrentProcessingStatus, 2000); // Faster updates for smoother progress
     
     // Clean up interval on unmount
     return () => clearInterval(statusInterval);
@@ -80,15 +81,21 @@ export default function ProcessSet() {
       setProcessingStatus(status);
       setIsProcessing(status.isProcessing);
       
+      // Set progress data if available
+      if (status.progress) {
+        setProgressData(status.progress);
+      }
+      
       // Update process ready status based on file counts
       if (status.needsProcessing !== isProcessReady) {
-        setProcessStatus(status.needsProcessing);
+        setIsProcessReady(status.needsProcessing);
       }
       
       // If processing was in progress and now it's done, refresh file list
       if (isProcessing && !status.isProcessing) {
         showNotification('Processing completed', 'success');
         handleCheckFiles();
+        setProgressData(null); // Clear progress data
       }
     }
   };
@@ -122,7 +129,7 @@ export default function ProcessSet() {
       if (compareResult.success) {
         // Update process status based on whether there are files to process
         const needsProcessing = compareResult.captureCount > compareResult.enhanceCount;
-        setProcessStatus(needsProcessing);
+        setIsProcessReady(needsProcessing);
         
         if (needsProcessing) {
           showNotification(`${compareResult.captureCount - compareResult.enhanceCount} files need processing`, 'info');
@@ -131,7 +138,7 @@ export default function ProcessSet() {
         }
       }
     } else {
-      showNotification('Error loading files: ' + filesResult.error, 'error');
+      showNotification('Error loading files: ' + (filesResult.error || 'Unknown error'), 'error');
     }
     
     setLoading(false);
@@ -146,7 +153,7 @@ export default function ProcessSet() {
     if (result.success) {
       setPreviewImageData(result.data);
     } else {
-      showNotification('Error loading preview: ' + result.error, 'error');
+      showNotification('Error loading preview: ' + (result.error || 'Unknown error'), 'error');
     }
   };
 
@@ -183,8 +190,19 @@ export default function ProcessSet() {
     
     if (result.success) {
       showNotification(`Processing started for ${result.setsToProcess} sets`, 'success');
+      
+      // Reset progress data
+      setProgressData({
+        currentSet: 0,
+        totalSets: setNumbersToProcess.length,
+        processedSets: [],
+        startTime: new Date().toISOString()
+      });
+      
+      // Force immediate status check
+      await checkCurrentProcessingStatus();
     } else {
-      showNotification('Error starting processing: ' + result.error, 'error');
+      showNotification('Error starting processing: ' + (result.error || 'Unknown error'), 'error');
       setIsProcessing(false);
     }
   };
@@ -208,7 +226,7 @@ export default function ProcessSet() {
       <Head>
         <title>Process Image Folder | Eye Tracking App</title>
         <meta name="description" content="Process image folder for eye tracking" />
-        <link rel="icon" href="/eye-tracking-app/favicon.ico" />
+        <link rel="icon" href="/favicon.ico" />
       </Head>
 
       <main className={styles.main}>
@@ -244,6 +262,14 @@ export default function ProcessSet() {
             </div>
           )}
         </div>
+        
+        {/* Add the ProcessingProgress component if processing is active */}
+        {isProcessing && (
+          <ProcessingProgress 
+            isProcessing={isProcessing} 
+            progressData={progressData}
+          />
+        )}
 
         <div className={styles.processingContainer}>
           <div className={styles.leftPanel}>
@@ -285,7 +311,7 @@ export default function ProcessSet() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          Powered by Porch
+          Powered by Your Company
         </a>
       </footer>
     </div>

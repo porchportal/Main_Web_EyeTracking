@@ -170,3 +170,36 @@ export const ProcessSummary = ({ files }) => {
     </div>
   );
 };
+
+export const ProcessingProgress = ({ isProcessing, progressData }) => {
+    if (!isProcessing || !progressData) {
+      return null;
+    }
+    
+    const { currentSet, totalSets, processedSets } = progressData;
+    const percentComplete = totalSets > 0 ? 
+      Math.min(100, Math.round((processedSets.length / totalSets) * 100)) : 0;
+    
+    // Calculate elapsed and remaining time logic...
+    
+    return (
+      <div className={styles.progressContainer}>
+        <h3>Processing Progress</h3>
+        
+        <div className={styles.progressBar}>
+          <div 
+            className={styles.progressFill} 
+            style={{ width: `${percentComplete}%` }}
+          ></div>
+        </div>
+        
+        <div className={styles.progressStats}>
+          <div className={styles.progressStat}>
+            <span>Progress:</span>
+            <span>{processedSets.length} of {totalSets} ({percentComplete}%)</span>
+          </div>
+          {/* Additional progress stats... */}
+        </div>
+      </div>
+    );
+  };

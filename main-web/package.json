@@ -1,5 +1,6 @@
 {
   "dependencies": {
-    "next": "^15.2.4"
+    "next": "^15.2.4",
+    "node-fetch": "^2.7.0"
   }
 }

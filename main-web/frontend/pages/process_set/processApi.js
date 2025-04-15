@@ -10,11 +10,12 @@ export const checkBackendConnection = async () => {
       console.error('Error checking backend connection:', error);
       return { success: false, error: error.message };
     }
-  };
+};
   
   // Get list of files from both capture and enhance folders
-  export const getFilesList = async () => {
+export const getFilesList = async () => {
     try {
+      // Make sure we're using the correct API endpoint
       const response = await fetch('/api/for-process-folder/file-api?operation=list');
       const data = await response.json();
       return data;
@@ -25,7 +26,7 @@ export const checkBackendConnection = async () => {
   };
   
   // Check file completeness (if webcam, screen, and parameter files exist for each set)
-  export const checkFilesCompleteness = async () => {
+export const checkFilesCompleteness = async () => {
     try {
       const response = await fetch('/api/for-process-folder/file-api?operation=check-completeness');
       const data = await response.json();
@@ -37,7 +38,7 @@ export const checkBackendConnection = async () => {
   };
   
   // Preview a specific file
-  export const previewFile = async (filename) => {
+export const previewFile = async (filename) => {
     try {
       const response = await fetch(`/api/for-process-folder/preview-api?filename=${encodeURIComponent(filename)}`);
       const data = await response.json();
@@ -48,8 +49,8 @@ export const checkBackendConnection = async () => {
     }
   };
   
-  // Process files - trigger the Python script to process files
-  export const processFiles = async (setNumbers) => {
+  // Process files - trigger the processing
+export const processFiles = async (setNumbers) => {
     try {
       const response = await fetch('/api/for-process-folder/process-status-api', {
         method: 'POST',
@@ -67,7 +68,7 @@ export const checkBackendConnection = async () => {
   };
   
   // Compare files between capture and enhance folders
-  export const compareFileCounts = async () => {
+export const compareFileCounts = async () => {
     try {
       const response = await fetch('/api/for-process-folder/file-api?operation=compare');
       const data = await response.json();
@@ -79,10 +80,32 @@ export const checkBackendConnection = async () => {
   };
   
   // Check if processing is currently running
-  export const checkProcessingStatus = async () => {
+// In processApi.js
+export const checkProcessingStatus = async () => {
     try {
+      console.log('Requesting processing status...');
       const response = await fetch('/api/for-process-folder/process-status-api');
-      const data = await response.json();
+      
+      // Log the raw response
+      console.log('Status code:', response.status);
+      
+      // Try to get the text first to see if it's valid JSON
+      const text = await response.text();
+      console.log('Raw response:', text);
+      
+      // Now try to parse as JSON
+      let data;
+      try {
+        data = JSON.parse(text);
+        console.log('Parsed JSON data:', data);
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        return { 
+          success: false, 
+          error: `Failed to parse response as JSON: ${parseError.message}` 
+        };
+      }
+      
       return data;
     } catch (error) {
       console.error('Error checking processing status:', error);

@@ -6,8 +6,8 @@ import os
 from typing import Optional
 
 # Import the processing modules
-from imageProcess import process_image_handler
-from videoProcess import process_video_handler
+from process_images import process_image_handler
+from process_video import process_video_handler
 
 app = FastAPI()
 
