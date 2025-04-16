@@ -351,13 +351,22 @@ class FrameShow_head_face:
         # print(f"DEBUG - After set_functional_process - frame type: {type(frame)}, shape: {frame.shape if hasattr(frame, 'shape') else 'Unknown'}")
     
         if self.isEnhanceFace:
-            # self.Face_bounding_box = True
-            # self.face_Label_display = True
-            all_element, (pitch, yaw, roll), (frame_width, frame_height), face_landmarks, frame = self.enhance_image_set(frame, all_element.face_box)
-            # print(f"DEBUG - After enhance_image_set - frame type: {type(frame)}, shape: {frame.shape if hasattr(frame, 'shape') else 'Unknown'}")
-
+            # Get face box 
+            face_box = all_element.face_box
+            
+            # Process just the face region using the enhancer's main_process
+            enhanced_face = self.enhancer.main_process(frame, face_box)
+            
+            if enhanced_face is not None:
+                # Option 1: Replace the entire frame with the enhanced face (zoom effect)
+                frame = cv2.resize(enhanced_face, (frame_width, frame_height))
+                
+                # Re-detect face in the enhanced frame
+                all_element, (pitch, yaw, roll), (frame_width, frame_height), face_landmarks, frame = self.set_functional_process(frame, timestamp_ms, isVideo)
+                
         if frame.dtype != np.uint8:
             frame = frame.astype(np.uint8)
+            
         if hasattr(frame, 'numpy_view'):
             try:
                 frame = frame.numpy_view()

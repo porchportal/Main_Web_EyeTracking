@@ -1,4 +1,4 @@
-name,value
+Parameter,Value
 dot_x,744
 dot_y,662
 canvas_width,1713
@@ -7,3 +7,16 @@ window_width,1713
 window_height,933
 timestamp,2025-04-15T10:25:03.569Z
 group_id,capture-1744712703197
+pitch,-0.41
+yaw,0.09
+roll,0.02
+left_eye_x,421
+left_eye_y,179
+right_eye_x,184
+right_eye_y,182
+face_box_min_x,2
+face_box_min_y,1
+face_box_max_x,640
+face_box_max_y,480
+face_width,638
+face_height,479

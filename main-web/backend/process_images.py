@@ -5,6 +5,7 @@ import base64
 from fastapi import UploadFile
 import tempfile
 import os
+import traceback
 from typing import Dict, Any, List
 
 # Import the face tracking class
@@ -65,7 +66,12 @@ async def process_image_handler(
     Returns:
         Dict with processing results including metrics and processed image data
     """
+    tmp_path = None
     try:
+        # Log the incoming request details
+        print(f"Processing image: {file.filename}")
+        print(f"Parameters: head_pose={show_head_pose}, bounding_box={show_bounding_box}, mask={show_mask}, params={show_parameters}")
+        
         # Get the face tracker
         face_tracker = get_face_tracker()
         
@@ -79,17 +85,26 @@ async def process_image_handler(
         with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp_file:
             # Write the uploaded file to the temporary file
             content = await file.read()
+            
+            # Check if the content is valid
+            if not content or len(content) == 0:
+                return {"success": False, "error": "Uploaded file is empty"}
+                
+            print(f"Read {len(content)} bytes from uploaded file")
             tmp_file.write(content)
             tmp_path = tmp_file.name
+            print(f"Saved to temporary file: {tmp_path}")
         
         try:
             # Read the image with OpenCV
             image = cv2.imread(tmp_path)
             if image is None:
+                print(f"Error: Could not read image file from {tmp_path}")
                 return {"success": False, "error": "Could not read image file"}
             
             # Get image dimensions
             height, width = image.shape[:2]
+            print(f"Image dimensions: {width}x{height}")
             
             # Process the image with face tracker
             timestamp_ms = int(1000)  # Placeholder timestamp
@@ -106,6 +121,7 @@ async def process_image_handler(
             
             # Check if face was detected
             if metrics is not None:
+                print("Face detection successful")
                 # Extract metrics
                 pitch, yaw, roll = metrics.head_pose_angles
                 
@@ -128,20 +144,41 @@ async def process_image_handler(
                 
                 # Add eye centers if available
                 if hasattr(metrics, 'eye_centers') and metrics.eye_centers is not None:
-                    result["metrics"]["eye_centers"] = {
-                        "left": metrics.eye_centers[0].tolist() if len(metrics.eye_centers) > 0 else None,
-                        "right": metrics.eye_centers[1].tolist() if len(metrics.eye_centers) > 1 else None
-                    }
+                    print("Adding eye centers to response")
+                    # FIX: Convert tuple to list if needed
+                    try:
+                        result["metrics"]["eye_centers"] = {
+                            "left": np.array(metrics.eye_centers[0]).tolist() if len(metrics.eye_centers) > 0 else None,
+                            "right": np.array(metrics.eye_centers[1]).tolist() if len(metrics.eye_centers) > 1 else None
+                        }
+                    except AttributeError:
+                        # If eye_centers are tuples without tolist() method
+                        print("Converting eye center tuples to lists")
+                        result["metrics"]["eye_centers"] = {
+                            "left": list(metrics.eye_centers[0]) if len(metrics.eye_centers) > 0 else None,
+                            "right": list(metrics.eye_centers[1]) if len(metrics.eye_centers) > 1 else None
+                        }
                 
                 # Add face box information if available
                 if hasattr(metrics, 'face_box') and metrics.face_box is not None:
-                    result["metrics"]["face_box"] = {
-                        "min": metrics.face_box[0].tolist(),
-                        "max": metrics.face_box[1].tolist()
-                    }
+                    print("Adding face box to response")
+                    # FIX: Convert tuple to list if needed
+                    try:
+                        result["metrics"]["face_box"] = {
+                            "min": np.array(metrics.face_box[0]).tolist(),
+                            "max": np.array(metrics.face_box[1]).tolist()
+                        }
+                    except AttributeError:
+                        # If face_box contains tuples without tolist() method
+                        print("Converting face box tuples to lists")
+                        result["metrics"]["face_box"] = {
+                            "min": list(metrics.face_box[0]),
+                            "max": list(metrics.face_box[1])
+                        }
                 
                 return result
             else:
+                print("No face detected in the image")
                 # No face detected
                 return {
                     "success": True,
@@ -157,7 +194,22 @@ async def process_image_handler(
         finally:
             # Clean up the temporary file
             if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+                try:
+                    os.unlink(tmp_path)
+                    print(f"Temporary file removed: {tmp_path}")
+                except Exception as e:
+                    print(f"Warning: Failed to remove temporary file: {e}")
     
     except Exception as e:
+        # Log the full exception with traceback
+        print(f"Error processing image: {str(e)}")
+        print(traceback.format_exc())
+        
+        # Clean up the temporary file in case of error
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except:
+                pass
+                
         return {"success": False, "error": f"Error processing image: {str(e)}"}

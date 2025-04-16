@@ -4,7 +4,9 @@
   "/_document": "pages/_document.js",
   "/": "pages/index.js",
   "/process_set": "pages/process_set.js",
-  "/api/for-process-folder/file-api": "pages/api/for-process-folder/file-api.js",
+  "/api/for-process-folder/process-status-api": "pages/api/for-process-folder/process-status-api.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/api/for-process-folder/process-status-api": "pages/api/for-process-folder/process-status-api.js"
+  "/api/for-process-folder/file-api": "pages/api/for-process-folder/file-api.js",
+  "/api/for-process-folder/preview-api": "pages/api/for-process-folder/preview-api.js",
+  "/testing-model": "pages/testing-model.js"
 }

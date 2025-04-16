@@ -1,8 +1,70 @@
 // pages/process_set/ProcessSetUI.js - UI components for process_set page
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styles from '../../styles/ProcessSet.module.css';
 
+// export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
+//   if (!selectedFile) {
+//     return (
+//       <div className={styles.previewPanel}>
+//         <p>Select a file to preview</p>
+//       </div>
+//     );
+//   }
+
+//   if (!previewImage) {
+//     return (
+//       <div className={styles.previewPanel}>
+//         <p>Loading preview...</p>
+//       </div>
+//     );
+//   }
+
+//   // Determine if it's an image or CSV data
+//   const isImage = selectedFile.endsWith('.jpg') || selectedFile.endsWith('.jpeg') || selectedFile.endsWith('.png');
+
+//   return (
+//     <div className={styles.previewPanel}>
+//       <h3>Preview: {selectedFile}</h3>
+//       {isImage ? (
+//         <img
+//           src={`data:image/jpeg;base64,${previewImage}`}
+//           alt={selectedFile}
+//           className={styles.previewImage}
+//         />
+//       ) : (
+//         <div className={styles.csvPreview}>
+//           <pre>{previewImage}</pre>
+//         </div>
+//       )}
+//     </div>
+//   );
+// };
+// Updated FilePreviewPanel component with fixed image sizing
+// Updated FilePreviewPanel with fixed scaling based on original dimensions
+
 export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
+  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+  
+  // Function to pre-load the image and get its dimensions
+  useEffect(() => {
+    if (!selectedFile || !previewImage || !isImageFile(selectedFile)) return;
+    
+    const img = new Image();
+    img.onload = () => {
+      // Calculate dimensions scaled by 1.5
+      setImageSize({
+        width: Math.round(img.width / 1.5),
+        height: Math.round(img.height / 1.5)
+      });
+    };
+    img.src = `data:image/jpeg;base64,${previewImage}`;
+  }, [selectedFile, previewImage]);
+  
+  // Check if file is an image
+  const isImageFile = (filename) => {
+    return filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png');
+  };
+
   if (!selectedFile) {
     return (
       <div className={styles.previewPanel}>
@@ -20,17 +82,24 @@ export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
   }
 
   // Determine if it's an image or CSV data
-  const isImage = selectedFile.endsWith('.jpg') || selectedFile.endsWith('.jpeg') || selectedFile.endsWith('.png');
+  const isImage = isImageFile(selectedFile);
 
   return (
     <div className={styles.previewPanel}>
       <h3>Preview: {selectedFile}</h3>
       {isImage ? (
-        <img
-          src={`data:image/jpeg;base64,${previewImage}`}
-          alt={selectedFile}
-          className={styles.previewImage}
-        />
+        <div className={styles.imageContainer}>
+          <img
+            src={`data:image/jpeg;base64,${previewImage}`}
+            alt={selectedFile}
+            className={styles.previewImage}
+            style={{
+              width: imageSize.width > 0 ? `${imageSize.width}px` : 'auto',
+              height: imageSize.height > 0 ? `${imageSize.height}px` : 'auto',
+              objectFit: 'initial' // Don't scale the image
+            }}
+          />
+        </div>
       ) : (
         <div className={styles.csvPreview}>
           <pre>{previewImage}</pre>
