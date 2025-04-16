@@ -23,8 +23,8 @@ def get_face_tracker():
         # Try different possible locations for the model
         model_paths = [
             'Main_model02/face_landmarker.task',
-            '../Main_model02/face_landmarker.task',
-            './backend/Main_model02/face_landmarker.task'
+            # '../Main_model02/face_landmarker.task',
+            # './backend/Main_model02/face_landmarker.task'
         ]
         
         model_path = None
@@ -97,14 +97,17 @@ async def process_image_handler(
         
         try:
             # Read the image with OpenCV
-            image = cv2.imread(tmp_path)
-            if image is None:
+            original_image = cv2.imread(tmp_path)
+            if original_image is None:
                 print(f"Error: Could not read image file from {tmp_path}")
                 return {"success": False, "error": "Could not read image file"}
             
-            # Get image dimensions
-            height, width = image.shape[:2]
-            print(f"Image dimensions: {width}x{height}")
+            # Store the original image dimensions
+            original_height, original_width = original_image.shape[:2]
+            print(f"Original image dimensions: {original_width}x{original_height}")
+            
+            # Make a copy of the image for processing to ensure we don't modify the original
+            image = original_image.copy()
             
             # Process the image with face tracker
             timestamp_ms = int(1000)  # Placeholder timestamp
@@ -114,6 +117,15 @@ async def process_image_handler(
                 isVideo=False,
                 isEnhanceFace=True  # Enable face enhancement
             )
+            
+            # Check the dimensions of the processed image
+            processed_height, processed_width = processed_image.shape[:2]
+            print(f"Processed image dimensions: {processed_width}x{processed_height}")
+            
+            # Log if dimensions changed but don't resize them back
+            if processed_width != original_width or processed_height != original_height:
+                print(f"Note: Image dimensions changed during processing: Original ({original_width}x{original_height}) → Processed ({processed_width}x{processed_height})")
+                # We're intentionally NOT resizing the image back to preserve the model's output dimensions
             
             # Convert processed image to base64 for return
             _, buffer = cv2.imencode('.jpg', processed_image)
@@ -128,8 +140,8 @@ async def process_image_handler(
                 result = {
                     "success": True,
                     "image": {
-                        "width": width,
-                        "height": height,
+                        "width": original_width,  # Always use original dimensions
+                        "height": original_height,
                         "data": img_str
                     },
                     "face_detected": True,
@@ -179,13 +191,20 @@ async def process_image_handler(
                 return result
             else:
                 print("No face detected in the image")
-                # No face detected
+                # No face detected, but we'll return whatever the model outputs (may be modified)
+                # This allows any visualization or modifications from the model to be preserved
+                _, buffer = cv2.imencode('.jpg', processed_image)
+                img_str = base64.b64encode(buffer).decode('utf-8')
+                
+                # Get the actual dimensions of the processed image
+                processed_height, processed_width = processed_image.shape[:2]
+                
                 return {
                     "success": True,
                     "image": {
-                        "width": width,
-                        "height": height,
-                        "data": img_str
+                        "width": processed_width,
+                        "height": processed_height,
+                        "data": img_str  # Return processed image even if no face detected
                     },
                     "face_detected": False,
                     "message": "No face detected in the image"

@@ -12,12 +12,39 @@ from typing import Dict, Any, List
 from Main_model02.showframeVisualization import FrameShow_head_face
 
 # Initialize face tracker specifically for video processing
-video_face_tracker = FrameShow_head_face(
-    model_path='Main_model02/face_landmarker.task',
-    isVideo=True,  # Set to True for video processing
-    isHeadposeOn=True,
-    isFaceOn=True
-)
+video_face_tracker = None  # Will be initialized on first use
+
+def get_video_face_tracker():
+    """
+    Initialize the video face tracker if not already initialized
+    """
+    global video_face_tracker
+    if video_face_tracker is None:
+        # Try different possible locations for the model
+        model_paths = [
+            'Main_model02/face_landmarker.task',
+            '../Main_model02/face_landmarker.task',
+            './backend/Main_model02/face_landmarker.task'
+        ]
+        
+        model_path = None
+        for path in model_paths:
+            if os.path.exists(path):
+                model_path = path
+                break
+                
+        if model_path is None:
+            raise FileNotFoundError("Face landmarker model not found in any of the expected locations")
+            
+        print(f"Initializing video face tracker with model: {model_path}")
+        video_face_tracker = FrameShow_head_face(
+            model_path=model_path,
+            isVideo=True,  # Set to True for video processing
+            isHeadposeOn=True,
+            isFaceOn=True
+        )
+        
+    return video_face_tracker
 
 async def process_video_handler(
     file: UploadFile,
@@ -39,20 +66,29 @@ async def process_video_handler(
     Returns:
         Dict with processing results including metrics and processed frames data
     """
-    # Configure the face tracker based on parameters
-    video_face_tracker.set_IsShowHeadpose(show_head_pose)
-    video_face_tracker.set_IsShowBox(show_bounding_box)
-    video_face_tracker.set_IsMaskOn(show_mask)
-    video_face_tracker.set_labet_face_element(show_parameters)
-    
-    # Create a temporary file to save the uploaded video
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
-        # Write the uploaded file to the temporary file
-        content = await file.read()
-        tmp_file.write(content)
-        tmp_path = tmp_file.name
-    
+    tmp_path = None
     try:
+        # Log the incoming request details
+        print(f"Processing video: {file.filename}")
+        print(f"Parameters: head_pose={show_head_pose}, bounding_box={show_bounding_box}, mask={show_mask}, params={show_parameters}")
+        
+        # Get the face tracker
+        face_tracker = get_video_face_tracker()
+        
+        # Configure the face tracker based on parameters
+        face_tracker.set_IsShowHeadpose(show_head_pose)
+        face_tracker.set_IsShowBox(show_bounding_box)
+        face_tracker.set_IsMaskOn(show_mask)
+        face_tracker.set_labet_face_element(show_parameters)
+        
+        # Create a temporary file to save the uploaded video
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as tmp_file:
+            # Write the uploaded file to the temporary file
+            content = await file.read()
+            tmp_file.write(content)
+            tmp_path = tmp_file.name
+            print(f"Saved to temporary file: {tmp_path}")
+        
         # Open the video file
         cap = cv2.VideoCapture(tmp_path)
         if not cap.isOpened():
@@ -63,6 +99,8 @@ async def process_video_handler(
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        
+        print(f"Video properties: {width}x{height}, {fps} fps, {frame_count} frames")
         
         # Prepare result containers
         all_metrics = []
@@ -78,14 +116,28 @@ async def process_video_handler(
             if not ret:
                 break
                 
+            # Store original frame dimensions
+            original_height, original_width = frame.shape[:2]
+            
+            # Make a copy of the frame for processing
+            process_frame = frame.copy()
+            
             # Process frame with face tracker
             timestamp_ms = int(1000 * current_frame / fps)
-            metrics, processed_frame = video_face_tracker.process_frame(
-                frame,
+            metrics, processed_frame = face_tracker.process_frame(
+                process_frame,
                 timestamp_ms,
                 isVideo=True,
                 isEnhanceFace=True
             )
+            
+            # Check processed frame dimensions
+            processed_height, processed_width = processed_frame.shape[:2]
+            
+            # Log if dimensions changed but don't resize them back
+            if processed_width != original_width or processed_height != original_height:
+                print(f"Frame {current_frame}: Dimensions changed during processing: Original ({original_width}x{original_height}) → Processed ({processed_width}x{processed_height})")
+                # We're intentionally NOT resizing the image back to preserve the model's output dimensions
             
             # Check if face was detected and update stats
             if metrics is not None:
@@ -102,10 +154,16 @@ async def process_video_handler(
                 }
                 # Add eye centers if available
                 if hasattr(metrics, 'eye_centers') and metrics.eye_centers is not None:
-                    frame_metrics["eye_centers"] = {
-                        "left": metrics.eye_centers[0].tolist(),
-                        "right": metrics.eye_centers[1].tolist()
-                    }
+                    try:
+                        frame_metrics["eye_centers"] = {
+                            "left": np.array(metrics.eye_centers[0]).tolist() if len(metrics.eye_centers) > 0 else None,
+                            "right": np.array(metrics.eye_centers[1]).tolist() if len(metrics.eye_centers) > 1 else None
+                        }
+                    except AttributeError:
+                        frame_metrics["eye_centers"] = {
+                            "left": list(metrics.eye_centers[0]) if len(metrics.eye_centers) > 0 else None,
+                            "right": list(metrics.eye_centers[1]) if len(metrics.eye_centers) > 1 else None
+                        }
                 
                 all_metrics.append(frame_metrics)
             else:
@@ -115,6 +173,9 @@ async def process_video_handler(
                     "frame_number": current_frame,
                     "face_detected": False
                 })
+                
+                # We'll still use the processed frame even if no face was detected
+                # This allows any visualization or modifications from the model to be preserved
             
             # Convert frame to base64 (for key frames only to reduce data size)
             if current_frame % 10 == 0:  # Store every 10th frame
@@ -122,7 +183,9 @@ async def process_video_handler(
                 img_str = base64.b64encode(buffer).decode('utf-8')
                 processed_frames.append({
                     "frame": current_frame,
-                    "image": img_str
+                    "image": img_str,
+                    "width": processed_width,
+                    "height": processed_height
                 })
             
             current_frame += 1
@@ -176,9 +239,16 @@ async def process_video_handler(
             }
     
     except Exception as e:
+        print(f"Error processing video: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return {"success": False, "error": f"Error processing video: {str(e)}"}
     
     finally:
         # Clean up the temporary file
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+                print(f"Temporary file removed: {tmp_path}")
+            except Exception as e:
+                print(f"Warning: Failed to remove temporary file: {e}")
