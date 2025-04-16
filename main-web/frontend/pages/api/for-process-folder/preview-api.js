@@ -1,4 +1,4 @@
-// pages/api/preview-api.js - File preview API
+// pages/api/preview-api.js - File preview API with image type detection
 import fs from 'fs';
 import path from 'path';
 
@@ -52,10 +52,15 @@ export default async function handler(req, res) {
     if (filename.endsWith('.jpg') || filename.endsWith('.jpeg') || filename.endsWith('.png')) {
       // For images, return base64 encoded data
       const base64Data = fileData.toString('base64');
+      
+      // Determine image type (screen or webcam)
+      const imageType = filename.includes('screen_') ? 'screen' : 'webcam';
+      
       return res.status(200).json({
         success: true,
         data: base64Data,
-        type: 'image'
+        type: 'image',
+        imageType: imageType
       });
     } else if (filename.endsWith('.csv')) {
       // For CSV files, return as text

@@ -305,7 +305,7 @@ export default function ProcessSet() {
         </button>
       </main>
 
-      <footer className={styles.footer}>
+      {/* <footer className={styles.footer}>
         <a 
           href="https://yourwebsite.com"
           target="_blank"
@@ -313,7 +313,7 @@ export default function ProcessSet() {
         >
           Powered by Your Company
         </a>
-      </footer>
+      </footer> */}
     </div>
   );
 }

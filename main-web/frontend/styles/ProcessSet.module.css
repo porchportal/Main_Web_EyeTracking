@@ -152,8 +152,32 @@
     min-height: 400px;
   } */
 /* CSS styles for the fixed scale preview */
-
-.previewPanel {
+  
+  .imageContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: auto;
+    width: 100%;
+    padding: 8px;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  .screenImageContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: auto;
+    width: 100%;
+    padding: 8px;
+    background-color: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Allow the preview panel to scroll if needed */
+  .previewPanel {
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -162,17 +186,6 @@
     background-color: #f5f5f5;
     border-radius: 8px;
     padding: 16px;
-  }
-  
-  .imageContainer {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: auto; /* Changed to auto to allow scrolling if needed */
-    padding: 8px;
-    background-color: #fff;
-    border-radius: 4px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
   
   /* Remove max-width/max-height constraints to prevent auto-scaling */

@@ -1,13 +1,9 @@
 {
-  "currentSet": "005",
-  "totalSets": 5,
+  "currentSet": "006",
+  "totalSets": 1,
   "processedSets": [
-    "001",
-    "002",
-    "003",
-    "004",
-    "005"
+    "006"
   ],
-  "startTime": "2025-04-16T17:18:01.356Z",
-  "lastUpdateTime": "2025-04-16T17:18:04.107Z"
+  "startTime": "2025-04-16T17:35:27.467Z",
+  "lastUpdateTime": "2025-04-16T17:35:27.566Z"
 }

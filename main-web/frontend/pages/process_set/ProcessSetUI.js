@@ -39,9 +39,6 @@ import styles from '../../styles/ProcessSet.module.css';
 //     </div>
 //   );
 // };
-// Updated FilePreviewPanel component with fixed image sizing
-// Updated FilePreviewPanel with fixed scaling based on original dimensions
-
 export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   
@@ -51,10 +48,13 @@ export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
     
     const img = new Image();
     img.onload = () => {
-      // Calculate dimensions scaled by 1.5
+      // Use different scaling for screen vs webcam images
+      const isScreenImage = selectedFile.includes('screen_');
+      const scaleFactor = isScreenImage ? 2 : 1.5; // 1/2 = 50% for screen, 1/1.5 ≈ 67% for webcam
+      
       setImageSize({
-        width: Math.round(img.width / 1.5),
-        height: Math.round(img.height / 1.5)
+        width: Math.round(img.width / scaleFactor),
+        height: Math.round(img.height / scaleFactor)
       });
     };
     img.src = `data:image/jpeg;base64,${previewImage}`;
@@ -83,6 +83,9 @@ export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
 
   // Determine if it's an image or CSV data
   const isImage = isImageFile(selectedFile);
+  
+  // Check if it's a screen image for display purposes
+  const isScreenImage = selectedFile.includes('screen_');
 
   return (
     <div className={styles.previewPanel}>

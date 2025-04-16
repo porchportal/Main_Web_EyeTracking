@@ -2,10 +2,12 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
+  "/testing-model": "pages/testing-model.js",
   "/": "pages/index.js",
   "/process_set": "pages/process_set.js",
-  "/api/check-backend-connection": "pages/api/check-backend-connection.js",
+  "/api/for-process-folder/file-api": "pages/api/for-process-folder/file-api.js",
   "/api/for-process-folder/process-status-api": "pages/api/for-process-folder/process-status-api.js",
   "/api/for-process-folder/preview-api": "pages/api/for-process-folder/preview-api.js",
-  "/api/for-process-folder/file-api": "pages/api/for-process-folder/file-api.js"
+  "/api/check-backend-connection": "pages/api/check-backend-connection.js",
+  "/api/process-image": "pages/api/process-image.js"
 }
