@@ -687,15 +687,17 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       }, 1000);
     }
   };
-  // Refactored handleSetCalibrate function using handleDotProcess
-  // Refactored handleSetCalibrate function using handleDotProcess
+
   const handleSetCalibrate = async () => {
     if (isCapturing) return;
     
-    // Track original canvas state for restoration
+    // Declare these variables OUTSIDE the try block
+    let canvas = null;
     let originalCanvasParent = null;
     let originalCanvasStyle = {};
-    
+    let statusIndicator = null;
+    let currentRedrawInterval = null;
+
     try {
       // Hide TopBar
       if (typeof onActionClick === 'function') {
@@ -705,13 +707,14 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       }
 
       setIsCapturing(true);
+      setShowCanvas(true);
       setProcessStatus("Starting calibration sequence...");
       
       // Wait for UI updates to take effect
       await new Promise(resolve => setTimeout(resolve, 300));
       
       // Get canvas reference
-      const canvas = getMainCanvas();
+      canvas = getMainCanvas();
       if (!canvas) {
         setProcessStatus("Error: Canvas not found");
         setIsCapturing(false);
@@ -721,7 +724,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         return;
       }
       
-      // Save original canvas state
+      // Save original parent and style
       originalCanvasParent = canvas.parentElement;
       originalCanvasStyle = {
         position: canvas.style.position,
@@ -732,38 +735,43 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         zIndex: canvas.style.zIndex
       };
       
-      // Ensure the canvas is full-screen for calibration
-      // Move to body for maximum reliability and consistent positioning
+      // Move canvas to body for maximum reliability
       document.body.appendChild(canvas);
+      
+      // Make canvas fullscreen with fixed positioning
       canvas.style.position = 'fixed';
       canvas.style.top = '0';
       canvas.style.left = '0';
       canvas.style.width = '100vw';
       canvas.style.height = '100vh';
-      canvas.style.zIndex = '1000';
+      canvas.style.zIndex = '10';
       
       // Set dimensions to match window exactly
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const canvasWidth = window.innerWidth;
+      const canvasHeight = window.innerHeight;
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      
+      console.log(`Canvas set to fullscreen: ${canvasWidth}x${canvasHeight}`);
+      
+      // Get context
+      const ctx = canvas.getContext('2d');
       
       // Clear canvas with white background
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
       ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      console.log(`Canvas prepared for calibration: ${canvas.width}x${canvas.height}`);
-      
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
       // Generate calibration points based on the canvas size
       const { generateCalibrationPoints } = await import('./Action/CalibratePoints');
-      const points = generateCalibrationPoints(canvas.width, canvas.height);
+      const points = generateCalibrationPoints(canvasWidth, canvasHeight);
       
       if (!points || points.length === 0) {
         throw new Error("Failed to generate calibration points");
       }
       
       // Create a status indicator
-      const statusIndicator = document.createElement('div');
+      statusIndicator = document.createElement('div');
       statusIndicator.className = 'calibrate-status-indicator';
       statusIndicator.style.cssText = `
         position: fixed;
@@ -786,80 +794,199 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       for (let i = 0; i < points.length; i++) {
         const point = points[i];
         
+        // Clear any existing redraw interval
+        if (currentRedrawInterval) {
+          clearInterval(currentRedrawInterval);
+          currentRedrawInterval = null;
+        }
+        
         // Update status displays
         statusIndicator.textContent = `Calibration: Point ${i + 1}/${points.length}`;
         setProcessStatus(`Processing calibration point ${i + 1}/${points.length}`);
         
-        // Use handleDotProcess for each calibration point
-        const result = await handleDotProcess({
-          position: point,
-          onStatusUpdate: (status) => {
-            if (status.processStatus) {
-              setProcessStatus(`Point ${i+1}/${points.length}: ${status.processStatus}`);
-            }
-          },
-          toggleTopBar: (show) => {
-            // Only show TopBar after the last point
-            if (show && i < points.length - 1) {
-              return; // Don't show yet for intermediate points
-            }
-            
-            if (typeof onActionClick === 'function') {
-              onActionClick('toggleTopBar', show);
-            } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-              window.toggleTopBar(show);
-            }
-          },
-          triggerCameraAccess,
-          setIsCapturing: (capturing) => {
-            // Only set capturing to false after all points
-            if (!capturing && i < points.length - 1) {
-              return; // Stay in capturing state between points
-            }
-            setIsCapturing(capturing);
-          },
-          captureCount,
-          setCaptureCount: setCaptureCount,
-          postCountdownDelay: 800
+        // Reset canvas if dimensions changed
+        if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
+          console.warn(`Canvas dimensions changed. Resetting to ${canvasWidth}x${canvasHeight}`);
+          canvas.width = canvasWidth;
+          canvas.height = canvasHeight;
+        }
+        
+        // Make sure canvas is still attached to body and in fullscreen mode
+        if (canvas.parentElement !== document.body) {
+          document.body.appendChild(canvas);
+          canvas.style.position = 'fixed';
+          canvas.style.top = '0';
+          canvas.style.left = '0';
+          canvas.style.width = '100vw';
+          canvas.style.height = '100vh';
+          canvas.style.zIndex = '10';
+        }
+        
+        // Clear canvas with white background
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Draw the calibration point
+        const radius = 14; // Slightly larger for better visibility
+        drawRedDot(ctx, point.x, point.y, radius, false);
+        
+        // Create redraw function for this point
+        const redrawCurrentDot = () => {
+          // Verify canvas dimensions and parent
+          if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+          }
+          
+          // Make sure canvas is still attached to body
+          if (canvas.parentElement !== document.body) {
+            document.body.appendChild(canvas);
+          }
+          
+          // Redraw dot without clearing
+          drawRedDot(ctx, point.x, point.y, radius, false);
+        };
+        
+        // Start redraw interval - more frequent updates for reliable dot visibility
+        currentRedrawInterval = setInterval(redrawCurrentDot, 50);
+        
+        // Remove any existing countdown elements
+        const existingCountdowns = document.querySelectorAll('.dot-countdown, .calibrate-countdown');
+        existingCountdowns.forEach(el => {
+          if (el.parentNode) el.parentNode.removeChild(el);
         });
         
-        if (result && result.success) {
-          successCount++;
-        }
+        // Create custom countdown element
+        const countdownElement = document.createElement('div');
+        countdownElement.className = 'dot-countdown'; // Consistent class name
+        countdownElement.style.cssText = `
+          position: fixed;
+          left: ${point.x}px;
+          top: ${point.y - 60}px;
+          transform: translateX(-50%);
+          color: red;
+          font-size: 36px;
+          font-weight: bold;
+          text-shadow: 0 0 10px white, 0 0 20px white;
+          z-index: 10000;
+          background-color: rgba(255, 255, 255, 0.8);
+          border: 2px solid red;
+          border-radius: 50%;
+          width: 50px;
+          height: 50px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        `;
+        document.body.appendChild(countdownElement);
         
-        // Wait between calibration points
-        if (i < points.length - 1) {
-          setProcessStatus(`Waiting before next calibration point...`);
+        try {
+          // Manual countdown
+          for (let count = 3; count > 0; count--) {
+            countdownElement.textContent = count;
+            setProcessStatus(`Point ${i+1}/${points.length}: Countdown ${count}`);
+            
+            // Force redraw multiple times during countdown to ensure visibility
+            redrawCurrentDot();
+            
+            await new Promise(resolve => setTimeout(resolve, 800));
+            
+            // Redraw again halfway through the wait to ensure dot stays visible
+            redrawCurrentDot();
+          }
+          
+          // Show checkmark
+          countdownElement.textContent = "✓";
+          redrawCurrentDot();
+          
+          // Remove countdown element after delay
+          setTimeout(() => {
+            if (countdownElement.parentNode) {
+              countdownElement.parentNode.removeChild(countdownElement);
+            }
+          }, 300);
+          
+          // Make sure dot is still visible
+          redrawCurrentDot();
+          
+          // Capture images at this point
+          console.log(`Capturing calibration point ${i+1}/${points.length} at (${point.x}, ${point.y})`);
+          
+          // Manual force redraw one more time just before capture
+          drawRedDot(ctx, point.x, point.y, radius, false);
+          
+          const captureResult = await captureImagesAtPoint({
+            point: point,
+            captureCount: captureCount,
+            canvasRef: { current: canvas },
+            setCaptureCount: setCaptureCount,
+            showCapturePreview
+          });
+          
+          if (captureResult && (captureResult.screenImage || captureResult.success)) {
+            successCount++;
+          }
+          
+          // Wait between points
           await new Promise(resolve => setTimeout(resolve, 1200));
+          
+        } catch (error) {
+          console.error(`Error processing calibration point ${i+1}:`, error);
+        } finally {
+          // Clean up countdown if it still exists
+          if (countdownElement.parentNode) {
+            countdownElement.parentNode.removeChild(countdownElement);
+          }
+          
+          // Clear redraw interval
+          if (currentRedrawInterval) {
+            clearInterval(currentRedrawInterval);
+            currentRedrawInterval = null;
+          }
         }
       }
-
+      
       // Calibration complete
       if (statusIndicator) {
         statusIndicator.textContent = `Calibration complete: ${successCount}/${points.length} points`;
       }
       setProcessStatus(`Calibration completed: ${successCount}/${points.length} points captured`);
       
-      // Remove status indicator after a delay
-      setTimeout(() => {
-        if (statusIndicator && statusIndicator.parentNode) {
-          statusIndicator.parentNode.removeChild(statusIndicator);
-        }
-      }, 3000);
-
     } catch (error) {
       console.error("Calibration error:", error);
       setProcessStatus(`Calibration error: ${error.message}`);
+      
+      // Clean up redraw interval
+      if (currentRedrawInterval) {
+        clearInterval(currentRedrawInterval);
+      }
     } finally {
-      // Restore canvas to its original state
-      if (canvas && originalCanvasParent) {
+      // Remove status indicator if it exists
+      if (statusIndicator && statusIndicator.parentNode) {
+        setTimeout(() => {
+          statusIndicator.parentNode.removeChild(statusIndicator);
+        }, 3000);
+      }
+      
+      // Restore canvas to original parent and styling - Only if canvas was successfully initialized
+      if (canvas) {
         try {
-          // Move canvas back to original parent
-          if (canvas.parentElement !== originalCanvasParent) {
+          // Try to find original parent
+          if (originalCanvasParent && canvas.parentElement !== originalCanvasParent) {
             originalCanvasParent.appendChild(canvas);
+          } else if (!originalCanvasParent) {
+            // Fallback to looking for a container element
+            const possibleParent = document.querySelector('.canvas-container');
+            if (possibleParent && canvas.parentElement !== possibleParent) {
+              possibleParent.appendChild(canvas);
+            }
           }
           
-          // Restore original styling
+          // Restore styling
           canvas.style.position = originalCanvasStyle.position || '';
           canvas.style.top = originalCanvasStyle.top || '';
           canvas.style.left = originalCanvasStyle.left || '';
@@ -867,9 +994,15 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
           canvas.style.height = originalCanvasStyle.height || '100%';
           canvas.style.zIndex = originalCanvasStyle.zIndex || '';
           
-          // Adjust canvas dimensions based on parent
-          canvas.width = originalCanvasParent.clientWidth || 800;
-          canvas.height = originalCanvasParent.clientHeight || 600;
+          // Reset dimensions based on parent
+          const parent = canvas.parentElement;
+          if (parent) {
+            canvas.width = parent.clientWidth || 800;
+            canvas.height = parent.clientHeight || 600;
+          } else {
+            canvas.width = 800;
+            canvas.height = 600;
+          }
           
           // Clear canvas with white background
           const ctx = canvas.getContext('2d');

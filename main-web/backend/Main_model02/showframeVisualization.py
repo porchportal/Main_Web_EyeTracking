@@ -26,14 +26,11 @@ import sys
 
 @dataclass
 class all_data_output:
-    head_pose_angles: Tuple[float, float, float]
-    
-    # face_box_enhance: Tuple[int, int]  # (min_x, min_y), (max_x, max_y)
-    # face_width_height_enhance: Tuple[int, int]
+    head_pose_angles: Tuple[float, float, float]  # (pitch, yaw, roll)
     
     face_box: Tuple[int, int]  # (min_x, min_y), (max_x, max_y)
-    left_eye_box: Tuple[int, int]
-    right_eye_box: Tuple[int, int]
+    left_eye_box: Tuple[int, int] # (min_x, min_y), (max_x, max_y)
+    right_eye_box: Tuple[int, int] # (min_x, min_y), (max_x, max_y)
     
     # eye_iris_center=(left_iris_center, right_iris_center),
     eye_iris_center: Tuple[int, int]  # left, right
@@ -43,11 +40,11 @@ class all_data_output:
     eye_centers: Tuple[Tuple[int, int], Tuple[int, int],
                        Tuple[int, int]]  # left, right, mid
     
-    landmark_positions: Dict[str, Tuple[int, int]]
+    landmark_positions: Dict[str, Tuple[int, int]] # Dictionary of landmark names and their positions
     left_eye_state: Tuple[str, float]  # (state, EAR)
-    right_eye_state: Tuple[str, float]
+    right_eye_state: Tuple[str, float] # (state, EAR)
     # face, left_eye, right_eye, chin
-    depths: Tuple[float, float, float, float]
+    depths: Tuple[float, float, float, float] # (face, left_eye, right_eye, chin)
 
 
 class FrameShow_head_face:

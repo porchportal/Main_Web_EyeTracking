@@ -2,43 +2,6 @@
 import { useState, useEffect } from 'react';
 import styles from '../../styles/ProcessSet.module.css';
 
-// export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
-//   if (!selectedFile) {
-//     return (
-//       <div className={styles.previewPanel}>
-//         <p>Select a file to preview</p>
-//       </div>
-//     );
-//   }
-
-//   if (!previewImage) {
-//     return (
-//       <div className={styles.previewPanel}>
-//         <p>Loading preview...</p>
-//       </div>
-//     );
-//   }
-
-//   // Determine if it's an image or CSV data
-//   const isImage = selectedFile.endsWith('.jpg') || selectedFile.endsWith('.jpeg') || selectedFile.endsWith('.png');
-
-//   return (
-//     <div className={styles.previewPanel}>
-//       <h3>Preview: {selectedFile}</h3>
-//       {isImage ? (
-//         <img
-//           src={`data:image/jpeg;base64,${previewImage}`}
-//           alt={selectedFile}
-//           className={styles.previewImage}
-//         />
-//       ) : (
-//         <div className={styles.csvPreview}>
-//           <pre>{previewImage}</pre>
-//         </div>
-//       )}
-//     </div>
-//   );
-// };
 export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   

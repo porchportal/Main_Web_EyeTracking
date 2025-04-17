@@ -8,11 +8,6 @@ import FormData from 'form-data';
 
 // Convert exec to Promise-based
 const execPromise = util.promisify(exec);
-
-// Updated function to properly handle image processing with proper dimension retention
-// Function to send a single image to the Python backend for processing
-// Modified function to preserve original parameter data and add new metrics
-// Fixed function to properly process webcam images through the Python backend
 async function processImageWithPython(inputPath, outputPath, setNumber, captureDir, enhancePath) {
   try {
     console.log(`Starting to process image: ${inputPath}`);
@@ -44,11 +39,7 @@ async function processImageWithPython(inputPath, outputPath, setNumber, captureD
     });
     
     // Add processing parameters - these must match the FastAPI backend expectations
-    // formData.append('showHeadPose', 'false');
-    // formData.append('showBoundingBox', 'true');
-    // formData.append('showMask', 'false');
-    // formData.append('showParameters', 'true');
-
+    // By default, don't show visualizations in the output image, but collect all metrics
     formData.append('showHeadPose', 'false');
     formData.append('showBoundingBox', 'false');
     formData.append('showMask', 'false');
@@ -59,10 +50,10 @@ async function processImageWithPython(inputPath, outputPath, setNumber, captureD
     // Log request details for debugging
     console.log('API Key being used:', apiKey);
     console.log('Form data parameters:', 
-               'showHeadPose=true', 
-               'showBoundingBox=true', 
+               'showHeadPose=false', 
+               'showBoundingBox=false', 
                'showMask=false', 
-               'showParameters=true');
+               'showParameters=false');
     
     // Call the Python backend
     const response = await fetch(`${backendUrl}/process-image`, {
@@ -145,9 +136,33 @@ async function processImageWithPython(inputPath, outputPath, setNumber, captureD
       
       // Check for metrics in the response
       if (result.metrics) {
-        console.log('Metrics received from backend:', JSON.stringify(result.metrics));
+        console.log('Metrics received from backend, saving...');
+        console.log('Number of metrics received:', Object.keys(result.metrics).length);
         
-        // Update parameter file with the metrics
+        // Log some key metrics if they exist
+        if (result.metrics.head_pose) {
+          console.log(`Head pose: pitch=${result.metrics.head_pose.pitch}, yaw=${result.metrics.head_pose.yaw}, roll=${result.metrics.head_pose.roll}`);
+        }
+        
+        // Log face positions if they exist
+        if (result.metrics.face_min_position_x) {
+          console.log(`Face position: (${result.metrics.face_min_position_x},${result.metrics.face_min_position_y}) to (${result.metrics.face_max_position_x},${result.metrics.face_max_position_y})`);
+        }
+        
+        // Log eye positions if they exist
+        if (result.metrics.left_eye_position_x) {
+          console.log(`Left eye position: (${result.metrics.left_eye_position_x},${result.metrics.left_eye_position_y})`);
+        }
+        if (result.metrics.right_eye_position_x) {
+          console.log(`Right eye position: (${result.metrics.right_eye_position_x},${result.metrics.right_eye_position_y})`);
+        }
+        
+        // Add face_detected flag if not present
+        if (result.metrics.face_detected === undefined) {
+          result.metrics.face_detected = true;
+        }
+        
+        // Update parameter file with the complete metrics
         await updateParameterFile(setNumber, result.metrics, captureDir, enhancePath);
         
         return result.metrics;
@@ -189,8 +204,7 @@ async function processImageWithPython(inputPath, outputPath, setNumber, captureD
     return null;
   }
 }
-// New function to update parameter file with new metrics while preserving original data
-// Updated function to properly handle parameter file updates
+// Updated function to properly handle parameter file updates with all metrics
 async function updateParameterFile(setNumber, metrics, captureDir, enhancePath) {
   console.log(`Updating parameter file for set ${setNumber} with new metrics`);
   
@@ -252,10 +266,35 @@ async function updateParameterFile(setNumber, metrics, captureDir, enhancePath) 
   // Prepare CSV content with header
   let csvContent = 'Parameter,Value\n';
   
-  // Add original parameters first (except those we'll update with new values)
-  const excludeParams = ['pitch', 'yaw', 'roll', 'face_width', 'face_height', 
-                         'left_eye_x', 'left_eye_y', 'right_eye_x', 'right_eye_y',
-                         'face_box_min_x', 'face_box_min_y', 'face_box_max_x', 'face_box_max_y'];
+  // Define parameters that will be updated with new metrics
+  const excludeParams = [
+    // Head pose parameters
+    'pitch', 'yaw', 'roll', 
+    // Face parameters
+    'face_width', 'face_height', 'face_min_position_x', 'face_min_position_y', 
+    'face_max_position_x', 'face_max_position_y', 'face_center_position_x', 'face_center_position_y',
+    // Eye position parameters
+    'left_eye_position_x', 'left_eye_position_y', 'right_eye_position_x', 'right_eye_position_y',
+    'eye_socket_left_center_x', 'eye_socket_left_center_y', 'eye_socket_right_center_x', 'eye_socket_right_center_y',
+    'center_between_eyes_x', 'center_between_eyes_y',
+    // Eye box parameters
+    'left_eye_box_min_x', 'left_eye_box_min_y', 'left_eye_box_max_x', 'left_eye_box_max_y',
+    'right_eye_box_min_x', 'right_eye_box_min_y', 'right_eye_box_max_x', 'right_eye_box_max_y',
+    // Iris parameters
+    'left_iris_center_x', 'left_iris_center_y', 'right_iris_center_x', 'right_iris_center_y',
+    'left_iris_min_x', 'left_iris_min_y', 'left_iris_max_x', 'left_iris_max_y',
+    'right_iris_min_x', 'right_iris_min_y', 'right_iris_max_x', 'right_iris_max_y',
+    // Face landmark parameters
+    'nose_position_x', 'nose_position_y', 'chin_position_x', 'chin_position_y',
+    'cheek_left_position_x', 'cheek_left_position_y', 'cheek_right_position_x', 'cheek_right_position_y',
+    'mouth_left_position_x', 'mouth_left_position_y', 'mouth_right_position_x', 'mouth_right_position_y',
+    // Eye state parameters
+    'left_eye_state', 'left_eye_ear', 'right_eye_state', 'right_eye_ear',
+    // Depth parameters
+    'distance_cm_from_face', 'distance_cm_from_eye', 'chin_depth',
+    // Derived parameters
+    'posture', 'gaze_direction'
+  ];
   
   // Log all original parameters for debugging
   console.log("Original parameters:");
@@ -274,7 +313,16 @@ async function updateParameterFile(setNumber, metrics, captureDir, enhancePath) 
   if (metrics && metrics.face_detected !== false) {
     console.log("Adding new metrics from face detection");
     
-    // Add head pose data
+    // Helper function to add a metric if it exists
+    const addMetric = (key, value, formatter = (v) => v) => {
+      if (metrics[key] !== undefined) {
+        const formattedValue = formatter(metrics[key]);
+        csvContent += `${key},${formattedValue}\n`;
+        console.log(`Adding ${key}=${formattedValue}`);
+      }
+    };
+    
+    // 1. Add head pose data
     if (metrics.head_pose) {
       console.log(`Adding head pose: pitch=${metrics.head_pose.pitch}, yaw=${metrics.head_pose.yaw}, roll=${metrics.head_pose.roll}`);
       csvContent += `pitch,${metrics.head_pose.pitch}\n`;
@@ -282,49 +330,152 @@ async function updateParameterFile(setNumber, metrics, captureDir, enhancePath) 
       csvContent += `roll,${metrics.head_pose.roll}\n`;
     }
     
-    // Add eye centers if available
-    if (metrics.eye_centers) {
-      if (metrics.eye_centers.left) {
-        console.log(`Adding left eye: ${metrics.eye_centers.left.join(',')}`);
-        csvContent += `left_eye_x,${metrics.eye_centers.left[0]}\n`;
-        csvContent += `left_eye_y,${metrics.eye_centers.left[1]}\n`;
-      }
-      if (metrics.eye_centers.right) {
-        console.log(`Adding right eye: ${metrics.eye_centers.right.join(',')}`);
-        csvContent += `right_eye_x,${metrics.eye_centers.right[0]}\n`;
-        csvContent += `right_eye_y,${metrics.eye_centers.right[1]}\n`;
-      }
-    }
+    // 2. Add face position metrics
+    addMetric('face_min_position_x', metrics.face_min_position_x);
+    addMetric('face_min_position_y', metrics.face_min_position_y);
+    addMetric('face_max_position_x', metrics.face_max_position_x);
+    addMetric('face_max_position_y', metrics.face_max_position_y);
+    addMetric('face_center_position_x', metrics.face_center_position_x);
+    addMetric('face_center_position_y', metrics.face_center_position_y);
     
-    // Add face box information if available
-    if (metrics.face_box) {
+    // If we have face box min/max but not individual parameters
+    if (metrics.face_box && !metrics.face_min_position_x) {
       if (metrics.face_box.min) {
-        console.log(`Adding face box min: ${metrics.face_box.min.join(',')}`);
-        csvContent += `face_box_min_x,${metrics.face_box.min[0]}\n`;
-        csvContent += `face_box_min_y,${metrics.face_box.min[1]}\n`;
+        csvContent += `face_min_position_x,${metrics.face_box.min[0]}\n`;
+        csvContent += `face_min_position_y,${metrics.face_box.min[1]}\n`;
       }
       if (metrics.face_box.max) {
-        console.log(`Adding face box max: ${metrics.face_box.max.join(',')}`);
-        csvContent += `face_box_max_x,${metrics.face_box.max[0]}\n`;
-        csvContent += `face_box_max_y,${metrics.face_box.max[1]}\n`;
+        csvContent += `face_max_position_x,${metrics.face_box.max[0]}\n`;
+        csvContent += `face_max_position_y,${metrics.face_box.max[1]}\n`;
         
-        // Calculate and add face width and height
+        // Calculate face width and height from min/max
         if (metrics.face_box.min) {
           const faceWidth = Math.round(metrics.face_box.max[0] - metrics.face_box.min[0]);
           const faceHeight = Math.round(metrics.face_box.max[1] - metrics.face_box.min[1]);
-          console.log(`Adding face dimensions: width=${faceWidth}, height=${faceHeight}`);
           csvContent += `face_width,${faceWidth}\n`;
           csvContent += `face_height,${faceHeight}\n`;
         }
       }
     }
+    
+    // 3. Add eye positions
+    addMetric('left_eye_position_x', metrics.left_eye_position_x);
+    addMetric('left_eye_position_y', metrics.left_eye_position_y);
+    addMetric('right_eye_position_x', metrics.right_eye_position_x);
+    addMetric('right_eye_position_y', metrics.right_eye_position_y);
+    addMetric('center_between_eyes_x', metrics.center_between_eyes_x);
+    addMetric('center_between_eyes_y', metrics.center_between_eyes_y);
+    addMetric('eye_socket_left_center_x', metrics.eye_socket_left_center_x);
+    addMetric('eye_socket_left_center_y', metrics.eye_socket_left_center_y);
+    addMetric('eye_socket_right_center_x', metrics.eye_socket_right_center_x);
+    addMetric('eye_socket_right_center_y', metrics.eye_socket_right_center_y);
+    
+    // 4. Add eye box data
+    addMetric('left_eye_box_min_x', metrics.left_eye_box_min_x);
+    addMetric('left_eye_box_min_y', metrics.left_eye_box_min_y);
+    addMetric('left_eye_box_max_x', metrics.left_eye_box_max_x);
+    addMetric('left_eye_box_max_y', metrics.left_eye_box_max_y);
+    addMetric('right_eye_box_min_x', metrics.right_eye_box_min_x);
+    addMetric('right_eye_box_min_y', metrics.right_eye_box_min_y);
+    addMetric('right_eye_box_max_x', metrics.right_eye_box_max_x);
+    addMetric('right_eye_box_max_y', metrics.right_eye_box_max_y);
+    
+    // 5. Add iris data if available
+    if (metrics.eye_iris_center) {
+      if (metrics.eye_iris_center.left) {
+        csvContent += `left_iris_center_x,${metrics.eye_iris_center.left[0]}\n`;
+        csvContent += `left_iris_center_y,${metrics.eye_iris_center.left[1]}\n`;
+      }
+      if (metrics.eye_iris_center.right) {
+        csvContent += `right_iris_center_x,${metrics.eye_iris_center.right[0]}\n`;
+        csvContent += `right_iris_center_y,${metrics.eye_iris_center.right[1]}\n`;
+      }
+    }
+    
+    if (metrics.eye_iris_left_box) {
+      if (metrics.eye_iris_left_box.min) {
+        csvContent += `left_iris_min_x,${metrics.eye_iris_left_box.min[0]}\n`;
+        csvContent += `left_iris_min_y,${metrics.eye_iris_left_box.min[1]}\n`;
+      }
+      if (metrics.eye_iris_left_box.max) {
+        csvContent += `left_iris_max_x,${metrics.eye_iris_left_box.max[0]}\n`;
+        csvContent += `left_iris_max_y,${metrics.eye_iris_left_box.max[1]}\n`;
+      }
+    }
+    
+    if (metrics.eye_iris_right_box) {
+      if (metrics.eye_iris_right_box.min) {
+        csvContent += `right_iris_min_x,${metrics.eye_iris_right_box.min[0]}\n`;
+        csvContent += `right_iris_min_y,${metrics.eye_iris_right_box.min[1]}\n`;
+      }
+      if (metrics.eye_iris_right_box.max) {
+        csvContent += `right_iris_max_x,${metrics.eye_iris_right_box.max[0]}\n`;
+        csvContent += `right_iris_max_y,${metrics.eye_iris_right_box.max[1]}\n`;
+      }
+    }
+    
+    // 6. Add facial landmark positions from metrics
+    addMetric('nose_position_x', metrics.nose_position_x);
+    addMetric('nose_position_y', metrics.nose_position_y);
+    addMetric('chin_position_x', metrics.chin_position_x);
+    addMetric('chin_position_y', metrics.chin_position_y);
+    addMetric('cheek_left_position_x', metrics.cheek_left_position_x);
+    addMetric('cheek_left_position_y', metrics.cheek_left_position_y);
+    addMetric('cheek_right_position_x', metrics.cheek_right_position_x);
+    addMetric('cheek_right_position_y', metrics.cheek_right_position_y);
+    addMetric('mouth_left_position_x', metrics.mouth_left_position_x);
+    addMetric('mouth_left_position_y', metrics.mouth_left_position_y);
+    addMetric('mouth_right_position_x', metrics.mouth_right_position_x);
+    addMetric('mouth_right_position_y', metrics.mouth_right_position_y);
+    
+    // 7. Add eye state information
+    addMetric('left_eye_state', metrics.left_eye_state);
+    addMetric('left_eye_ear', metrics.left_eye_ear);
+    addMetric('right_eye_state', metrics.right_eye_state);
+    addMetric('right_eye_ear', metrics.right_eye_ear);
+    
+    // 8. Add depth information
+    addMetric('distance_cm_from_face', metrics.distance_cm_from_face);
+    addMetric('distance_cm_from_eye', metrics.distance_cm_from_eye);
+    addMetric('chin_depth', metrics.chin_depth);
+    
+    // 9. Add derived metrics (posture and gaze direction)
+    addMetric('posture', metrics.posture);
+    addMetric('gaze_direction', metrics.gaze_direction);
+    
   } else if (originalParamFound) {
     // If no new metrics but we had original data for these fields, preserve them
     console.log("No new metrics, preserving original face tracking data if available");
     
-    const fieldsToPreserve = ['pitch', 'yaw', 'roll', 'face_width', 'face_height',
-                             'left_eye_x', 'left_eye_y', 'right_eye_x', 'right_eye_y',
-                             'face_box_min_x', 'face_box_min_y', 'face_box_max_x', 'face_box_max_y'];
+    // Define fields to preserve from original parameters if available
+    const fieldsToPreserve = [
+      // Head pose parameters
+      'pitch', 'yaw', 'roll', 
+      // Face parameters
+      'face_width', 'face_height', 'face_min_position_x', 'face_min_position_y', 
+      'face_max_position_x', 'face_max_position_y', 'face_center_position_x', 'face_center_position_y',
+      // Eye position parameters
+      'left_eye_position_x', 'left_eye_position_y', 'right_eye_position_x', 'right_eye_position_y',
+      'eye_socket_left_center_x', 'eye_socket_left_center_y', 'eye_socket_right_center_x', 'eye_socket_right_center_y',
+      'center_between_eyes_x', 'center_between_eyes_y',
+      // Eye box parameters
+      'left_eye_box_min_x', 'left_eye_box_min_y', 'left_eye_box_max_x', 'left_eye_box_max_y',
+      'right_eye_box_min_x', 'right_eye_box_min_y', 'right_eye_box_max_x', 'right_eye_box_max_y',
+      // Iris parameters
+      'left_iris_center_x', 'left_iris_center_y', 'right_iris_center_x', 'right_iris_center_y',
+      'left_iris_min_x', 'left_iris_min_y', 'left_iris_max_x', 'left_iris_max_y',
+      'right_iris_min_x', 'right_iris_min_y', 'right_iris_max_x', 'right_iris_max_y',
+      // Face landmark parameters
+      'nose_position_x', 'nose_position_y', 'chin_position_x', 'chin_position_y',
+      'cheek_left_position_x', 'cheek_left_position_y', 'cheek_right_position_x', 'cheek_right_position_y',
+      'mouth_left_position_x', 'mouth_left_position_y', 'mouth_right_position_x', 'mouth_right_position_y',
+      // Eye state parameters
+      'left_eye_state', 'left_eye_ear', 'right_eye_state', 'right_eye_ear',
+      // Depth parameters
+      'distance_cm_from_face', 'distance_cm_from_eye', 'chin_depth',
+      // Derived parameters
+      'posture', 'gaze_direction'
+    ];
     
     fieldsToPreserve.forEach(field => {
       if (originalParams.has(field)) {
@@ -332,10 +483,15 @@ async function updateParameterFile(setNumber, metrics, captureDir, enhancePath) 
         csvContent += `${field},${originalParams.get(field)}\n`;
       }
     });
+    
+    // Add a note about processing
+    csvContent += 'processing_note,Face detection failed but preserved original values\n';
   } else {
     // No metrics and no original data, add placeholder information
     console.log("No metrics and no original data, adding placeholder");
     csvContent += 'info,No face detected or processing failed\n';
+    csvContent += 'face_detected,false\n';
+    csvContent += 'processing_time,' + new Date().toISOString() + '\n';
   }
   
   // Log the final CSV content for debugging

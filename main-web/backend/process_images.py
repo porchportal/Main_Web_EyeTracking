@@ -6,7 +6,7 @@ from fastapi import UploadFile
 import tempfile
 import os
 import traceback
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Tuple
 
 # Import the face tracking class
 from Main_model02.showframeVisualization import FrameShow_head_face
@@ -134,9 +134,7 @@ async def process_image_handler(
             # Check if face was detected
             if metrics is not None:
                 print("Face detection successful")
-                # Extract metrics
-                pitch, yaw, roll = metrics.head_pose_angles
-                
+                # Extract all available metrics
                 result = {
                     "success": True,
                     "image": {
@@ -145,48 +143,206 @@ async def process_image_handler(
                         "data": img_str
                     },
                     "face_detected": True,
-                    "metrics": {
-                        "head_pose": {
-                            "pitch": round(pitch, 2),
-                            "yaw": round(yaw, 2),
-                            "roll": round(roll, 2)
-                        }
-                    }
+                    "metrics": {}
                 }
                 
-                # Add eye centers if available
-                if hasattr(metrics, 'eye_centers') and metrics.eye_centers is not None:
-                    print("Adding eye centers to response")
-                    # FIX: Convert tuple to list if needed
-                    try:
-                        result["metrics"]["eye_centers"] = {
-                            "left": np.array(metrics.eye_centers[0]).tolist() if len(metrics.eye_centers) > 0 else None,
-                            "right": np.array(metrics.eye_centers[1]).tolist() if len(metrics.eye_centers) > 1 else None
-                        }
-                    except AttributeError:
-                        # If eye_centers are tuples without tolist() method
-                        print("Converting eye center tuples to lists")
-                        result["metrics"]["eye_centers"] = {
-                            "left": list(metrics.eye_centers[0]) if len(metrics.eye_centers) > 0 else None,
-                            "right": list(metrics.eye_centers[1]) if len(metrics.eye_centers) > 1 else None
-                        }
+                # 1. Add head pose angles (pitch, yaw, roll)
+                if hasattr(metrics, 'head_pose_angles') and metrics.head_pose_angles is not None:
+                    pitch, yaw, roll = metrics.head_pose_angles
+                    result["metrics"]["head_pose"] = {
+                        "pitch": round(pitch, 3),
+                        "yaw": round(yaw, 3),
+                        "roll": round(roll, 3)
+                    }
                 
-                # Add face box information if available
+                # 2. Add face_box (face bounding box)
                 if hasattr(metrics, 'face_box') and metrics.face_box is not None:
-                    print("Adding face box to response")
-                    # FIX: Convert tuple to list if needed
                     try:
+                        min_pos, max_pos = metrics.face_box
                         result["metrics"]["face_box"] = {
-                            "min": np.array(metrics.face_box[0]).tolist(),
-                            "max": np.array(metrics.face_box[1]).tolist()
+                            "min": np.array(min_pos).tolist() if hasattr(min_pos, 'tolist') else list(min_pos),
+                            "max": np.array(max_pos).tolist() if hasattr(max_pos, 'tolist') else list(max_pos)
                         }
-                    except AttributeError:
-                        # If face_box contains tuples without tolist() method
-                        print("Converting face box tuples to lists")
-                        result["metrics"]["face_box"] = {
-                            "min": list(metrics.face_box[0]),
-                            "max": list(metrics.face_box[1])
+                        # Add individual components for CSV format
+                        min_x, min_y = min_pos
+                        max_x, max_y = max_pos
+                        result["metrics"]["face_min_position_x"] = int(min_x)
+                        result["metrics"]["face_min_position_y"] = int(min_y)
+                        result["metrics"]["face_max_position_x"] = int(max_x)
+                        result["metrics"]["face_max_position_y"] = int(max_y)
+                    except Exception as e:
+                        print(f"Error extracting face box: {e}")
+                
+                # 3. Add left_eye_box
+                if hasattr(metrics, 'left_eye_box') and metrics.left_eye_box is not None:
+                    try:
+                        min_left, max_left = metrics.left_eye_box
+                        result["metrics"]["left_eye_box"] = {
+                            "min": np.array(min_left).tolist() if hasattr(min_left, 'tolist') else list(min_left),
+                            "max": np.array(max_left).tolist() if hasattr(max_left, 'tolist') else list(max_left)
                         }
+                        # Add individual components for CSV format
+                        min_x, min_y = min_left
+                        max_x, max_y = max_left
+                        result["metrics"]["left_eye_box_min_x"] = int(min_x)
+                        result["metrics"]["left_eye_box_min_y"] = int(min_y)
+                        result["metrics"]["left_eye_box_max_x"] = int(max_x)
+                        result["metrics"]["left_eye_box_max_y"] = int(max_y)
+                    except Exception as e:
+                        print(f"Error extracting left eye box: {e}")
+                
+                # 4. Add right_eye_box
+                if hasattr(metrics, 'right_eye_box') and metrics.right_eye_box is not None:
+                    try:
+                        min_right, max_right = metrics.right_eye_box
+                        result["metrics"]["right_eye_box"] = {
+                            "min": np.array(min_right).tolist() if hasattr(min_right, 'tolist') else list(min_right),
+                            "max": np.array(max_right).tolist() if hasattr(max_right, 'tolist') else list(max_right)
+                        }
+                        # Add individual components for CSV format
+                        min_x, min_y = min_right
+                        max_x, max_y = max_right
+                        result["metrics"]["right_eye_box_min_x"] = int(min_x)
+                        result["metrics"]["right_eye_box_min_y"] = int(min_y)
+                        result["metrics"]["right_eye_box_max_x"] = int(max_x)
+                        result["metrics"]["right_eye_box_max_y"] = int(max_y)
+                    except Exception as e:
+                        print(f"Error extracting right eye box: {e}")
+                
+                # 5. Add eye_iris_center
+                if hasattr(metrics, 'eye_iris_center') and metrics.eye_iris_center is not None:
+                    try:
+                        left_iris, right_iris = metrics.eye_iris_center
+                        result["metrics"]["eye_iris_center"] = {
+                            "left": np.array(left_iris).tolist() if hasattr(left_iris, 'tolist') else list(left_iris),
+                            "right": np.array(right_iris).tolist() if hasattr(right_iris, 'tolist') else list(right_iris)
+                        }
+                    except Exception as e:
+                        print(f"Error extracting iris centers: {e}")
+                
+                # 6. Add eye_iris boxes
+                if hasattr(metrics, 'eye_iris_left_box') and metrics.eye_iris_left_box is not None:
+                    try:
+                        min_left, max_left = metrics.eye_iris_left_box
+                        result["metrics"]["eye_iris_left_box"] = {
+                            "min": np.array(min_left).tolist() if hasattr(min_left, 'tolist') else list(min_left),
+                            "max": np.array(max_left).tolist() if hasattr(max_left, 'tolist') else list(max_left)
+                        }
+                    except Exception as e:
+                        print(f"Error extracting left iris box: {e}")
+                
+                if hasattr(metrics, 'eye_iris_right_box') and metrics.eye_iris_right_box is not None:
+                    try:
+                        min_right, max_right = metrics.eye_iris_right_box
+                        result["metrics"]["eye_iris_right_box"] = {
+                            "min": np.array(min_right).tolist() if hasattr(min_right, 'tolist') else list(min_right),
+                            "max": np.array(max_right).tolist() if hasattr(max_right, 'tolist') else list(max_right)
+                        }
+                    except Exception as e:
+                        print(f"Error extracting right iris box: {e}")
+                
+                # 7. Add eye_centers
+                if hasattr(metrics, 'eye_centers') and metrics.eye_centers is not None:
+                    try:
+                        eye_centers = metrics.eye_centers
+                        if len(eye_centers) > 0:
+                            left_eye = eye_centers[0]
+                            result["metrics"]["left_eye_position_x"] = int(left_eye[0])
+                            result["metrics"]["left_eye_position_y"] = int(left_eye[1])
+                        
+                        if len(eye_centers) > 1:
+                            right_eye = eye_centers[1]
+                            result["metrics"]["right_eye_position_x"] = int(right_eye[0])
+                            result["metrics"]["right_eye_position_y"] = int(right_eye[1])
+                        
+                        if len(eye_centers) > 2:
+                            mid_eye = eye_centers[2]
+                            result["metrics"]["center_between_eyes_x"] = int(mid_eye[0])
+                            result["metrics"]["center_between_eyes_y"] = int(mid_eye[1])
+                    except Exception as e:
+                        print(f"Error extracting eye centers: {e}")
+                
+                # 8. Add landmark positions
+                if hasattr(metrics, 'landmark_positions') and metrics.landmark_positions is not None:
+                    try:
+                        landmarks = metrics.landmark_positions
+                        result["metrics"]["landmarks"] = {}
+                        
+                        # Map specific landmark positions to our named parameters
+                        landmark_mapping = {
+                            'nose': ['nose_position_x', 'nose_position_y'],
+                            'chin': ['chin_position_x', 'chin_position_y'],
+                            'face_center': ['face_center_position_x', 'face_center_position_y'],
+                            'left_cheek': ['cheek_left_position_x', 'cheek_left_position_y'],
+                            'right_cheek': ['cheek_right_position_x', 'cheek_right_position_y'],
+                            'left_mouth': ['mouth_left_position_x', 'mouth_left_position_y'],
+                            'right_mouth': ['mouth_right_position_x', 'mouth_right_position_y'],
+                            'left_eye_socket': ['eye_socket_left_center_x', 'eye_socket_left_center_y'],
+                            'right_eye_socket': ['eye_socket_right_center_x', 'eye_socket_right_center_y']
+                        }
+                        
+                        # Add all landmarks to result
+                        for landmark_name, landmark_position in landmarks.items():
+                            pos_array = np.array(landmark_position).tolist() if hasattr(landmark_position, 'tolist') else list(landmark_position)
+                            result["metrics"]["landmarks"][landmark_name] = pos_array
+                            
+                            # Also add the specific named parameters if this landmark is in our mapping
+                            if landmark_name in landmark_mapping:
+                                x_key, y_key = landmark_mapping[landmark_name]
+                                result["metrics"][x_key] = int(landmark_position[0])
+                                result["metrics"][y_key] = int(landmark_position[1])
+                    except Exception as e:
+                        print(f"Error extracting landmarks: {e}")
+                
+                # 9. Add eye states
+                if hasattr(metrics, 'left_eye_state') and metrics.left_eye_state is not None:
+                    try:
+                        state, ear = metrics.left_eye_state
+                        result["metrics"]["left_eye_state"] = state
+                        result["metrics"]["left_eye_ear"] = round(ear, 3)
+                    except Exception as e:
+                        print(f"Error extracting left eye state: {e}")
+                
+                if hasattr(metrics, 'right_eye_state') and metrics.right_eye_state is not None:
+                    try:
+                        state, ear = metrics.right_eye_state
+                        result["metrics"]["right_eye_state"] = state
+                        result["metrics"]["right_eye_ear"] = round(ear, 3)
+                    except Exception as e:
+                        print(f"Error extracting right eye state: {e}")
+                
+                # 10. Add depth information
+                if hasattr(metrics, 'depths') and metrics.depths is not None:
+                    try:
+                        face_depth, left_eye_depth, right_eye_depth, chin_depth = metrics.depths
+                        result["metrics"]["distance_cm_from_face"] = round(face_depth, 3)
+                        result["metrics"]["distance_cm_from_eye"] = round(float((left_eye_depth + right_eye_depth) / 2), 3)
+                        result["metrics"]["chin_depth"] = round(chin_depth, 3)
+                    except Exception as e:
+                        print(f"Error extracting depth information: {e}")
+                
+                # 11. Add derived parameters like posture and gaze direction
+                # These would normally be calculated based on head pose and eye positions
+                if hasattr(metrics, 'head_pose_angles') and metrics.head_pose_angles is not None:
+                    pitch, yaw, roll = metrics.head_pose_angles
+                    
+                    # Determine posture based on pitch
+                    posture = "Looking Straight"
+                    if pitch > 10:
+                        posture = "Looking Down"
+                    elif pitch < -10:
+                        posture = "Looking Up"
+                        
+                    result["metrics"]["posture"] = posture
+                    
+                    # Determine gaze direction based on yaw
+                    gaze_direction = "Looking Straight"
+                    if yaw > 10:
+                        gaze_direction = "Looking Right"
+                    elif yaw < -10:
+                        gaze_direction = "Looking Left"
+                        
+                    result["metrics"]["gaze_direction"] = gaze_direction
                 
                 return result
             else:

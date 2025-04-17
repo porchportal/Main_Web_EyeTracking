@@ -1,0 +1,23 @@
+name,value
+dot_x,120
+dot_y,104
+canvas_width,1712
+canvas_height,880
+window_width,1728
+window_height,1000
+webcam_resolution_width,640
+webcam_resolution_height,480
+webcam_device_id,BF108CE77D714CC4DC722F14C9AB88A3FC808556
+webcam_label,FaceTime HD Camera
+webcam_aspectRatio,1.3333333333333333
+webcam_backgroundBlur,false
+webcam_frameRate,30
+webcam_groupId,8C7F11B1C7D9C4F335B4D0090D68BB739C75E5A1
+webcam_width_min,1
+webcam_width_max,1920
+webcam_height_min,1
+webcam_height_max,1920
+webcam_framerate_min,1
+webcam_framerate_max,30
+timestamp,2025-04-17T08:16:45.875Z
+group_id,capture-1744877805522
