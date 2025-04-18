@@ -1,13 +1,9 @@
-FROM python:3.10.16
+FROM python:3.10-slim
 
-# Set working directory
 WORKDIR /app
-
-# Copy and install dependencies
 COPY requirements.txt .
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the rest of the backend code
 COPY . .
 
 # Expose port

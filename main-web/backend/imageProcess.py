@@ -6,7 +6,55 @@ from fastapi import UploadFile
 import time
 
 # Import the face tracking class
-from Main_model02.showframeVisualization import FrameShow_head_face
+# from Main_model02.showframeVisualization import FrameShow_head_face
+
+
+
+import importlib
+import os
+import sys
+from huggingface_hub import snapshot_download
+
+# === CONFIG ===
+REPO_ID = "porch/Detected_UpScaleImage"
+TOKEN = "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" 
+LOCAL_BASE = "Main-AI"              # Local base folder
+FOLDER_IN_REPO = "Main_model"            # Folder from HF
+FIRST_IMPORT = f"{LOCAL_BASE}.{FOLDER_IN_REPO}.showframeVisualization"
+SECOND_IMPORT = f"{LOCAL_BASE}.{FOLDER_IN_REPO}.showframeVisualization"
+
+def try_import_function(module_path: str, function_name: str):
+    try:
+        module = importlib.import_module(module_path)
+        func = getattr(module, function_name)
+        print(f"✅ Successfully imported `{function_name}` from `{module_path}`")
+        return func
+    except (ImportError, AttributeError) as e:
+        print(f"❌ Failed to import `{function_name}` from `{module_path}`: {e}")
+        return None
+#Try to import directly
+FrameShow_head_face = try_import_function(FIRST_IMPORT, "FrameShow_head_face")
+#If not found, download then try again
+if FrameShow_head_face is None:
+    print("🔽 Downloading model folder from Hugging Face...")
+
+    snapshot_download(
+        repo_id=REPO_ID,
+        repo_type="model",
+        allow_patterns=f"{FOLDER_IN_REPO}/**",
+        local_dir=LOCAL_BASE,                 # Downloads to ./Main_model02/
+        local_dir_use_symlinks=False,
+        token=TOKEN
+    )
+
+    # Make sure Python can find ./Main_model02/
+    sys.path.append(os.path.abspath("."))
+
+    # Try the nested import path
+    FrameShow_head_face = try_import_function(SECOND_IMPORT, "FrameShow_head_face")
+
+
+
 
 # Initialize face tracker once for image processing
 face_tracker = FrameShow_head_face(
