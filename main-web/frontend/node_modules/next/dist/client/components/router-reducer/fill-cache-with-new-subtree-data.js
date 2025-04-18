@@ -26,7 +26,7 @@ const _createroutercachekey = require("./create-router-cache-key");
 const _segment = require("../../../shared/lib/segment");
 /**
  * Common logic for filling cache with new sub tree data.
- */ function fillCacheHelper(newCache, existingCache, flightData, prefetchEntry, fillLazyItems) {
+ */ function fillCacheHelper(navigatedAt, newCache, existingCache, flightData, prefetchEntry, fillLazyItems) {
     const { segmentPath, seedData: cacheNodeSeedData, tree: treePatch, head } = flightData;
     let newCacheNode = newCache;
     let existingCacheNode = existingCache;
@@ -62,13 +62,14 @@ const _segment = require("../../../shared/lib/segment");
                     head: null,
                     prefetchHead: null,
                     loading,
-                    parallelRoutes: fillLazyItems && existingChildCacheNode ? new Map(existingChildCacheNode.parallelRoutes) : new Map()
+                    parallelRoutes: fillLazyItems && existingChildCacheNode ? new Map(existingChildCacheNode.parallelRoutes) : new Map(),
+                    navigatedAt
                 };
                 if (existingChildCacheNode && fillLazyItems) {
                     (0, _invalidatecachebyrouterstate.invalidateCacheByRouterState)(childCacheNode, existingChildCacheNode, treePatch);
                 }
                 if (fillLazyItems) {
-                    (0, _filllazyitemstillleafwithhead.fillLazyItemsTillLeafWithHead)(childCacheNode, existingChildCacheNode, treePatch, cacheNodeSeedData, head, prefetchEntry);
+                    (0, _filllazyitemstillleafwithhead.fillLazyItemsTillLeafWithHead)(navigatedAt, childCacheNode, existingChildCacheNode, treePatch, cacheNodeSeedData, head, prefetchEntry);
                 }
                 childSegmentMap.set(cacheKey, childCacheNode);
             }
@@ -94,11 +95,11 @@ const _segment = require("../../../shared/lib/segment");
         existingCacheNode = existingChildCacheNode;
     }
 }
-function fillCacheWithNewSubTreeData(newCache, existingCache, flightData, prefetchEntry) {
-    fillCacheHelper(newCache, existingCache, flightData, prefetchEntry, true);
+function fillCacheWithNewSubTreeData(navigatedAt, newCache, existingCache, flightData, prefetchEntry) {
+    fillCacheHelper(navigatedAt, newCache, existingCache, flightData, prefetchEntry, true);
 }
-function fillCacheWithNewSubTreeDataButOnlyLoading(newCache, existingCache, flightData, prefetchEntry) {
-    fillCacheHelper(newCache, existingCache, flightData, prefetchEntry, false);
+function fillCacheWithNewSubTreeDataButOnlyLoading(navigatedAt, newCache, existingCache, flightData, prefetchEntry) {
+    fillCacheHelper(navigatedAt, newCache, existingCache, flightData, prefetchEntry, false);
 }
 
 if ((typeof exports.default === 'function' || (typeof exports.default === 'object' && exports.default !== null)) && typeof exports.default.__esModule === 'undefined') {

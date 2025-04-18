@@ -1,6 +1,6 @@
 import { fillLazyItemsTillLeafWithHead } from './fill-lazy-items-till-leaf-with-head';
 import { fillCacheWithNewSubTreeData } from './fill-cache-with-new-subtree-data';
-export function applyFlightData(existingCache, cache, flightData, prefetchEntry) {
+export function applyFlightData(navigatedAt, existingCache, cache, flightData, prefetchEntry) {
     // The one before last item is the router state tree patch
     const { tree: treePatch, seedData, head, isRootRender } = flightData;
     // Handles case where prefetch only returns the router tree patch without rendered components.
@@ -18,7 +18,7 @@ export function applyFlightData(existingCache, cache, flightData, prefetchEntry)
         // `prefetchRsc`. As an incremental step, we'll just de-opt to the
         // old behavior — no PPR value.
         cache.prefetchRsc = null;
-        fillLazyItemsTillLeafWithHead(cache, existingCache, treePatch, seedData, head, prefetchEntry);
+        fillLazyItemsTillLeafWithHead(navigatedAt, cache, existingCache, treePatch, seedData, head, prefetchEntry);
     } else {
         // Copy rsc for the root node of the cache.
         cache.rsc = existingCache.rsc;
@@ -29,7 +29,7 @@ export function applyFlightData(existingCache, cache, flightData, prefetchEntry)
         cache.parallelRoutes = new Map(existingCache.parallelRoutes);
         cache.loading = existingCache.loading;
         // Create a copy of the existing cache with the rsc applied.
-        fillCacheWithNewSubTreeData(cache, existingCache, flightData, prefetchEntry);
+        fillCacheWithNewSubTreeData(navigatedAt, cache, existingCache, flightData, prefetchEntry);
     }
     return true;
 }

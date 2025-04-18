@@ -7,6 +7,8 @@ const _fouc = require("./fouc");
 const _ondemandentriesclient = /*#__PURE__*/ _interop_require_default._(require("./on-demand-entries-client"));
 const _websocket = require("../components/react-dev-overlay/pages/websocket");
 const _hotreloadertypes = require("../../server/dev/hot-reloader-types");
+const _shared = require("../components/react-dev-overlay/shared");
+/// <reference types="webpack/module.d.ts" />
 const data = JSON.parse(document.getElementById('__NEXT_DATA__').textContent);
 window.__NEXT_DATA__ = data;
 let { assetPrefix, page } = data;
@@ -22,7 +24,6 @@ function isUpdateAvailable() {
 }
 // Webpack disallows updates in other states.
 function canApplyUpdates() {
-    // @ts-expect-error TODO: module.hot exists but type needs to be added. Can't use `as any` here as webpack parses for `module.hot` calls.
     return module.hot.status() === 'idle';
 }
 // This function reads code updates on the fly and hard
@@ -68,8 +69,7 @@ async function tryApplyUpdates() {
             window.location.reload();
         }
     } catch (err) {
-        var _err_stack;
-        console.warn('[HMR] Invalid message: ' + JSON.stringify(message) + '\n' + ((_err_stack = err == null ? void 0 : err.stack) != null ? _err_stack : ''));
+        (0, _shared.reportInvalidHmrMessage)(message, err);
     }
 });
 (0, _websocket.connectHMR)({

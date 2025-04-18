@@ -1,6 +1,6 @@
 import { createRouterCacheKey } from './create-router-cache-key';
 import { PrefetchCacheEntryStatus } from './router-reducer-types';
-export function fillLazyItemsTillLeafWithHead(newCache, existingCache, routerState, cacheNodeSeedData, head, prefetchEntry) {
+export function fillLazyItemsTillLeafWithHead(navigatedAt, newCache, existingCache, routerState, cacheNodeSeedData, head, prefetchEntry) {
     const isLastSegment = Object.keys(routerState[1]).length === 0;
     if (isLastSegment) {
         newCache.head = head;
@@ -45,7 +45,8 @@ export function fillLazyItemsTillLeafWithHead(newCache, existingCache, routerSta
                         head: null,
                         prefetchHead: null,
                         loading,
-                        parallelRoutes: new Map(existingCacheNode == null ? void 0 : existingCacheNode.parallelRoutes)
+                        parallelRoutes: new Map(existingCacheNode == null ? void 0 : existingCacheNode.parallelRoutes),
+                        navigatedAt
                     };
                 } else if (hasReusablePrefetch && existingCacheNode) {
                     // No new data was sent from the server, but the existing cache node
@@ -72,13 +73,14 @@ export function fillLazyItemsTillLeafWithHead(newCache, existingCache, routerSta
                         head: null,
                         prefetchHead: null,
                         parallelRoutes: new Map(existingCacheNode == null ? void 0 : existingCacheNode.parallelRoutes),
-                        loading: null
+                        loading: null,
+                        navigatedAt
                     };
                 }
                 // Overrides the cache key with the new cache node.
                 parallelRouteCacheNode.set(cacheKey, newCacheNode);
                 // Traverse deeper to apply the head / fill lazy items till the head.
-                fillLazyItemsTillLeafWithHead(newCacheNode, existingCacheNode, parallelRouteState, parallelSeedData ? parallelSeedData : null, head, prefetchEntry);
+                fillLazyItemsTillLeafWithHead(navigatedAt, newCacheNode, existingCacheNode, parallelRouteState, parallelSeedData ? parallelSeedData : null, head, prefetchEntry);
                 newCache.parallelRoutes.set(key, parallelRouteCacheNode);
                 continue;
             }
@@ -95,7 +97,8 @@ export function fillLazyItemsTillLeafWithHead(newCache, existingCache, routerSta
                 head: null,
                 prefetchHead: null,
                 parallelRoutes: new Map(),
-                loading
+                loading,
+                navigatedAt
             };
         } else {
             // No data available for this node. This will trigger a lazy fetch
@@ -107,7 +110,8 @@ export function fillLazyItemsTillLeafWithHead(newCache, existingCache, routerSta
                 head: null,
                 prefetchHead: null,
                 parallelRoutes: new Map(),
-                loading: null
+                loading: null,
+                navigatedAt
             };
         }
         const existingParallelRoutes = newCache.parallelRoutes.get(key);
@@ -121,7 +125,7 @@ export function fillLazyItemsTillLeafWithHead(newCache, existingCache, routerSta
                 ]
             ]));
         }
-        fillLazyItemsTillLeafWithHead(newCacheNode, undefined, parallelRouteState, parallelSeedData, head, prefetchEntry);
+        fillLazyItemsTillLeafWithHead(navigatedAt, newCacheNode, undefined, parallelRouteState, parallelSeedData, head, prefetchEntry);
     }
 }
 

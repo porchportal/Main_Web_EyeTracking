@@ -1,4 +1,4 @@
-import { webpack } from 'next/dist/compiled/webpack/webpack';
+import type { webpack } from 'next/dist/compiled/webpack/webpack';
 import type { Span } from '../trace';
 export type CompilerResult = {
     errors: webpack.StatsError[];

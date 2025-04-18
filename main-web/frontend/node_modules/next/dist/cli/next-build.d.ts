@@ -5,10 +5,12 @@ export type NextBuildOptions = {
     profile?: boolean;
     lint: boolean;
     mangling: boolean;
+    turbo?: boolean;
+    turbopack?: boolean;
     experimentalDebugMemoryUsage: boolean;
     experimentalAppOnly?: boolean;
     experimentalTurbo?: boolean;
-    experimentalBuildMode: 'default' | 'compile' | 'generate';
+    experimentalBuildMode: 'default' | 'compile' | 'generate' | 'generate-env';
     experimentalUploadTrace?: string;
 };
 declare const nextBuild: (options: NextBuildOptions, directory?: string) => Promise<void>;

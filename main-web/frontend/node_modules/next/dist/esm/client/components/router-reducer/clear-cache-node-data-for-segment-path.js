@@ -24,7 +24,8 @@ import { createRouterCacheKey } from './create-router-cache-key';
                 head: null,
                 prefetchHead: null,
                 parallelRoutes: new Map(),
-                loading: null
+                loading: null,
+                navigatedAt: -1
             });
         }
         return;
@@ -39,7 +40,8 @@ import { createRouterCacheKey } from './create-router-cache-key';
                 head: null,
                 prefetchHead: null,
                 parallelRoutes: new Map(),
-                loading: null
+                loading: null,
+                navigatedAt: -1
             });
         }
         return;

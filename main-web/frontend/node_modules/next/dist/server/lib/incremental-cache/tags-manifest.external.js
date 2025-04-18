@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", {
     value: true
 });
 0 && (module.exports = {
-    isTagStale: null,
+    isStale: null,
     tagsManifest: null
 });
 function _export(target, all) {
@@ -13,21 +13,18 @@ function _export(target, all) {
     });
 }
 _export(exports, {
-    isTagStale: function() {
-        return isTagStale;
+    isStale: function() {
+        return isStale;
     },
     tagsManifest: function() {
         return tagsManifest;
     }
 });
-const tagsManifest = {
-    items: {}
-};
-const isTagStale = (tags, timestamp)=>{
+const tagsManifest = new Map();
+const isStale = (tags, timestamp)=>{
     for (const tag of tags){
-        const tagEntry = tagsManifest.items[tag];
-        if (typeof (tagEntry == null ? void 0 : tagEntry.revalidatedAt) === 'number' && // TODO: use performance.now and update file-system-cache?
-        tagEntry.revalidatedAt >= timestamp) {
+        const revalidatedAt = tagsManifest.get(tag);
+        if (typeof revalidatedAt === 'number' && revalidatedAt >= timestamp) {
             return true;
         }
     }

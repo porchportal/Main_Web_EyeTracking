@@ -1,9 +1,12 @@
-// In-memory caches are fragile and should not use stale-while-revalidate
-// semantics on the caches because it's not worth warming up an entry that's
-// likely going to get evicted before we get to use it anyway. However,
-// we also don't want to reuse a stale entry for too long so stale entries
-// should be considered expired/missing in such CacheHandlers.
-// This is the entry we store
-export { };
+/**
+ * A timestamp in milliseconds elapsed since the epoch
+ */ /**
+ * This is a compatibility type to ease migration between cache handler
+ * versions. Until the old `CacheHandler` type is removed, this type should be
+ * used for all internal Next.js functions that deal with cache handlers to
+ * ensure that we are compatible with both cache handler versions. An exception
+ * is the built-in default cache handler, which implements the
+ * {@link CacheHandlerV2} interface.
+ */ export { };
 
 //# sourceMappingURL=types.js.map

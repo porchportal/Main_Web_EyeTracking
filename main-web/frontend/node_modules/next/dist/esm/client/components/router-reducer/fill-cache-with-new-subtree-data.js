@@ -4,7 +4,7 @@ import { createRouterCacheKey } from './create-router-cache-key';
 import { PAGE_SEGMENT_KEY } from '../../../shared/lib/segment';
 /**
  * Common logic for filling cache with new sub tree data.
- */ function fillCacheHelper(newCache, existingCache, flightData, prefetchEntry, fillLazyItems) {
+ */ function fillCacheHelper(navigatedAt, newCache, existingCache, flightData, prefetchEntry, fillLazyItems) {
     const { segmentPath, seedData: cacheNodeSeedData, tree: treePatch, head } = flightData;
     let newCacheNode = newCache;
     let existingCacheNode = existingCache;
@@ -40,13 +40,14 @@ import { PAGE_SEGMENT_KEY } from '../../../shared/lib/segment';
                     head: null,
                     prefetchHead: null,
                     loading,
-                    parallelRoutes: fillLazyItems && existingChildCacheNode ? new Map(existingChildCacheNode.parallelRoutes) : new Map()
+                    parallelRoutes: fillLazyItems && existingChildCacheNode ? new Map(existingChildCacheNode.parallelRoutes) : new Map(),
+                    navigatedAt
                 };
                 if (existingChildCacheNode && fillLazyItems) {
                     invalidateCacheByRouterState(childCacheNode, existingChildCacheNode, treePatch);
                 }
                 if (fillLazyItems) {
-                    fillLazyItemsTillLeafWithHead(childCacheNode, existingChildCacheNode, treePatch, cacheNodeSeedData, head, prefetchEntry);
+                    fillLazyItemsTillLeafWithHead(navigatedAt, childCacheNode, existingChildCacheNode, treePatch, cacheNodeSeedData, head, prefetchEntry);
                 }
                 childSegmentMap.set(cacheKey, childCacheNode);
             }
@@ -74,11 +75,11 @@ import { PAGE_SEGMENT_KEY } from '../../../shared/lib/segment';
 }
 /**
  * Fill cache with rsc based on flightDataPath
- */ export function fillCacheWithNewSubTreeData(newCache, existingCache, flightData, prefetchEntry) {
-    fillCacheHelper(newCache, existingCache, flightData, prefetchEntry, true);
+ */ export function fillCacheWithNewSubTreeData(navigatedAt, newCache, existingCache, flightData, prefetchEntry) {
+    fillCacheHelper(navigatedAt, newCache, existingCache, flightData, prefetchEntry, true);
 }
-export function fillCacheWithNewSubTreeDataButOnlyLoading(newCache, existingCache, flightData, prefetchEntry) {
-    fillCacheHelper(newCache, existingCache, flightData, prefetchEntry, false);
+export function fillCacheWithNewSubTreeDataButOnlyLoading(navigatedAt, newCache, existingCache, flightData, prefetchEntry) {
+    fillCacheHelper(navigatedAt, newCache, existingCache, flightData, prefetchEntry, false);
 }
 
 //# sourceMappingURL=fill-cache-with-new-subtree-data.js.map

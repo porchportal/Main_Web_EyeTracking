@@ -8,11 +8,11 @@ export declare const ACTION_SERVER_PATCH = "server-patch";
 export declare const ACTION_PREFETCH = "prefetch";
 export declare const ACTION_HMR_REFRESH = "hmr-refresh";
 export declare const ACTION_SERVER_ACTION = "server-action";
-export type RouterChangeByServerResponse = ({ previousTree, serverResponse, }: {
+export type RouterChangeByServerResponse = ({ navigatedAt, previousTree, serverResponse, }: {
+    navigatedAt: number;
     previousTree: FlightRouterState;
     serverResponse: FetchServerResponseResult;
 }) => void;
-export type RouterNavigate = (href: string, navigateType: 'push' | 'replace', shouldScroll: boolean) => void;
 export interface Mutable {
     mpaNavigation?: boolean;
     patchedTree?: FlightRouterState;
@@ -110,6 +110,7 @@ export interface RestoreAction {
  */
 export interface ServerPatchAction {
     type: typeof ACTION_SERVER_PATCH;
+    navigatedAt: number;
     serverResponse: FetchServerResponseResult;
     previousTree: FlightRouterState;
 }

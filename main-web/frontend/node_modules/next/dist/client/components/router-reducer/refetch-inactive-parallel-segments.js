@@ -32,7 +32,7 @@ async function refreshInactiveParallelSegments(options) {
     });
 }
 async function refreshInactiveParallelSegmentsImpl(param) {
-    let { state, updatedTree, updatedCache, includeNextUrl, fetchedSegments, rootTree = updatedTree, canonicalUrl } = param;
+    let { navigatedAt, state, updatedTree, updatedCache, includeNextUrl, fetchedSegments, rootTree = updatedTree, canonicalUrl } = param;
     const [, parallelRoutes, refetchPath, refetchMarker] = updatedTree;
     const fetchPromises = [];
     if (refetchPath && refetchPath !== canonicalUrl && refetchMarker === 'refresh' && // it's possible for the tree to contain multiple segments that contain data at the same URL
@@ -59,7 +59,7 @@ async function refreshInactiveParallelSegmentsImpl(param) {
                     // we only pass the new cache as this function is called after clearing the router cache
                     // and filling in the new page data from the server. Meaning the existing cache is actually the cache that's
                     // just been created & has been written to, but hasn't been "committed" yet.
-                    (0, _applyflightdata.applyFlightData)(updatedCache, updatedCache, flightDataPath);
+                    (0, _applyflightdata.applyFlightData)(navigatedAt, updatedCache, updatedCache, flightDataPath);
                 }
             } else {
             // When flightData is a string, it suggests that the server response should have triggered an MPA navigation
@@ -71,6 +71,7 @@ async function refreshInactiveParallelSegmentsImpl(param) {
     }
     for(const key in parallelRoutes){
         const parallelFetchPromise = refreshInactiveParallelSegmentsImpl({
+            navigatedAt,
             state,
             updatedTree: parallelRoutes[key],
             updatedCache,

@@ -1,1 +1,1 @@
-export {};
+import '../lib/require-instrumentation-client';

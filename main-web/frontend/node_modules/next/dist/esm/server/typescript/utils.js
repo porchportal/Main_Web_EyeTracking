@@ -1,17 +1,29 @@
-import path from 'path';
+import { createFSBackedSystem, createDefaultMapFromNodeModules, createVirtualTypeScriptEnvironment } from 'next/dist/compiled/@typescript/vfs';
+import path, { join } from 'path';
 let ts;
 let info;
 let appDirRegExp;
+export let virtualTsEnv;
 export function log(message) {
-    info.project.projectService.logger.info(message);
+    info.project.projectService.logger.info('[next] ' + message);
 }
 // This function has to be called initially.
 export function init(opts) {
+    const projectDir = opts.info.project.getCurrentDirectory();
     ts = opts.ts;
     info = opts.info;
-    const projectDir = info.project.getCurrentDirectory();
     appDirRegExp = new RegExp('^' + (projectDir + '(/src)?/app').replace(/[\\/]/g, '[\\/]'));
-    log('Starting Next.js TypeScript plugin: ' + projectDir);
+    log('Initializing Next.js TypeScript plugin: ' + projectDir);
+    const compilerOptions = info.project.getCompilerOptions();
+    const fsMap = createDefaultMapFromNodeModules(compilerOptions, ts, join(projectDir, 'node_modules/typescript/lib'));
+    const system = createFSBackedSystem(fsMap, projectDir, ts);
+    virtualTsEnv = createVirtualTypeScriptEnvironment(system, [], ts, compilerOptions);
+    if (!virtualTsEnv) {
+        log('Failed to create virtual TypeScript environment. This is a bug in Next.js TypeScript plugin. Please report it by opening an issue at https://github.com/vercel/next.js/issues.');
+        return false;
+    }
+    log('Successfully initialized Next.js TypeScript plugin!');
+    return true;
 }
 export function getTs() {
     return ts;
@@ -26,6 +38,12 @@ export function getTypeChecker() {
 export function getSource(fileName) {
     var _info_languageService_getProgram;
     return (_info_languageService_getProgram = info.languageService.getProgram()) == null ? void 0 : _info_languageService_getProgram.getSourceFile(fileName);
+}
+export function getSourceFromVirtualTsEnv(fileName) {
+    if (virtualTsEnv.sys.fileExists(fileName)) {
+        return virtualTsEnv.getSourceFile(fileName);
+    }
+    return getSource(fileName);
 }
 export function removeStringQuotes(str) {
     return str.replace(/^['"`]|['"`]$/g, '');

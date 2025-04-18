@@ -14,26 +14,10 @@ function matchWildcardDomain(domain, pattern) {
         // domain has too few segments and thus cannot match
         return false;
     }
-    let depth = 0;
-    while(patternParts.length && depth++ < 2){
-        const patternPart = patternParts.pop();
-        const domainPart = domainParts.pop();
-        switch(patternPart){
-            case '':
-            case '*':
-            case '**':
-                {
-                    // invalid pattern. pattern segments must be non empty
-                    // Additionally wildcards are only supported below the domain level
-                    return false;
-                }
-            default:
-                {
-                    if (domainPart !== patternPart) {
-                        return false;
-                    }
-                }
-        }
+    // Prevent wildcards from matching entire domains (e.g. '**' or '*.com')
+    // This ensures wildcards can only match subdomains, not the main domain
+    if (patternParts.length === 1 && (patternParts[0] === '*' || patternParts[0] === '**')) {
+        return false;
     }
     while(patternParts.length){
         const patternPart = patternParts.pop();

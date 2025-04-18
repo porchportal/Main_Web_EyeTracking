@@ -41,7 +41,7 @@ class DevAppRouteRouteMatcherProvider extends _filecacheroutematcherprovider.Fil
             const isEntryMetadataRouteFile = (0, _ismetadataroute.isMetadataRouteFile)(filename.replace(this.appDir, ''), [
                 ext
             ], true);
-            if (!(0, _ismetadataroute.isStaticMetadataRoute)(page) && isEntryMetadataRouteFile) {
+            if (isEntryMetadataRouteFile && !(0, _ismetadataroute.isStaticMetadataRoute)(page)) {
                 // Matching dynamic metadata routes.
                 // Add 2 possibilities for both single and multiple routes:
                 {

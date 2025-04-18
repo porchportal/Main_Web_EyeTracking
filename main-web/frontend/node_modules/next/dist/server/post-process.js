@@ -11,7 +11,7 @@ Object.defineProperty(exports, "postProcessHTML", {
 const _nonnullable = require("../lib/non-nullable");
 async function postProcessHTML(pathname, content, renderOpts, { inAmpMode, hybridAmp }) {
     const postProcessors = [
-        process.env.NEXT_RUNTIME !== 'edge' && inAmpMode ? async (html)=>{
+        process.env.NEXT_RUNTIME !== 'edge' && inAmpMode && !process.env.TURBOPACK ? async (html)=>{
             const optimizeAmp = require('./optimize-amp').default;
             html = await optimizeAmp(html, renderOpts.ampOptimizerConfig);
             if (!renderOpts.ampSkipValidation && renderOpts.ampValidator) {

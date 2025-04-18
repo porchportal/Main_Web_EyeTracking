@@ -27,7 +27,7 @@ function _interop_require_default(obj) {
 const nextBuild = (options, directory)=>{
     process.on('SIGTERM', ()=>process.exit(143));
     process.on('SIGINT', ()=>process.exit(130));
-    const { debug, experimentalDebugMemoryUsage, profile, lint, mangling, experimentalAppOnly, experimentalTurbo, experimentalBuildMode, experimentalUploadTrace } = options;
+    const { debug, experimentalDebugMemoryUsage, profile, lint, mangling, experimentalAppOnly, experimentalBuildMode, experimentalUploadTrace } = options;
     let traceUploadUrl;
     if (experimentalUploadTrace && !process.env.NEXT_TRACE_UPLOAD_DISABLED) {
         traceUploadUrl = experimentalUploadTrace;
@@ -49,10 +49,11 @@ const nextBuild = (options, directory)=>{
     if (!(0, _fs.existsSync)(dir)) {
         (0, _utils.printAndExit)(`> No such directory exists as the project root: ${dir}`);
     }
-    if (experimentalTurbo) {
+    const isTurbopack = Boolean(options.turbo || options.turbopack || process.env.IS_TURBOPACK_TEST);
+    if (isTurbopack) {
         process.env.TURBOPACK = '1';
     }
-    return (0, _build.default)(dir, profile, debug || Boolean(process.env.NEXT_DEBUG_BUILD), lint, !mangling, experimentalAppOnly, !!process.env.TURBOPACK, experimentalBuildMode, traceUploadUrl).catch((err)=>{
+    return (0, _build.default)(dir, profile, debug || Boolean(process.env.NEXT_DEBUG_BUILD), lint, !mangling, experimentalAppOnly, isTurbopack, experimentalBuildMode, traceUploadUrl).catch((err)=>{
         if (experimentalDebugMemoryUsage) {
             (0, _shutdown.disableMemoryDebuggingMode)();
         }

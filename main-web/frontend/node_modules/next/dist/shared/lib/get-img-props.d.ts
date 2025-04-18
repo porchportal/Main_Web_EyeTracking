@@ -1,5 +1,5 @@
 import type { ImageConfigComplete, ImageLoaderProps, ImageLoaderPropsWithConfig } from './image-config';
-import type { JSX } from 'react';
+import type { CSSProperties, JSX } from 'react';
 export interface StaticImageData {
     src: string;
     height: number;
@@ -69,6 +69,7 @@ type ImageLoaderWithConfig = (p: ImageLoaderPropsWithConfig) => string;
 export type PlaceholderValue = 'blur' | 'empty' | `data:image/${string}`;
 export type OnLoad = React.ReactEventHandler<HTMLImageElement> | undefined;
 export type OnLoadingComplete = (img: HTMLImageElement) => void;
+export type PlaceholderStyle = Partial<Pick<CSSProperties, 'backgroundSize' | 'backgroundPosition' | 'backgroundRepeat' | 'backgroundImage'>>;
 /**
  * A shared function, used on both client and server, to generate the props for <img>.
  */

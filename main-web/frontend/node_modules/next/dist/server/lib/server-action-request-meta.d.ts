@@ -6,6 +6,6 @@ export declare function getServerActionRequestMetadata(req: IncomingMessage | Ba
     isURLEncodedAction: boolean;
     isMultipartAction: boolean;
     isFetchAction: boolean;
-    isServerAction: boolean;
+    isPossibleServerAction: boolean;
 };
-export declare function getIsServerAction(req: IncomingMessage | BaseNextRequest | NextRequest): boolean;
+export declare function getIsPossibleServerAction(req: IncomingMessage | BaseNextRequest | NextRequest): boolean;

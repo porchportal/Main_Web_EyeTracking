@@ -16,7 +16,7 @@ window.next = {
     },
     emitter: _.emitter
 };
-const devClient = (0, _hotmiddlewareclient.default)('webpack');
+const devClient = (0, _hotmiddlewareclient.default)();
 (0, _.initialize)({
     devClient
 }).then((param)=>{

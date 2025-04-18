@@ -18,7 +18,7 @@ window.next = {
 };
 self.__next_set_public_path__ = ()=>{};
 self.__webpack_hash__ = '';
-const devClient = (0, _hotmiddlewareclient.default)('turbopack');
+const devClient = (0, _hotmiddlewareclient.default)();
 (0, _.initialize)({
     devClient
 }).then((param)=>{

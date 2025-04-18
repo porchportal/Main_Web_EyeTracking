@@ -82,6 +82,13 @@ export type ResolvedFacebook = {
     appId?: string | undefined;
     admins?: string[] | undefined;
 };
+export type Pinterest = PinterestRichPin;
+export type PinterestRichPin = {
+    richPin: string | boolean;
+};
+export type ResolvedPinterest = {
+    richPin?: string;
+};
 export type FormatDetection = {
     telephone?: boolean | undefined;
     date?: boolean | undefined;

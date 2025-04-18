@@ -12,17 +12,17 @@ export function getServerActionRequestMetadata(req) {
     const isURLEncodedAction = Boolean(req.method === 'POST' && contentType === 'application/x-www-form-urlencoded');
     const isMultipartAction = Boolean(req.method === 'POST' && (contentType == null ? void 0 : contentType.startsWith('multipart/form-data')));
     const isFetchAction = Boolean(actionId !== undefined && typeof actionId === 'string' && req.method === 'POST');
-    const isServerAction = Boolean(isFetchAction || isURLEncodedAction || isMultipartAction);
+    const isPossibleServerAction = Boolean(isFetchAction || isURLEncodedAction || isMultipartAction);
     return {
         actionId,
         isURLEncodedAction,
         isMultipartAction,
         isFetchAction,
-        isServerAction
+        isPossibleServerAction
     };
 }
-export function getIsServerAction(req) {
-    return getServerActionRequestMetadata(req).isServerAction;
+export function getIsPossibleServerAction(req) {
+    return getServerActionRequestMetadata(req).isPossibleServerAction;
 }
 
 //# sourceMappingURL=server-action-request-meta.js.map

@@ -198,10 +198,11 @@ const nextDev = async (options, portSource, directory)=>{
         isDev: true,
         hostname: host
     };
-    if (options.turbo || options.turbopack) {
+    const isTurbopack = Boolean(options.turbo || options.turbopack || process.env.IS_TURBOPACK_TEST);
+    if (isTurbopack) {
         process.env.TURBOPACK = '1';
     }
-    isTurboSession = !!process.env.TURBOPACK;
+    isTurboSession = isTurbopack;
     const distDir = _path.default.join(dir, config.distDir ?? '.next');
     (0, _shared.setGlobal)('phase', _constants.PHASE_DEVELOPMENT_SERVER);
     (0, _shared.setGlobal)('distDir', distDir);
@@ -235,7 +236,9 @@ const nextDev = async (options, portSource, directory)=>{
                 stdio: 'inherit',
                 env: {
                     ...defaultEnv,
-                    TURBOPACK: process.env.TURBOPACK,
+                    ...isTurbopack ? {
+                        TURBOPACK: '1'
+                    } : undefined,
                     NEXT_PRIVATE_WORKER: '1',
                     NEXT_PRIVATE_TRACE_ID: _shared.traceId,
                     NODE_EXTRA_CA_CERTS: startServerOptions.selfSignedCertificate ? startServerOptions.selfSignedCertificate.rootCA : defaultEnv.NODE_EXTRA_CA_CERTS,

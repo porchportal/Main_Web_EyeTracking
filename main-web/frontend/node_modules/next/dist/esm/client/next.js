@@ -1,4 +1,5 @@
 import './webpack';
+import '../lib/require-instrumentation-client';
 import { initialize, hydrate, version, router, emitter } from './';
 window.next = {
     version,

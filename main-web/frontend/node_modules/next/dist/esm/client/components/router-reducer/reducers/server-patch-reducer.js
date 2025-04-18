@@ -6,7 +6,7 @@ import { applyFlightData } from '../apply-flight-data';
 import { handleMutable } from '../handle-mutable';
 import { createEmptyCacheNode } from '../../app-router';
 export function serverPatchReducer(state, action) {
-    const { serverResponse: { flightData, canonicalUrl: canonicalUrlOverride } } = action;
+    const { serverResponse: { flightData, canonicalUrl: canonicalUrlOverride }, navigatedAt } = action;
     const mutable = {};
     mutable.preserveCustomHistoryState = false;
     // Handle case when navigating to page in `pages` from `app`
@@ -38,7 +38,7 @@ export function serverPatchReducer(state, action) {
             mutable.canonicalUrl = canonicalUrlOverrideHref;
         }
         const cache = createEmptyCacheNode();
-        applyFlightData(currentCache, cache, normalizedFlightData);
+        applyFlightData(navigatedAt, currentCache, cache, normalizedFlightData);
         mutable.patchedTree = newTree;
         mutable.cache = cache;
         currentCache = cache;

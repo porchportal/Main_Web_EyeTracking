@@ -1,13 +1,10 @@
-// we share tags manifest between "use cache" handlers and
-// previous file-system-cache
-export const tagsManifest = {
-    items: {}
-};
-export const isTagStale = (tags, timestamp)=>{
+// We share the tags manifest between the "use cache" handlers and the previous
+// file-system cache.
+export const tagsManifest = new Map();
+export const isStale = (tags, timestamp)=>{
     for (const tag of tags){
-        const tagEntry = tagsManifest.items[tag];
-        if (typeof (tagEntry == null ? void 0 : tagEntry.revalidatedAt) === 'number' && // TODO: use performance.now and update file-system-cache?
-        tagEntry.revalidatedAt >= timestamp) {
+        const revalidatedAt = tagsManifest.get(tag);
+        if (typeof revalidatedAt === 'number' && revalidatedAt >= timestamp) {
             return true;
         }
     }

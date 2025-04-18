@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", {
     value: true
 });
 0 && (module.exports = {
-    getIsServerAction: null,
+    getIsPossibleServerAction: null,
     getServerActionRequestMetadata: null
 });
 function _export(target, all) {
@@ -13,8 +13,8 @@ function _export(target, all) {
     });
 }
 _export(exports, {
-    getIsServerAction: function() {
-        return getIsServerAction;
+    getIsPossibleServerAction: function() {
+        return getIsPossibleServerAction;
     },
     getServerActionRequestMetadata: function() {
         return getServerActionRequestMetadata;
@@ -34,17 +34,17 @@ function getServerActionRequestMetadata(req) {
     const isURLEncodedAction = Boolean(req.method === 'POST' && contentType === 'application/x-www-form-urlencoded');
     const isMultipartAction = Boolean(req.method === 'POST' && (contentType == null ? void 0 : contentType.startsWith('multipart/form-data')));
     const isFetchAction = Boolean(actionId !== undefined && typeof actionId === 'string' && req.method === 'POST');
-    const isServerAction = Boolean(isFetchAction || isURLEncodedAction || isMultipartAction);
+    const isPossibleServerAction = Boolean(isFetchAction || isURLEncodedAction || isMultipartAction);
     return {
         actionId,
         isURLEncodedAction,
         isMultipartAction,
         isFetchAction,
-        isServerAction
+        isPossibleServerAction
     };
 }
-function getIsServerAction(req) {
-    return getServerActionRequestMetadata(req).isServerAction;
+function getIsPossibleServerAction(req) {
+    return getServerActionRequestMetadata(req).isPossibleServerAction;
 }
 
 //# sourceMappingURL=server-action-request-meta.js.map

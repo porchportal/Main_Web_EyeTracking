@@ -67,6 +67,10 @@ async function serializeUseCacheCacheStore(entries) {
                     revalidate: entry.revalidate
                 }
             ];
+        }).catch(()=>{
+            // Any failed cache writes should be ignored as to not discard the
+            // entire cache.
+            return null;
         });
     }));
 }

@@ -1,6 +1,9 @@
 import React from 'react';
 import type { UrlObject } from 'url';
 type Url = string | UrlObject;
+type OnNavigateEventHandler = (event: {
+    preventDefault: () => void;
+}) => void;
 type InternalLinkProps = {
     /**
      * The path or URL to navigate to. It can also be an object.
@@ -62,6 +65,7 @@ type InternalLinkProps = {
     locale?: string | false;
     /**
      * Enable legacy link behavior.
+     * @deprecated This will be removed in v16
      * @defaultValue `false`
      * @see https://github.com/vercel/next.js/commit/489e65ed98544e69b0afd7e0cfc3f9f6c2b803b7
      */
@@ -78,6 +82,10 @@ type InternalLinkProps = {
      * Optional event handler for when Link is clicked.
      */
     onClick?: React.MouseEventHandler<HTMLAnchorElement>;
+    /**
+     * Optional event handler for when the `<Link>` is navigated.
+     */
+    onNavigate?: OnNavigateEventHandler;
 };
 export type LinkProps<RouteInferType = any> = InternalLinkProps;
 /**
@@ -91,4 +99,7 @@ export type LinkProps<RouteInferType = any> = InternalLinkProps;
 declare const Link: React.ForwardRefExoticComponent<Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, keyof InternalLinkProps> & InternalLinkProps & {
     children?: React.ReactNode | undefined;
 } & React.RefAttributes<HTMLAnchorElement>>;
+export declare const useLinkStatus: () => {
+    pending: boolean;
+};
 export default Link;

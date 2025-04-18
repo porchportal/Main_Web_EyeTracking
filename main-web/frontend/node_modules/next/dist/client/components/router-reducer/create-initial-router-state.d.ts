@@ -2,6 +2,7 @@ import type { CacheNode } from '../../../shared/lib/app-router-context.shared-ru
 import type { FlightDataPath } from '../../../server/app-render/types';
 import { type PrefetchCacheEntry } from './router-reducer-types';
 export interface InitialRouterStateParameters {
+    navigatedAt: number;
     initialCanonicalUrlParts: string[];
     initialParallelRoutes: CacheNode['parallelRoutes'];
     initialFlightData: FlightDataPath[];
@@ -10,7 +11,7 @@ export interface InitialRouterStateParameters {
     postponed: boolean;
     prerendered: boolean;
 }
-export declare function createInitialRouterState({ initialFlightData, initialCanonicalUrlParts, initialParallelRoutes, location, couldBeIntercepted, postponed, prerendered, }: InitialRouterStateParameters): {
+export declare function createInitialRouterState({ navigatedAt, initialFlightData, initialCanonicalUrlParts, initialParallelRoutes, location, couldBeIntercepted, postponed, prerendered, }: InitialRouterStateParameters): {
     tree: import("../../../server/app-render/types").FlightRouterState;
     cache: import("../../../shared/lib/app-router-context.shared-runtime").ReadyCacheNode;
     prefetchCache: Map<string, PrefetchCacheEntry>;

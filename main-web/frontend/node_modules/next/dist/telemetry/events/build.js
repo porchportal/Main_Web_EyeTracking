@@ -3,11 +3,14 @@ Object.defineProperty(exports, "__esModule", {
     value: true
 });
 0 && (module.exports = {
+    ERROR_THROWN_EVENT: null,
     EVENT_BUILD_FEATURE_USAGE: null,
     EVENT_NAME_PACKAGE_USED_IN_GET_SERVER_SIDE_PROPS: null,
     eventBuildCompleted: null,
+    eventBuildFailed: null,
     eventBuildFeatureUsage: null,
     eventBuildOptimize: null,
+    eventErrorThrown: null,
     eventLintCheckCompleted: null,
     eventPackageUsedInGetServerSideProps: null,
     eventTypeCheckCompleted: null
@@ -19,6 +22,9 @@ function _export(target, all) {
     });
 }
 _export(exports, {
+    ERROR_THROWN_EVENT: function() {
+        return ERROR_THROWN_EVENT;
+    },
     EVENT_BUILD_FEATURE_USAGE: function() {
         return EVENT_BUILD_FEATURE_USAGE;
     },
@@ -28,11 +34,17 @@ _export(exports, {
     eventBuildCompleted: function() {
         return eventBuildCompleted;
     },
+    eventBuildFailed: function() {
+        return eventBuildFailed;
+    },
     eventBuildFeatureUsage: function() {
         return eventBuildFeatureUsage;
     },
     eventBuildOptimize: function() {
         return eventBuildOptimize;
+    },
+    eventErrorThrown: function() {
+        return eventErrorThrown;
     },
     eventLintCheckCompleted: function() {
         return eventLintCheckCompleted;
@@ -44,6 +56,7 @@ _export(exports, {
         return eventTypeCheckCompleted;
     }
 });
+const _errortelemetryutils = require("../../lib/error-telemetry-utils");
 const REGEXP_DIRECTORY_DUNDER = /[\\/]__[^\\/]+(?<![\\/]__(?:tests|mocks))__[\\/]/i;
 const REGEXP_DIRECTORY_TESTS = /[\\/]__(tests|mocks)__[\\/]/i;
 const REGEXP_FILE_TEST = /\.(?:spec|test)\.[^.]+$/i;
@@ -74,6 +87,13 @@ function eventBuildCompleted(pagePaths, event) {
         }
     };
 }
+const EVENT_BUILD_FAILED = 'NEXT_BUILD_FAILED';
+function eventBuildFailed(event) {
+    return {
+        eventName: EVENT_BUILD_FAILED,
+        payload: event
+    };
+}
 const EVENT_BUILD_OPTIMIZED = 'NEXT_BUILD_OPTIMIZED';
 function eventBuildOptimize(pagePaths, event) {
     return {
@@ -87,7 +107,8 @@ function eventBuildOptimize(pagePaths, event) {
             staticAppPagesCount: event.staticAppPagesCount,
             serverAppPagesCount: event.serverAppPagesCount,
             edgeRuntimeAppCount: event.edgeRuntimeAppCount,
-            edgeRuntimePagesCount: event.edgeRuntimePagesCount
+            edgeRuntimePagesCount: event.edgeRuntimePagesCount,
+            isRspack: process.env.NEXT_RSPACK !== undefined
         }
     };
 }
@@ -109,6 +130,15 @@ function eventPackageUsedInGetServerSideProps(packagesUsedInServerSideProps) {
                 package: packageName
             }
         }));
+}
+const ERROR_THROWN_EVENT = 'NEXT_ERROR_THROWN';
+function eventErrorThrown(error) {
+    return {
+        eventName: ERROR_THROWN_EVENT,
+        payload: {
+            errorCode: (0, _errortelemetryutils.extractNextErrorCode)(error) || 'Unknown'
+        }
+    };
 }
 
 //# sourceMappingURL=build.js.map

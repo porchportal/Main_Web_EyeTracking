@@ -27,7 +27,11 @@ const _workasyncstorageexternal = require("./work-async-storage.external");
 function createServerModuleMap({ serverActionsManifest }) {
     return new Proxy({}, {
         get: (_, id)=>{
-            const workers = serverActionsManifest[process.env.NEXT_RUNTIME === 'edge' ? 'edge' : 'node'][id].workers;
+            var _serverActionsManifest__id, _serverActionsManifest_;
+            const workers = (_serverActionsManifest_ = serverActionsManifest[process.env.NEXT_RUNTIME === 'edge' ? 'edge' : 'node']) == null ? void 0 : (_serverActionsManifest__id = _serverActionsManifest_[id]) == null ? void 0 : _serverActionsManifest__id.workers;
+            if (!workers) {
+                return undefined;
+            }
             const workStore = _workasyncstorageexternal.workAsyncStorage.getStore();
             let workerEntry;
             if (workStore) {

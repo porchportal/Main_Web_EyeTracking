@@ -1,10 +1,10 @@
 // A client-side entry point for Turbopack builds. Includes logic to load chunks,
 // but does not include development-time features like hot module reloading.
-// TODO: Remove use of `any` type.
 "use strict";
 Object.defineProperty(exports, "__esModule", {
     value: true
 });
+require("../lib/require-instrumentation-client");
 const _ = require("./");
 const _fouc = require("./dev/fouc");
 window.next = {

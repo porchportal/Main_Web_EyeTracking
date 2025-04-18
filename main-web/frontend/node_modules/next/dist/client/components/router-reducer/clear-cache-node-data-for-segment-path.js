@@ -32,7 +32,8 @@ function clearCacheNodeDataForSegmentPath(newCache, existingCache, flightSegment
                 head: null,
                 prefetchHead: null,
                 parallelRoutes: new Map(),
-                loading: null
+                loading: null,
+                navigatedAt: -1
             });
         }
         return;
@@ -47,7 +48,8 @@ function clearCacheNodeDataForSegmentPath(newCache, existingCache, flightSegment
                 head: null,
                 prefetchHead: null,
                 parallelRoutes: new Map(),
-                loading: null
+                loading: null,
+                navigatedAt: -1
             });
         }
         return;
