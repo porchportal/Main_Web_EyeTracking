@@ -25,15 +25,14 @@ export default function ConsentBanner() {
   };
 
   const handleLearnMore = () => {
-    // For now, just set consent to true
-    updateConsent(true);
+    router.push('/privacy-policy');
   };
 
   return (
     <div className={styles.bannerContainer}>
       <div className={styles.bannerContent}>
         <span className={styles.bannerText}>
-          <strong>🍪 We use cookies</strong> to collect information about how you interact with our site—like your preferences and usage data—to improve your experience. By clicking <strong>"Accept"</strong>, you agree to our use of cookies.
+          🍪 We use cookies to collect information about how you interact with our site—like your preferences and usage data—to improve your experience. By clicking "Accept", you agree to our use of cookies.
         </span>
         <div className={styles.bannerButtons}>
           <button 

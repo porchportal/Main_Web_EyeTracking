@@ -1,6 +1,7 @@
 // frontend/components/layout/Layout.js
 import Head from 'next/head';
 import ConsentBanner from '../consent/ConsentBanner';
+import styles from '../../styles/Consent.module.css';
 
 export default function Layout({ children, title = 'Eye Tracking App' }) {
   return (
@@ -11,12 +12,12 @@ export default function Layout({ children, title = 'Eye Tracking App' }) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       
-      <main>
+      {/* Cookie consent banner at the top */}
+      <ConsentBanner />
+      
+      <main className={styles.mainContent}>
         {children}
       </main>
-      
-      {/* Cookie consent banner - always present but only visible based on consent state */}
-      <ConsentBanner />
     </>
   );
 }

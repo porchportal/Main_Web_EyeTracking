@@ -97,50 +97,11 @@ export default function HomePage() {
         </div>
         
         <div className={styles.centerButtonContainer}>
-        <button 
+          <button 
             className={getProcessButtonClass()}
             onClick={() => handleButtonClick('process-set')}
           >
             <h2>Process Image Folder</h2>
-            <p className={styles.statusText}>
-              {mounted && (
-                isConnected 
-                  ? authValid 
-                    ? isProcessReady 
-                      ? 'Ready' 
-                      : 'Not Ready (Toggle Below)'
-                    : 'Auth Error'
-                  : 'Backend Disconnected'
-              )}
-            </p>
-          </button>
-          
-          <button 
-            className={styles.statusToggleButton}
-            onClick={toggleProcessStatus}
-            disabled={!isConnected || !authValid}
-          >
-            Toggle Status ({mounted && (isProcessReady ? 'Ready' : 'Not Ready')})
-          </button>
-          
-          {mounted && (!isConnected || !authValid) && (
-            <button 
-              className={styles.statusToggleButton}
-              onClick={() => checkConnection(true)}
-              style={{ marginTop: '10px', backgroundColor: '#3b82f6' }}
-            >
-              Check Backend Connection
-            </button>
-          )}
-        </div>
-        
-        {/* Add preferences button */}
-        <div className={styles.centerButtonContainer} style={{ marginTop: '20px' }}>
-          <button 
-            className={styles.menuButton}
-            onClick={() => handleButtonClick('preferences')}
-          >
-            <h2>User Preferences</h2>
           </button>
         </div>
         

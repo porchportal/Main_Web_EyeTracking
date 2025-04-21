@@ -1,6 +1,6 @@
 // frontend/components/consent/ConsentContext.js
 import { createContext, useContext, useState, useEffect } from 'react';
-import { getUserConsent, updateUserConsent } from '../../utils/consentManager';
+import { getUserConsent, updateUserConsent, getOrCreateUserId } from '../../utils/consentManager';
 
 const ConsentContext = createContext();
 
@@ -10,6 +10,7 @@ export function ConsentProvider({ children }) {
     userId: null,
     consentStatus: null,
     consentUpdatedAt: null,
+    consentDetails: null,
     showBanner: false,
   });
 
@@ -19,11 +20,23 @@ export function ConsentProvider({ children }) {
       try {
         const consentData = await getUserConsent();
         
+        // Try to get detailed consent preferences if available
+        let consentDetails = null;
+        try {
+          const detailsStr = localStorage.getItem('consent_details');
+          if (detailsStr) {
+            consentDetails = JSON.parse(detailsStr);
+          }
+        } catch (e) {
+          console.error('Error parsing consent details:', e);
+        }
+        
         setConsentState({
           loading: false,
           userId: consentData.userId,
           consentStatus: consentData.consentStatus,
           consentUpdatedAt: consentData.consentUpdatedAt,
+          consentDetails,
           showBanner: consentData.consentStatus === null
         });
       } catch (error) {
@@ -41,7 +54,8 @@ export function ConsentProvider({ children }) {
 
   const updateConsent = async (status) => {
     try {
-      const updatedConsent = await updateUserConsent(consentState.userId, status);
+      const userId = consentState.userId || getOrCreateUserId();
+      const updatedConsent = await updateUserConsent(userId, status);
       
       setConsentState(prev => ({
         ...prev,
