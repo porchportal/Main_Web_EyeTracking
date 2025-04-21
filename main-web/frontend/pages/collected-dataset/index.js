@@ -912,7 +912,7 @@ export default function CollectedDatasetPage() {
                 color: white;
                 font-size: 14px;
                 font-weight: bold;
-                padding: 8px 12px;
+                padding: '8px 12px';
                 border-radius: 6px;
                 z-index: 9999;
                 box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);

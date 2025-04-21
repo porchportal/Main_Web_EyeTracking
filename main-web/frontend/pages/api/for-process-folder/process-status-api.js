@@ -716,6 +716,7 @@ async function copyParameterFile(captureDir, enhancePath, setNumber) {
 
 // Main handler for API requests
 export default async function handler(req, res) {
+  res.status(200).json({ message: "API endpoint working!" });
   // Handle GET request to check processing status
   if (req.method === 'GET') {
     try {

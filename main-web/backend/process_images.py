@@ -7,6 +7,7 @@ import tempfile
 import os
 import traceback
 from typing import Dict, Any, List, Tuple
+import logging
 
 # Import the face tracking class
 # from Main_model02.showframeVisualization import FrameShow_head_face
@@ -432,3 +433,182 @@ async def process_image_handler(
                 pass
                 
         return {"success": False, "error": f"Error processing image: {str(e)}"}
+
+def process_images(set_numbers: List[int]):
+    """Process images using process_images.py"""
+    try:
+        # Get the script directory
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        capture_dir = os.path.abspath(os.path.join(current_dir, '../../frontend/public/captures/eye_tracking_captures'))
+        enhance_dir = os.path.abspath(os.path.join(current_dir, '../../frontend/public/captures/enhance'))
+        
+        # Ensure enhance directory exists
+        if not os.path.exists(enhance_dir):
+            logging.info(f"Creating enhance directory: {enhance_dir}")
+            os.makedirs(enhance_dir, exist_ok=True)
+        
+        # Process each set number
+        for set_num in set_numbers:
+            # Check if source files exist
+            webcam_src = os.path.join(capture_dir, f'webcam_{set_num:03d}.jpg')
+            if not os.path.exists(webcam_src):
+                logging.error(f"Missing source file for set {set_num}: {webcam_src}")
+                continue
+            
+            # Read the image
+            image = cv2.imread(webcam_src)
+            if image is None:
+                logging.error(f"Could not read image file: {webcam_src}")
+                continue
+            
+            # Get the face tracker
+            face_tracker = get_face_tracker()
+            
+            # Process the image with face tracker
+            timestamp_ms = int(1000)  # Placeholder timestamp
+            metrics, processed_image = face_tracker.process_frame(
+                image,
+                timestamp_ms,
+                isVideo=False,
+                isEnhanceFace=True  # Enable face enhancement
+            )
+            
+            if processed_image is None:
+                logging.error(f"Failed to process image for set {set_num}")
+                continue
+            
+            # Save the processed image
+            webcam_dst = os.path.join(enhance_dir, f'webcam_enhance_{set_num:03d}.jpg')
+            cv2.imwrite(webcam_dst, processed_image)
+            logging.info(f"Saved enhanced image to: {webcam_dst}")
+            
+            # Copy screen image if it exists
+            screen_src = os.path.join(capture_dir, f'screen_{set_num:03d}.jpg')
+            screen_dst = os.path.join(enhance_dir, f'screen_enhance_{set_num:03d}.jpg')
+            if os.path.exists(screen_src):
+                with open(screen_src, 'rb') as src, open(screen_dst, 'wb') as dst:
+                    dst.write(src.read())
+                logging.info(f"Copied screen image to: {screen_dst}")
+            
+            # Update parameter file with new metrics
+            param_src = os.path.join(capture_dir, f'parameter_{set_num:03d}.csv')
+            param_dst = os.path.join(enhance_dir, f'parameter_enhance_{set_num:03d}.csv')
+            
+            if os.path.exists(param_src):
+                # Read original parameters
+                original_params = {}
+                with open(param_src, 'r') as src:
+                    for line in src:
+                        if ',' in line:
+                            key, value = line.strip().split(',', 1)
+                            original_params[key] = value
+                
+                # Update with new metrics if available
+                if metrics is not None:
+                    # Update head pose angles
+                    if hasattr(metrics, 'head_pose_angles'):
+                        pitch, yaw, roll = metrics.head_pose_angles
+                        original_params['pitch'] = f"{pitch:.2f}"
+                        original_params['yaw'] = f"{yaw:.2f}"
+                        original_params['roll'] = f"{roll:.2f}"
+                    
+                    # Update face box
+                    if hasattr(metrics, 'face_box'):
+                        min_pos, max_pos = metrics.face_box
+                        original_params['face_min_position_x'] = str(int(min_pos[0]))
+                        original_params['face_min_position_y'] = str(int(min_pos[1]))
+                        original_params['face_max_position_x'] = str(int(max_pos[0]))
+                        original_params['face_max_position_y'] = str(int(max_pos[1]))
+                        original_params['face_width'] = str(int(max_pos[0] - min_pos[0]))
+                        original_params['face_height'] = str(int(max_pos[1] - min_pos[1]))
+                    
+                    # Update eye positions
+                    if hasattr(metrics, 'eye_centers'):
+                        eye_centers = metrics.eye_centers
+                        if len(eye_centers) > 0:
+                            left_eye = eye_centers[0]
+                            original_params['left_eye_position_x'] = str(int(left_eye[0]))
+                            original_params['left_eye_position_y'] = str(int(left_eye[1]))
+                        if len(eye_centers) > 1:
+                            right_eye = eye_centers[1]
+                            original_params['right_eye_position_x'] = str(int(right_eye[0]))
+                            original_params['right_eye_position_y'] = str(int(right_eye[1]))
+                        if len(eye_centers) > 2:
+                            mid_eye = eye_centers[2]
+                            original_params['center_between_eyes_x'] = str(int(mid_eye[0]))
+                            original_params['center_between_eyes_y'] = str(int(mid_eye[1]))
+                    
+                    # Update eye boxes
+                    if hasattr(metrics, 'left_eye_box'):
+                        min_left, max_left = metrics.left_eye_box
+                        original_params['left_eye_box_min_x'] = str(int(min_left[0]))
+                        original_params['left_eye_box_min_y'] = str(int(min_left[1]))
+                        original_params['left_eye_box_max_x'] = str(int(max_left[0]))
+                        original_params['left_eye_box_max_y'] = str(int(max_left[1]))
+                    
+                    if hasattr(metrics, 'right_eye_box'):
+                        min_right, max_right = metrics.right_eye_box
+                        original_params['right_eye_box_min_x'] = str(int(min_right[0]))
+                        original_params['right_eye_box_min_y'] = str(int(min_right[1]))
+                        original_params['right_eye_box_max_x'] = str(int(max_right[0]))
+                        original_params['right_eye_box_max_y'] = str(int(max_right[1]))
+                    
+                    # Update iris positions
+                    if hasattr(metrics, 'eye_iris_center'):
+                        left_iris, right_iris = metrics.eye_iris_center
+                        original_params['left_iris_center_x'] = str(int(left_iris[0]))
+                        original_params['left_iris_center_y'] = str(int(left_iris[1]))
+                        original_params['right_iris_center_x'] = str(int(right_iris[0]))
+                        original_params['right_iris_center_y'] = str(int(right_iris[1]))
+                    
+                    # Update iris boxes
+                    if hasattr(metrics, 'eye_iris_left_box'):
+                        min_left, max_left = metrics.eye_iris_left_box
+                        original_params['left_iris_min_x'] = str(int(min_left[0]))
+                        original_params['left_iris_min_y'] = str(int(min_left[1]))
+                        original_params['left_iris_max_x'] = str(int(max_left[0]))
+                        original_params['left_iris_max_y'] = str(int(max_left[1]))
+                    
+                    if hasattr(metrics, 'eye_iris_right_box'):
+                        min_right, max_right = metrics.eye_iris_right_box
+                        original_params['right_iris_min_x'] = str(int(min_right[0]))
+                        original_params['right_iris_min_y'] = str(int(min_right[1]))
+                        original_params['right_iris_max_x'] = str(int(max_right[0]))
+                        original_params['right_iris_max_y'] = str(int(max_right[1]))
+                    
+                    # Update eye states
+                    if hasattr(metrics, 'left_eye_state'):
+                        state, ear = metrics.left_eye_state
+                        original_params['left_eye_state'] = state
+                        original_params['left_eye_ear'] = f"{ear:.3f}"
+                    
+                    if hasattr(metrics, 'right_eye_state'):
+                        state, ear = metrics.right_eye_state
+                        original_params['right_eye_state'] = state
+                        original_params['right_eye_ear'] = f"{ear:.3f}"
+                    
+                    # Update depth information
+                    if hasattr(metrics, 'depths'):
+                        face_depth, left_eye_depth, right_eye_depth, chin_depth = metrics.depths
+                        original_params['distance_cm_from_face'] = f"{face_depth:.2f}"
+                        original_params['distance_cm_from_eye'] = f"{(left_eye_depth + right_eye_depth) / 2:.2f}"
+                        original_params['chin_depth'] = f"{chin_depth:.2f}"
+                    
+                    # Update derived parameters
+                    if hasattr(metrics, 'head_pose_angles'):
+                        pitch, yaw, roll = metrics.head_pose_angles
+                        original_params['posture'] = "Looking Down" if pitch > 10 else "Looking Up" if pitch < -10 else "Looking Straight"
+                        original_params['gaze_direction'] = "Looking Right" if yaw > 10 else "Looking Left" if yaw < -10 else "Looking Straight"
+                
+                # Write updated parameters to new file
+                with open(param_dst, 'w') as dst:
+                    dst.write("Parameter,Value\n")
+                    for key, value in original_params.items():
+                        dst.write(f"{key},{value}\n")
+                logging.info(f"Updated parameter file with new metrics: {param_dst}")
+        
+        return True, "Processing completed successfully"
+        
+    except Exception as e:
+        logging.error(f"Error processing images: {str(e)}")
+        return False, str(e)

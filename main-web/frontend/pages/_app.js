@@ -1,18 +1,24 @@
-// import '../styles/globals.css';
+// pages/_app.js
 import './collected-dataset/styles/main.css';
 import './collected-dataset/styles/camera.css';
 import './collected-dataset/styles/topbar.css';
 import '../styles/Home.module.css';
 import './collected-dataset/styles/control-buttons.css';
 import Header from '../components/Header';
-import { ProcessStatusProvider } from '../utils/stateManager';
-// /Users/porchportal2/Desktop/🔥everything/Main_Web_EyeTracking/main-web/frontend/pages/utils/stateManager.js
+import { ProcessStatusProvider, BackendConnectionProvider } from '../utils/stateManager';
+import { ConsentProvider } from '../components/consent/ConsentContext';
+import ConnectionStatusIndicator from '../components/ConnectionStatusIndicator';
 
 function MyApp({ Component, pageProps }) {
   return (
     <ProcessStatusProvider>
-      <Header />
-      <Component {...pageProps} />
+      <BackendConnectionProvider>
+        <ConsentProvider>
+          <Header />
+          <ConnectionStatusIndicator />
+          <Component {...pageProps} />
+        </ConsentProvider>
+      </BackendConnectionProvider>
     </ProcessStatusProvider>
   );
 }

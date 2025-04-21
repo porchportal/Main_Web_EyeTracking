@@ -2,26 +2,63 @@
 import { useState, useEffect } from 'react';
 import styles from '../../styles/ProcessSet.module.css';
 
-export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
+// Utility function to format file size
+const formatFileSize = (bytes) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+export const FilePreviewPanel = ({ selectedFile, previewImage, previewType }) => {
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
+  
+  console.log('FilePreviewPanel props:', { 
+    selectedFile, 
+    previewImage: previewImage ? 'data present' : 'no data', 
+    previewType 
+  });
   
   // Function to pre-load the image and get its dimensions
   useEffect(() => {
-    if (!selectedFile || !previewImage || !isImageFile(selectedFile)) return;
+    console.log('useEffect triggered:', { 
+      selectedFile, 
+      previewImage: previewImage ? 'data present' : 'no data', 
+      previewType 
+    });
+    
+    if (!selectedFile || !previewImage || previewType !== 'image') {
+      console.log('Skipping image load:', { 
+        hasSelectedFile: !!selectedFile, 
+        hasPreviewImage: !!previewImage, 
+        isImageType: previewType === 'image' 
+      });
+      return;
+    }
     
     const img = new Image();
     img.onload = () => {
+      console.log('Image loaded, dimensions:', { width: img.width, height: img.height });
       // Use different scaling for screen vs webcam images
       const isScreenImage = selectedFile.includes('screen_');
       const scaleFactor = isScreenImage ? 2 : 1.5; // 1/2 = 50% for screen, 1/1.5 ≈ 67% for webcam
       
-      setImageSize({
+      const newSize = {
         width: Math.round(img.width / scaleFactor),
         height: Math.round(img.height / scaleFactor)
-      });
+      };
+      console.log('Setting image size:', newSize);
+      setImageSize(newSize);
     };
+    
+    img.onerror = (error) => {
+      console.error('Error loading image:', error);
+    };
+    
+    console.log('Setting image source');
     img.src = `data:image/jpeg;base64,${previewImage}`;
-  }, [selectedFile, previewImage]);
+  }, [selectedFile, previewImage, previewType]);
   
   // Check if file is an image
   const isImageFile = (filename) => {
@@ -29,6 +66,7 @@ export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
   };
 
   if (!selectedFile) {
+    console.log('No file selected');
     return (
       <div className={styles.previewPanel}>
         <p>Select a file to preview</p>
@@ -37,6 +75,7 @@ export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
   }
 
   if (!previewImage) {
+    console.log('No preview data available');
     return (
       <div className={styles.previewPanel}>
         <p>Loading preview...</p>
@@ -44,16 +83,16 @@ export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
     );
   }
 
-  // Determine if it's an image or CSV data
-  const isImage = isImageFile(selectedFile);
+  console.log('Rendering preview:', { 
+    previewType, 
+    imageSize,
+    hasPreviewImage: !!previewImage
+  });
   
-  // Check if it's a screen image for display purposes
-  const isScreenImage = selectedFile.includes('screen_');
-
   return (
     <div className={styles.previewPanel}>
       <h3>Preview: {selectedFile}</h3>
-      {isImage ? (
+      {previewType === 'image' ? (
         <div className={styles.imageContainer}>
           <img
             src={`data:image/jpeg;base64,${previewImage}`}
@@ -64,6 +103,7 @@ export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
               height: imageSize.height > 0 ? `${imageSize.height}px` : 'auto',
               objectFit: 'initial' // Don't scale the image
             }}
+            onError={(e) => console.error('Error displaying image:', e)}
           />
         </div>
       ) : (
@@ -76,61 +116,83 @@ export const FilePreviewPanel = ({ selectedFile, previewImage }) => {
 };
 
 export const FileList = ({ files, onFileSelect, isLoading }) => {
-  const [activeTab, setActiveTab] = useState('capture');
-
-  if (isLoading) {
-    return <div className={styles.fileList}>Loading files...</div>;
-  }
-
-  const captureFiles = files.capture || [];
-  const enhanceFiles = files.enhance || [];
+  const [selectedFolder, setSelectedFolder] = useState('capture'); // Default to capture folder
 
   return (
-    <div className={styles.fileListContainer}>
-      <div className={styles.fileTabs}>
-        <button
-          className={`${styles.fileTab} ${activeTab === 'capture' ? styles.activeTab : ''}`}
-          onClick={() => setActiveTab('capture')}
-        >
-          Capture Files ({captureFiles.length})
-        </button>
-        <button
-          className={`${styles.fileTab} ${activeTab === 'enhance' ? styles.activeTab : ''}`}
-          onClick={() => setActiveTab('enhance')}
-        >
-          Enhanced Files ({enhanceFiles.length})
-        </button>
-      </div>
-
-      <div className={styles.fileList}>
-        {activeTab === 'capture' && captureFiles.map((file) => (
-          <div
-            key={file}
-            className={styles.fileItem}
-            onClick={() => onFileSelect(file)}
+    <div className={styles.fileList}>
+      <div className={styles.fileListHeader}>
+        <h3>Files</h3>
+        <div className={styles.folderSelector}>
+          <button 
+            className={`${styles.folderButton} ${selectedFolder === 'capture' ? styles.activeFolder : ''}`}
+            onClick={() => setSelectedFolder('capture')}
           >
-            {file}
-          </div>
-        ))}
-
-        {activeTab === 'enhance' && enhanceFiles.map((file) => (
-          <div
-            key={file}
-            className={styles.fileItem}
-            onClick={() => onFileSelect(file)}
+            Capture Files ({files.capture.length})
+          </button>
+          <button 
+            className={`${styles.folderButton} ${selectedFolder === 'enhance' ? styles.activeFolder : ''}`}
+            onClick={() => setSelectedFolder('enhance')}
           >
-            {file}
-          </div>
-        ))}
-
-        {activeTab === 'capture' && captureFiles.length === 0 && (
-          <p>No capture files found.</p>
-        )}
-
-        {activeTab === 'enhance' && enhanceFiles.length === 0 && (
-          <p>No enhanced files found.</p>
-        )}
+            Enhanced Files ({files.enhance.length})
+          </button>
+        </div>
       </div>
+      
+      {isLoading ? (
+        <div className={styles.loading}>Loading files...</div>
+      ) : (
+        <div className={styles.tabContent}>
+          {selectedFolder === 'capture' ? (
+            <>
+              {files.capture.length > 0 ? (
+                <ul className={styles.fileListItems}>
+                  {files.capture.map((file) => (
+                    <li 
+                      key={file.filename} 
+                      className={styles.fileListItem}
+                      onClick={() => onFileSelect(file.filename)}
+                    >
+                      <div className={styles.fileInfo}>
+                        <span className={styles.fileName}>{file.filename}</span>
+                        <span className={styles.filePath}>{file.path}</span>
+                        <span className={styles.fileDetails}>
+                          {file.file_type.toUpperCase()} - {formatFileSize(file.size)}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className={styles.noFiles}>No capture files found.</div>
+              )}
+            </>
+          ) : (
+            <>
+              {files.enhance.length > 0 ? (
+                <ul className={styles.fileListItems}>
+                  {files.enhance.map((file) => (
+                    <li 
+                      key={file.filename} 
+                      className={styles.fileListItem}
+                      onClick={() => onFileSelect(file.filename)}
+                    >
+                      <div className={styles.fileInfo}>
+                        <span className={styles.fileName}>{file.filename}</span>
+                        <span className={styles.filePath}>{file.path}</span>
+                        <span className={styles.fileDetails}>
+                          {file.file_type.toUpperCase()} - {formatFileSize(file.size)}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className={styles.noFiles}>No enhanced files found.</div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -207,34 +269,54 @@ export const ProcessSummary = ({ files }) => {
 };
 
 export const ProcessingProgress = ({ isProcessing, progressData }) => {
-    if (!isProcessing || !progressData) {
-      return null;
-    }
-    
-    const { currentSet, totalSets, processedSets } = progressData;
-    const percentComplete = totalSets > 0 ? 
-      Math.min(100, Math.round((processedSets.length / totalSets) * 100)) : 0;
-    
-    // Calculate elapsed and remaining time logic...
-    
-    return (
-      <div className={styles.progressContainer}>
-        <h3>Processing Progress</h3>
-        
-        <div className={styles.progressBar}>
-          <div 
-            className={styles.progressFill} 
-            style={{ width: `${percentComplete}%` }}
-          ></div>
+  if (!isProcessing || !progressData) {
+    return null;
+  }
+  
+  const { currentSet, totalSets, processedSets, currentFile, progress } = progressData;
+  const percentComplete = progress;
+  
+  return (
+    <div className={styles.progressContainer}>
+      <h3>Processing Progress</h3>
+      
+      <div className={styles.progressBar}>
+        <div 
+          className={styles.progressFill} 
+          style={{ width: `${percentComplete}%` }}
+        ></div>
+      </div>
+      
+      <div className={styles.progressStats}>
+        <div className={styles.progressStat}>
+          <span>Current File:</span>
+          <span>{currentFile || 'Starting...'}</span>
         </div>
         
-        <div className={styles.progressStats}>
-          <div className={styles.progressStat}>
-            <span>Progress:</span>
-            <span>{processedSets.length} of {totalSets} ({percentComplete}%)</span>
-          </div>
-          {/* Additional progress stats... */}
+        <div className={styles.progressStat}>
+          <span>Progress:</span>
+          <span>{percentComplete}% ({processedSets.length} of {totalSets} files)</span>
+        </div>
+        
+        <div className={styles.progressStat}>
+          <span>Last Processed:</span>
+          <span>{processedSets.length > 0 ? processedSets[processedSets.length - 1] : 'None'}</span>
         </div>
       </div>
-    );
-  };
+      
+      {processedSets.length > 0 && (
+        <div className={styles.processedFiles}>
+          <h4>Processed Files:</h4>
+          <div className={styles.processedList}>
+            {processedSets.map((setNumber, index) => (
+              <span key={index} className={styles.processedItem}>
+                {setNumber}
+                {index < processedSets.length - 1 ? ', ' : ''}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

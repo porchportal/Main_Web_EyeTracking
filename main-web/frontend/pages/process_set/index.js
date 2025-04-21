@@ -12,7 +12,8 @@ import {
   previewFile,
   processFiles,
   compareFileCounts,
-  checkProcessingStatus
+  checkProcessingStatus,
+  checkFilesNeedProcessing
 } from './processApi';
 
 // Import UI components
@@ -44,8 +45,8 @@ export default function ProcessSet() {
     setMounted(true);
     initializeComponent();
     
-    // Set up interval to check processing status
-    const statusInterval = setInterval(checkCurrentProcessingStatus, 2000); // Faster updates for smoother progress
+    // Set up interval to check processing status - reduced from 10s to 30s
+    const statusInterval = setInterval(checkProcessingNeeded, 30000);
     
     // Clean up interval on unmount
     return () => clearInterval(statusInterval);
@@ -56,7 +57,7 @@ export default function ProcessSet() {
     await checkConnection();
     if (backendConnected) {
       await handleCheckFiles();
-      await checkCurrentProcessingStatus();
+      await checkProcessingNeeded();
     }
   };
 
@@ -74,29 +75,28 @@ export default function ProcessSet() {
     setLoading(false);
   };
 
-  // Check current processing status
-  const checkCurrentProcessingStatus = async () => {
-    const status = await checkProcessingStatus();
-    if (status.success) {
-      setProcessingStatus(status);
-      setIsProcessing(status.isProcessing);
-      
-      // Set progress data if available
-      if (status.progress) {
-        setProgressData(status.progress);
+  // Check if processing is needed
+  const checkProcessingNeeded = async () => {
+    try {
+      // First check file completeness
+      const completenessResult = await checkFilesCompleteness();
+      if (!completenessResult.success) {
+        showNotification('Error checking file completeness: ' + completenessResult.error, 'error');
+        return;
       }
-      
-      // Update process ready status based on file counts
-      if (status.needsProcessing !== isProcessReady) {
-        setIsProcessReady(status.needsProcessing);
+
+      // Then check if processing is needed
+      const result = await checkFilesNeedProcessing();
+      if (result.success) {
+        setIsProcessReady(result.needsProcessing);
+        setProcessingStatus({
+          captureCount: result.captureCount,
+          enhanceCount: result.enhanceCount
+        });
       }
-      
-      // If processing was in progress and now it's done, refresh file list
-      if (isProcessing && !status.isProcessing) {
-        showNotification('Processing completed', 'success');
-        handleCheckFiles();
-        setProgressData(null); // Clear progress data
-      }
+    } catch (error) {
+      console.error('Error checking processing status:', error);
+      showNotification('Error checking processing status: ' + error.message, 'error');
     }
   };
 
@@ -146,13 +146,21 @@ export default function ProcessSet() {
 
   // Handle file preview
   const handleFileSelect = async (filename) => {
+    console.log('File selected:', filename);
     setSelectedFile(filename);
     setPreviewImageData(null);
     
     const result = await previewFile(filename);
+    console.log('Preview API result:', result);
+    
     if (result.success) {
-      setPreviewImageData(result.data);
+      console.log('Setting preview data:', { data: result.data, type: result.type });
+      setPreviewImageData({
+        data: result.data,
+        type: result.type
+      });
     } else {
+      console.error('Preview API error:', result.error);
       showNotification('Error loading preview: ' + (result.error || 'Unknown error'), 'error');
     }
   };
@@ -169,41 +177,106 @@ export default function ProcessSet() {
       return;
     }
     
-    // Get set numbers that need processing from compareFileCounts
-    const compareResult = await compareFileCounts();
-    if (!compareResult.success) {
-      showNotification('Error determining files to process', 'error');
-      return;
-    }
-    
-    // Extract set numbers that need processing
-    const setNumbersToProcess = compareResult.setsNeedingProcessing;
-    if (setNumbersToProcess.length === 0) {
-      showNotification('No sets need processing', 'info');
-      return;
-    }
-    
     setIsProcessing(true);
+    showNotification('Processing started...', 'info');
     
-    // Call API to trigger Python processing
-    const result = await processFiles(setNumbersToProcess);
-    
-    if (result.success) {
-      showNotification(`Processing started for ${result.setsToProcess} sets`, 'success');
+    try {
+      // Get the last file number from enhance folder
+      const enhanceFiles = files.enhance || [];
+      const lastEnhanceNumber = enhanceFiles.length > 0 
+        ? Math.max(...enhanceFiles.map(file => {
+            const match = file.filename.match(/_(\d+)\./);
+            return match ? parseInt(match[1]) : 0;
+          }))
+        : 0;
       
-      // Reset progress data
+      // Get all capture files that need processing
+      const captureFiles = files.capture || [];
+      const filesToProcess = captureFiles
+        .filter(file => {
+          const match = file.filename.match(/_(\d+)\./);
+          if (!match) return false;
+          const fileNumber = parseInt(match[1]);
+          return fileNumber > lastEnhanceNumber;
+        })
+        .sort((a, b) => {
+          const numA = parseInt(a.filename.match(/_(\d+)\./)[1]);
+          const numB = parseInt(b.filename.match(/_(\d+)\./)[1]);
+          return numA - numB;
+        });
+      
+      if (filesToProcess.length === 0) {
+        showNotification('No files need processing', 'info');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Initialize progress data
       setProgressData({
         currentSet: 0,
-        totalSets: setNumbersToProcess.length,
+        totalSets: filesToProcess.length,
         processedSets: [],
-        startTime: new Date().toISOString()
+        currentFile: '',
+        progress: 0
       });
+
+      // Process all files in parallel
+      const processPromises = filesToProcess.map(async (file, index) => {
+        const match = file.filename.match(/_(\d+)\./);
+        if (!match) return;
+        
+        const setNumber = parseInt(match[1]);
+        const currentFile = `Processing file ${setNumber} (${index + 1}/${filesToProcess.length})`;
+        
+        // Update progress for current file
+        setProgressData(prev => ({
+          ...prev,
+          currentSet: setNumber,
+          currentFile,
+          progress: Math.round((index / filesToProcess.length) * 100)
+        }));
+        
+        showNotification(currentFile, 'info');
+        
+        try {
+          const result = await processFiles([setNumber]);
+          if (!result.success) {
+            throw new Error(`Failed to process set ${setNumber}: ${result.error || 'Unknown error'}`);
+          }
+          
+          // Add to processed sets
+          setProgressData(prev => ({
+            ...prev,
+            processedSets: [...prev.processedSets, setNumber],
+            progress: Math.round(((index + 1) / filesToProcess.length) * 100)
+          }));
+          
+          return { success: true, setNumber };
+        } catch (error) {
+          console.error(`Error processing set ${setNumber}:`, error);
+          return { success: false, setNumber, error };
+        }
+      });
+
+      // Wait for all processing to complete
+      const results = await Promise.all(processPromises);
       
-      // Force immediate status check
-      await checkCurrentProcessingStatus();
-    } else {
-      showNotification('Error starting processing: ' + (result.error || 'Unknown error'), 'error');
+      // Check for any errors
+      const errors = results.filter(r => !r.success);
+      if (errors.length > 0) {
+        throw new Error(`Failed to process ${errors.length} files. First error: ${errors[0].error}`);
+      }
+      
+      showNotification('Processing completed', 'success');
+      
+      // Refresh file list and check if more processing is needed
+      await handleCheckFiles();
+    } catch (error) {
+      console.error('Error processing files:', error);
+      showNotification(`Error: ${error.message}`, 'error');
+    } finally {
       setIsProcessing(false);
+      setProgressData(null);
     }
   };
 
@@ -283,9 +356,15 @@ export default function ProcessSet() {
           </div>
           
           <div className={styles.rightPanel}>
+            {console.log('Rendering FilePreviewPanel with:', {
+              selectedFile,
+              previewImage: previewImageData?.data,
+              previewType: previewImageData?.type
+            })}
             <FilePreviewPanel 
               selectedFile={selectedFile}
-              previewImage={previewImageData}
+              previewImage={previewImageData?.data}
+              previewType={previewImageData?.type}
             />
           </div>
         </div>

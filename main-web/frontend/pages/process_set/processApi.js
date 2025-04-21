@@ -1,114 +1,319 @@
-// pages/process_set/processApi.js - API functions for process_set
+// pages/process_set/processApi.js - API functions for process_set with improved connection handling
+
+// Utility function for making API requests with retry and better error handling
+const fetchWithRetry = async (url, options = {}, retries = 2) => {
+  let lastError;
+  
+  // Get API key from environment variable
+  const apiKey = process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+  
+  // Get backend URL from environment variable
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '';
+  
+  // Ensure URL is absolute
+  const absoluteUrl = url.startsWith('http') ? url : `${backendUrl}${url}`;
+  
+  for (let i = 0; i <= retries; i++) {
+    try {
+      console.log(`Fetching ${absoluteUrl}${i > 0 ? ` (retry ${i}/${retries})` : ''}`);
+      
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      
+      const response = await fetch(absoluteUrl, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          ...options.headers,
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey
+        }
+      });
+      
+      clearTimeout(timeout);
+      
+      // Check for response errors
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API error (${response.status}):`, errorText);
+        
+        // Special handling for 401 (Unauthorized)
+        if (response.status === 401) {
+          throw new Error('Invalid API key. Please check your configuration.');
+        }
+        
+        throw new Error(`API returned ${response.status}: ${errorText || response.statusText}`);
+      }
+      
+      // Try to parse JSON response
+      try {
+        const data = await response.json();
+        return data;
+      } catch (parseError) {
+        console.error('JSON parse error:', parseError);
+        throw new Error(`Failed to parse response: ${parseError.message}`);
+      }
+    } catch (error) {
+      console.error(`Fetch error (attempt ${i+1}/${retries+1}):`, error);
+      lastError = error;
+      
+      // If this was an abort error (timeout), log it specifically
+      if (error.name === 'AbortError') {
+        console.error('Request timed out');
+      }
+      
+      // If we have retries left, wait before trying again
+      if (i < retries) {
+        const delay = 1000 * Math.pow(2, i); // Exponential backoff: 1s, 2s, 4s, etc.
+        console.log(`Waiting ${delay}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  // If we got here, all retries failed
+  throw lastError;
+};
+
+// API configuration
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY || 'your-api-key-here';
 
 // Check if the backend is connected
 export const checkBackendConnection = async () => {
-    try {
-      const response = await fetch('/api/check-backend-connection');
-      const data = await response.json();
-      return { success: true, connected: data.connected };
-    } catch (error) {
-      console.error('Error checking backend connection:', error);
-      return { success: false, error: error.message };
-    }
+  try {
+    console.log('Checking backend connection...');
+    const response = await fetchWithRetry('/api/check-backend-connection');
+    console.log('Backend connection response:', response);
+    return {
+      success: true,
+      connected: response.connected || false,
+      status: response.status || 'unknown'
+    };
+  } catch (error) {
+    console.error('Backend connection check failed:', error);
+    return {
+      success: false,
+      connected: false,
+      error: error.message,
+      status: 'error'
+    };
+  }
 };
   
-  // Get list of files from both capture and enhance folders
+// Get list of files from both capture and enhance folders
 export const getFilesList = async () => {
-    try {
-      // Make sure we're using the correct API endpoint
-      const response = await fetch('/api/for-process-folder/file-api?operation=list');
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error getting files list:', error);
-      return { success: false, error: error.message };
+  try {
+    console.log('Fetching files list...');
+    const response = await fetchWithRetry('/api/file-api?operation=list');
+    console.log('Raw files list response:', JSON.stringify(response, null, 2));
+    
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to get files list');
     }
-  };
-  
-  // Check file completeness (if webcam, screen, and parameter files exist for each set)
-export const checkFilesCompleteness = async () => {
-    try {
-      const response = await fetch('/api/for-process-folder/file-api?operation=check-completeness');
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error checking files completeness:', error);
-      return { success: false, error: error.message };
-    }
-  };
-  
-  // Preview a specific file
-export const previewFile = async (filename) => {
-    try {
-      const response = await fetch(`/api/for-process-folder/preview-api?filename=${encodeURIComponent(filename)}`);
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error previewing file:', error);
-      return { success: false, error: error.message };
-    }
-  };
-  
-  // Process files - trigger the processing
-export const processFiles = async (setNumbers) => {
-    try {
-      const response = await fetch('/api/for-process-folder/process-status-api', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ setNumbers }),
+    
+    // Organize files into capture and enhance arrays
+    const organizedFiles = {
+      capture: [],
+      enhance: []
+    };
+    
+    if (response.files && Array.isArray(response.files)) {
+      console.log('Processing files array:', response.files);
+      // Files are already sorted by number from the backend
+      response.files.forEach(file => {
+        console.log('Processing file:', file);
+        // Check if file is in capture or enhance directory
+        if (file.path.includes('eye_tracking_captures')) {
+          console.log('Adding to capture:', file);
+          organizedFiles.capture.push(file);
+        } else if (file.path.includes('enhance')) {
+          console.log('Adding to enhance:', file);
+          organizedFiles.enhance.push(file);
+        }
       });
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error processing files:', error);
-      return { success: false, error: error.message };
+      
+      console.log('Final organized files:', JSON.stringify(organizedFiles, null, 2));
+    } else {
+      console.log('No files array in response or not an array:', response.files);
     }
-  };
+    
+    return {
+      success: true,
+      files: organizedFiles,
+      message: response.message || 'Files retrieved successfully'
+    };
+  } catch (error) {
+    console.error('Error getting files list:', error);
+    return {
+      success: false,
+      error: error.message,
+      message: 'Failed to get files list',
+      files: { capture: [], enhance: [] }
+    };
+  }
+};
   
-  // Compare files between capture and enhance folders
+// Check file completeness (if webcam, screen, and parameter files exist for each set)
+export const checkFilesCompleteness = async () => {
+  try {
+    const response = await fetchWithRetry('/api/file-api?operation=check-completeness');
+    return response;
+  } catch (error) {
+    console.error('Error checking files completeness:', error);
+    return { success: false, error: error.message };
+  }
+};
+  
+// Preview a specific file
+export const previewFile = async (filename) => {
+  try {
+    console.log('Fetching preview for file:', filename);
+    const response = await fetchWithRetry(`/api/preview-api?filename=${encodeURIComponent(filename)}`);
+    console.log('Raw preview response:', response);
+    
+    // Check if response has the expected format
+    if (!response || typeof response !== 'object') {
+      throw new Error('Invalid response format from preview API');
+    }
+    
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to get preview');
+    }
+    
+    return {
+      success: true,
+      data: response.data,
+      type: response.type,
+      message: response.message
+    };
+  } catch (error) {
+    console.error('Error previewing file:', error);
+    return {
+      success: false,
+      error: error.message,
+      message: 'Failed to get preview'
+    };
+  }
+};
+  
+// Check if files need processing
+export const checkFilesNeedProcessing = async () => {
+  try {
+    const response = await fetchWithRetry('/api/file-api?operation=list');
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to get files list');
+    }
+    
+    let captureCount = 0;
+    let enhanceCount = 0;
+    
+    if (response.files && Array.isArray(response.files)) {
+      response.files.forEach(file => {
+        if (file.path.includes('eye_tracking_captures')) {
+          captureCount++;
+        } else if (file.path.includes('enhance')) {
+          enhanceCount++;
+        }
+      });
+    }
+    
+    return {
+      success: true,
+      needsProcessing: captureCount > enhanceCount,
+      captureCount,
+      enhanceCount
+    };
+  } catch (error) {
+    console.error('Error checking files:', error);
+    return {
+      success: false,
+      error: error.message,
+      needsProcessing: false,
+      captureCount: 0,
+      enhanceCount: 0
+    };
+  }
+};
+
+// Process files
+export const processFiles = async (setNumbers) => {
+  try {
+    console.log('Starting processing for sets:', setNumbers);
+    const response = await fetchWithRetry('/api/process-images', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ set_numbers: setNumbers }),
+    });
+    
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to start processing');
+    }
+    
+    return {
+      success: true,
+      message: response.message
+    };
+  } catch (error) {
+    console.error('Error processing files:', error);
+    return {
+      success: false,
+      error: error.message,
+      message: 'Failed to process files'
+    };
+  }
+};
+  
+// Compare files between capture and enhance folders
 export const compareFileCounts = async () => {
-    try {
-      const response = await fetch('/api/for-process-folder/file-api?operation=compare');
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error comparing file counts:', error);
-      return { success: false, error: error.message };
+  try {
+    const response = await fetchWithRetry('/api/file-api?operation=compare');
+    if (!response.success) {
+      throw new Error(response.message || 'Failed to compare file counts');
     }
-  };
+    return {
+      success: true,
+      captureCount: response.captureCount,
+      enhanceCount: response.enhanceCount,
+      needsProcessing: response.needsProcessing
+    };
+  } catch (error) {
+    console.error('Error comparing file counts:', error);
+    return { 
+      success: false, 
+      error: error.message,
+      captureCount: 0,
+      enhanceCount: 0,
+      needsProcessing: false
+    };
+  }
+};
   
-  // Check if processing is currently running
-// In processApi.js
+// Check if processing is currently running
 export const checkProcessingStatus = async () => {
-    try {
-      console.log('Requesting processing status...');
-      const response = await fetch('/api/for-process-folder/process-status-api');
-      
-      // Log the raw response
-      console.log('Status code:', response.status);
-      
-      // Try to get the text first to see if it's valid JSON
-      const text = await response.text();
-      console.log('Raw response:', text);
-      
-      // Now try to parse as JSON
-      let data;
-      try {
-        data = JSON.parse(text);
-        console.log('Parsed JSON data:', data);
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError);
-        return { 
-          success: false, 
-          error: `Failed to parse response as JSON: ${parseError.message}` 
-        };
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Error checking processing status:', error);
-      return { success: false, error: error.message };
+  try {
+    console.log('Requesting processing status...');
+    const response = await fetchWithRetry('/api/process-status-api', {}, 1); // Only 1 retry for status checks
+    
+    // If fetch succeeded but response is malformed, handle it gracefully
+    if (!response || typeof response !== 'object') {
+      console.error('Invalid response format:', response);
+      return { 
+        success: false, 
+        error: `Invalid response format: ${typeof response}`,
+        isProcessing: false
+      };
     }
-  };
+    
+    return response;
+  } catch (error) {
+    console.error('Error checking processing status:', error);
+    return { 
+      success: false, 
+      error: error.message,
+      isProcessing: false
+    };
+  }
+};

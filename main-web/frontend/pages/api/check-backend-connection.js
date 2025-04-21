@@ -1,5 +1,7 @@
 // pages/api/check-backend-connection.js
 import fetch from 'node-fetch';
+import os from 'os';
+import subprocess from 'child_process';
 
 export default async function handler(req, res) {
   try {
@@ -7,77 +9,138 @@ export default async function handler(req, res) {
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
     const apiKey = process.env.API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
     
-    console.log(`Checking backend connection at: ${backendUrl}/health`);
+    console.log(`Checking backend connection at: ${backendUrl}/check-backend-connection`);
     
-    // Attempt to connect to the backend health check endpoint
-    const response = await fetch(`${backendUrl}/health`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      // Health check doesn't need API key
-      timeout: 5000 // 5 second timeout
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Backend health check response:', data);
+    // Enhanced fetch function with proper error handling and timeout
+    const fetchWithTimeout = async (url, options = {}, timeoutMs = 5000) => {
+      const abortController = new AbortController();
+      const { signal } = abortController;
       
-      // After successful health check, verify auth
+      const timeout = setTimeout(() => {
+        abortController.abort();
+      }, timeoutMs);
+      
       try {
-        console.log(`Testing auth at: ${backendUrl}/test-auth`);
-        const authResponse = await fetch(`${backendUrl}/test-auth`, {
+        const response = await fetch(url, {
+          ...options,
+          signal
+        });
+        return response;
+      } catch (error) {
+        if (error.name === 'AbortError') {
+          throw new Error(`Request timeout after ${timeoutMs}ms`);
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
+    };
+    
+    try {
+      // First try the connection check endpoint (doesn't require auth)
+      // Using a shorter timeout for faster feedback
+      const connectionResponse = await fetchWithTimeout(`${backendUrl}/api/check-backend-connection`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }, 3000);
+      
+      if (!connectionResponse.ok) {
+        console.error('Connection check failed:', connectionResponse.status, connectionResponse.statusText);
+        return res.status(200).json({
+          connected: false,
+          authValid: false,
+          message: `Backend connection check failed with status: ${connectionResponse.status}`,
+          error: {
+            type: 'connection_check_failed',
+            status: connectionResponse.status,
+            statusText: connectionResponse.statusText
+          }
+        });
+      }
+      
+      const connectionData = await connectionResponse.json();
+      console.log('Backend connection check response:', connectionData);
+      
+      // Then check if auth is valid using the test-auth endpoint
+      try {
+        const authResponse = await fetchWithTimeout(`${backendUrl}/test-auth`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
             'X-API-Key': apiKey
-          },
-          timeout: 5000 // 5 second timeout
-        });
+          }
+        }, 3000);
         
-        if (authResponse.ok) {
-          const authData = await authResponse.json();
-          console.log('Auth check successful:', authData);
+        const authValid = authResponse.ok;
+        const authStatus = authResponse.status;
+        
+        if (authValid) {
+          let authData = {};
+          try {
+            authData = await authResponse.json();
+            console.log('Auth check successful:', authData);
+          } catch (parseError) {
+            console.error('Error parsing auth response:', parseError);
+          }
           
           return res.status(200).json({
             connected: true,
             authValid: true,
-            message: 'Backend connection and authentication successful'
+            message: 'Backend connection and authentication successful',
+            serverInfo: {
+              status: connectionData.status || 'ok'
+            }
           });
         } else {
-          console.error('Auth check failed:', authResponse.status, authResponse.statusText);
+          console.error('Auth check failed:', authStatus, authResponse.statusText);
           
-          // Backend is connected but auth failed
           return res.status(200).json({
             connected: true,
             authValid: false,
-            message: 'Backend connection successful, but authentication failed'
+            message: 'Backend connected but authentication failed',
+            error: {
+              type: 'auth_failed',
+              status: authStatus,
+              statusText: authResponse.statusText
+            }
           });
         }
       } catch (authError) {
         console.error('Auth check error:', authError);
-        
-        // Backend is connected but auth check had an error
         return res.status(200).json({
           connected: true,
           authValid: false,
-          message: 'Backend connection successful, but authentication check failed'
+          message: 'Backend connected but authentication check failed',
+          error: {
+            type: 'auth_check_error',
+            message: authError.message
+          }
         });
       }
-    } else {
-      console.error('Backend health check failed:', response.status, response.statusText);
-      
+    } catch (connectionError) {
+      console.error('Connection check error:', connectionError);
       return res.status(200).json({
         connected: false,
-        message: `Backend health check failed with status: ${response.status}`
+        authValid: false,
+        message: 'Backend connection check failed',
+        error: {
+          type: 'connection_error',
+          message: connectionError.message
+        }
       });
     }
   } catch (error) {
-    console.error('Error connecting to backend:', error);
-    
-    return res.status(200).json({
+    console.error('Unexpected error:', error);
+    return res.status(500).json({
       connected: false,
-      message: `Error connecting to backend: ${error.message}`
+      authValid: false,
+      message: 'Unexpected error during backend connection check',
+      error: {
+        type: 'unexpected_error',
+        message: error.message
+      }
     });
   }
 }
