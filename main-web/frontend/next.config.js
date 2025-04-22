@@ -17,6 +17,12 @@ const nextConfig = {
         },
       ]
     },
+    bodyParser: {
+      sizeLimit: '10mb', // Set desired limit
+    },
+    serverActions: {
+      bodySizeLimit: '10mb', // Set desired limit
+    },
   }
   
   module.exports = nextConfig

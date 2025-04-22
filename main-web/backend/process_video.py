@@ -68,20 +68,20 @@ def get_video_face_tracker():
     global video_face_tracker
     if video_face_tracker is None:
         # Try different possible locations for the model
-        model_paths = [
-            'Main_model02/face_landmarker.task',
-            '../Main_model02/face_landmarker.task',
-            './backend/Main_model02/face_landmarker.task'
-        ]
+        # model_paths = [
+        #     'Main_model02/face_landmarker.task',
+        #     '../Main_model02/face_landmarker.task',
+        #     './backend/Main_model02/face_landmarker.task'
+        # ]
         
-        model_path = None
-        for path in model_paths:
-            if os.path.exists(path):
-                model_path = path
-                break
+        # model_path = None
+        # for path in model_paths:
+        #     if os.path.exists(path):
+        #         model_path = path
+        #         break
                 
-        if model_path is None:
-            raise FileNotFoundError("Face landmarker model not found in any of the expected locations")
+        # if model_path is None:
+        #     raise FileNotFoundError("Face landmarker model not found in any of the expected locations")
             
         print(f"Initializing video face tracker with model: {model_path}")
         video_face_tracker = FrameShow_head_face(

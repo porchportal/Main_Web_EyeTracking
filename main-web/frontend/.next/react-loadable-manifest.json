@@ -1,36 +1,36 @@
 {
-  "pages/collected-dataset/components-gui/actionButton.js -> ./Action/CalibrateHandler": {
-    "id": "pages/collected-dataset/components-gui/actionButton.js -> ./Action/CalibrateHandler",
+  "pages/collected-dataset-customized/components-gui/actionButton.js -> ./Action/CalibrateHandler": {
+    "id": "pages/collected-dataset-customized/components-gui/actionButton.js -> ./Action/CalibrateHandler",
     "files": [
-      "static/chunks/_pages-dir-browser_pages_collected-dataset_components-gui_Action_CalibrateHandler_js.js"
+      "static/chunks/_pages-dir-browser_pages_collected-dataset-customized_components-gui_Action_CalibrateHandler_js.js"
     ]
   },
-  "pages/collected-dataset/components-gui/actionButton.js -> ./Action/CalibratePoints": {
-    "id": "pages/collected-dataset/components-gui/actionButton.js -> ./Action/CalibratePoints",
+  "pages/collected-dataset-customized/components-gui/actionButton.js -> ./Action/CalibratePoints": {
+    "id": "pages/collected-dataset-customized/components-gui/actionButton.js -> ./Action/CalibratePoints",
     "files": []
   },
-  "pages/collected-dataset/index.js -> ./components-gui/Action/CalibratePoints": {
-    "id": "pages/collected-dataset/index.js -> ./components-gui/Action/CalibratePoints",
+  "pages/collected-dataset-customized/index.js -> ./components-gui/Action/CalibratePoints": {
+    "id": "pages/collected-dataset-customized/index.js -> ./components-gui/Action/CalibratePoints",
     "files": []
   },
-  "pages/collected-dataset/index.js -> ./components-gui/Action/countSave": {
-    "id": "pages/collected-dataset/index.js -> ./components-gui/Action/countSave",
+  "pages/collected-dataset-customized/index.js -> ./components-gui/Action/countSave": {
+    "id": "pages/collected-dataset-customized/index.js -> ./components-gui/Action/countSave",
     "files": []
   },
-  "pages/collected-dataset/index.js -> ./components-gui/Helper/savefile": {
-    "id": "pages/collected-dataset/index.js -> ./components-gui/Helper/savefile",
+  "pages/collected-dataset-customized/index.js -> ./components-gui/Helper/savefile": {
+    "id": "pages/collected-dataset-customized/index.js -> ./components-gui/Helper/savefile",
     "files": []
   },
-  "pages/collected-dataset/index.js -> ./components-gui/VideoProcessorComponent": {
-    "id": "pages/collected-dataset/index.js -> ./components-gui/VideoProcessorComponent",
+  "pages/collected-dataset-customized/index.js -> ./components-gui/VideoProcessorComponent": {
+    "id": "pages/collected-dataset-customized/index.js -> ./components-gui/VideoProcessorComponent",
     "files": [
-      "static/chunks/_pages-dir-browser_pages_collected-dataset_components-gui_VideoProcessorComponent_js.js"
+      "static/chunks/_pages-dir-browser_pages_collected-dataset-customized_components-gui_VideoProcessorComponent_js.js"
     ]
   },
-  "pages/collected-dataset/index.js -> ./components-gui/cameraAccess": {
-    "id": "pages/collected-dataset/index.js -> ./components-gui/cameraAccess",
+  "pages/collected-dataset-customized/index.js -> ./components-gui/cameraAccess": {
+    "id": "pages/collected-dataset-customized/index.js -> ./components-gui/cameraAccess",
     "files": [
-      "static/chunks/_pages-dir-browser_pages_collected-dataset_components-gui_cameraAccess_js.js"
+      "static/chunks/_pages-dir-browser_pages_collected-dataset-customized_components-gui_cameraAccess_js.js"
     ]
   }
 }
