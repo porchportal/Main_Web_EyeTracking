@@ -12,25 +12,37 @@ const CameraAccess = ({
 }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const containerRef = useRef(null);
   const [stream, setStream] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [fps, setFps] = useState(0);
   const fpsTimerRef = useRef(null);
   const processingInterval = useRef(null);
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
+  const [isVideoReady, setIsVideoReady] = useState(false);
+  const [currentResolution, setCurrentResolution] = useState('low');
+  const resolutionTimerRef = useRef(null);
   
   // Start camera on component mount if isShowing is true
   useEffect(() => {
     if (isShowing) {
       startCamera();
+    } else {
+      stopCamera();
     }
     
     return () => {
       stopCamera();
+      if (resolutionTimerRef.current) {
+        clearTimeout(resolutionTimerRef.current);
+      }
     };
   }, [isShowing]);
 
   // Setup FPS counter
   useEffect(() => {
+    if (!isShowing) return;
+    
     fpsTimerRef.current = setInterval(() => {
       setFps(prevFps => {
         // Simple mock for fps counter
@@ -47,22 +59,138 @@ const CameraAccess = ({
         clearInterval(processingInterval.current);
       }
     };
-  }, []);
+  }, [isShowing]);
 
-  // Simplified camera start function
+  // Update dimensions when container size changes
+  useEffect(() => {
+    if (!isShowing) return;
+    
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        const { width, height } = containerRef.current.getBoundingClientRect();
+        setDimensions({ width, height });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener('resize', updateDimensions);
+    return () => window.removeEventListener('resize', updateDimensions);
+  }, [isShowing]);
+
+  // Handle video element ready state
+  useEffect(() => {
+    if (!isShowing || !videoRef.current || !stream) return;
+    
+    const video = videoRef.current;
+    
+    const handleLoadedMetadata = () => {
+      console.log('Video metadata loaded');
+      setIsVideoReady(true);
+      
+      // Get video dimensions
+      const videoWidth = video.videoWidth || 640;
+      const videoHeight = video.videoHeight || 480;
+      
+      console.log(`Video dimensions: ${videoWidth}x${videoHeight}`);
+      
+      // Setup canvas for processing
+      if (canvasRef.current) {
+        // Store actual dimensions for capture
+        canvasRef.current.width = videoWidth;
+        canvasRef.current.height = videoHeight;
+        
+        // Set display size to maintain aspect ratio
+        const aspectRatio = videoWidth / videoHeight;
+        const containerWidth = dimensions.width;
+        const containerHeight = containerWidth / aspectRatio;
+        
+        canvasRef.current.style.width = `${containerWidth}px`;
+        canvasRef.current.style.height = `${containerHeight}px`;
+      }
+      
+      // Start processing frames
+      startProcessing();
+      
+      // Notify parent component that camera is ready
+      if (onCameraReady) {
+        onCameraReady({
+          width: videoWidth,
+          height: videoHeight
+        });
+      }
+    };
+
+    video.addEventListener('loadedmetadata', handleLoadedMetadata);
+    
+    return () => {
+      video.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, [stream, dimensions, isShowing, onCameraReady]);
+
+  // Handle resolution upgrade
+  useEffect(() => {
+    if (!isShowing || !stream || currentResolution === 'high') return;
+
+    const upgradeResolution = async () => {
+      try {
+        // Stop current tracks
+        stream.getTracks().forEach(track => track.stop());
+        
+        // Request higher resolution
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            facingMode: "user"
+          },
+          audio: false
+        });
+        
+        // Update stream and resolution state
+        setStream(newStream);
+        setCurrentResolution('high');
+        
+        // Apply new stream to video element
+        if (videoRef.current) {
+          videoRef.current.srcObject = newStream;
+        }
+        
+        console.log('Camera resolution upgraded to high');
+      } catch (error) {
+        console.error('Error upgrading camera resolution:', error);
+        // Keep using current resolution if upgrade fails
+      }
+    };
+
+    // Schedule resolution upgrade after 2 seconds
+    resolutionTimerRef.current = setTimeout(upgradeResolution, 2000);
+    
+    return () => {
+      if (resolutionTimerRef.current) {
+        clearTimeout(resolutionTimerRef.current);
+      }
+    };
+  }, [stream, isShowing, currentResolution]);
+
   const startCamera = async () => {
     setErrorMessage('');
+    setIsVideoReady(false);
+    setCurrentResolution('low');
     
     try {
-      console.log('Starting camera access...');
+      console.log('Starting camera access with low resolution...');
       
-      // Request camera access with minimal constraints
+      // Start with low resolution for quick preview
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: {
+          width: { ideal: 320, max: 640 },
+          height: { ideal: 240, max: 480 },
+          facingMode: "user"
+        },
         audio: false
       });
       
-      console.log('Camera access granted!');
+      console.log('Low resolution camera access granted!');
       
       // Store the stream
       setStream(mediaStream);
@@ -81,32 +209,6 @@ const CameraAccess = ({
           // Explicitly try to play the video
           await videoRef.current.play();
           console.log('Video playing successfully!');
-          
-          // Get video dimensions after a short delay to ensure they're available
-          setTimeout(() => {
-            const videoWidth = videoRef.current.videoWidth || 640;
-            const videoHeight = videoRef.current.videoHeight || 480;
-            
-            console.log(`Video dimensions: ${videoWidth}x${videoHeight}`);
-            
-            // Setup canvas for processing
-            if (canvasRef.current) {
-              canvasRef.current.width = videoWidth;
-              canvasRef.current.height = videoHeight;
-            }
-            
-            // Notify parent component
-            // if (onCameraReady) {
-            //   onCameraReady({
-            //     width: videoWidth,
-            //     height: videoHeight,
-            //     distance: 120
-            //   });
-            // }
-            
-            // Start processing frames
-            startProcessing();
-          }, 300);
         } catch (playError) {
           console.error('Error playing video:', playError);
           setErrorMessage('Unable to start video stream. Please try again.');
@@ -147,25 +249,44 @@ const CameraAccess = ({
       clearInterval(processingInterval.current);
       processingInterval.current = null;
     }
+    
+    setIsVideoReady(false);
   };
 
   const startProcessing = () => {
-    if (!canvasRef.current || !videoRef.current) return;
+    if (!canvasRef.current || !videoRef.current || !isVideoReady) return;
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     
-    // Match canvas size to video
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+    // Use high resolution for processing canvas regardless of current video resolution
+    const processingWidth = 1280;
+    const processingHeight = 720;
+    
+    // Set canvas to high resolution for processing
+    canvas.width = processingWidth;
+    canvas.height = processingHeight;
     
     // Start processing frames at ~30fps
     processingInterval.current = setInterval(() => {
       if (video.readyState !== 4) return;
       
-      // Draw video frame to canvas
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Save the current context state
+      ctx.save();
+      
+      // Flip the context horizontally to mirror the video
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+      
+      // Draw video frame to canvas at high resolution
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Restore the context state
+      ctx.restore();
       
       // Simulate face detection (90% chance of face detected)
       const faceDetected = Math.random() > 0.1;
@@ -291,118 +412,63 @@ const CameraAccess = ({
   }
 
   return (
-    <div className="camera-component" style={{
-      position: 'absolute',
-      top: '50%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)',
-      width: '480px',
-      height: '360px',
-      background: 'black',
-      border: '2px solid #0066cc',
-      borderRadius: '8px',
-      overflow: 'hidden',
-      boxShadow: '0 8px 16px rgba(0,0,0,0.3)',
-      zIndex: 999
-    }}>
-      {errorMessage && (
-        <div style={{
-          height: '100%', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          padding: '10px', 
-          textAlign: 'center', 
-          backgroundColor: '#fff0f0'
-        }}>
-          <p style={{
-            fontSize: '14px', 
-            color: 'red', 
-            margin: '0 0 20px', 
-            fontWeight: 'bold'
-          }}>
-            {errorMessage}
-          </p>
-          <button 
-            onClick={startCamera}
-            style={{
-              padding: '12px 24px', 
-              background: '#0066cc', 
-              color: 'white', 
-              border: 'none', 
-              borderRadius: '4px', 
-              cursor: 'pointer', 
-              fontWeight: 'bold',
-              fontSize: '16px'
-            }}
-          >
-            Try Again
-          </button>
-        </div>
-      )}
-      
-      {!errorMessage && (
-        <>
-          <div style={{position: 'absolute', top: '5px', right: '5px', zIndex: 12}}>
-            <button 
-              onClick={onClose} 
-              style={{
-                padding: '2px 6px', 
-                background: '#cc0000', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '4px', 
-                fontSize: '12px', 
-                cursor: 'pointer'
-              }}
-            >
-              X
-            </button>
-          </div>
-          
-          <video
-            ref={videoRef}
-            playsInline
-            autoPlay
-            muted
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-              display: 'block',
-              backgroundColor: 'black'
-            }}
-          />
-          
-          <canvas
-            ref={canvasRef}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              zIndex: 1001
-            }}
-          />
-          
-          {/* Debug information */}
-          <div style={{
-            position: 'absolute', 
-            bottom: '5px', 
-            left: '5px', 
-            backgroundColor: 'rgba(0,0,0,0.5)', 
-            color: 'white',
-            padding: '3px 6px',
-            borderRadius: '4px',
-            fontSize: '10px',
-            zIndex: 1005
-          }}>
-            Stream: {stream ? 'Active' : 'None'} | FPS: {fps}
-          </div>
-        </>
-      )}
+    <div 
+      ref={containerRef}
+      style={{ 
+        position: 'fixed',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '30vw', // 30% of viewport width
+        height: '30vh', // 30% of viewport height
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+        overflow: 'hidden',
+        zIndex: 1000
+      }}
+    >
+      <video
+        ref={videoRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          transform: 'scaleX(-1)', // Flip horizontally
+          opacity: 0 // Keep video hidden but functional
+        }}
+        playsInline
+        muted
+        autoPlay
+      />
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          zIndex: 1
+        }}
+      />
+      <button
+        onClick={onClose}
+        style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          padding: '8px 12px',
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          color: 'white',
+          border: 'none',
+          borderRadius: '4px',
+          cursor: 'pointer',
+          zIndex: 2
+        }}
+      >
+        Close
+      </button>
     </div>
   );
 };

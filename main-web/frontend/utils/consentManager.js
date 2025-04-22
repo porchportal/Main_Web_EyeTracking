@@ -2,215 +2,148 @@
 import { v4 as uuidv4 } from 'uuid';
 
 const STORAGE_KEY = 'eye_tracking_consent';
-const USERID_KEY = 'eye_tracking_userid';
-const DETAILS_KEY = 'consent_details';
+const CONSENT_DETAILS_KEY = 'consent_details';
+const USER_PROFILE_KEY = 'user_profile';
 
-/**
- * Generate a unique user ID if one doesn't exist
- */
+// Get or create a user ID
 export const getOrCreateUserId = () => {
-  if (typeof window === 'undefined') return null;
-  
-  // Try to get existing user ID from localStorage
-  let userId = localStorage.getItem(USERID_KEY);
-  
-  // If no user ID exists, create one and store it
-  if (!userId) {
-    userId = uuidv4();
-    localStorage.setItem(USERID_KEY, userId);
-  }
-  
-  return userId;
-};
-
-/**
- * Get consent information from localStorage only
- */
-export const getUserConsent = async () => {
-  if (typeof window === 'undefined') {
-    return { userId: null, consentStatus: null, consentUpdatedAt: null, consentDetails: null };
-  }
-  
-  // Ensure we have a user ID
-  const userId = getOrCreateUserId();
-  
-  // Get consent from localStorage
-  const storedConsent = localStorage.getItem(STORAGE_KEY);
-  let consentDetails = null;
-  
   try {
-    const detailsStr = localStorage.getItem(DETAILS_KEY);
-    if (detailsStr) {
-      consentDetails = JSON.parse(detailsStr);
+    const storedConsent = localStorage.getItem(STORAGE_KEY);
+    const storedDetails = localStorage.getItem(CONSENT_DETAILS_KEY);
+    
+    if (storedConsent && storedDetails) {
+      const details = JSON.parse(storedDetails);
+      return details.userId;
     }
-  } catch (e) {
-    console.error('Error parsing consent details:', e);
-  }
-  
-  if (storedConsent) {
-    try {
-      const parsedConsent = JSON.parse(storedConsent);
-      return {
-        userId,
-        consentStatus: parsedConsent.consentStatus,
-        consentUpdatedAt: parsedConsent.consentUpdatedAt,
-        consentDetails
-      };
-    } catch (error) {
-      console.error('Error parsing stored consent:', error);
-    }
-  }
-  
-  // If no valid consent data in localStorage
-  return { userId, consentStatus: null, consentUpdatedAt: null, consentDetails: null };
-};
-
-/**
- * Update consent in localStorage and try backend if available
- */
-export const updateUserConsent = async (userId, status, details = null) => {
-  if (typeof window === 'undefined') {
-    throw new Error('Cannot update consent server-side');
-  }
-  
-  if (!userId) {
-    userId = getOrCreateUserId();
-  }
-  
-  // Get current datetime in ISO format
-  const now = new Date().toISOString();
-  
-  // Update localStorage first (optimistic update)
-  const consentData = {
-    consentStatus: status,
-    consentUpdatedAt: now
-  };
-  
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(consentData));
-  
-  // Store detailed consent information if provided
-  if (details) {
-    localStorage.setItem(DETAILS_KEY, JSON.stringify(details));
-  }
-  
-  // Try to update consent with the backend
-  try {
-    await fetch('/api/preferences/consent', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        userId,
-        consentStatus: status
-      })
-    });
+    
+    // Generate new user ID if none exists
+    const newUserId = uuidv4();
+    return newUserId;
   } catch (error) {
-    console.warn('Failed to update consent with backend:', error);
-    // Continue anyway since we've updated localStorage
+    console.error('Error getting/creating user ID:', error);
+    return uuidv4();
   }
-  
-  return { 
-    userId, 
-    consentStatus: status, 
-    consentUpdatedAt: now,
-    consentDetails: details
-  };
 };
 
-/**
- * Get user preferences from backend or defaults
- */
-export const getUserPreferences = async (userId) => {
-  if (!userId) {
-    userId = getOrCreateUserId();
-  }
-  
+// Get user profile
+export const getUserProfile = () => {
   try {
-    const response = await fetch(`/api/preferences/get?userId=${userId}`);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch preferences: ${response.status}`);
+    const profileStr = localStorage.getItem(USER_PROFILE_KEY);
+    if (profileStr) {
+      return JSON.parse(profileStr);
     }
-    
-    const data = await response.json();
-    
-    if (data.success && data.data) {
-      return data.data;
-    }
-    
-    // Return default preferences if no data
-    return {
-      user_id: userId,
-      consent_status: null,
-      theme: 'light',
-      language: 'en',
-      notification_settings: {
-        email_notifications: false,
-        push_notifications: false
-      },
-      image_processing_settings: {
-        quality: 'high',
-        auto_enhance: true,
-        show_head_pose: true,
-        show_bounding_box: false,
-        show_mask: false,
-        show_parameters: true
-      }
+    return null;
+  } catch (error) {
+    console.error('Error reading user profile:', error);
+    return null;
+  }
+};
+
+// Update user profile
+export const updateUserProfile = (profileData) => {
+  try {
+    const currentProfile = getUserProfile() || {};
+    const updatedProfile = {
+      ...currentProfile,
+      ...profileData,
+      updatedAt: new Date().toISOString()
     };
+    localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(updatedProfile));
+    return updatedProfile;
   } catch (error) {
-    console.error('Error fetching preferences:', error);
-    
-    // Return default preferences on error
-    return {
-      user_id: userId,
-      consent_status: null,
-      theme: 'light',
-      language: 'en',
-      notification_settings: {
-        email_notifications: false,
-        push_notifications: false
-      },
-      image_processing_settings: {
-        quality: 'high',
-        auto_enhance: true,
-        show_head_pose: true, 
-        show_bounding_box: false,
-        show_mask: false,
-        show_parameters: true
-      }
-    };
-  }
-};
-
-/**
- * Update user preferences with backend
- */
-export const updateUserPreferences = async (userId, preferences) => {
-  if (!userId) {
-    userId = getOrCreateUserId();
-  }
-  
-  try {
-    const response = await fetch('/api/preferences/update', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        userId,
-        ...preferences
-      })
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to update preferences: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return data.data;
-  } catch (error) {
-    console.error('Error updating preferences:', error);
+    console.error('Error updating user profile:', error);
     throw error;
+  }
+};
+
+// Get user consent from localStorage
+export const getUserConsent = () => {
+  try {
+    const storedConsent = localStorage.getItem(STORAGE_KEY);
+    const storedDetails = localStorage.getItem(CONSENT_DETAILS_KEY);
+    
+    if (storedConsent && storedDetails) {
+      const details = JSON.parse(storedDetails);
+      return {
+        userId: details.userId,
+        consentStatus: storedConsent === 'true',
+        consentUpdatedAt: details.timestamp,
+        consentDetails: details
+      };
+    }
+    return {
+      userId: null,
+      consentStatus: null,
+      consentUpdatedAt: null,
+      consentDetails: null
+    };
+  } catch (error) {
+    console.error('Error reading consent from storage:', error);
+    return {
+      userId: null,
+      consentStatus: null,
+      consentUpdatedAt: null,
+      consentDetails: null
+    };
+  }
+};
+
+// Update user consent in localStorage
+export const updateUserConsent = async (status, details = {}) => {
+  try {
+    // Get or create user ID
+    const userId = details.userId || getOrCreateUserId();
+    
+    // Create consent data object
+    const consentData = {
+      userId,
+      status,
+      timestamp: new Date().toISOString(),
+      ...details
+    };
+    
+    // Save to localStorage
+    localStorage.setItem(STORAGE_KEY, status.toString());
+    localStorage.setItem(CONSENT_DETAILS_KEY, JSON.stringify(consentData));
+    
+    // Save to public directory
+    try {
+      const response = await fetch('/api/save-consent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(consentData)
+      });
+      
+      if (!response.ok) {
+        console.warn('Failed to save consent data to public directory');
+      }
+    } catch (saveError) {
+      console.warn('Error saving consent data:', saveError);
+    }
+    
+    return {
+      userId,
+      consentStatus: status,
+      consentUpdatedAt: consentData.timestamp,
+      consentDetails: consentData
+    };
+  } catch (error) {
+    console.error('Error updating consent:', error);
+    throw error;
+  }
+};
+
+// Clear user consent and profile
+export const clearUserConsent = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(CONSENT_DETAILS_KEY);
+    localStorage.removeItem(USER_PROFILE_KEY);
+    return true;
+  } catch (error) {
+    console.error('Error clearing consent:', error);
+    return false;
   }
 };

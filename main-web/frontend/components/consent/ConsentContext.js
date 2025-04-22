@@ -20,6 +20,19 @@ export function ConsentProvider({ children }) {
       try {
         const consentData = await getUserConsent();
         
+        // If no consent data exists or consentStatus is null, show the banner
+        if (consentData.consentStatus === null) {
+          setConsentState({
+            loading: false,
+            userId: null,
+            consentStatus: null,
+            consentUpdatedAt: null,
+            consentDetails: null,
+            showBanner: true
+          });
+          return;
+        }
+        
         // Try to get detailed consent preferences if available
         let consentDetails = null;
         try {
@@ -37,15 +50,19 @@ export function ConsentProvider({ children }) {
           consentStatus: consentData.consentStatus,
           consentUpdatedAt: consentData.consentUpdatedAt,
           consentDetails,
-          showBanner: consentData.consentStatus === null
+          showBanner: false
         });
       } catch (error) {
         console.error('Error initializing consent:', error);
-        setConsentState(prev => ({
-          ...prev,
+        // If there's an error, show the banner
+        setConsentState({
           loading: false,
+          userId: null,
+          consentStatus: null,
+          consentUpdatedAt: null,
+          consentDetails: null,
           showBanner: true
-        }));
+        });
       }
     };
 
@@ -55,7 +72,7 @@ export function ConsentProvider({ children }) {
   const updateConsent = async (status) => {
     try {
       const userId = consentState.userId || getOrCreateUserId();
-      const updatedConsent = await updateUserConsent(userId, status);
+      const updatedConsent = await updateUserConsent(status);
       
       setConsentState(prev => ({
         ...prev,

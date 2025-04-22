@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 
 const TopBar = ({ 
-  onButtonClick, 
-  outputText, 
-  onOutputChange, 
-  onToggleTopBar, 
+  onButtonClick,
+  onCameraAccess,
+  outputText,
+  onOutputChange,
+  onToggleTopBar,
   onToggleMetrics,
-  canvasRef
+  canvasRef,
+  isTopBarShown = true,
+  isCanvasVisible = true
 }) => {
-  // Canvas visibility status is now moved to the top right corner
+  const router = useRouter();
+  const [canvasStatus, setCanvasStatus] = useState(isCanvasVisible);
+
+  // Update canvas status when prop changes
+  useEffect(() => {
+    setCanvasStatus(isCanvasVisible);
+  }, [isCanvasVisible]);
 
   const handleButtonClick = (actionType) => {
     // Call the passed button click handler
@@ -19,31 +29,20 @@ const TopBar = ({
 
   // Enhanced toggle handlers with visual feedback
   const handleToggleTopBar = () => {
-    if (onToggleTopBar) {
-      // Add visual feedback
-      const btn = document.querySelector('.menu-btn');
-      if (btn) {
-        btn.classList.add('active-toggle');
-        setTimeout(() => btn.classList.remove('active-toggle'), 300);
-      }
-      
-      onToggleTopBar();
-      // onToggleTopBar('toggleTopBar');
-    }
+    onToggleTopBar(!isTopBarShown);
   };
   
   const handleToggleMetrics = () => {
-    if (onToggleMetrics) {
-      // Add visual feedback
-      const btn = document.querySelector('.alert-btn');
-      if (btn) {
-        btn.classList.add('active-toggle');
-        setTimeout(() => btn.classList.remove('active-toggle'), 300);
-      }
-      
-      onToggleMetrics();
-    }
+    onToggleMetrics();
   };
+
+  // Add back button handler
+  const handleGoBack = () => {
+    router.push('/');
+  };
+
+  // Create status message
+  const statusMessage = `TopBar ${isTopBarShown ? 'shown' : 'hidden'}, Canvas: ${canvasStatus ? 'Visible' : 'Hidden'}`;
 
   return (
     <div className="topbar">
@@ -89,6 +88,14 @@ const TopBar = ({
           <div className="button-group">
             <div className="button-row">
               <button 
+                className="btn back-button"
+                onClick={handleGoBack}
+                title="Go back to home page"
+              >
+                ← Back
+              </button>
+              
+              <button 
                 className="btn"
                 onClick={() => handleButtonClick('setRandom')}
               >
@@ -96,18 +103,18 @@ const TopBar = ({
               </button>
               <button 
                 className="btn"
-                onClick={() => handleButtonClick('randomDot')}
-              >
-                Random Dot
-              </button>
-            </div>
-            
-            <div className="button-row">
-              <button 
-                className="btn"
                 onClick={() => handleButtonClick('calibrate')}
               >
                 Set Calibrate
+              </button>
+            </div>
+            
+            <div className="button-row" style={{ marginRight: '80px' }}>
+              <button 
+                className="btn"
+                onClick={() => handleButtonClick('randomDot')}
+              >
+                Random Dot
               </button>
               <button 
                 className="btn"
@@ -169,6 +176,8 @@ const TopBar = ({
             className="output-display"
             title="Processing Output"
           >
+            {statusMessage}
+            <br />
             {outputText || "Processing output will appear here..."}
           </div>
         </div>

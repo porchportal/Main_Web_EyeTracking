@@ -5,8 +5,9 @@ import dynamic from 'next/dynamic';
 import TopBar from './components-gui/topBar';
 import DisplayResponse from './components-gui/displayResponse';
 import { ActionButtonGroup } from './components-gui/actionButton';
-import StatusIndicator from './components-gui/StatusIndicator';
+// import StatusIndicator from './components-gui/StatusIndicator';
 import { showCapturePreview, captureImagesAtPoint, drawRedDot, getRandomPosition, runCountdown } from './components-gui/Action/countSave';
+import { useConsent } from '../../components/consent/ConsentContext';
 
 // Dynamically load the video processor component (not the hook directly)
 const VideoProcessorComponent = dynamic(
@@ -415,45 +416,13 @@ export default function CollectedDatasetPage() {
   const toggleCamera = (shouldEnable) => {
     if (!isClient || !isHydrated) return;
     
-    const processor = window.videoProcessor;
-    if (!processor) {
-      console.error('Video processor not available');
-      setOutputText('Error: Video processor not available');
-      return;
-    }
-    
     if (shouldEnable) {
       setShowCamera(true);
       setShowCameraPlaceholder(false);
-      
-      // Start video processing
-      try {
-        processor.startVideoProcessing({
-          showHeadPose,
-          showBoundingBox,
-          showMask,
-          showParameters,
-          showProcessedImage: true
-        });
-        
-        setOutputText('Camera preview started');
-      } catch (err) {
-        console.error('Error starting camera:', err);
-        setOutputText(`Camera error: ${err.message}`);
-      }
+      setOutputText('Camera preview started');
     } else {
       setShowCamera(false);
-      
-      // Stop video processing
-      processor.stopVideoProcessing();
-      
-      // Show camera placeholder if any visualization options are enabled
-      if (showHeadPose || showBoundingBox || showMask || showParameters) {
-        setShowCameraPlaceholder(true);
-      } else {
-        setShowCameraPlaceholder(false);
-      }
-      
+      setShowCameraPlaceholder(false);
       setOutputText('Camera preview stopped');
     }
   };
@@ -498,8 +467,20 @@ export default function CollectedDatasetPage() {
     const delaySeconds = safeParams.delaySeconds || 3;
 
     switch (actionType) {
-
-
+      case 'preview':
+        // Toggle camera state
+        if (showCamera) {
+          toggleCamera(false);
+        } else if (cameraPermissionGranted) {
+          toggleCamera(true);
+        } else {
+          // Otherwise show permission popup
+          setShowPermissionPopup(true);
+          setOutputText('Opening camera preview');
+          setShowCameraPlaceholder(true);
+        }
+        break;
+        
       case 'setRandom':
         setOutputText('Starting random sequence...');
         setShowTopBar(false);
@@ -658,7 +639,6 @@ export default function CollectedDatasetPage() {
         }
         break;
 
-
       case 'randomDot':
         setOutputText('Random dot action triggered');
         setShowTopBar(false);
@@ -795,20 +775,6 @@ export default function CollectedDatasetPage() {
             ...window.videoProcessor.options,
             showBoundingBox: newBoundingBoxState
           });
-        }
-        break;
-        
-      case 'preview':
-        // Toggle camera state
-        if (showCamera) {
-          toggleCamera(false);
-        } else if (cameraPermissionGranted) {
-          toggleCamera(true);
-        } else {
-          // Otherwise show permission popup
-          setShowPermissionPopup(true);
-          setOutputText('Opening camera preview');
-          setShowCameraPlaceholder(true);
         }
         break;
         
@@ -1264,7 +1230,7 @@ export default function CollectedDatasetPage() {
                 maxWidth: '600px',
                 margin: '30px auto'
               }}>
-               <ActionButtonGroup
+                <ActionButtonGroup
                   ref={actionButtonGroupRef}
                   triggerCameraAccess={triggerCameraAccess}
                   isCompactMode={windowSize.width < 768}
@@ -1277,7 +1243,7 @@ export default function CollectedDatasetPage() {
               </div>
             </div>
             
-            {/* Canvas for eye tracking dots - Making it truly fullscreen */}
+            {/* Canvas for eye tracking dots */}
             <div 
               className="canvas-container" 
               style={{ 
@@ -1315,19 +1281,6 @@ export default function CollectedDatasetPage() {
           />
         )}
         
-        {/* Status indicator component */}
-        {isHydrated && isClient && (
-          <StatusIndicator 
-            isTopBarShown={showTopBar}
-            isCanvasVisible={!showCamera}
-            style={{
-              opacity: 0.8,
-              zIndex: 2000
-              // left: '10px'
-            }}
-          />
-        )}
-        
         {/* Camera component - using client-only version */}
         {isHydrated && isClient && showCamera && (
           <DynamicCameraAccess
@@ -1342,7 +1295,7 @@ export default function CollectedDatasetPage() {
           />
         )}
         
-        {/* Camera permission popup - Simplified client-side only version */}
+        {/* Camera permission popup */}
         {isHydrated && isClient && showPermissionPopup && (
           <div className="camera-permission-popup" style={{
             position: 'fixed',

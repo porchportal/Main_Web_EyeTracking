@@ -495,7 +495,7 @@
     width: 100%;
     background-color: #f3f4f6;
     border-radius: 8px;
-    padding: 20px;
+    padding: 15px;
     margin: 20px 0;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
@@ -517,58 +517,19 @@
   
   .progressStats {
     display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 15px;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    margin-top: 10px;
   }
   
   .progressStat {
+    flex-basis: 48%;
     display: flex;
     justify-content: space-between;
-    padding: 8px;
-    background-color: white;
-    border-radius: 4px;
-    font-size: 0.9em;
-  }
-  
-  .progressStat span:first-child {
-    font-weight: 500;
-    color: #666;
-  }
-  
-  .progressStat span:last-child {
-    color: #333;
-  }
-  
-  .processedFiles {
-    margin-top: 20px;
-    padding-top: 15px;
-    border-top: 1px solid #e5e7eb;
-  }
-  
-  .processedFiles h4 {
-    margin: 0 0 10px 0;
-    color: #666;
-    font-size: 0.9em;
-  }
-  
-  .processedList {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    max-height: 100px;
-    overflow-y: auto;
+    margin-bottom: 8px;
     padding: 5px;
     background-color: white;
     border-radius: 4px;
-  }
-  
-  .processedItem {
-    background-color: #f3f4f6;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.8em;
-    color: #666;
   }
   
   .processingIndicator {

@@ -164,9 +164,13 @@ class CaptureHandler {
         // Format the filename with the current counter
         const filename = `webcam_${String(captureNumber).padStart(3, '0')}.jpg`;
         
-        // Create a new stream just for this capture
+        // Create a new stream with high resolution constraints
         stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: {
+            width: { ideal: 4096 },
+            height: { ideal: 2160 },
+            facingMode: "user"
+          },
           audio: false
         });
         
@@ -199,50 +203,38 @@ class CaptureHandler {
         // Small delay to ensure a clear frame
         await new Promise(resolve => setTimeout(resolve, 200));
         
-        // Check if video dimensions are valid
-        if (tempVideo.videoWidth === 0 || tempVideo.videoHeight === 0) {
-          console.warn("Video dimensions are invalid, using default dimensions");
-        }
+        // Get actual video dimensions
+        const videoWidth = tempVideo.videoWidth || 640;
+        const videoHeight = tempVideo.videoHeight || 480;
+        console.log(`Capturing at resolution: ${videoWidth}x${videoHeight}`);
         
-        // Capture the frame
+        // Capture the frame at full resolution
         const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = tempVideo.videoWidth || 640;
-        tempCanvas.height = tempVideo.videoHeight || 480;
+        tempCanvas.width = videoWidth;
+        tempCanvas.height = videoHeight;
         const ctx = tempCanvas.getContext('2d');
+        ctx.drawImage(tempVideo, 0, 0, videoWidth, videoHeight);
         
-        try {
-          ctx.drawImage(tempVideo, 0, 0, tempCanvas.width, tempCanvas.height);
-          
-          // Get image data
-          const imageData = tempCanvas.toDataURL('image/png');
-          
-          // Save the image
-          if (this.saveImageToServer) {
-            const saveResponse = await this.saveImageToServer(imageData, filename, 'webcam', this.captureFolder);
-            console.log(`Saved webcam image: ${filename}`);
-            return { imageData, saveResponse };
-          }
-          
-          return { imageData, saveResponse: null };
-        } catch (drawError) {
-          console.error("Error drawing video to canvas:", drawError);
-          return { imageData: null, saveResponse: null };
-        }
+        // Convert to JPEG with high quality
+        const imageData = tempCanvas.toDataURL('image/jpeg', 0.95);
+        
+        // Save the image
+        await this.saveImageToServer(imageData, filename, 'webcam', this.captureFolder);
+        
+        // Clean up
+        stream.getTracks().forEach(track => track.stop());
+        tempVideo.remove();
+        
+        return true;
       } catch (error) {
-        console.error("Error capturing webcam image:", error);
-        return { imageData: null, saveResponse: null };
-      } finally {
-        // IMPORTANT: Always stop the stream and clean up, even if there was an error
+        console.error('Error capturing webcam image:', error);
         if (stream) {
           stream.getTracks().forEach(track => track.stop());
         }
-        
         if (tempVideo) {
-          tempVideo.srcObject = null;
-          if (tempVideo.parentNode) {
-            tempVideo.parentNode.removeChild(tempVideo);
-          }
+          tempVideo.remove();
         }
+        return false;
       }
     }
   
@@ -326,7 +318,7 @@ class CaptureHandler {
         }
         
         // Step 2: Capture webcam image (and immediately stop stream)
-        const { imageData: webcamImage } = await this.captureWebcamImage(usedCaptureNumber);
+        const webcamSuccess = await this.captureWebcamImage(usedCaptureNumber);
         
         // Step 3: Save parameters
         const params = {
@@ -357,7 +349,7 @@ class CaptureHandler {
         }
         
         // Step 6: Show preview using the in-memory image data
-        this.showCapturePreview(screenImage, webcamImage, position);
+        this.showCapturePreview(screenImage, webcamSuccess ? 'webcam_image_data' : null, position);
         
         // Step 7: Show TopBar again after preview is done
         setTimeout(() => {

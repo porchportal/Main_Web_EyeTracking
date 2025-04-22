@@ -9,6 +9,7 @@ import {
   runCountdown
 } from './Action/countSave';
 import { captureImagesAtPoint } from './Helper/savefile';
+import { useRouter } from 'next/router';
 
 // Create a basic ActionButton component
 const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabled = false, active = false }) => {
@@ -55,6 +56,8 @@ const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabl
 
 // Create the ActionButtonGroup component with client-side only rendering
 const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode, onActionClick }, ref) => {
+  const router = useRouter();
+  
   // State for button actions
   const [randomTimes, setRandomTimes] = useState(1);
   const [delaySeconds, setDelaySeconds] = useState(3);
@@ -65,7 +68,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
   const [calibrationPoints, setCalibrationPoints] = useState([]);
   const [currentCalibrationIndex, setCurrentCalibrationIndex] = useState(0);
   const [remainingCaptures, setRemainingCaptures] = useState(0);
-  const [showCanvas, setShowCanvas] = useState(false);
+  const [showCanvas, setShowCanvas] = useState(true);
   
   // Track the capture count
   const [calibrationHandler, setCalibrationHandler] = useState(null);
@@ -295,7 +298,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     canvas.style.height = originalStyle.height;
     canvas.style.zIndex = originalStyle.zIndex;
     
-    // Reset the dimensions based on the parent element’s size or fallback defaults
+    // Reset the dimensions based on the parent element's size or fallback defaults
     canvas.width = originalParent.clientWidth || 800;
     canvas.height = originalParent.clientHeight || 600;
     
@@ -1124,7 +1127,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     setRemainingCaptures(0);
     setIsCapturing(false);
     setCountdownValue(null);
-    setShowCanvas(false);
+    setShowCanvas(true);
   };
 
   // Toggle Head Pose visualization
@@ -1214,7 +1217,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     
     // Call the parent handler with 'preview' action
     if (onActionClick) {
-      onActionClick('preview');
+      onActionClick('preview', newCameraState); // Pass the new state
     } else {
       // Fallback to direct trigger if no action handler
       setShowPermissionPopup(true);
@@ -1222,14 +1225,23 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     
     // If turning on camera, ensure we apply current visualization settings
     if (newCameraState && typeof window !== 'undefined' && window.videoProcessor) {
-      window.videoProcessor.updateOptions({
-        showHeadPose,
-        showBoundingBox,
-        showMask,
-        showParameters
-      });
-      // console.log("Applied visualization settings to camera");
+      // Wait a short moment to ensure the video element is ready
+      setTimeout(() => {
+        if (window.videoProcessor) {
+          window.videoProcessor.updateOptions({
+            showHeadPose,
+            showBoundingBox,
+            showMask,
+            showParameters
+          });
+        }
+      }, 100);
     }
+  };
+
+  // Add back button handler
+  const handleGoBack = () => {
+    router.push('/');
   };
 
   // Button configurations with both full and abbreviated text
@@ -1281,7 +1293,8 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
           handleToggleCamera();
         }
       },
-      active: isCameraActive
+      active: isCameraActive,
+      disabled: isCapturing // Disable camera toggle while capturing
     },
     { 
       text: "😷 Show Mask", 
@@ -1315,7 +1328,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         </div>
       ) : (
         <div className="space-y-2 mb-4">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <ActionButton 
               text="Set Random"
               abbreviatedText="SRandom" 
@@ -1323,17 +1336,23 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
               disabled={isCapturing}
             />
             <ActionButton 
-              text="Random Dot"
-              abbreviatedText="Random" 
-              onClick={handleRandomDot}
+              text="Go back"
+              abbreviatedText="← Back" 
+              onClick={handleGoBack}
+              customClass="bg-gray-200 hover:bg-gray-300"
+            />
+            <ActionButton 
+              text="Set Calibrate"
+              abbreviatedText="Calibrate" 
+              onClick={handleSetCalibrate}
               disabled={isCapturing}
             />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <ActionButton 
-              text="Set Calibrate"
-              abbreviatedText="Calibrate" 
-              onClick={handleSetCalibrate}
+              text="Random Dot"
+              abbreviatedText="Random" 
+              onClick={handleRandomDot}
               disabled={isCapturing}
             />
             <ActionButton 

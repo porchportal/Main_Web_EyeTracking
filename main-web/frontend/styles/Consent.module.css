@@ -4,9 +4,9 @@
     top: 0;
     left: 0;
     width: 100%;
-    background-color: rgba(33, 37, 41, 0.95);
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
+    background-color: rgba(173, 216, 230, 0.95);
+    box-shadow: 0 2px 10px rgba(173, 216, 230, 0.1);
+    z-index: 100;
     padding: 10px 0;
     backdrop-filter: blur(5px);
     -webkit-backdrop-filter: blur(5px);
@@ -30,7 +30,7 @@
 }
 
 .bannerText {
-    color: #ffffff;
+    color: black;
     font-size: 0.95rem;
     line-height: 1.5;
     margin-bottom: 10px;
@@ -38,7 +38,7 @@
 }
 
 .bannerText strong {
-    color: #ffffff;
+    color: black;
     font-weight: 700;
 }
 
@@ -71,8 +71,8 @@
 }
 
 .acceptButton {
-    background-color: #0d6efd;
-    color: white;
+    background-color: #66bfff;
+    color: black;
 }
 
 .acceptButton:hover {
@@ -81,7 +81,7 @@
 
 .declineButton {
     background-color: transparent;
-    color: #ffffff;
+    color: black;
     border: 1px solid #ffffff;
 }
 
@@ -91,13 +91,15 @@
 
 .learnMoreButton {
     background-color: transparent;
-    color: #8dd0ff;
+    color: black;
+    /* color: #8dd0ff; */
     border: none;
     text-decoration: underline;
 }
 
 .learnMoreButton:hover {
-    color: #a9dcff;
+    /* color: #a9dcff; */
+    color: black;
     text-decoration: underline;
 }
 
@@ -185,5 +187,10 @@
 
 /* Add margin to main content to account for fixed banner */
 .mainContent {
+    margin-top: 0;
+    transition: margin-top 0.3s ease;
+}
+
+.mainContent.withBanner {
     margin-top: 60px;
 }

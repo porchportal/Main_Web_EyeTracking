@@ -1,4 +1,4 @@
-// frontend/pages/index.js
+//frontend/pages/index.js
 import { useRouter } from 'next/router';
 import styles from '../styles/Home.module.css';
 import { useProcessStatus, useBackendConnection } from '../utils/stateManager';

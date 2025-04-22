@@ -6,7 +6,7 @@ import '../styles/Home.module.css';
 import './collected-dataset/styles/control-buttons.css';
 import { ProcessStatusProvider, BackendConnectionProvider } from '../utils/stateManager';
 import { ConsentProvider } from '../components/consent/ConsentContext';
-import ConnectionStatusIndicator from '../components/ConnectionStatusIndicator';
+// import ConnectionStatusIndicator from '../components/ConnectionStatusIndicator';
 import Layout from '../components/layout/Layout';
 
 function MyApp({ Component, pageProps }) {
@@ -15,7 +15,7 @@ function MyApp({ Component, pageProps }) {
       <BackendConnectionProvider>
         <ConsentProvider>
           <Layout>
-            <ConnectionStatusIndicator />
+            {/* <ConnectionStatusIndicator /> */}
             <Component {...pageProps} />
           </Layout>
         </ConsentProvider>
