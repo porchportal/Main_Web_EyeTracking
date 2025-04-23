@@ -147,3 +147,21 @@ export const clearUserConsent = () => {
     return false;
   }
 };
+
+// Reset consent banner by clearing localStorage and refreshing the page
+export const resetConsentBanner = () => {
+  try {
+    // Clear all consent-related data
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(CONSENT_DETAILS_KEY);
+    localStorage.removeItem(USER_PROFILE_KEY);
+    
+    // Refresh the page to trigger the consent initialization
+    window.location.reload();
+    
+    return true;
+  } catch (error) {
+    console.error('Error resetting consent banner:', error);
+    return false;
+  }
+};

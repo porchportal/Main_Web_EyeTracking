@@ -1,9 +1,11 @@
 # app.py - Main FastAPI entry point with added consent routes
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 import logging
 from typing import Optional
+import asyncio
+import json
 
 # Import configuration
 from config.settings import settings
@@ -128,6 +130,51 @@ app.include_router(
     dependencies=[Depends(verify_api_key)]
 )
 
+# Store active WebSocket connections
+active_connections = set()
+
+@app.websocket("/ws/video")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    active_connections.add(websocket)
+    logger.info(f"New WebSocket connection established. Total connections: {len(active_connections)}")
+    
+    try:
+        while True:
+            try:
+                # Receive video frame data
+                data = await websocket.receive_bytes()
+                
+                # Process the frame (you can add your processing logic here)
+                # For now, we'll just send back a dummy response
+                response = {
+                    "status": "processed",
+                    "message": "Frame received and processed"
+                }
+                
+                # Send the response back to the client
+                await websocket.send_json(response)
+                
+            except WebSocketDisconnect:
+                logger.info("Client disconnected")
+                break
+            except Exception as e:
+                logger.error(f"Error processing WebSocket message: {str(e)}")
+                await websocket.send_json({
+                    "status": "error",
+                    "message": f"Error processing frame: {str(e)}"
+                })
+                
+    except Exception as e:
+        logger.error(f"WebSocket error: {str(e)}")
+    finally:
+        active_connections.remove(websocket)
+        logger.info(f"WebSocket connection closed. Remaining connections: {len(active_connections)}")
+        try:
+            await websocket.close()
+        except:
+            pass
+
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """
@@ -166,6 +213,13 @@ async def check_backend_connection():
 async def test_auth():
     """Test endpoint to verify API key authentication"""
     return {"message": "Authentication successful!"}
+
+@app.get("/status")
+async def check_status():
+    return {
+        "status": "ok",
+        "active_connections": len(active_connections)
+    }
 
 if __name__ == "__main__":
     import uvicorn
