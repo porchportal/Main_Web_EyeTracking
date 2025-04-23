@@ -65,7 +65,7 @@ const fetchWithRetry = async (url, options = {}, retries = 2) => {
       // If we have retries left, wait before trying again
       if (i < retries) {
         const delay = 1000 * Math.pow(2, i); // Exponential backoff: 1s, 2s, 4s, etc.
-        console.log(`Waiting ${delay}ms before retry...`);
+        // console.log(`Waiting ${delay}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -82,9 +82,9 @@ const API_KEY = process.env.NEXT_PUBLIC_API_KEY || 'your-api-key-here';
 // Check if the backend is connected
 export const checkBackendConnection = async () => {
   try {
-    console.log('Checking backend connection...');
+    // console.log('Checking backend connection...');
     const response = await fetchWithRetry('/api/check-backend-connection');
-    console.log('Backend connection response:', response);
+    // console.log('Backend connection response:', response);
     return {
       success: true,
       connected: response.connected || false,
@@ -104,9 +104,9 @@ export const checkBackendConnection = async () => {
 // Get list of files from both capture and enhance folders
 export const getFilesList = async () => {
   try {
-    console.log('Fetching files list...');
+    // console.log('Fetching files list...');
     const response = await fetchWithRetry('/api/file-api?operation=list');
-    console.log('Raw files list response:', JSON.stringify(response, null, 2));
+    // console.log('Raw files list response:', JSON.stringify(response, null, 2));
     
     if (!response.success) {
       throw new Error(response.message || 'Failed to get files list');
@@ -119,23 +119,23 @@ export const getFilesList = async () => {
     };
     
     if (response.files && Array.isArray(response.files)) {
-      console.log('Processing files array:', response.files);
+      // console.log('Processing files array:', response.files);
       // Files are already sorted by number from the backend
       response.files.forEach(file => {
-        console.log('Processing file:', file);
+        // console.log('Processing file:', file);
         // Check if file is in capture or enhance directory
         if (file.path.includes('eye_tracking_captures')) {
-          console.log('Adding to capture:', file);
+          // console.log('Adding to capture:', file);
           organizedFiles.capture.push(file);
         } else if (file.path.includes('enhance')) {
-          console.log('Adding to enhance:', file);
+          // console.log('Adding to enhance:', file);
           organizedFiles.enhance.push(file);
         }
       });
       
-      console.log('Final organized files:', JSON.stringify(organizedFiles, null, 2));
+      // console.log('Final organized files:', JSON.stringify(organizedFiles, null, 2));
     } else {
-      console.log('No files array in response or not an array:', response.files);
+      // console.log('No files array in response or not an array:', response.files);
     }
     
     return {
@@ -168,9 +168,9 @@ export const checkFilesCompleteness = async () => {
 // Preview a specific file
 export const previewFile = async (filename) => {
   try {
-    console.log('Fetching preview for file:', filename);
+    // console.log('Fetching preview for file:', filename);
     const response = await fetchWithRetry(`/api/preview-api?filename=${encodeURIComponent(filename)}`);
-    console.log('Raw preview response:', response);
+    // console.log('Raw preview response:', response);
     
     // Check if response has the expected format
     if (!response || typeof response !== 'object') {
@@ -239,7 +239,7 @@ export const checkFilesNeedProcessing = async () => {
 // Process files
 export const processFiles = async (setNumbers) => {
   try {
-    console.log('Starting processing for sets:', setNumbers);
+    // console.log('Starting processing for sets:', setNumbers);
     const response = await fetchWithRetry('/api/process-images', {
       method: 'POST',
       headers: {
@@ -294,7 +294,7 @@ export const compareFileCounts = async () => {
 // Check if processing is currently running
 export const checkProcessingStatus = async () => {
   try {
-    console.log('Requesting processing status...');
+    // console.log('Requesting processing status...');
     const response = await fetchWithRetry('/api/process-status-api', {}, 1); // Only 1 retry for status checks
     
     // If fetch succeeded but response is malformed, handle it gracefully

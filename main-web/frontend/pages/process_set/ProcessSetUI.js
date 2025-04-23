@@ -14,19 +14,19 @@ const formatFileSize = (bytes) => {
 export const FilePreviewPanel = ({ selectedFile, previewImage, previewType }) => {
   const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
   
-  console.log('FilePreviewPanel props:', { 
-    selectedFile, 
-    previewImage: previewImage ? 'data present' : 'no data', 
-    previewType 
-  });
+  // console.log('FilePreviewPanel props:', { 
+  //   selectedFile, 
+  //   previewImage: previewImage ? 'data present' : 'no data', 
+  //   previewType 
+  // });
   
   // Function to pre-load the image and get its dimensions
   useEffect(() => {
-    console.log('useEffect triggered:', { 
-      selectedFile, 
-      previewImage: previewImage ? 'data present' : 'no data', 
-      previewType 
-    });
+    // console.log('useEffect triggered:', { 
+    //   selectedFile, 
+    //   previewImage: previewImage ? 'data present' : 'no data', 
+    //   previewType 
+    // });
     
     if (!selectedFile || !previewImage || previewType !== 'image') {
       console.log('Skipping image load:', { 
@@ -39,7 +39,7 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType }) =>
     
     const img = new Image();
     img.onload = () => {
-      console.log('Image loaded, dimensions:', { width: img.width, height: img.height });
+      // console.log('Image loaded, dimensions:', { width: img.width, height: img.height });
       // Use different scaling for screen vs webcam images
       const isScreenImage = selectedFile.includes('screen_');
       const scaleFactor = isScreenImage ? 2 : 1.5; // 1/2 = 50% for screen, 1/1.5 ≈ 67% for webcam
@@ -48,7 +48,7 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType }) =>
         width: Math.round(img.width / scaleFactor),
         height: Math.round(img.height / scaleFactor)
       };
-      console.log('Setting image size:', newSize);
+      // console.log('Setting image size:', newSize);
       setImageSize(newSize);
     };
     
@@ -56,7 +56,7 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType }) =>
       console.error('Error loading image:', error);
     };
     
-    console.log('Setting image source');
+    // console.log('Setting image source');
     img.src = `data:image/jpeg;base64,${previewImage}`;
   }, [selectedFile, previewImage, previewType]);
   
@@ -66,7 +66,7 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType }) =>
   };
 
   if (!selectedFile) {
-    console.log('No file selected');
+    // console.log('No file selected');
     return (
       <div className={styles.previewPanel}>
         <p>Select a file to preview</p>
@@ -75,7 +75,7 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType }) =>
   }
 
   if (!previewImage) {
-    console.log('No preview data available');
+    // console.log('No preview data available');
     return (
       <div className={styles.previewPanel}>
         <p>Loading preview...</p>
@@ -83,11 +83,11 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType }) =>
     );
   }
 
-  console.log('Rendering preview:', { 
-    previewType, 
-    imageSize,
-    hasPreviewImage: !!previewImage
-  });
+  // console.log('Rendering preview:', { 
+  //   previewType, 
+  //   imageSize,
+  //   hasPreviewImage: !!previewImage
+  // });
   
   return (
     <div className={styles.previewPanel}>

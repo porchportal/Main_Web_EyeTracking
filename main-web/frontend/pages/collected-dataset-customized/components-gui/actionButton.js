@@ -15,7 +15,12 @@ import { useAdminSettings } from './adminSettings';
 // Create a basic ActionButton component
 const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabled = false, active = false }) => {
   const [isAbbreviated, setIsAbbreviated] = useState(false);
-  
+  const { settings } = useAdminSettings();
+  const [currentUserId, setCurrentUserId] = useState('default');
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [captureCounter, setCaptureCounter] = useState(1);
+  const [processStatus, setProcessStatus] = useState('');
+
   // Check window size and set abbreviated mode
   useEffect(() => {
     // Skip during SSR
@@ -32,25 +37,33 @@ const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabl
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Add effect to listen for user ID changes
+  useEffect(() => {
+    const handleUserIdChange = (event) => {
+      if (event.detail && event.detail.type === 'userIdChange') {
+        setCurrentUserId(event.detail.userId);
+      }
+    };
+
+    window.addEventListener('userIdChange', handleUserIdChange);
+    return () => {
+      window.removeEventListener('userIdChange', handleUserIdChange);
+    };
+  }, []);
+
   return (
     <button
+      className={`action-button ${customClass} ${isAbbreviated ? 'abbreviated' : ''} ${active ? 'active' : ''}`}
       onClick={onClick}
-      className={`transition-colors py-2 px-2 md:px-4 rounded-md text-xs md:text-sm font-medium ${customClass} ${active ? 'active-button' : ''}`}
-      style={{ 
-        backgroundColor: active 
-          ? 'rgba(0, 102, 204, 0.7)' 
-          : disabled 
-            ? 'rgba(200, 200, 200, 0.5)' 
-            : 'rgba(124, 255, 218, 0.5)', 
-        color: active ? 'white' : 'black',
-        borderRadius: '7px',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        fontWeight: active ? 'bold' : 'normal',
-        boxShadow: active ? '0 2px 4px rgba(0,0,0,0.2)' : 'none'
-      }}
       disabled={disabled}
+      title={text}
     >
       {isAbbreviated ? abbreviatedText : text}
+      {processStatus && (
+        <div className="process-status">
+          {processStatus}
+        </div>
+      )}
     </button>
   );
 };
@@ -90,60 +103,26 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
   const [currentUserId, setCurrentUserId] = useState('default');
 
   // Listen for settings updates
-  // useEffect(() => {
-  //   const handleSettingsUpdate = (event) => {
-  //     if (event.detail && event.detail.type === 'captureSettings') {
-  //       const { userId, times, delay } = event.detail;
-  //       if (userId === currentUserId) {
-  //         if (times !== undefined) {
-  //           setRandomTimes(times);
-  //         }
-  //         if (delay !== undefined) {
-  //           setDelaySeconds(delay);
-  //         }
-  //       }
-  //     }
-  //   };
-
-  //   window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
-  //   return () => {
-  //     window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
-  //   };
-  // }, [currentUserId]);
   useEffect(() => {
     const handleSettingsUpdate = (event) => {
-      console.log('ActionButton: Received event:', event.detail);
-      
       if (event.detail && event.detail.type === 'captureSettings') {
         const { userId, times, delay } = event.detail;
-        console.log(`ActionButton: Processing settings for user ${userId} (current: ${currentUserId})`);
-        console.log(`ActionButton: times=${times}, delay=${delay}`);
-        
-        // Always update settings even if userId doesn't match current
-        // This ensures default settings are updated
-        if (times !== undefined) {
-          console.log(`ActionButton: Updating randomTimes from ${randomTimes} to ${times}`);
-          setRandomTimes(times);
-        }
-        if (delay !== undefined) {
-          console.log(`ActionButton: Updating delaySeconds from ${delaySeconds} to ${delay}`);
-          setDelaySeconds(delay);
+        if (userId === currentUserId) {
+          if (times !== undefined) {
+            setRandomTimes(times);
+          }
+          if (delay !== undefined) {
+            setDelaySeconds(delay);
+          }
         }
       }
     };
-  
-    // Add the event listener
-    if (typeof window !== 'undefined') {
-      console.log('ActionButton: Adding captureSettingsUpdate event listener');
-      window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
-    }
-    
+
+    window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
     return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
-      }
+      window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
     };
-  }, []);
+  }, [currentUserId]);
 
   // Listen for user ID changes
   useEffect(() => {
@@ -665,119 +644,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       };
     }
   };
-  const handleSetRandom = async () => {
-    if (isCapturing) return;
-    
-    try {
-
-      let times = 1; // Default fallback
-      let delay = 3; // Default fallback
-      
-      // Try to get current values from admin panel inputs
-      if (typeof document !== 'undefined') {
-        const timeInput = document.querySelector('input[name="time"]');
-        const delayInput = document.querySelector('input[name="delay"]');
-        
-        if (timeInput && !isNaN(parseInt(timeInput.value))) {
-          times = parseInt(timeInput.value);
-        }
-        
-        if (delayInput && !isNaN(parseInt(delayInput.value))) {
-          delay = parseInt(delayInput.value);
-        }
-        
-        // Also check global settings as fallback
-        if (typeof window !== 'undefined' && window.captureSettings) {
-          times = window.captureSettings.times || times;
-          delay = window.captureSettings.delay || delay;
-        }
-      }
-        
-
-      // Hide TopBar
-      if (typeof onActionClick === 'function') {
-        onActionClick('toggleTopBar', false);
-      } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-        window.toggleTopBar(false);
-      }
-
-      setIsCapturing(true);
-      setRemainingCaptures(times);
-      setProcessStatus(`Starting ${times} random captures with ${delay}s delay...`);
-
-      // Process all captures in sequence
-      let successCount = 0;
-      
-      for (let currentIndex = 1; currentIndex <= times; currentIndex++) {
-        // Update status for current capture
-        setProcessStatus(`Capture ${currentIndex} of ${times}`);
-        setRemainingCaptures(times - currentIndex + 1);
-        
-        // Use handleDotProcess for each capture
-        const result = await handleDotProcess({
-          useRandomPosition: true,
-          onStatusUpdate: (status) => {
-            if (status.processStatus) {
-              setProcessStatus(`Capture ${currentIndex}/${times}: ${status.processStatus}`);
-            }
-          },
-          toggleTopBar: (show) => {
-            // Only show TopBar after the last capture
-            if (show && currentIndex < times) {
-              return; // Don't show yet for intermediate captures
-            }
-            
-            if (typeof onActionClick === 'function') {
-              onActionClick('toggleTopBar', show);
-            } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-              window.toggleTopBar(show);
-            }
-          },
-          triggerCameraAccess,
-          setIsCapturing: (capturing) => {
-            // Only set capturing to false after all captures
-            if (!capturing && currentIndex < times) {
-              return; // Stay in capturing state between dots
-            }
-            setIsCapturing(capturing);
-          },
-          captureCount,
-          setCaptureCount,
-          postCountdownDelay: 800
-        });
-        
-        if (result && result.success) {
-          successCount++;
-        }
-        
-        // Wait between captures - but only if there are more captures to go
-        if (currentIndex < times) {
-          setProcessStatus(`Waiting ${delay}s before next capture...`);
-          await new Promise(resolve => setTimeout(resolve, delay * 1000));
-        }
-      }
-
-      // Completion notification
-      setProcessStatus(`Random capture sequence completed: ${successCount}/${times} captures successful`);
-      setRemainingCaptures(0);
-
-    } catch (error) {
-      console.error("Random sequence error:", error);
-      setProcessStatus(`Random sequence failed: ${error.message}`);
-    } finally {
-      setIsCapturing(false);
-      
-      // Show TopBar again
-      setTimeout(() => {
-        if (typeof onActionClick === 'function') {
-          onActionClick('toggleTopBar', true);
-        } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-          window.toggleTopBar(true);
-        }
-      }, 1000);
-    }
-  };
-
+  
   const handleSetCalibrate = async () => {
     if (isCapturing) return;
     
@@ -1106,6 +973,117 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         }
       }
       
+      setIsCapturing(false);
+      
+      // Show TopBar again
+      setTimeout(() => {
+        if (typeof onActionClick === 'function') {
+          onActionClick('toggleTopBar', true);
+        } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+          window.toggleTopBar(true);
+        }
+      }, 1000);
+    }
+  };
+
+  const handleSetRandom = async () => {
+    if (isCapturing) return;
+    
+    try {
+      // Read values from TopBar inputs
+      const timeInput = document.querySelector('.control-input-field');
+      const delayInput = document.querySelectorAll('.control-input-field')[1];
+      let times = randomTimes || 1;
+      let delay = delaySeconds || 3;
+      
+      // Parse input values if available
+      if (timeInput) {
+        const parsedTime = parseInt(timeInput.value, 10);
+        if (!isNaN(parsedTime) && parsedTime > 0) {
+          times = parsedTime;
+          setRandomTimes(times);
+        }
+      }
+
+      if (delayInput) {
+        const parsedDelay = parseInt(delayInput.value, 10);
+        if (!isNaN(parsedDelay) && parsedDelay > 0) {
+          delay = parsedDelay;
+          setDelaySeconds(delay);
+        }
+      }
+
+      // Hide TopBar
+      if (typeof onActionClick === 'function') {
+        onActionClick('toggleTopBar', false);
+      } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+        window.toggleTopBar(false);
+      }
+
+      setIsCapturing(true);
+      setRemainingCaptures(times);
+      setProcessStatus(`Starting ${times} random captures with ${delay}s delay...`);
+
+      // Process all captures in sequence
+      let successCount = 0;
+      
+      for (let currentIndex = 1; currentIndex <= times; currentIndex++) {
+        // Update status for current capture
+        setProcessStatus(`Capture ${currentIndex} of ${times}`);
+        setRemainingCaptures(times - currentIndex + 1);
+        
+        // Use handleDotProcess for each capture
+        const result = await handleDotProcess({
+          useRandomPosition: true,
+          onStatusUpdate: (status) => {
+            if (status.processStatus) {
+              setProcessStatus(`Capture ${currentIndex}/${times}: ${status.processStatus}`);
+            }
+          },
+          toggleTopBar: (show) => {
+            // Only show TopBar after the last capture
+            if (show && currentIndex < times) {
+              return; // Don't show yet for intermediate captures
+            }
+            
+            if (typeof onActionClick === 'function') {
+              onActionClick('toggleTopBar', show);
+            } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+              window.toggleTopBar(show);
+            }
+          },
+          triggerCameraAccess,
+          setIsCapturing: (capturing) => {
+            // Only set capturing to false after all captures
+            if (!capturing && currentIndex < times) {
+              return; // Stay in capturing state between dots
+            }
+            setIsCapturing(capturing);
+          },
+          captureCount,
+          setCaptureCount,
+          postCountdownDelay: 800
+        });
+        
+        if (result && result.success) {
+          successCount++;
+        }
+        
+        // Wait between captures - but only if there are more captures to go
+        if (currentIndex < times) {
+          setProcessStatus(`Waiting ${delay}s before next capture...`);
+          await new Promise(resolve => setTimeout(resolve, delay * 1000));
+        }
+      }
+
+      // Completion notification
+      setProcessStatus(`Random capture sequence completed: ${successCount}/${times} captures successful`);
+      setRemainingCaptures(0);
+
+    } catch (error) {
+      console.error("Random sequence error:", error);
+      setProcessStatus(`Random sequence failed: ${error.message}`);
+    } finally {
       setIsCapturing(false);
       
       // Show TopBar again

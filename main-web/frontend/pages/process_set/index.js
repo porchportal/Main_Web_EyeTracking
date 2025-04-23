@@ -146,15 +146,15 @@ export default function ProcessSet() {
 
   // Handle file preview
   const handleFileSelect = async (filename) => {
-    console.log('File selected:', filename);
+    // console.log('File selected:', filename);
     setSelectedFile(filename);
     setPreviewImageData(null);
     
     const result = await previewFile(filename);
-    console.log('Preview API result:', result);
+    // console.log('Preview API result:', result);
     
     if (result.success) {
-      console.log('Setting preview data:', { data: result.data, type: result.type });
+      // console.log('Setting preview data:', { data: result.data, type: result.type });
       setPreviewImageData({
         data: result.data,
         type: result.type
@@ -356,11 +356,11 @@ export default function ProcessSet() {
           </div>
           
           <div className={styles.rightPanel}>
-            {console.log('Rendering FilePreviewPanel with:', {
+            {/* {console.log('Rendering FilePreviewPanel with:', {
               selectedFile,
               previewImage: previewImageData?.data,
               previewType: previewImageData?.type
-            })}
+            })} */}
             <FilePreviewPanel 
               selectedFile={selectedFile}
               previewImage={previewImageData?.data}
