@@ -83,9 +83,9 @@ def get_video_face_tracker():
         # if model_path is None:
         #     raise FileNotFoundError("Face landmarker model not found in any of the expected locations")
             
-        print(f"Initializing video face tracker with model: {model_path}")
+        # print(f"Initializing video face tracker with model: {model_path}")
         video_face_tracker = FrameShow_head_face(
-            model_path=model_path,
+            # model_path=model_path,
             isVideo=True,  # Set to True for video processing
             isHeadposeOn=True,
             isFaceOn=True

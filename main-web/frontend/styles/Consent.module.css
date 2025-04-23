@@ -194,3 +194,106 @@
 .mainContent.withBanner {
     margin-top: 60px;
 }
+
+/* Admin consent table styles */
+.consentTable {
+  width: 100%;
+  overflow-x: auto;
+  margin-top: 20px;
+}
+
+.consentTable table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.consentTable th,
+.consentTable td {
+  padding: 12px 15px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.consentTable th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #333;
+}
+
+.consentTable tr:hover {
+  background-color: #f5f5f5;
+}
+
+.consentTable tr:last-child td {
+  border-bottom: none;
+}
+
+.saveButton {
+  background-color: #4CAF50;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.3s;
+  margin-top: 10px;
+}
+
+.saveButton:hover {
+  background-color: #45a049;
+}
+
+.saveButton:active {
+  background-color: #3d8b40;
+}
+
+/* Add these to your Consent.module.css file */
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 1000;
+    animation: fadeInOut 3s ease-in-out;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    max-width: 300px;
+  }
+  
+  .notificationSuccess {
+    background-color: #4caf50;
+    color: white;
+    border-left: 4px solid #388e3c;
+  }
+  
+  .notificationError {
+    background-color: #f44336;
+    color: white;
+    border-left: 4px solid #d32f2f;
+  }
+  
+  @keyframes fadeInOut {
+    0% {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    10% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    90% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    100% {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+  }

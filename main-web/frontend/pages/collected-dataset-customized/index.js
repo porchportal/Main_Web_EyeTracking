@@ -101,6 +101,9 @@ export default function CollectedDatasetPage() {
   // State for settings visibility
   const [showSettings, setShowSettings] = useState(false);
   
+  // State for current user ID
+  const [currentUserId, setCurrentUserId] = useState('default');
+  
   // Improved get canvas function that tries multiple methods
   const getMainCanvas = () => {
     // Method 1: Check if we have a direct reference
@@ -1110,6 +1113,27 @@ export default function CollectedDatasetPage() {
     window.addEventListener('message', handleSettingsMessage);
     return () => {
       window.removeEventListener('message', handleSettingsMessage);
+    };
+  }, []);
+
+  // Listen for user ID changes
+  useEffect(() => {
+    const handleUserIdChange = (event) => {
+      if (event.detail && event.detail.type === 'userIdChange') {
+        setCurrentUserId(event.detail.userId);
+        // Dispatch event to action button
+        window.dispatchEvent(new CustomEvent('userIdChange', {
+          detail: {
+            type: 'userIdChange',
+            userId: event.detail.userId
+          }
+        }));
+      }
+    };
+
+    window.addEventListener('userIdChange', handleUserIdChange);
+    return () => {
+      window.removeEventListener('userIdChange', handleUserIdChange);
     };
   }, []);
 

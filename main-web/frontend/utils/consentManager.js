@@ -1,15 +1,16 @@
 // frontend/utils/consentManager.js
 import { v4 as uuidv4 } from 'uuid';
+import Cookies from 'js-cookie';
 
-const STORAGE_KEY = 'eye_tracking_consent';
-const CONSENT_DETAILS_KEY = 'consent_details';
-const USER_PROFILE_KEY = 'user_profile';
+const CONSENT_COOKIE = 'eye_tracking_consent';
+const CONSENT_DETAILS_COOKIE = 'consent_details';
+const USER_PROFILE_COOKIE = 'user_profile';
 
 // Get or create a user ID
 export const getOrCreateUserId = () => {
   try {
-    const storedConsent = localStorage.getItem(STORAGE_KEY);
-    const storedDetails = localStorage.getItem(CONSENT_DETAILS_KEY);
+    const storedConsent = Cookies.get(CONSENT_COOKIE);
+    const storedDetails = Cookies.get(CONSENT_DETAILS_COOKIE);
     
     if (storedConsent && storedDetails) {
       const details = JSON.parse(storedDetails);
@@ -28,7 +29,7 @@ export const getOrCreateUserId = () => {
 // Get user profile
 export const getUserProfile = () => {
   try {
-    const profileStr = localStorage.getItem(USER_PROFILE_KEY);
+    const profileStr = Cookies.get(USER_PROFILE_COOKIE);
     if (profileStr) {
       return JSON.parse(profileStr);
     }
@@ -48,7 +49,7 @@ export const updateUserProfile = (profileData) => {
       ...profileData,
       updatedAt: new Date().toISOString()
     };
-    localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(updatedProfile));
+    Cookies.set(USER_PROFILE_COOKIE, JSON.stringify(updatedProfile), { expires: 365 });
     return updatedProfile;
   } catch (error) {
     console.error('Error updating user profile:', error);
@@ -56,11 +57,11 @@ export const updateUserProfile = (profileData) => {
   }
 };
 
-// Get user consent from localStorage
+// Get user consent from cookies
 export const getUserConsent = () => {
   try {
-    const storedConsent = localStorage.getItem(STORAGE_KEY);
-    const storedDetails = localStorage.getItem(CONSENT_DETAILS_KEY);
+    const storedConsent = Cookies.get(CONSENT_COOKIE);
+    const storedDetails = Cookies.get(CONSENT_DETAILS_COOKIE);
     
     if (storedConsent && storedDetails) {
       const details = JSON.parse(storedDetails);
@@ -78,7 +79,7 @@ export const getUserConsent = () => {
       consentDetails: null
     };
   } catch (error) {
-    console.error('Error reading consent from storage:', error);
+    console.error('Error reading consent from cookies:', error);
     return {
       userId: null,
       consentStatus: null,
@@ -88,7 +89,7 @@ export const getUserConsent = () => {
   }
 };
 
-// Update user consent in localStorage
+// Update user consent in cookies
 export const updateUserConsent = async (status, details = {}) => {
   try {
     // Get or create user ID
@@ -102,13 +103,13 @@ export const updateUserConsent = async (status, details = {}) => {
       ...details
     };
     
-    // Save to localStorage
-    localStorage.setItem(STORAGE_KEY, status.toString());
-    localStorage.setItem(CONSENT_DETAILS_KEY, JSON.stringify(consentData));
+    // Save to cookies
+    Cookies.set(CONSENT_COOKIE, status.toString(), { expires: 365 }); // Expires in 1 year
+    Cookies.set(CONSENT_DETAILS_COOKIE, JSON.stringify(consentData), { expires: 365 });
     
-    // Save to public directory
+    // Send consent data to admin
     try {
-      const response = await fetch('/api/save-consent', {
+      const response = await fetch('/api/admin/consent-data', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -117,10 +118,10 @@ export const updateUserConsent = async (status, details = {}) => {
       });
       
       if (!response.ok) {
-        console.warn('Failed to save consent data to public directory');
+        console.warn('Failed to send consent data to admin');
       }
     } catch (saveError) {
-      console.warn('Error saving consent data:', saveError);
+      console.warn('Error sending consent data:', saveError);
     }
     
     return {
@@ -138,9 +139,9 @@ export const updateUserConsent = async (status, details = {}) => {
 // Clear user consent and profile
 export const clearUserConsent = () => {
   try {
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(CONSENT_DETAILS_KEY);
-    localStorage.removeItem(USER_PROFILE_KEY);
+    Cookies.remove(CONSENT_COOKIE);
+    Cookies.remove(CONSENT_DETAILS_COOKIE);
+    Cookies.remove(USER_PROFILE_COOKIE);
     return true;
   } catch (error) {
     console.error('Error clearing consent:', error);
@@ -148,13 +149,13 @@ export const clearUserConsent = () => {
   }
 };
 
-// Reset consent banner by clearing localStorage and refreshing the page
+// Reset consent banner by clearing cookies and refreshing the page
 export const resetConsentBanner = () => {
   try {
-    // Clear all consent-related data
-    localStorage.removeItem(STORAGE_KEY);
-    localStorage.removeItem(CONSENT_DETAILS_KEY);
-    localStorage.removeItem(USER_PROFILE_KEY);
+    // Clear all consent-related cookies
+    Cookies.remove(CONSENT_COOKIE);
+    Cookies.remove(CONSENT_DETAILS_COOKIE);
+    Cookies.remove(USER_PROFILE_COOKIE);
     
     // Refresh the page to trigger the consent initialization
     window.location.reload();

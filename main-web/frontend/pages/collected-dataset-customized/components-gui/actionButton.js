@@ -10,6 +10,7 @@ import {
 } from './Action/countSave';
 import { captureImagesAtPoint } from './Helper/savefile';
 import { useRouter } from 'next/router';
+import { useAdminSettings } from './adminSettings';
 
 // Create a basic ActionButton component
 const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabled = false, active = false }) => {
@@ -61,6 +62,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
   // State for button actions
   const [randomTimes, setRandomTimes] = useState(1);
   const [delaySeconds, setDelaySeconds] = useState(3);
+  const [showCaptureSettings, setShowCaptureSettings] = useState(false);
   const canvasRef = useRef(null);
   const [processStatus, setProcessStatus] = useState('');
   const [countdownValue, setCountdownValue] = useState(null);
@@ -84,12 +86,98 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
 
 
   const [showPermissionPopup, setShowPermissionPopup] = useState(false);
+  const { settings } = useAdminSettings();
+  const [currentUserId, setCurrentUserId] = useState('default');
+
+  // Listen for settings updates
+  // useEffect(() => {
+  //   const handleSettingsUpdate = (event) => {
+  //     if (event.detail && event.detail.type === 'captureSettings') {
+  //       const { userId, times, delay } = event.detail;
+  //       if (userId === currentUserId) {
+  //         if (times !== undefined) {
+  //           setRandomTimes(times);
+  //         }
+  //         if (delay !== undefined) {
+  //           setDelaySeconds(delay);
+  //         }
+  //       }
+  //     }
+  //   };
+
+  //   window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
+  //   return () => {
+  //     window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
+  //   };
+  // }, [currentUserId]);
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      console.log('ActionButton: Received event:', event.detail);
+      
+      if (event.detail && event.detail.type === 'captureSettings') {
+        const { userId, times, delay } = event.detail;
+        console.log(`ActionButton: Processing settings for user ${userId} (current: ${currentUserId})`);
+        console.log(`ActionButton: times=${times}, delay=${delay}`);
+        
+        // Always update settings even if userId doesn't match current
+        // This ensures default settings are updated
+        if (times !== undefined) {
+          console.log(`ActionButton: Updating randomTimes from ${randomTimes} to ${times}`);
+          setRandomTimes(times);
+        }
+        if (delay !== undefined) {
+          console.log(`ActionButton: Updating delaySeconds from ${delaySeconds} to ${delay}`);
+          setDelaySeconds(delay);
+        }
+      }
+    };
+  
+    // Add the event listener
+    if (typeof window !== 'undefined') {
+      console.log('ActionButton: Adding captureSettingsUpdate event listener');
+      window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
+      }
+    };
+  }, []);
+
+  // Listen for user ID changes
+  useEffect(() => {
+    const handleUserIdChange = (event) => {
+      if (event.detail && event.detail.type === 'userIdChange') {
+        setCurrentUserId(event.detail.userId);
+      }
+    };
+
+    window.addEventListener('userIdChange', handleUserIdChange);
+    return () => {
+      window.removeEventListener('userIdChange', handleUserIdChange);
+    };
+  }, []);
+
   useImperativeHandle(ref, () => ({
     handleRandomDot,  
     handleSetRandom,
     handleSetCalibrate,
-    handleClearAll
-  }), []);
+    handleClearAll,
+    getCaptureSettings: () => ({
+      times: randomTimes,
+      delay: delaySeconds
+    }),
+    setCaptureSettings: (settings) => {
+      console.log('ActionButton received settings:', settings);
+      if (settings.times !== undefined) {
+        setRandomTimes(settings.times);
+      }
+      if (settings.delay !== undefined) {
+        setDelaySeconds(settings.delay);
+      }
+    }
+  }), [randomTimes, delaySeconds]);
   
     // Make initializeCanvas available globally
   // useEffect(() => {
@@ -577,35 +665,34 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       };
     }
   };
-  
-  // This partial file shows only the fixed handleSetRandom function
-  // Fixed handleSetRandom function using handleDotProcess
   const handleSetRandom = async () => {
     if (isCapturing) return;
     
     try {
-      // Read values from TopBar inputs
-      const timeInput = document.querySelector('.control-input-field');
-      const delayInput = document.querySelectorAll('.control-input-field')[1];
-      let times = randomTimes || 1;
-      let delay = delaySeconds || 3;
-      
-      // Parse input values if available
-      if (timeInput) {
-        const parsedTime = parseInt(timeInput.value, 10);
-        if (!isNaN(parsedTime) && parsedTime > 0) {
-          times = parsedTime;
-          setRandomTimes(times);
-        }
-      }
 
-      if (delayInput) {
-        const parsedDelay = parseInt(delayInput.value, 10);
-        if (!isNaN(parsedDelay) && parsedDelay > 0) {
-          delay = parsedDelay;
-          setDelaySeconds(delay);
+      let times = 1; // Default fallback
+      let delay = 3; // Default fallback
+      
+      // Try to get current values from admin panel inputs
+      if (typeof document !== 'undefined') {
+        const timeInput = document.querySelector('input[name="time"]');
+        const delayInput = document.querySelector('input[name="delay"]');
+        
+        if (timeInput && !isNaN(parseInt(timeInput.value))) {
+          times = parseInt(timeInput.value);
+        }
+        
+        if (delayInput && !isNaN(parseInt(delayInput.value))) {
+          delay = parseInt(delayInput.value);
+        }
+        
+        // Also check global settings as fallback
+        if (typeof window !== 'undefined' && window.captureSettings) {
+          times = window.captureSettings.times || times;
+          delay = window.captureSettings.delay || delay;
         }
       }
+        
 
       // Hide TopBar
       if (typeof onActionClick === 'function') {
@@ -915,25 +1002,25 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
           
           // Make sure dot is still visible
           redrawCurrentDot();
-          
-          // Capture images at this point
+
+      // Capture images at this point
           console.log(`Capturing calibration point ${i+1}/${points.length} at (${point.x}, ${point.y})`);
           
           // Manual force redraw one more time just before capture
           drawRedDot(ctx, point.x, point.y, radius, false);
           
-          const captureResult = await captureImagesAtPoint({
+        const captureResult = await captureImagesAtPoint({
             point: point,
-            captureCount: captureCount,
-            canvasRef: { current: canvas },
-            setCaptureCount: setCaptureCount,
-            showCapturePreview
-          });
-          
-          if (captureResult && (captureResult.screenImage || captureResult.success)) {
-            successCount++;
-          }
-          
+          captureCount: captureCount,
+          canvasRef: { current: canvas },
+          setCaptureCount: setCaptureCount,
+          showCapturePreview
+        });
+
+        if (captureResult && (captureResult.screenImage || captureResult.success)) {
+          successCount++;
+        }
+
           // Wait between points
           await new Promise(resolve => setTimeout(resolve, 1200));
           
@@ -1424,14 +1511,14 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         <div 
           className="canvas-container mt-4" 
           style={{ 
-            position: 'relative', 
-            width: '100%', 
-            height: '40vh', 
-            minHeight: '300px', 
-            border: '1px solid #e0e0e0', 
-            backgroundColor: 'white', 
-            borderRadius: '4px', 
-            overflow: 'hidden' 
+            position: 'relative',
+            width: '100%',
+            height: '40vh',
+            minHeight: '300px',
+            border: '1px solid #e0e0e0',
+            backgroundColor: 'white',
+            borderRadius: '4px',
+            overflow: 'hidden'
           }}
         >
           <canvas 

@@ -12,6 +12,7 @@
     "@next/swc-darwin-arm64": "^15.2.4",
     "autoprefixer": "^10.4.14",
     "formidable": "^3.5.2",
+    "js-cookie": "^3.0.5",
     "next": "^15.3.1",
     "postcss": "^8.4.27",
     "react": "^18.3.1",

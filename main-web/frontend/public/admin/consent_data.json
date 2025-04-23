@@ -1,0 +1,20 @@
+[
+  {
+    "userId": "a27bfbbd-fb82-4fd7-a6a7-e8c7837fd9d5",
+    "status": true,
+    "timestamp": "2025-04-23T03:13:08.125Z",
+    "receivedAt": "2025-04-23T03:13:08.150Z"
+  },
+  {
+    "userId": "4d8937de-5f66-47f3-babd-f9d99ea86992",
+    "status": true,
+    "timestamp": "2025-04-23T07:13:20.486Z",
+    "receivedAt": "2025-04-23T07:13:20.666Z"
+  },
+  {
+    "userId": "2dffd9ff-f369-4c70-bc86-6d4b2730de77",
+    "status": true,
+    "timestamp": "2025-04-23T08:28:02.099Z",
+    "receivedAt": "2025-04-23T08:27:58.659Z"
+  }
+]
