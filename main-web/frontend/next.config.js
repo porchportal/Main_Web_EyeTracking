@@ -16,13 +16,7 @@ const nextConfig = {
           destination: 'http://localhost:8000/api/:path*',
         },
       ]
-    },
-    bodyParser: {
-      sizeLimit: '10mb', // Set desired limit
-    },
-    serverActions: {
-      bodySizeLimit: '10mb', // Set desired limit
-    },
+    }
   }
   
   module.exports = nextConfig

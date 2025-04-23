@@ -159,11 +159,7 @@ export const saveCSVToServer = async (csvData, filename, folder = 'eye_tracking_
  * Get the highest resolution camera constraints supported by the device
  * @returns {Promise<MediaStreamConstraints>} - Camera constraints with highest resolution
  */
-/**
- * Get the highest resolution camera constraints supported by the device
- * @returns {Promise<MediaStreamConstraints>} - Camera constraints with highest resolution
- */
-const getHighestResolutionConstraints = async () => {
+export const getHighestResolutionConstraints = async () => {
   // Try to get all available camera capabilities first
   try {
     // Get a temporary access to the camera

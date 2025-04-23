@@ -18,6 +18,10 @@ export default function UserProfileSidebar() {
     preferences: {}
   });
   const [statusMessage, setStatusMessageLocal] = useState('');
+  const [captureSettings, setCaptureSettings] = useState({
+    time: 3,
+    delay: 5
+  });
 
   // Get consent and backend status
   const { userId, consentStatus } = useConsent();
@@ -88,6 +92,24 @@ export default function UserProfileSidebar() {
       setStatusMessage(message);
     }
     setStatusMessageLocal(message);
+  };
+
+  // Add function to handle capture settings changes
+  const handleCaptureSettingsChange = (e) => {
+    const { name, value } = e.target;
+    setCaptureSettings(prev => ({
+      ...prev,
+      [name]: parseInt(value) || 0
+    }));
+    
+    // Send message to main page to update settings
+    window.postMessage({ 
+      type: 'UPDATE_CAPTURE_SETTINGS', 
+      settings: {
+        ...captureSettings,
+        [name]: parseInt(value) || 0
+      }
+    }, '*');
   };
 
   // Don't render anything if consent is not accepted
@@ -273,7 +295,6 @@ export default function UserProfileSidebar() {
             </div>
             
             <div className={styles.settingsContent}>
-              {/* Add your settings content here */}
               <div className={styles.settingsSection}>
                 <h3>General Settings</h3>
                 <div className={styles.settingItem}>
@@ -299,6 +320,66 @@ export default function UserProfileSidebar() {
                     <option>Every 10 minutes</option>
                     <option>Every 30 minutes</option>
                   </select>
+                </div>
+              </div>
+
+              <div className={styles.settingsSection}>
+                <h3>Capture Settings</h3>
+                <div className={styles.settingsSubScroll}>
+                  <div className={styles.settingItem}>
+                    <label>Time(s):</label>
+                    <input
+                      type="number"
+                      name="time"
+                      value={captureSettings.time}
+                      onChange={handleCaptureSettingsChange}
+                      min="1"
+                      max="10"
+                      className={styles.numberInput}
+                    />
+                  </div>
+                  <div className={styles.settingItem}>
+                    <label>Delay(s):</label>
+                    <input
+                      type="number"
+                      name="delay"
+                      value={captureSettings.delay}
+                      onChange={handleCaptureSettingsChange}
+                      min="1"
+                      max="30"
+                      className={styles.numberInput}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className={styles.settingsSection}>
+                <h3>Image Settings</h3>
+                <div className={styles.settingItem}>
+                  <label>Upload Image:</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className={styles.fileInput}
+                  />
+                </div>
+              </div>
+
+              <div className={styles.settingsSection}>
+                <h3>Zoom Control</h3>
+                <div className={styles.settingItem}>
+                  <label>Zoom Level:</label>
+                  <div className={styles.zoomControls}>
+                    <button className={styles.zoomButton}>-</button>
+                    <input
+                      type="number"
+                      min="50"
+                      max="200"
+                      className={styles.zoomInput}
+                    />
+                    <span className={styles.zoomPercent}>%</span>
+                    <button className={styles.zoomButton}>+</button>
+                  </div>
                 </div>
               </div>
             </div>
