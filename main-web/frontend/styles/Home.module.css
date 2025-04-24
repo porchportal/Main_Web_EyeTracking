@@ -5,6 +5,10 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
 }
 
 .main {
@@ -30,8 +34,10 @@
 .title {
   margin: 0;
   line-height: 1.15;
-  font-size: 3rem;
+  font-size: 2.5rem;
   text-align: center;
+  margin-bottom: 2rem;
+  color: #333;
 }
 
 .description {
@@ -258,4 +264,58 @@
   .menuButton h2 {
     font-size: 1.2rem;
   }
+}
+
+.buttonContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.button {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.button:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+}
+
+.buttonEnabled {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.buttonEnabled:hover {
+  background-color: #218838;
+  transform: translateY(-2px);
+}
+
+.buttonDisabled {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: not-allowed;
+  opacity: 0.7;
+  transition: all 0.3s ease;
+}
+
+.buttonDisabled:hover {
+  background-color: #c82333;
 }

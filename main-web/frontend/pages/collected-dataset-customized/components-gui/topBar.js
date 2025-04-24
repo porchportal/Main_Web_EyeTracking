@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import { useAdminSettings } from './adminSettings';
 
 const TopBar = ({ 
   onButtonClick,
@@ -14,20 +15,87 @@ const TopBar = ({
 }) => {
   const router = useRouter();
   const [canvasStatus, setCanvasStatus] = useState(isCanvasVisible);
+  const { settings, updateSettings } = useAdminSettings();
+  const [currentSettings, setCurrentSettings] = useState({ times: 1, delay: 3 });
+  const [currentUserId, setCurrentUserId] = useState(null);
 
   // Update canvas status when prop changes
   useEffect(() => {
     setCanvasStatus(isCanvasVisible);
   }, [isCanvasVisible]);
 
+  // Listen for user ID changes
+  useEffect(() => {
+    const handleUserIdChange = (event) => {
+      if (event.detail && event.detail.userId) {
+        console.log('User ID changed:', event.detail.userId);
+        setCurrentUserId(event.detail.userId);
+        // Immediately update settings for the new user
+        if (settings && settings[event.detail.userId]) {
+          console.log('Updating settings for user:', settings[event.detail.userId]);
+          setCurrentSettings(settings[event.detail.userId]);
+        }
+      }
+    };
+
+    window.addEventListener('userIdChange', handleUserIdChange);
+    return () => {
+      window.removeEventListener('userIdChange', handleUserIdChange);
+    };
+  }, [settings]);
+
+  // Update settings when they change or user ID changes
+  useEffect(() => {
+    if (settings && currentUserId) {
+      console.log('Settings updated for user:', currentUserId, settings[currentUserId]);
+      const userSettings = settings[currentUserId];
+      if (userSettings) {
+        setCurrentSettings(userSettings);
+      }
+    }
+  }, [settings, currentUserId]);
+
+  // Listen for settings updates from admin page
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      if (event.detail && event.detail.type === 'captureSettings') {
+        const { userId, times, delay } = event.detail;
+        console.log('Received settings update:', { userId, times, delay });
+        if (userId === currentUserId) {
+          setCurrentSettings(prev => ({
+            ...prev,
+            times: times !== undefined ? times : prev.times,
+            delay: delay !== undefined ? delay : prev.delay
+          }));
+        }
+      }
+    };
+
+    window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    return () => {
+      window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    };
+  }, [currentUserId]);
+
+  // Handle settings change
+  const handleSettingsChange = async (newSettings) => {
+    try {
+      if (currentUserId) {
+        console.log('Updating settings for user:', currentUserId, newSettings);
+        await updateSettings(newSettings, currentUserId);
+        setCurrentSettings(newSettings);
+      }
+    } catch (error) {
+      console.error('Error updating settings:', error);
+    }
+  };
+
   const handleButtonClick = (actionType) => {
-    // Call the passed button click handler
     if (onButtonClick) {
       onButtonClick(actionType);
     }
   };
 
-  // Enhanced toggle handlers with visual feedback
   const handleToggleTopBar = () => {
     onToggleTopBar(!isTopBarShown);
   };
@@ -36,28 +104,38 @@ const TopBar = ({
     onToggleMetrics();
   };
 
-  // Add back button handler
   const handleGoBack = () => {
     router.push('/');
   };
 
-  // Create status message
   const statusMessage = `TopBar ${isTopBarShown ? 'shown' : 'hidden'}, Canvas: ${canvasStatus ? 'Visible' : 'Hidden'}`;
 
   return (
     <div className="topbar">
-      {/* Left Section - Logo and Controls */}
       <div className="topbar-left">
-        {/* Logo */}
         <div className="logo">
           <h1 className="logo-text">Logo</h1>
         </div>
+
+        <div className="controls-container">
+          <div className="control-group">
+            <span className="control-label">Time(s):</span>
+            <div className="control-input">
+              <span className="control-input-field">{currentSettings.times}</span>
+            </div>
+          </div>
+          
+          <div className="control-group">
+            <span className="control-label">Delay(s):</span>
+            <div className="control-input">
+              <span className="control-input-field">{currentSettings.delay}</span>
+            </div>
+          </div>
+        </div>
       </div>
       
-      {/* Middle Section - Buttons */}
       <div className="topbar-middle">
         <div className="button-groups">
-          {/* First Button Group */}
           <div className="button-group">
             <div className="button-row">
               <button 
@@ -98,10 +176,8 @@ const TopBar = ({
             </div>
           </div>
           
-          {/* Divider */}
           <div className="topbar-divider"></div>
           
-          {/* Second Button Group */}
           <div className="button-group">
             <div className="button-row">
               <button 
@@ -142,7 +218,6 @@ const TopBar = ({
         </div>
       </div>
       
-      {/* Right Section - Output Display and Controls */}
       <div className="topbar-right">
         <div className="notes-container">
           <div 
@@ -193,7 +268,6 @@ const TopBar = ({
         </div>
       </div>
       
-      {/* CSS for the toggle button effects */}
       <style jsx>{`
         .active-toggle {
           transform: scale(1.2);

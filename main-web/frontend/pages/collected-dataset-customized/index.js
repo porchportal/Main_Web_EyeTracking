@@ -104,6 +104,9 @@ export default function CollectedDatasetPage() {
   // State for current user ID
   const [currentUserId, setCurrentUserId] = useState('default');
   
+  // Get user ID from consent context
+  const { userId } = useConsent();
+  
   // Improved get canvas function that tries multiple methods
   const getMainCanvas = () => {
     // Method 1: Check if we have a direct reference
@@ -1121,13 +1124,14 @@ export default function CollectedDatasetPage() {
     const handleUserIdChange = (event) => {
       if (event.detail && event.detail.type === 'userIdChange') {
         setCurrentUserId(event.detail.userId);
-        // Dispatch event to action button
-        window.dispatchEvent(new CustomEvent('userIdChange', {
+        // Dispatch event to update settings for the new user
+        const event = new CustomEvent('captureSettingsUpdate', {
           detail: {
-            type: 'userIdChange',
+            type: 'captureSettings',
             userId: event.detail.userId
           }
-        }));
+        });
+        window.dispatchEvent(event);
       }
     };
 
@@ -1136,6 +1140,160 @@ export default function CollectedDatasetPage() {
       window.removeEventListener('userIdChange', handleUserIdChange);
     };
   }, []);
+
+  // Initialize settings when component mounts
+  useEffect(() => {
+    if (userId) {
+      // Set the current user ID
+      setCurrentUserId(userId);
+      
+      // Dispatch event to update settings for this user
+      const event = new CustomEvent('captureSettingsUpdate', {
+        detail: {
+          type: 'captureSettings',
+          userId: userId
+        }
+      });
+      window.dispatchEvent(event);
+    }
+  }, [userId]);
+
+  // Listen for settings updates
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      if (event.detail && event.detail.type === 'captureSettings') {
+        const { userId, times, delay } = event.detail;
+        if (userId === currentUserId) {
+          // Update the settings for this user
+          if (actionButtonGroupRef.current) {
+            actionButtonGroupRef.current.setCaptureSettings({
+              times: times || 1,
+              delay: delay || 3
+            });
+          }
+        }
+      }
+    };
+
+    window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    return () => {
+      window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    };
+  }, [currentUserId]);
+
+  // Load settings from backend when component mounts
+  useEffect(() => {
+    const loadSettings = async () => {
+      if (!userId) return;
+      
+      try {
+        const response = await fetch(`/api/admin/load-settings?userId=${userId}`);
+        if (!response.ok) {
+          throw new Error('Failed to load settings');
+        }
+        const loadedSettings = await response.json();
+        
+        // Wait for the component to be mounted and ref to be initialized
+        const waitForRef = (retries = 5) => {
+          if (actionButtonGroupRef.current && typeof actionButtonGroupRef.current.setCaptureSettings === 'function') {
+            // Update the settings for this user
+            actionButtonGroupRef.current.setCaptureSettings(loadedSettings);
+            
+            // Dispatch event to update UI
+            const event = new CustomEvent('captureSettingsUpdate', {
+              detail: {
+                type: 'captureSettings',
+                userId: userId,
+                times: loadedSettings.times,
+                delay: loadedSettings.delay
+              }
+            });
+            window.dispatchEvent(event);
+            
+            // Also update the TopBar directly
+            const timeInput = document.querySelector('.control-input-field');
+            const delayInput = document.querySelectorAll('.control-input-field')[1];
+            
+            if (timeInput) {
+              timeInput.textContent = loadedSettings.times;
+            }
+            if (delayInput) {
+              delayInput.textContent = loadedSettings.delay;
+            }
+          } else if (retries > 0) {
+            setTimeout(() => waitForRef(retries - 1), 500);
+          } else {
+            console.warn('ActionButtonGroup ref not initialized after retries');
+          }
+        };
+        
+        waitForRef();
+      } catch (error) {
+        console.error('Error loading settings:', error);
+      }
+    };
+
+    // Add a small delay to ensure components are mounted
+    setTimeout(loadSettings, 1000);
+  }, [userId]);
+
+  // Add WebSocket connection for real-time updates
+  useEffect(() => {
+    const ws = new WebSocket(`ws://${window.location.host}/api/data-center/ws`);
+    
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data) {
+        // Handle settings updates
+        const userSettings = data.find(item => item.key === `settings_${userId}`);
+        if (userSettings) {
+          const parsedSettings = JSON.parse(userSettings.value);
+          if (actionButtonGroupRef.current && actionButtonGroupRef.current.updateSettings) {
+            actionButtonGroupRef.current.updateSettings(parsedSettings);
+          }
+        }
+
+        // Handle image updates
+        const userImage = data.find(item => item.key === `image_${userId}`);
+        if (userImage) {
+          // Update image in the UI if needed
+          // You can add your image update logic here
+        }
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [userId]);
+
+  // Add event listeners for settings and image updates
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      if (event.detail?.type === 'captureSettings' && event.detail?.userId === userId) {
+        const { times, delay } = event.detail;
+        if (actionButtonGroupRef.current && actionButtonGroupRef.current.updateSettings) {
+          actionButtonGroupRef.current.updateSettings({ times, delay });
+        }
+      }
+    };
+
+    const handleImageUpdate = (event) => {
+      if (event.detail?.type === 'image' && event.detail?.userId === userId) {
+        const { image } = event.detail;
+        // Update image in the UI if needed
+        // You can add your image update logic here
+      }
+    };
+
+    window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    window.addEventListener('imageUpdate', handleImageUpdate);
+
+    return () => {
+      window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
+      window.removeEventListener('imageUpdate', handleImageUpdate);
+    };
+  }, [userId]);
 
   return (
     <div className={`main-container ${getSizeClass()}`}>

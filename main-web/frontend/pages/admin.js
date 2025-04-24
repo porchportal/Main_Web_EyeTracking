@@ -1,3 +1,74 @@
+/**
+ * Admin Page API Documentation
+ * 
+ * This page handles the following API endpoints:
+ * 
+ * 1. WebSocket Connection (/api/data-center/ws)
+ *    - Purpose: Real-time communication with data center
+ *    - Events:
+ *      - settings_{userId}: Receives settings updates for specific user
+ *      - image_{userId}: Receives image updates for specific user
+ *      - zoom_{userId}: Receives zoom level updates for specific user
+ * 
+ * 2. Admin Updates API (/api/admin/update)
+ *    - Method: POST
+ *    - Headers:
+ *      - Content-Type: application/json
+ *      - X-API-Key: A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV
+ *    - Request Body:
+ *      {
+ *        userId: string,      // User ID for the update
+ *        type: string,        // 'settings' or 'image'
+ *        data: object         // Settings data or base64 image
+ *      }
+ *    - Response:
+ *      - Success: 200 OK
+ *      - Error: 400 Bad Request, 401 Unauthorized, 500 Internal Server Error
+ * 
+ * 3. Consent Data API (/api/admin/consent-data)
+ *    - Method: GET
+ *    - Purpose: Fetch user consent data
+ *    - Response:
+ *      Array of consent objects with:
+ *      - userId: string
+ *      - status: boolean
+ *      - timestamp: string
+ *      - receivedAt: string
+ * 
+ * 4. Settings Events
+ *    - captureSettingsUpdate: Dispatched when settings are updated
+ *      {
+ *        type: 'captureSettings',
+ *        userId: string,
+ *        times: number,
+ *        delay: number
+ *      }
+ * 
+ *    - settingsUpdated: Dispatched after topBar is updated
+ *      {
+ *        type: 'settings',
+ *        userId: string,
+ *        settings: {
+ *          times: number,
+ *          delay: number
+ *        }
+ *      }
+ * 
+ *    - imageUpdate: Dispatched when image is updated
+ *      {
+ *        type: 'image',
+ *        userId: string,
+ *        image: string (base64)
+ *      }
+ * 
+ *    - adminOverride: Dispatched when access is overridden
+ *      {
+ *        type: 'adminOverride',
+ *        userId: string,
+ *        enabled: boolean
+ *      }
+ */
+
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import styles from '../styles/Consent.module.css';
@@ -48,13 +119,14 @@ export default function AdminPage({ initialSettings }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { userId, consentStatus } = useConsent();
-  const actionButtonRef = useRef(null);
-  const { settings, updateSettings } = useAdminSettings(actionButtonRef);
+  const actionButtonGroupRef = useRef(null);
+  const { settings, updateSettings } = useAdminSettings(actionButtonGroupRef);
   const [tempSettings, setTempSettings] = useState(initialSettings);
   const [selectedImage, setSelectedImage] = useState(null);
   const [notification, setNotification] = useState({ show: false, message: '' });
   const [debugInfo, setDebugInfo] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('default');
+  const ws = useRef(null);
 
   // Initialize tempSettings with initial settings
   useEffect(() => {
@@ -92,6 +164,29 @@ export default function AdminPage({ initialSettings }) {
     }
   }, []);
 
+  // WebSocket connection for real-time updates
+  useEffect(() => {
+    ws.current = new WebSocket(`ws://${window.location.host}/api/data-center/ws`);
+    
+    ws.current.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      // Update settings based on data center values
+      if (data) {
+        const userSettings = data.find(item => item.key === `settings_${selectedUserId}`);
+        if (userSettings) {
+          const parsedSettings = JSON.parse(userSettings.value);
+          updateSettings(parsedSettings, selectedUserId);
+        }
+      }
+    };
+
+    return () => {
+      if (ws.current) {
+        ws.current.close();
+      }
+    };
+  }, [selectedUserId]);
+
   useEffect(() => {
     const fetchConsentData = async () => {
       try {
@@ -114,25 +209,93 @@ export default function AdminPage({ initialSettings }) {
   const handleTimeChange = (event) => {
     const times = parseInt(event.target.value, 10);
     if (!isNaN(times) && times > 0) {
-      setTempSettings(prev => ({
-        ...prev,
-        [selectedUserId]: {
-          ...prev[selectedUserId],
-          times
-        }
-      }));
+      const newSettings = {
+        times,
+        delay: settings[selectedUserId]?.delay || 3
+      };
+      updateDataCenterSettings(newSettings);
     }
   };
 
   const handleDelayChange = (event) => {
     const delay = parseInt(event.target.value, 10);
     if (!isNaN(delay) && delay > 0) {
-      setTempSettings(prev => ({
-        ...prev,
-        [selectedUserId]: {
-          ...prev[selectedUserId],
-          delay
+      const newSettings = {
+        times: settings[selectedUserId]?.times || 1,
+        delay
+      };
+      updateDataCenterSettings(newSettings);
+    }
+  };
+
+  const updateDataCenterSettings = (newSettings) => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({
+        key: `settings_${selectedUserId}`,
+        value: JSON.stringify(newSettings),
+        data_type: 'json'
+      }));
+
+      // Update local settings
+      const updatedSettings = {
+        ...settings,
+        [selectedUserId]: newSettings
+      };
+      
+      // Update settings through the hook
+      updateSettings(newSettings, selectedUserId);
+
+      // Update global settings if they exist
+      if (typeof window !== 'undefined') {
+        window.captureSettings = newSettings;
+        
+        // Dispatch a custom event for components to listen to
+        const event = new CustomEvent('captureSettingsUpdate', {
+          detail: {
+            type: 'settings',
+            userId: selectedUserId,
+            settings: newSettings
+          }
+        });
+        window.dispatchEvent(event);
+      }
+    }
+  };
+
+  // Add an effect to handle settings updates
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      if (event.detail && event.detail.type === 'settings') {
+        // Update index.js with new settings
+        // This will run after topBar.js is updated
+      }
+    };
+    window.addEventListener('settingsUpdated', handleSettingsUpdate);
+    return () => window.removeEventListener('settingsUpdated', handleSettingsUpdate);
+  }, []);
+
+  const handleImageChange = (event) => {
+    if (event.target.files && event.target.files[0]) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+          ws.current.send(JSON.stringify({
+            key: `image_${selectedUserId}`,
+            value: e.target.result,
+            data_type: 'image'
+          }));
         }
+      };
+      reader.readAsDataURL(event.target.files[0]);
+    }
+  };
+
+  const handleZoomChange = (value) => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      ws.current.send(JSON.stringify({
+        key: `zoom_${selectedUserId}`,
+        value: value,
+        data_type: 'number'
       }));
     }
   };
@@ -145,38 +308,52 @@ export default function AdminPage({ initialSettings }) {
       // Log what we're trying to update
       console.log(`Admin: Saving settings for user ${selectedUserId}:`, userSettings);
 
-      if (typeof window !== 'undefined') {
-        window.captureSettings = {
-          times: userSettings.times,
-          delay: userSettings.delay
-        };
-        console.log('Set global captureSettings:', window.captureSettings);
+      // Send settings to data center via WebSocket
+      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+        ws.current.send(JSON.stringify({
+          key: `settings_${selectedUserId}`,
+          value: JSON.stringify(userSettings),
+          data_type: 'json'
+        }));
       }
-      
-      // Update the settings using our hook function
-      // This is critical - make sure we're passing the settings correctly
+
+      // Update local settings
+      setTempSettings(prev => ({
+        ...prev,
+        [selectedUserId]: userSettings
+      }));
+
+      // Update settings through the hook
       updateSettings(userSettings, selectedUserId);
-      
-      // IMPORTANT: Create and dispatch a direct event that the ActionButton can listen for
-      // This provides a more explicit communication channel
-      const directEvent = new CustomEvent('captureSettingsUpdate', {
-        detail: {
-          type: 'captureSettings',
-          userId: selectedUserId,
-          times: userSettings.times,
-          delay: userSettings.delay
-        }
-      });
-      console.log('Admin: Dispatching direct event:', directEvent);
-      window.dispatchEvent(directEvent);
-      
-      // Save to server
-      const response = await fetch('/api/admin/save-settings', {
+
+      // Update global settings
+      if (typeof window !== 'undefined') {
+        window.captureSettings = userSettings;
+        
+        // Dispatch a custom event for components to listen to
+        const event = new CustomEvent('captureSettingsUpdate', {
+          detail: {
+            type: 'captureSettings',
+            userId: selectedUserId,
+            times: userSettings.times,
+            delay: userSettings.delay
+          }
+        });
+        window.dispatchEvent(event);
+      }
+
+      // Save to server using new unified endpoint
+      const response = await fetch('/api/admin/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
         },
-        body: JSON.stringify(tempSettings),
+        body: JSON.stringify({
+          userId: selectedUserId,
+          type: 'settings',
+          data: userSettings
+        }),
       });
   
       if (!response.ok) {
@@ -191,19 +368,83 @@ export default function AdminPage({ initialSettings }) {
     }
   };
 
-  const handleImageChange = (event) => {
-    if (event.target.files && event.target.files[0]) {
-      setSelectedImage(event.target.files[0]);
+  const handleSaveImage = async () => {
+    if (!selectedImage) {
+      showNotification('Please select an image first', 'error');
+      return;
+    }
+
+    try {
+      // Convert image to base64
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64Image = e.target.result;
+        
+        // Send image to data center via WebSocket
+        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+          ws.current.send(JSON.stringify({
+            key: `image_${selectedUserId}`,
+            value: base64Image,
+            data_type: 'image'
+          }));
+        }
+
+        // Save to server using new unified endpoint
+        const response = await fetch('/api/admin/update', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          },
+          body: JSON.stringify({
+            userId: selectedUserId,
+            type: 'image',
+            data: base64Image
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save image');
+        }
+
+        // Dispatch event for components to listen to
+        if (typeof window !== 'undefined') {
+          const event = new CustomEvent('imageUpdate', {
+            detail: {
+              type: 'image',
+              userId: selectedUserId,
+              image: base64Image
+            }
+          });
+          window.dispatchEvent(event);
+        }
+
+        showNotification('Image saved successfully!');
+      };
+      reader.readAsDataURL(selectedImage);
+    } catch (error) {
+      console.error('Error saving image:', error);
+      showNotification('Failed to save image. Please try again.', 'error');
     }
   };
 
-  const handleSaveImage = () => {
-    // Here you would implement the actual image upload logic
-    // For now, we'll just show a notification
-    if (selectedImage) {
-      showNotification(`Image "${selectedImage.name}" saved successfully!`);
-    } else {
-      showNotification('Please select an image first', 'error');
+  const handleOverrideAccess = (userId) => {
+    try {
+      // Dispatch event to enable/disable access
+      const event = new CustomEvent('adminOverride', {
+        detail: {
+          type: 'adminOverride',
+          userId: userId,
+          enabled: true
+        }
+      });
+      window.dispatchEvent(event);
+      
+      // Show success notification
+      showNotification(`Access granted for user ${userId}!`);
+    } catch (error) {
+      console.error('Error overriding access:', error);
+      showNotification('Failed to override access. Please try again.', 'error');
     }
   };
 
@@ -238,20 +479,20 @@ export default function AdminPage({ initialSettings }) {
   }
 
   return (
-    <>
+    <div className={styles.container}>
       <Head>
-        <title>Admin Dashboard | Eye Tracking App</title>
+        <title>Admin Dashboard</title>
       </Head>
-      
-      {/* Notification */}
-      {notification.show && (
-        <div className={`${styles.notification} ${notification.type === 'error' ? styles.notificationError : styles.notificationSuccess}`}>
-          {notification.message}
-        </div>
-      )}
-      
-      <div className={styles.preferencesContainer}>
-        <h1 className={styles.preferencesTitle}>Admin Dashboard</h1>
+
+      <main className={styles.main}>
+        <h1>Admin Dashboard</h1>
+        
+        {/* Notification */}
+        {notification.show && (
+          <div className={`${styles.notification} ${notification.type === 'error' ? styles.notificationError : styles.notificationSuccess}`}>
+            {notification.message}
+          </div>
+        )}
         
         {/* Debug Info */}
         {debugInfo && (
@@ -259,6 +500,25 @@ export default function AdminPage({ initialSettings }) {
             <p><small>{debugInfo}</small></p>
           </div>
         )}
+
+        {/* User Selection Section */}
+        <div className={styles.settingsSection}>
+          <h2>Select User</h2>
+          <div className={styles.settingItem}>
+            <select
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              className={styles.selectInput}
+            >
+              <option value="">Select a user...</option>
+              {consentData.map((data) => (
+                <option key={data.userId} value={data.userId}>
+                  User: {data.userId}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
         
         {/* Consent Data Section */}
         <div className={styles.settingsSection}>
@@ -271,6 +531,7 @@ export default function AdminPage({ initialSettings }) {
                   <th>Consent Status</th>
                   <th>Timestamp</th>
                   <th>Received At</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -280,6 +541,16 @@ export default function AdminPage({ initialSettings }) {
                     <td>{data.status ? 'Accepted' : 'Declined'}</td>
                     <td>{new Date(data.timestamp).toLocaleString()}</td>
                     <td>{new Date(data.receivedAt).toLocaleString()}</td>
+                    <td>
+                      {!data.status && (
+                        <button
+                          className={styles.overrideButton}
+                          onClick={() => handleOverrideAccess(data.userId)}
+                        >
+                          Grant Access
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -287,101 +558,94 @@ export default function AdminPage({ initialSettings }) {
           </div>
         </div>
 
-        {/* Settings Section */}
-        <div className={styles.settingsSection}>
-          <h2>Capture Settings</h2>
-          <div className={styles.settingsSubScroll}>
-            <div className={styles.settingItem}>
-              <label>Select User:</label>
-              <select
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-                className={styles.selectInput}
-              >
-                <option value="default">Default Settings</option>
-                {consentData.map((data) => (
-                  <option key={data.userId} value={data.userId}>
-                    User: {data.userId}
-                  </option>
-                ))}
-              </select>
+        {/* Settings Sections (only shown when a user is selected) */}
+        {selectedUserId && (
+          <>
+            {/* Capture Settings Section */}
+            <div className={styles.settingsSection}>
+              <h2>Capture Settings</h2>
+              <div className={styles.settingsSubScroll}>
+                <div className={styles.settingItem}>
+                  <label>Time(s):</label>
+                  <input
+                    type="number"
+                    name="time"
+                    value={tempSettings[selectedUserId]?.times || 1}
+                    onChange={handleTimeChange}
+                    min="1"
+                    max="100"
+                    className={styles.numberInput}
+                    data-control="time"
+                  />
+                </div>
+                <div className={styles.settingItem}>
+                  <label>Delay(s):</label>
+                  <input
+                    type="number"
+                    name="delay"
+                    value={tempSettings[selectedUserId]?.delay || 3}
+                    onChange={handleDelayChange}
+                    min="1"
+                    max="60"
+                    className={styles.numberInput}
+                    data-control="delay"
+                  />
+                </div>
+                <div className={styles.settingItem}>
+                  <button
+                    onClick={handleSaveSettings}
+                    className={styles.saveButton}
+                  >
+                    Save Settings
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className={styles.settingItem}>
-              <label>Time(s):</label>
-              <input
-                type="number"
-                name="time"
-                value={tempSettings[selectedUserId]?.times || 1}
-                onChange={handleTimeChange}
-                min="1"
-                max="100"
-                className={styles.numberInput}
-                data-control="time"
-              />
-            </div>
-            <div className={styles.settingItem}>
-              <label>Delay(s):</label>
-              <input
-                type="number"
-                name="delay"
-                value={tempSettings[selectedUserId]?.delay || 3}
-                onChange={handleDelayChange}
-                min="1"
-                max="60"
-                className={styles.numberInput}
-                data-control="delay"
-              />
-            </div>
-            <div className={styles.settingItem}>
-              <button
-                onClick={handleSaveSettings}
-                className={styles.saveButton}
-              >
-                Save Settings
-              </button>
-            </div>
-          </div>
-        </div>
 
-        <div className={styles.settingsSection}>
-          <h2>Image Settings</h2>
-          <div className={styles.settingItem}>
-            <label>Upload Image:</label>
-            <input
-              type="file"
-              accept="image/*"
-              className={styles.fileInput}
-              onChange={handleImageChange}
-            />
-          </div>
-          <div className={styles.settingItem}>
-            <button
-              onClick={handleSaveImage}
-              className={styles.saveButton}
-            >
-              Save Image
-            </button>
-          </div>
-        </div>
-
-        <div className={styles.settingsSection}>
-          <h2>Zoom Control</h2>
-          <div className={styles.settingItem}>
-            <label>Zoom Level:</label>
-            <div className={styles.zoomControls}>
-              <button className={styles.zoomButton}>-</button>
-              <input
-                type="number"
-                min="50"
-                max="200"
-                className={styles.zoomInput}
-              />
-              <span className={styles.zoomPercent}>%</span>
-              <button className={styles.zoomButton}>+</button>
+            {/* Image Settings Section */}
+            <div className={styles.settingsSection}>
+              <h2>Image Settings</h2>
+              <div className={styles.settingItem}>
+                <label>Upload Image:</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  className={styles.fileInput}
+                  onChange={handleImageChange}
+                />
+              </div>
+              <div className={styles.settingItem}>
+                <button
+                  onClick={handleSaveImage}
+                  className={styles.saveButton}
+                >
+                  Save Image
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
-    </>
+
+            {/* Zoom Control Section */}
+            <div className={styles.settingsSection}>
+              <h2>Zoom Control</h2>
+              <div className={styles.settingItem}>
+                <label>Zoom Level:</label>
+                <div className={styles.zoomControls}>
+                  <button className={styles.zoomButton}>-</button>
+                  <input
+                    type="number"
+                    min="50"
+                    max="200"
+                    className={styles.zoomInput}
+                    onChange={(e) => handleZoomChange(e.target.value)}
+                  />
+                  <span className={styles.zoomPercent}>%</span>
+                  <button className={styles.zoomButton}>+</button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </main>
+    </div>
   );
 }

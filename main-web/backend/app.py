@@ -6,6 +6,7 @@ import logging
 from typing import Optional
 import asyncio
 import json
+from datetime import datetime
 
 # Import configuration
 from config.settings import settings
@@ -18,6 +19,8 @@ from routes import preferences
 from routes import processing
 from routes import files
 from routes import preview
+from routes.data_center_routes import router as data_center_router
+from routes.admin_updates import router as admin_updates_router
 # from routes import consent 
 
 # Import response models
@@ -105,13 +108,6 @@ app.include_router(
     preferences.router,
     dependencies=[Depends(verify_api_key)]
 )
-
-# Include the consent router with API key authentication
-# app.include_router(
-#     consent.router,
-#     dependencies=[Depends(verify_api_key)]
-# )
-
 # Include the processing router with API key authentication
 app.include_router(
     processing.router,
@@ -175,33 +171,48 @@ async def websocket_endpoint(websocket: WebSocket):
         except:
             pass
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/health")
 async def health_check():
     """
-    Health check endpoint to verify the service is running correctly
+    Health check endpoint that verifies the service is running correctly
+    and checks critical dependencies.
     """
-    # Check MongoDB connection status
-    db_status = db.connection_status()
-    
-    # If database is not connected, try a quick reconnection attempt
-    if not db_status["connected"]:
+    try:
+        # Check if data center service is initialized
+        data_center_status = "ok"
         try:
-            await db.ensure_connected()
-            # Get updated status after reconnection attempt
-            db_status = db.connection_status()
+            # Try to get a value to verify data center is working
+            test_value = data_center_service.get_value("test_key")
+            if test_value is None:
+                data_center_status = "initialized"
         except Exception as e:
-            logger.error(f"Error during database reconnection attempt: {e}")
-    
-    return HealthResponse(
-        success=True,
-        status="ok",
-        version=settings.APP_VERSION,
-        database_connected=db_status["connected"],
-        components={
-            "api": "ok",
-            "database": "ok" if db_status["connected"] else f"disconnected: {db_status['error']}"
+            data_center_status = f"error: {str(e)}"
+
+        # Check WebSocket connections
+        ws_status = "ok"
+        try:
+            active_ws_count = len(active_connections)
+            ws_status = f"ok ({active_ws_count} active connections)"
+        except Exception as e:
+            ws_status = f"error: {str(e)}"
+
+        return {
+            "status": "ok",
+            "timestamp": datetime.now().isoformat(),
+            "components": {
+                "api": "ok",
+                "data_center": data_center_status,
+                "websocket": ws_status
+            }
         }
-    )
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return {
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
+
 @app.get("/api/check-backend-connection")
 async def check_backend_connection():
     """
@@ -220,6 +231,9 @@ async def check_status():
         "status": "ok",
         "active_connections": len(active_connections)
     }
+
+app.include_router(data_center_router)
+app.include_router(admin_updates_router)
 
 if __name__ == "__main__":
     import uvicorn

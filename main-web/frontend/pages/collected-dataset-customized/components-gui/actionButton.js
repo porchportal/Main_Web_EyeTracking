@@ -71,6 +71,7 @@ const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabl
 // Create the ActionButtonGroup component with client-side only rendering
 const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode, onActionClick }, ref) => {
   const router = useRouter();
+  const { settings, updateSettings } = useAdminSettings(ref);
   
   // State for button actions
   const [randomTimes, setRandomTimes] = useState(1);
@@ -96,11 +97,83 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
   const [showMask, setShowMask] = useState(false);
   const [showParameters, setShowParameters] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
-
-
   const [showPermissionPopup, setShowPermissionPopup] = useState(false);
-  const { settings } = useAdminSettings();
   const [currentUserId, setCurrentUserId] = useState('default');
+
+  // Initialize settings from props
+  useEffect(() => {
+    if (settings && settings[currentUserId]) {
+      const userSettings = settings[currentUserId];
+      setRandomTimes(Number(userSettings.times) || 1);
+      setDelaySeconds(Number(userSettings.delay) || 3);
+    }
+  }, [settings, currentUserId]);
+
+  // Expose methods through ref
+  useImperativeHandle(ref, () => ({
+    handleRandomDot,
+    handleSetRandom,
+    handleSetCalibrate,
+    handleClearAll,
+    getCaptureSettings: () => ({
+      times: randomTimes,
+      delay: delaySeconds
+    }),
+    setCaptureSettings: (newSettings) => {
+      console.log('ActionButton: Setting capture settings:', newSettings);
+      if (newSettings) {
+        if (typeof newSettings.times === 'number') {
+          setRandomTimes(newSettings.times);
+        }
+        if (typeof newSettings.delay === 'number') {
+          setDelaySeconds(newSettings.delay);
+        }
+        // Update UI elements if they exist
+        const timeInput = document.querySelector('[data-control="time"]');
+        const delayInput = document.querySelector('[data-control="delay"]');
+        
+        if (timeInput) {
+          timeInput.value = newSettings.times;
+        }
+        if (delayInput) {
+          delayInput.value = newSettings.delay;
+        }
+      }
+    },
+    updateSettings: (newSettings) => {
+      console.log('ActionButton: Updating settings:', newSettings);
+      if (newSettings) {
+        if (typeof newSettings.times === 'number') {
+          setRandomTimes(newSettings.times);
+        }
+        if (typeof newSettings.delay === 'number') {
+          setDelaySeconds(newSettings.delay);
+        }
+      }
+    }
+  }), [randomTimes, delaySeconds]);
+
+  // Listen for user ID changes
+  useEffect(() => {
+    const handleUserIdChange = (event) => {
+      if (event.detail && event.detail.type === 'userIdChange') {
+        const newUserId = event.detail.userId;
+        setCurrentUserId(newUserId);
+        
+        // Update settings for new user
+        if (settings && settings[newUserId]) {
+          const userSettings = settings[newUserId];
+          setRandomTimes(Number(userSettings.times) || 1);
+          setDelaySeconds(Number(userSettings.delay) || 3);
+        }
+      }
+    };
+
+    window.addEventListener('userIdChange', handleUserIdChange);
+    return () => {
+      window.removeEventListener('userIdChange', handleUserIdChange);
+    };
+  }, [settings]);
 
   // Listen for settings updates
   useEffect(() => {
@@ -109,10 +182,12 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         const { userId, times, delay } = event.detail;
         if (userId === currentUserId) {
           if (times !== undefined) {
-            setRandomTimes(times);
+            const newTimes = Number(times) || 1;
+            setRandomTimes(newTimes);
           }
           if (delay !== undefined) {
-            setDelaySeconds(delay);
+            const newDelay = Number(delay) || 3;
+            setDelaySeconds(newDelay);
           }
         }
       }
@@ -123,54 +198,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
     };
   }, [currentUserId]);
-
-  // Listen for user ID changes
-  useEffect(() => {
-    const handleUserIdChange = (event) => {
-      if (event.detail && event.detail.type === 'userIdChange') {
-        setCurrentUserId(event.detail.userId);
-      }
-    };
-
-    window.addEventListener('userIdChange', handleUserIdChange);
-    return () => {
-      window.removeEventListener('userIdChange', handleUserIdChange);
-    };
-  }, []);
-
-  useImperativeHandle(ref, () => ({
-    handleRandomDot,  
-    handleSetRandom,
-    handleSetCalibrate,
-    handleClearAll,
-    getCaptureSettings: () => ({
-      times: randomTimes,
-      delay: delaySeconds
-    }),
-    setCaptureSettings: (settings) => {
-      console.log('ActionButton received settings:', settings);
-      if (settings.times !== undefined) {
-        setRandomTimes(settings.times);
-      }
-      if (settings.delay !== undefined) {
-        setDelaySeconds(settings.delay);
-      }
-    }
-  }), [randomTimes, delaySeconds]);
-  
-    // Make initializeCanvas available globally
-  // useEffect(() => {
-  //   // Skip during SSR
-  //   if (typeof window === 'undefined') return;
-    
-  //   // Make initializeCanvas available to other components through the window object
-  //   window.initializeCanvas = initializeCanvas;
-    
-  //   return () => {
-  //     // Clean up
-  //     delete window.initializeCanvas;
-  //   };
-  // }, []);
 
   useEffect(() => {
     // Make functions globally accessible as a fallback

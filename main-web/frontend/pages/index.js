@@ -10,12 +10,25 @@ export default function HomePage() {
   const { isProcessReady, toggleProcessStatus } = useProcessStatus();
   const { isConnected, authValid, checkConnection } = useBackendConnection();
   const { consentStatus, userId } = useConsent();
+  const [isAdminOverride, setIsAdminOverride] = useState(false);
 
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
     checkConnection(true);
+
+    // Listen for admin override events
+    const handleAdminOverride = (event) => {
+      if (event.detail && event.detail.type === 'adminOverride') {
+        setIsAdminOverride(event.detail.enabled);
+      }
+    };
+
+    window.addEventListener('adminOverride', handleAdminOverride);
+    return () => {
+      window.removeEventListener('adminOverride', handleAdminOverride);
+    };
   }, []);
 
   const handleButtonClick = (destination) => {
@@ -27,6 +40,14 @@ export default function HomePage() {
         return;
       } else if (!authValid) {
         alert('Connected to backend but authentication failed. Please check your API key.');
+        return;
+      }
+    }
+
+    // Special handling for collected-dataset-custom
+    if (destination === 'collected-dataset-custom') {
+      if (!consentStatus && !isAdminOverride) {
+        alert('Please accept cookies to access this feature.');
         return;
       }
     }
@@ -54,6 +75,18 @@ export default function HomePage() {
         alert(`Navigating to ${destination} - This feature is coming soon!`);
         break;
     }
+  };
+
+  // Get button class based on consent status and admin override
+  const getButtonClass = (destination) => {
+    if (destination === 'collected-dataset-custom') {
+      if (consentStatus || isAdminOverride) {
+        return styles.buttonEnabled;
+      } else {
+        return styles.buttonDisabled;
+      }
+    }
+    return styles.button;
   };
 
   const getProcessButtonClass = () => {

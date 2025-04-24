@@ -1,143 +1,184 @@
 import { useEffect, useRef, useState } from 'react';
 
-export const useAdminSettings = (actionButtonRef) => {
-  const [settings, setSettings] = useState({
-    default: {
-      times: 1,
-      delay: 3
-    }
-  });
-  
-  // Add a useRef to track if settings have been initialized
+export const useAdminSettings = (ref) => {
+  const [settings, setSettings] = useState({});
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [isTopBarUpdated, setIsTopBarUpdated] = useState(false);
   const initialized = useRef(false);
+  const ws = useRef(null);
 
+  // Initialize WebSocket connection
   useEffect(() => {
-    console.log('adminSettings useEffect running, settings:', settings);
+    ws.current = new WebSocket(`ws://${window.location.host}/api/data-center/ws`);
     
-    // Function to update settings in action button
-    const updateActionButtonSettings = (userId = 'default') => {
-      console.log('Attempting to update action button settings:', settings[userId]);
-      
-      // Method 1: Use ref if available
-      if (actionButtonRef && actionButtonRef.current) {
-        console.log('Updating via actionButtonRef.current');
+    ws.current.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data && data.key === `settings_${currentUserId}`) {
         try {
-          actionButtonRef.current.setCaptureSettings(settings[userId]);
-        } catch (err) {
-          console.error('Error updating via ref:', err);
-        }
-      } else {
-        console.log('actionButtonRef not available');
-      }
-      
-      // Method 2: Use global window object as fallback
-      if (typeof window !== 'undefined') {
-        console.log('Checking for global actionButtonFunctions');
-        
-        // Try to find global functions - retry with setTimeout if not found
-        const tryUpdateGlobal = (retriesLeft = 3) => {
-          if (window.actionButtonFunctions && window.actionButtonFunctions.setCaptureSettings) {
-            console.log('Updating via window.actionButtonFunctions');
-            try {
-              window.actionButtonFunctions.setCaptureSettings(settings[userId]);
-              console.log('Settings updated via global functions');
-            } catch (err) {
-              console.error('Error updating via global functions:', err);
+          const parsedSettings = JSON.parse(data.value);
+          setSettings(prev => ({
+            ...prev,
+            [currentUserId]: parsedSettings
+          }));
+          
+          // First update topBar through ref
+          if (ref && ref.current) {
+            if (ref.current.setCaptureSettings) {
+              ref.current.setCaptureSettings(parsedSettings);
+              setIsTopBarUpdated(true);
             }
-          } else if (retriesLeft > 0) {
-            console.log(`actionButtonFunctions not found, retrying... (${retriesLeft} attempts left)`);
-            setTimeout(() => tryUpdateGlobal(retriesLeft - 1), 500);
-          } else {
-            console.warn('actionButtonFunctions not available after retries');
           }
-        };
-        
-        tryUpdateGlobal();
+        } catch (error) {
+          console.error('Error parsing settings from WebSocket:', error);
+        }
       }
     };
 
-    // Function to handle settings changes from admin page
-    const handleSettingsChange = (event) => {
-      if (event.detail && event.detail.type === 'captureSettings') {
-        console.log('Received captureSettings event:', event.detail);
-        const { userId, times, delay } = event.detail;
-        if (times !== undefined || delay !== undefined) {
-          setSettings(prevSettings => ({
-            ...prevSettings,
-            [userId]: {
-              ...prevSettings[userId],
-              times: times !== undefined ? times : prevSettings[userId]?.times || 1,
-              delay: delay !== undefined ? delay : prevSettings[userId]?.delay || 3
-            }
+    return () => {
+      if (ws.current) {
+        ws.current.close();
+      }
+    };
+  }, [currentUserId, ref]);
+
+  // Effect to handle index.js update after topBar is updated
+  useEffect(() => {
+    if (isTopBarUpdated) {
+      // Dispatch event to update index.js
+      const event = new CustomEvent('settingsUpdated', {
+        detail: {
+          type: 'settings',
+          userId: currentUserId,
+          settings: settings[currentUserId]
+        }
+      });
+      window.dispatchEvent(event);
+      setIsTopBarUpdated(false);
+    }
+  }, [isTopBarUpdated, currentUserId, settings]);
+
+  // Load settings from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedSettings = localStorage.getItem('adminSettings');
+      if (savedSettings) {
+        const parsedSettings = JSON.parse(savedSettings);
+        setSettings(parsedSettings);
+      }
+    } catch (error) {
+      console.error('Error loading settings from localStorage:', error);
+    }
+  }, []);
+
+  // Save settings to localStorage when they change
+  useEffect(() => {
+    if (initialized.current) {
+      try {
+        localStorage.setItem('adminSettings', JSON.stringify(settings));
+      } catch (error) {
+        console.error('Error saving settings to localStorage:', error);
+      }
+    }
+  }, [settings]);
+
+  // Listen for user ID changes
+  useEffect(() => {
+    const handleUserIdChange = (event) => {
+      if (event.detail && event.detail.userId) {
+        setCurrentUserId(event.detail.userId);
+        // Request current settings from data center
+        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+          ws.current.send(JSON.stringify({
+            type: 'request',
+            key: `settings_${event.detail.userId}`
           }));
         }
-        
-        // Immediately try to update the action button
-        setTimeout(() => updateActionButtonSettings(userId), 100);
       }
     };
 
-    // Listen for settings changes
-    window.addEventListener('captureSettingsUpdate', handleSettingsChange);
-
-    // Initial update - only if we haven't initialized or settings changed
-    if (!initialized.current) {
-      initialized.current = true;
-      updateActionButtonSettings('default');
-    }
-
-    // Cleanup
+    window.addEventListener('userIdChange', handleUserIdChange);
     return () => {
-      window.removeEventListener('captureSettingsUpdate', handleSettingsChange);
+      window.removeEventListener('userIdChange', handleUserIdChange);
     };
-  }, [settings, actionButtonRef]);
+  }, []);
 
-  // Function to update settings
-  const updateSettings = (newSettings, userId = 'default') => {
-    console.log('useAdminSettings.updateSettings called with:', newSettings, 'for user:', userId);
-    
-    // Validate the new settings
-    const validatedSettings = {
-      times: Number(newSettings.times) || 1,
-      delay: Number(newSettings.delay) || 3
+  // Listen for settings updates from admin page
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      if (event.detail && event.detail.type === 'captureSettings') {
+        const { userId, times, delay } = event.detail;
+        if (times !== undefined || delay !== undefined) {
+          const newSettings = {
+            times: times !== undefined ? times : (settings[userId]?.times || 1),
+            delay: delay !== undefined ? delay : (settings[userId]?.delay || 3)
+          };
+
+          setSettings(prev => ({
+            ...prev,
+            [userId]: newSettings
+          }));
+
+          // First update topBar through ref
+          if (ref && ref.current) {
+            if (ref.current.setCaptureSettings) {
+              ref.current.setCaptureSettings(newSettings);
+              setIsTopBarUpdated(true);
+            }
+          }
+        }
+      }
     };
-    
-    // Update our local state
-    setSettings(prevSettings => {
+
+    window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    return () => {
+      window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    };
+  }, [settings, ref]);
+
+  const updateSettings = async (newSettings, userId) => {
+    try {
+      if (!newSettings || typeof newSettings !== 'object') {
+        throw new Error('Invalid settings format');
+      }
+
+      const { times, delay } = newSettings;
+      if (typeof times !== 'number' || typeof delay !== 'number' || times < 1 || delay < 1) {
+        throw new Error('Invalid settings values');
+      }
+
       const updatedSettings = {
-        ...prevSettings,
-        [userId]: validatedSettings
+        ...settings,
+        [userId]: {
+          times,
+          delay
+        }
       };
-      return updatedSettings;
-    });
-    
-    // Create and dispatch a consistent event format
-    const event = new CustomEvent('captureSettingsUpdate', {
-      detail: {
-        type: 'captureSettings',
-        userId,
-        times: validatedSettings.times,
-        delay: validatedSettings.delay
+
+      setSettings(updatedSettings);
+      initialized.current = true;
+
+      // Send settings to data center via WebSocket
+      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+        ws.current.send(JSON.stringify({
+          key: `settings_${userId}`,
+          value: JSON.stringify({ times, delay }),
+          data_type: 'json'
+        }));
       }
-    });
-    
-    console.log('Dispatching event:', event);
-    window.dispatchEvent(event);
-    
-    // Direct update to action button ref if available
-    if (actionButtonRef && actionButtonRef.current && actionButtonRef.current.setCaptureSettings) {
-      try {
-        actionButtonRef.current.setCaptureSettings(validatedSettings);
-      } catch (err) {
-        console.error('Error updating via ref:', err);
+
+      // First update topBar through ref
+      if (ref && ref.current) {
+        if (ref.current.setCaptureSettings) {
+          ref.current.setCaptureSettings({ times, delay });
+          setIsTopBarUpdated(true);
+        }
       }
+
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      throw error;
     }
-    
-    return validatedSettings;
   };
 
-  return {
-    settings,
-    updateSettings
-  };
+  return { settings, updateSettings };
 };
