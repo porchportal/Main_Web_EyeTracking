@@ -1237,33 +1237,34 @@ export default function CollectedDatasetPage() {
     setTimeout(loadSettings, 1000);
   }, [userId]);
 
-  // Add WebSocket connection for real-time updates
+  // Add polling for real-time updates
   useEffect(() => {
-    const ws = new WebSocket(`ws://${window.location.host}/api/data-center/ws`);
-    
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data) {
-        // Handle settings updates
-        const userSettings = data.find(item => item.key === `settings_${userId}`);
-        if (userSettings) {
-          const parsedSettings = JSON.parse(userSettings.value);
-          if (actionButtonGroupRef.current && actionButtonGroupRef.current.updateSettings) {
-            actionButtonGroupRef.current.updateSettings(parsedSettings);
-          }
+    const fetchUpdates = async () => {
+      if (!userId) return;
+      
+      try {
+        const response = await fetch(`/api/admin/load-settings?userId=${userId}`);
+        if (!response.ok) throw new Error('Failed to fetch settings');
+        
+        const settings = await response.json();
+        if (actionButtonGroupRef.current && actionButtonGroupRef.current.updateSettings) {
+          actionButtonGroupRef.current.updateSettings(settings);
         }
 
-        // Handle image updates
-        const userImage = data.find(item => item.key === `image_${userId}`);
-        if (userImage) {
-          // Update image in the UI if needed
-          // You can add your image update logic here
-        }
+        // You can add image fetching logic here if needed
+      } catch (error) {
+        console.error('Error fetching updates:', error);
       }
     };
 
+    // Initial fetch
+    fetchUpdates();
+
+    // Set up polling interval
+    const interval = setInterval(fetchUpdates, 3000);
+
     return () => {
-      ws.close();
+      clearInterval(interval);
     };
   }, [userId]);
 

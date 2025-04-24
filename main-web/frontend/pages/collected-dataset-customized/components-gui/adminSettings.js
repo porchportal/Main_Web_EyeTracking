@@ -5,38 +5,45 @@ export const useAdminSettings = (ref) => {
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isTopBarUpdated, setIsTopBarUpdated] = useState(false);
   const initialized = useRef(false);
-  const ws = useRef(null);
+  const pollingInterval = useRef(null);
 
-  // Initialize WebSocket connection
+  // Initialize polling for settings updates
   useEffect(() => {
-    ws.current = new WebSocket(`ws://${window.location.host}/api/data-center/ws`);
-    
-    ws.current.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data && data.key === `settings_${currentUserId}`) {
-        try {
-          const parsedSettings = JSON.parse(data.value);
-          setSettings(prev => ({
-            ...prev,
-            [currentUserId]: parsedSettings
-          }));
-          
-          // First update topBar through ref
-          if (ref && ref.current) {
-            if (ref.current.setCaptureSettings) {
-              ref.current.setCaptureSettings(parsedSettings);
-              setIsTopBarUpdated(true);
-            }
+    const fetchSettings = async () => {
+      if (!currentUserId) return;
+      
+      try {
+        const response = await fetch(`/api/data-center/settings/${currentUserId}`);
+        if (!response.ok) throw new Error('Failed to fetch settings');
+        
+        const newSettings = await response.json();
+        console.log('Fetched settings:', newSettings);
+        setSettings(prev => ({
+          ...prev,
+          [currentUserId]: newSettings
+        }));
+        
+        // First update topBar through ref
+        if (ref && ref.current) {
+          if (ref.current.setCaptureSettings) {
+            ref.current.setCaptureSettings(newSettings);
+            setIsTopBarUpdated(true);
           }
-        } catch (error) {
-          console.error('Error parsing settings from WebSocket:', error);
         }
+      } catch (error) {
+        console.error('Error fetching settings:', error);
       }
     };
 
+    // Initial fetch
+    fetchSettings();
+
+    // Set up polling interval
+    pollingInterval.current = setInterval(fetchSettings, 3000);
+
     return () => {
-      if (ws.current) {
-        ws.current.close();
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
       }
     };
   }, [currentUserId, ref]);
@@ -86,13 +93,28 @@ export const useAdminSettings = (ref) => {
     const handleUserIdChange = (event) => {
       if (event.detail && event.detail.userId) {
         setCurrentUserId(event.detail.userId);
-        // Request current settings from data center
-        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-          ws.current.send(JSON.stringify({
-            type: 'request',
-            key: `settings_${event.detail.userId}`
-          }));
-        }
+        // Trigger immediate settings fetch for new user
+        const fetchSettings = async () => {
+          try {
+            const response = await fetch(`/api/data-center/settings/${event.detail.userId}`);
+            if (!response.ok) throw new Error('Failed to fetch settings');
+            
+            const newSettings = await response.json();
+            console.log('Fetched settings for new user:', newSettings);
+            setSettings(prev => ({
+              ...prev,
+              [event.detail.userId]: newSettings
+            }));
+            
+            if (ref && ref.current && ref.current.setCaptureSettings) {
+              ref.current.setCaptureSettings(newSettings);
+              setIsTopBarUpdated(true);
+            }
+          } catch (error) {
+            console.error('Error fetching settings for new user:', error);
+          }
+        };
+        fetchSettings();
       }
     };
 
@@ -100,7 +122,7 @@ export const useAdminSettings = (ref) => {
     return () => {
       window.removeEventListener('userIdChange', handleUserIdChange);
     };
-  }, []);
+  }, [ref]);
 
   // Listen for settings updates from admin page
   useEffect(() => {
@@ -125,6 +147,27 @@ export const useAdminSettings = (ref) => {
               setIsTopBarUpdated(true);
             }
           }
+
+          // Save to backend
+          const saveToBackend = async () => {
+            try {
+              const response = await fetch(`/api/data-center/settings/${userId}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(newSettings)
+              });
+
+              if (!response.ok) {
+                throw new Error('Failed to save settings to backend');
+              }
+              console.log('Settings saved to backend:', newSettings);
+            } catch (error) {
+              console.error('Error saving settings to backend:', error);
+            }
+          };
+          saveToBackend();
         }
       }
     };
@@ -157,14 +200,19 @@ export const useAdminSettings = (ref) => {
       setSettings(updatedSettings);
       initialized.current = true;
 
-      // Send settings to data center via WebSocket
-      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-        ws.current.send(JSON.stringify({
-          key: `settings_${userId}`,
-          value: JSON.stringify({ times, delay }),
-          data_type: 'json'
-        }));
+      // Save settings to backend
+      const response = await fetch(`/api/data-center/settings/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ times, delay })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save settings to backend');
       }
+      console.log('Settings updated and saved:', { userId, times, delay });
 
       // First update topBar through ref
       if (ref && ref.current) {

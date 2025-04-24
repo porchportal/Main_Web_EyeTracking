@@ -1,19 +1,112 @@
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException
 from services.data_center_service import data_center_service
 import json
 from typing import List, Dict, Any
 from datetime import datetime
 import logging
 
-router = APIRouter()
+# Set up router
+router = APIRouter(
+    prefix="/api/data-center",
+    tags=["data_center"],
+    responses={
+        404: {"description": "Not found"},
+        500: {"description": "Internal server error"}
+    }
+)
+
 logger = logging.getLogger(__name__)
 
-@router.get("/api/data-center/values")
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            return obj.isoformat()
+        return super().default(obj)
+
+@router.get("/settings/{user_id}")
+async def get_settings(user_id: str):
+    """Get settings for a specific user"""
+    try:
+        settings = data_center_service.get_value(f"settings_{user_id}")
+        if settings:
+            return settings
+        return {"times": 1, "delay": 3}  # Default settings
+    except Exception as e:
+        logger.error(f"Error getting settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/settings/{user_id}")
+async def update_settings(user_id: str, settings: Dict[str, Any]):
+    """Update settings for a specific user"""
+    try:
+        data_center_service.update_value(
+            f"settings_{user_id}",
+            settings,
+            "json"
+        )
+        return {"success": True, "message": "Settings updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating settings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/image/{user_id}")
+async def get_image(user_id: str):
+    """Get image for a specific user"""
+    try:
+        image = data_center_service.get_value(f"image_{user_id}")
+        if image:
+            return {"image": image}
+        return {"image": None}
+    except Exception as e:
+        logger.error(f"Error getting image: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/image/{user_id}")
+async def update_image(user_id: str, image_data: Dict[str, str]):
+    """Update image for a specific user"""
+    try:
+        data_center_service.update_value(
+            f"image_{user_id}",
+            image_data["image"],
+            "image"
+        )
+        return {"success": True, "message": "Image updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating image: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/zoom/{user_id}")
+async def get_zoom(user_id: str):
+    """Get zoom level for a specific user"""
+    try:
+        zoom = data_center_service.get_value(f"zoom_{user_id}")
+        if zoom:
+            return {"zoom": zoom}
+        return {"zoom": 1.0}  # Default zoom level
+    except Exception as e:
+        logger.error(f"Error getting zoom level: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/zoom/{user_id}")
+async def update_zoom(user_id: str, zoom_data: Dict[str, float]):
+    """Update zoom level for a specific user"""
+    try:
+        data_center_service.update_value(
+            f"zoom_{user_id}",
+            zoom_data["zoom"],
+            "number"
+        )
+        return {"success": True, "message": "Zoom level updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating zoom level: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/values")
 async def get_values():
     """Get all current values"""
     return data_center_service.get_all_values()
 
-@router.post("/api/data-center/update")
+@router.post("/update")
 async def update_value(data: Dict[str, Any]):
     """Update a value"""
     key = data.get('key')
@@ -24,89 +117,4 @@ async def update_value(data: Dict[str, Any]):
         return {"error": "Missing required fields"}
     
     data_center_service.update_value(key, value, data_type)
-    return {"success": True}
-
-# Store active WebSocket connections
-active_connections: Dict[str, WebSocket] = {}
-
-class DateTimeEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        return super().default(obj)
-
-@router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    client_id = id(websocket)
-    active_connections[client_id] = websocket
-    
-    try:
-        while True:
-            data = await websocket.receive_text()
-            try:
-                # Parse incoming message
-                message = json.loads(data)
-                
-                # Handle different message types
-                if message.get('type') == 'request':
-                    # Handle settings request
-                    key = message.get('key')
-                    if key:
-                        # Get settings from data center
-                        settings = data_center_service.get_value(key)
-                        if settings:
-                            # Ensure settings are JSON serializable
-                            if isinstance(settings, dict):
-                                response = {
-                                    'key': key,
-                                    'value': json.dumps(settings, cls=DateTimeEncoder),
-                                    'data_type': 'json'
-                                }
-                            else:
-                                response = {
-                                    'key': key,
-                                    'value': str(settings),
-                                    'data_type': 'string'
-                                }
-                            await websocket.send_json(response)
-                
-                elif message.get('key') and message.get('value'):
-                    # Handle settings update
-                    key = message['key']
-                    value = message['value']
-                    data_type = message.get('data_type', 'string')
-                    
-                    # Update data center
-                    if data_type == 'json':
-                        try:
-                            value = json.loads(value)
-                        except json.JSONDecodeError:
-                            logger.error(f"Invalid JSON value for key {key}")
-                            continue
-                    
-                    data_center_service.update_value(key, value, data_type)
-                    
-                    # Broadcast update to all connected clients
-                    for connection in active_connections.values():
-                        try:
-                            await connection.send_json({
-                                'key': key,
-                                'value': json.dumps(value, cls=DateTimeEncoder) if data_type == 'json' else str(value),
-                                'data_type': data_type
-                            })
-                        except Exception as e:
-                            logger.error(f"Error broadcasting to client: {e}")
-            
-            except json.JSONDecodeError as e:
-                logger.error(f"Error parsing WebSocket message: {e}")
-                continue
-            except Exception as e:
-                logger.error(f"Error processing WebSocket message: {e}")
-                continue
-    
-    except WebSocketDisconnect:
-        logger.info(f"Client {client_id} disconnected")
-    finally:
-        if client_id in active_connections:
-            del active_connections[client_id] 
+    return {"success": True} 

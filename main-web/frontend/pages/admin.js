@@ -126,7 +126,7 @@ export default function AdminPage({ initialSettings }) {
   const [notification, setNotification] = useState({ show: false, message: '' });
   const [debugInfo, setDebugInfo] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('default');
-  const ws = useRef(null);
+  const pollingInterval = useRef(null);
 
   // Initialize tempSettings with initial settings
   useEffect(() => {
@@ -164,25 +164,37 @@ export default function AdminPage({ initialSettings }) {
     }
   }, []);
 
-  // WebSocket connection for real-time updates
+  // Polling for settings updates
   useEffect(() => {
-    ws.current = new WebSocket(`ws://${window.location.host}/api/data-center/ws`);
-    
-    ws.current.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      // Update settings based on data center values
-      if (data) {
-        const userSettings = data.find(item => item.key === `settings_${selectedUserId}`);
-        if (userSettings) {
-          const parsedSettings = JSON.parse(userSettings.value);
-          updateSettings(parsedSettings, selectedUserId);
-        }
+    const fetchSettings = async () => {
+      if (!selectedUserId) return;
+      
+      try {
+        const response = await fetch(`/api/admin/load-settings?userId=${selectedUserId}`);
+        if (!response.ok) throw new Error('Failed to fetch settings');
+        
+        const newSettings = await response.json();
+        setTempSettings(prev => ({
+          ...prev,
+          [selectedUserId]: newSettings
+        }));
+        
+        // Update settings through the hook
+        updateSettings(newSettings, selectedUserId);
+      } catch (error) {
+        console.error('Error fetching settings:', error);
       }
     };
 
+    // Initial fetch
+    fetchSettings();
+
+    // Set up polling interval
+    pollingInterval.current = setInterval(fetchSettings, 3000);
+
     return () => {
-      if (ws.current) {
-        ws.current.close();
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
       }
     };
   }, [selectedUserId]);
@@ -228,14 +240,8 @@ export default function AdminPage({ initialSettings }) {
     }
   };
 
-  const updateDataCenterSettings = (newSettings) => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify({
-        key: `settings_${selectedUserId}`,
-        value: JSON.stringify(newSettings),
-        data_type: 'json'
-      }));
-
+  const updateDataCenterSettings = async (newSettings) => {
+    try {
       // Update local settings
       const updatedSettings = {
         ...settings,
@@ -259,6 +265,27 @@ export default function AdminPage({ initialSettings }) {
         });
         window.dispatchEvent(event);
       }
+
+      // Save to server using REST API
+      const response = await fetch('/api/admin/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+        },
+        body: JSON.stringify({
+          userId: selectedUserId,
+          type: 'settings',
+          data: newSettings
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save settings');
+      }
+    } catch (error) {
+      console.error('Error updating settings:', error);
+      showNotification('Failed to update settings. Please try again.', 'error');
     }
   };
 
@@ -277,26 +304,69 @@ export default function AdminPage({ initialSettings }) {
   const handleImageChange = (event) => {
     if (event.target.files && event.target.files[0]) {
       const reader = new FileReader();
-      reader.onload = (e) => {
-        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-          ws.current.send(JSON.stringify({
-            key: `image_${selectedUserId}`,
-            value: e.target.result,
-            data_type: 'image'
-          }));
+      reader.onload = async (e) => {
+        try {
+          // Save image to server using REST API
+          const response = await fetch('/api/admin/update', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+            },
+            body: JSON.stringify({
+              userId: selectedUserId,
+              type: 'image',
+              data: e.target.result
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to save image');
+          }
+
+          // Dispatch event for components to listen to
+          if (typeof window !== 'undefined') {
+            const event = new CustomEvent('imageUpdate', {
+              detail: {
+                type: 'image',
+                userId: selectedUserId,
+                image: e.target.result
+              }
+            });
+            window.dispatchEvent(event);
+          }
+
+          showNotification('Image saved successfully!');
+        } catch (error) {
+          console.error('Error saving image:', error);
+          showNotification('Failed to save image. Please try again.', 'error');
         }
       };
       reader.readAsDataURL(event.target.files[0]);
     }
   };
 
-  const handleZoomChange = (value) => {
-    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-      ws.current.send(JSON.stringify({
-        key: `zoom_${selectedUserId}`,
-        value: value,
-        data_type: 'number'
-      }));
+  const handleZoomChange = async (value) => {
+    try {
+      const response = await fetch('/api/admin/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+        },
+        body: JSON.stringify({
+          userId: selectedUserId,
+          type: 'zoom',
+          data: value
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update zoom level');
+      }
+    } catch (error) {
+      console.error('Error updating zoom level:', error);
+      showNotification('Failed to update zoom level. Please try again.', 'error');
     }
   };
 
@@ -307,15 +377,6 @@ export default function AdminPage({ initialSettings }) {
       
       // Log what we're trying to update
       console.log(`Admin: Saving settings for user ${selectedUserId}:`, userSettings);
-
-      // Send settings to data center via WebSocket
-      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-        ws.current.send(JSON.stringify({
-          key: `settings_${selectedUserId}`,
-          value: JSON.stringify(userSettings),
-          data_type: 'json'
-        }));
-      }
 
       // Update local settings
       setTempSettings(prev => ({
@@ -342,7 +403,7 @@ export default function AdminPage({ initialSettings }) {
         window.dispatchEvent(event);
       }
 
-      // Save to server using new unified endpoint
+      // Save to server using REST API
       const response = await fetch('/api/admin/update', {
         method: 'POST',
         headers: {

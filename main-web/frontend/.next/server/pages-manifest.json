@@ -4,8 +4,7 @@
   "/_document": "pages/_document.js",
   "/admin": "pages/admin.js",
   "/": "pages/index.js",
-  "/collected-dataset-customized": "pages/collected-dataset-customized.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/api/admin/consent-data": "pages/api/admin/consent-data.js",
+  "/collected-dataset-customized": "pages/collected-dataset-customized.js",
   "/api/admin/load-settings": "pages/api/admin/load-settings.js"
 }

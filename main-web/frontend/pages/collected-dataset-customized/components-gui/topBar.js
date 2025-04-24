@@ -24,16 +24,29 @@ const TopBar = ({
     setCanvasStatus(isCanvasVisible);
   }, [isCanvasVisible]);
 
-  // Listen for user ID changes
+  // Listen for user ID changes and immediately fetch settings
   useEffect(() => {
-    const handleUserIdChange = (event) => {
+    const handleUserIdChange = async (event) => {
       if (event.detail && event.detail.userId) {
         console.log('User ID changed:', event.detail.userId);
-        setCurrentUserId(event.detail.userId);
-        // Immediately update settings for the new user
-        if (settings && settings[event.detail.userId]) {
-          console.log('Updating settings for user:', settings[event.detail.userId]);
-          setCurrentSettings(settings[event.detail.userId]);
+        const newUserId = event.detail.userId;
+        setCurrentUserId(newUserId);
+        
+        // Immediately fetch settings for the new user
+        try {
+          const response = await fetch(`/api/data-center/settings/${newUserId}`);
+          if (!response.ok) throw new Error('Failed to fetch settings');
+          
+          const userSettings = await response.json();
+          console.log('Fetched settings for new user:', userSettings);
+          setCurrentSettings(userSettings);
+          
+          // Also update through the settings context
+          if (updateSettings) {
+            await updateSettings(userSettings, newUserId);
+          }
+        } catch (error) {
+          console.error('Error fetching settings for new user:', error);
         }
       }
     };
@@ -42,12 +55,12 @@ const TopBar = ({
     return () => {
       window.removeEventListener('userIdChange', handleUserIdChange);
     };
-  }, [settings]);
+  }, [updateSettings]);
 
-  // Update settings when they change or user ID changes
+  // Update settings when they change in the context
   useEffect(() => {
     if (settings && currentUserId) {
-      console.log('Settings updated for user:', currentUserId, settings[currentUserId]);
+      console.log('Settings context updated for user:', currentUserId, settings[currentUserId]);
       const userSettings = settings[currentUserId];
       if (userSettings) {
         setCurrentSettings(userSettings);
@@ -62,11 +75,34 @@ const TopBar = ({
         const { userId, times, delay } = event.detail;
         console.log('Received settings update:', { userId, times, delay });
         if (userId === currentUserId) {
-          setCurrentSettings(prev => ({
-            ...prev,
-            times: times !== undefined ? times : prev.times,
-            delay: delay !== undefined ? delay : prev.delay
-          }));
+          console.log('Updating settings for current user:', userId);
+          console.log('Current settings before update:', currentSettings);
+          const newSettings = {
+            times: times !== undefined ? times : currentSettings.times,
+            delay: delay !== undefined ? delay : currentSettings.delay
+          };
+          setCurrentSettings(newSettings);
+          
+          // Save to backend
+          const saveToBackend = async () => {
+            try {
+              const response = await fetch(`/api/data-center/settings/${userId}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(newSettings)
+              });
+
+              if (!response.ok) {
+                throw new Error('Failed to save settings to backend');
+              }
+              console.log('Settings saved to backend:', newSettings);
+            } catch (error) {
+              console.error('Error saving settings to backend:', error);
+            }
+          };
+          saveToBackend();
         }
       }
     };
@@ -75,7 +111,7 @@ const TopBar = ({
     return () => {
       window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
     };
-  }, [currentUserId]);
+  }, [currentUserId, currentSettings]);
 
   // Handle settings change
   const handleSettingsChange = async (newSettings) => {
