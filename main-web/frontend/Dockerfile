@@ -1,5 +1,4 @@
-
-FROM node:23.10.0
+FROM node:23.11.0-alpine
 
 # Set working directory
 WORKDIR /app
@@ -7,8 +6,8 @@ WORKDIR /app
 # Copy package manifests
 COPY package*.json ./
 
-# Install dependencies from package-lock.json (for reproducible builds)
-RUN npm ci
+# Install dependencies
+RUN npm install
 
 # Copy the rest of the app
 COPY . .
@@ -19,5 +18,5 @@ RUN npm run build
 # Expose the frontend port
 EXPOSE 3000
 
-# Run Next.js in production
+# Start the application
 CMD ["npm", "start"]

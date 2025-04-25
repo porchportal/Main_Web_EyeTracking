@@ -317,3 +317,8 @@ export const checkProcessingStatus = async () => {
     };
   }
 };
+
+// Add default export component
+export default function ProcessApiPage() {
+  return null; // This is a utility file, so we don't need to render anything
+}

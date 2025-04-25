@@ -5,7 +5,8 @@ import dynamic from 'next/dynamic';
 import TopBar from './components-gui/topBar';
 import DisplayResponse from './components-gui/displayResponse';
 import { ActionButtonGroup } from './components-gui/actionButton';
-import { showCapturePreview, captureImagesAtPoint, drawRedDot, getRandomPosition, runCountdown } from './components-gui/Action/countSave';
+import { showCapturePreview, captureImagesAtPoint, drawRedDot, getRandomPosition, runCountdown } from '../../components/collected-dataset-customized/Action/countSave';
+import { generateCalibrationPoints } from '../../components/collected-dataset-customized/Action/CalibratePoints';
 import { useConsent } from '../../components/consent/ConsentContext';
 
 // Dynamically load the video processor component (not the hook directly)
@@ -107,6 +108,70 @@ export default function CollectedDatasetPage() {
   // Get user ID from consent context
   const { userId } = useConsent();
   
+  // Handle user ID changes
+  useEffect(() => {
+    if (userId && userId !== currentUserId) {
+      console.log('User ID changed in index.js:', userId);
+      setCurrentUserId(userId);
+      
+      // Dispatch event to notify other components
+      const event = new CustomEvent('userIdChange', {
+        detail: { userId }
+      });
+      window.dispatchEvent(event);
+      
+      // Load settings for the new user
+      loadSettings(userId);
+    }
+  }, [userId, currentUserId]);
+
+  // Load settings for a specific user
+  const loadSettings = async (userId) => {
+    try {
+      console.log('Loading settings for user:', userId);
+      const response = await fetch(`/api/data-center/settings/${userId}`);
+      if (!response.ok) throw new Error('Failed to fetch settings');
+      
+      const userSettings = await response.json();
+      console.log('Fetched settings:', userSettings);
+      
+      // Dispatch settings update event
+      const event = new CustomEvent('captureSettingsUpdate', {
+        detail: {
+          type: 'captureSettings',
+          userId,
+          ...userSettings
+        }
+      });
+      window.dispatchEvent(event);
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
+
+  // Listen for settings updates
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      if (event.detail && event.detail.type === 'captureSettings') {
+        const { userId, times, delay } = event.detail;
+        if (userId === currentUserId) {
+          // Update the settings for this user
+          if (actionButtonGroupRef.current && actionButtonGroupRef.current.updateSettings) {
+            actionButtonGroupRef.current.updateSettings({
+              times: times || 1,
+              delay: delay || 3
+            });
+          }
+        }
+      }
+    };
+
+    window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    return () => {
+      window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    };
+  }, [currentUserId]);
+
   // Improved get canvas function that tries multiple methods
   const getMainCanvas = () => {
     // Method 1: Check if we have a direct reference
@@ -542,8 +607,8 @@ export default function CollectedDatasetPage() {
           
           // Load all required modules first, then proceed with execution
           Promise.all([
-            import('./components-gui/Action/countSave'),
-            import('./components-gui/Helper/savefile')
+            import('../../components/collected-dataset-customized/Action/countSave'),
+            import('../../components/collected-dataset-customized/Helper/savefile')
           ]).then(async ([
             countSaveModule,
             savefileModule
@@ -719,7 +784,7 @@ export default function CollectedDatasetPage() {
               // Wait briefly for camera to initialize
               setTimeout(() => {
                 // Use the directly imported captureImagesAtPoint from the Helper/savefile.js
-                import('./components-gui/Helper/savefile').then(({ captureImagesAtPoint }) => {
+                import('../../components/collected-dataset-customized/Helper/savefile').then(({ captureImagesAtPoint }) => {
                   captureImagesAtPoint({
                     point: position,
                     captureCount: captureCounter,
@@ -854,9 +919,9 @@ export default function CollectedDatasetPage() {
           
           // Load all required modules first, then proceed with execution
           Promise.all([
-            import('./components-gui/Action/CalibratePoints'),
-            import('./components-gui/Action/countSave'),
-            import('./components-gui/Helper/savefile')
+            import('../../components/collected-dataset-customized/Action/CalibratePoints'),
+            import('../../components/collected-dataset-customized/Action/countSave'),
+            import('../../components/collected-dataset-customized/Helper/savefile')
           ]).then(async ([
             calibratePointsModule,
             countSaveModule,
@@ -1158,36 +1223,13 @@ export default function CollectedDatasetPage() {
     }
   }, [userId]);
 
-  // Listen for settings updates
-  useEffect(() => {
-    const handleSettingsUpdate = (event) => {
-      if (event.detail && event.detail.type === 'captureSettings') {
-        const { userId, times, delay } = event.detail;
-        if (userId === currentUserId) {
-          // Update the settings for this user
-          if (actionButtonGroupRef.current) {
-            actionButtonGroupRef.current.setCaptureSettings({
-              times: times || 1,
-              delay: delay || 3
-            });
-          }
-        }
-      }
-    };
-
-    window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
-    return () => {
-      window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
-    };
-  }, [currentUserId]);
-
   // Load settings from backend when component mounts
   useEffect(() => {
     const loadSettings = async () => {
       if (!userId) return;
       
       try {
-        const response = await fetch(`/api/admin/load-settings?userId=${userId}`);
+        const response = await fetch(`/api/data-center/settings/${userId}`);
         if (!response.ok) {
           throw new Error('Failed to load settings');
         }
@@ -1195,9 +1237,9 @@ export default function CollectedDatasetPage() {
         
         // Wait for the component to be mounted and ref to be initialized
         const waitForRef = (retries = 5) => {
-          if (actionButtonGroupRef.current && typeof actionButtonGroupRef.current.setCaptureSettings === 'function') {
+          if (actionButtonGroupRef.current && typeof actionButtonGroupRef.current.updateSettings === 'function') {
             // Update the settings for this user
-            actionButtonGroupRef.current.setCaptureSettings(loadedSettings);
+            actionButtonGroupRef.current.updateSettings(loadedSettings);
             
             // Dispatch event to update UI
             const event = new CustomEvent('captureSettingsUpdate', {
@@ -1209,17 +1251,6 @@ export default function CollectedDatasetPage() {
               }
             });
             window.dispatchEvent(event);
-            
-            // Also update the TopBar directly
-            const timeInput = document.querySelector('.control-input-field');
-            const delayInput = document.querySelectorAll('.control-input-field')[1];
-            
-            if (timeInput) {
-              timeInput.textContent = loadedSettings.times;
-            }
-            if (delayInput) {
-              delayInput.textContent = loadedSettings.delay;
-            }
           } else if (retries > 0) {
             setTimeout(() => waitForRef(retries - 1), 500);
           } else {
@@ -1243,7 +1274,7 @@ export default function CollectedDatasetPage() {
       if (!userId) return;
       
       try {
-        const response = await fetch(`/api/admin/load-settings?userId=${userId}`);
+        const response = await fetch(`/api/data-center/settings/${userId}`);
         if (!response.ok) throw new Error('Failed to fetch settings');
         
         const settings = await response.json();
@@ -1396,6 +1427,25 @@ export default function CollectedDatasetPage() {
           overflow: 'hidden'
         }}
       >
+        {/* Action buttons for camera control - moved outside conditional rendering */}
+        <div className="camera-action-buttons-container" style={{ 
+          position: 'absolute',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 10,
+          maxWidth: '600px',
+          width: '100%',
+          padding: '0 20px'
+        }}>
+          <ActionButtonGroup
+            ref={actionButtonGroupRef}
+            triggerCameraAccess={triggerCameraAccess}
+            isCompactMode={windowSize.width < 768}
+            onActionClick={handleActionButtonClick}
+          />
+        </div>
+
         {!showCamera ? (
           <>
             <div className="camera-preview-message" style={{
@@ -1427,24 +1477,6 @@ export default function CollectedDatasetPage() {
                   <div style={{ fontSize: '1.5rem' }}>📷</div>
                 </div>
               )}
-              
-              {/* Action buttons for camera control */}
-              <div className="camera-action-buttons-container" style={{ 
-                marginTop: '30px', 
-                maxWidth: '600px',
-                margin: '30px auto'
-              }}>
-                <ActionButtonGroup
-                  ref={actionButtonGroupRef}
-                  triggerCameraAccess={triggerCameraAccess}
-                  isCompactMode={windowSize.width < 768}
-                  onActionClick={handleActionButtonClick}
-                  showHeadPose={showHeadPose}
-                  showBoundingBox={showBoundingBox}
-                  showMask={showMask}
-                  showParameters={showParameters}
-                />
-              </div>
             </div>
             
             {/* Canvas for eye tracking dots */}

@@ -137,7 +137,16 @@ export default function HomePage() {
       </main>
 
       <footer className={styles.footer}>
-        <a href="https://yourwebsite.com" target="_blank" rel="noopener noreferrer">
+        <a 
+          href="https://www.facebook.com/profile.php?id=61557265122746" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className={styles.footerLink}
+          onClick={(e) => {
+            e.preventDefault();
+            window.open('https://www.facebook.com/profile.php?id=61557265122746', '_blank');
+          }}
+        >
           Powered by Porch
         </a>
       </footer>

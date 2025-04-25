@@ -1,6 +1,6 @@
 // cameraAccess.js
 import React, { useEffect, useRef, useState } from 'react';
-import { getHighestResolutionConstraints } from '../components-gui/Helper/savefile';
+import { getHighestResolutionConstraints } from '../../../components/collected-dataset-customized/Helper/savefile';
 
 const CameraAccess = ({ 
   isShowing, 
@@ -211,6 +211,42 @@ const CameraAccess = ({
     setIsVideoReady(false);
 
     try {
+      // Check if MediaDevices API is supported
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
+        // Try to polyfill the MediaDevices API
+        if (typeof navigator !== 'undefined') {
+          navigator.mediaDevices = {};
+        }
+        
+        // Add getUserMedia polyfill if needed
+        if (!navigator.mediaDevices.getUserMedia) {
+          navigator.mediaDevices.getUserMedia = function(constraints) {
+            // First get ahold of the legacy getUserMedia, if present
+            const getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+            
+            // Some browsers just don't implement it - return a rejected promise with an error
+            if (!getUserMedia) {
+              return Promise.reject(new Error('getUserMedia is not implemented in this browser'));
+            }
+            
+            // Otherwise, wrap the call to the old navigator.getUserMedia with a Promise
+            return new Promise(function(resolve, reject) {
+              getUserMedia.call(navigator, constraints, resolve, reject);
+            });
+          };
+        }
+      }
+
+      // Check if we're on HTTPS or localhost
+      const isSecure = window.location.protocol === 'https:' || 
+                      window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1' ||
+                      process.env.NODE_ENV === 'development';
+      
+      if (!isSecure) {
+        throw new Error('Camera access requires HTTPS or localhost. Please use HTTPS or run the application on localhost.');
+      }
+
       console.log('Starting camera access with highest resolution...');
 
       // Get highest resolution constraints
@@ -247,7 +283,23 @@ const CameraAccess = ({
       }
     } catch (error) {
       console.error('Camera access error:', error);
-      setErrorMessage(`Camera error: ${error.message || 'Unknown error'}`);
+      let errorMessage = 'Camera error: ';
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage += 'Camera access was denied. Please allow camera access in your browser settings.';
+      } else if (error.name === 'NotFoundError') {
+        errorMessage += 'No camera found. Please connect a camera and try again.';
+      } else if (error.name === 'NotReadableError') {
+        errorMessage += 'Camera is already in use by another application.';
+      } else if (error.name === 'OverconstrainedError') {
+        errorMessage += 'Camera does not support the requested resolution.';
+      } else if (error.message === 'getUserMedia is not implemented in this browser') {
+        errorMessage += 'Your browser does not support camera access. Please try using a modern browser like Chrome, Firefox, or Edge.';
+      } else {
+        errorMessage += error.message || 'Unknown error';
+      }
+      
+      setErrorMessage(errorMessage);
     }
   };
 

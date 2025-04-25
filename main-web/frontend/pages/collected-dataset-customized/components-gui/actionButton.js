@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import dynamic from 'next/dynamic';
-import { generateCalibrationPoints } from './Action/CalibratePoints';
+import { generateCalibrationPoints } from '../../../components/collected-dataset-customized/Action/CalibratePoints';
 import { 
   showCapturePreview, 
   drawRedDot, 
   getRandomPosition,
   createCountdownElement,
   runCountdown
-} from './Action/countSave';
-import { captureImagesAtPoint } from './Helper/savefile';
+} from '../../../components/collected-dataset-customized/Action/countSave';
+import { captureImagesAtPoint } from '../../../components/collected-dataset-customized/Helper/savefile';
 import { useRouter } from 'next/router';
 import { useAdminSettings } from './adminSettings';
 
@@ -747,7 +747,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
       // Generate calibration points based on the canvas size
-      const { generateCalibrationPoints } = await import('./Action/CalibratePoints');
+      const { generateCalibrationPoints } = await import('../../../components/collected-dataset-customized/Action/CalibratePoints');
       const points = generateCalibrationPoints(canvasWidth, canvasHeight);
       
       if (!points || points.length === 0) {
@@ -1154,7 +1154,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
 
     const setupCalibration = async () => {
       try {
-        const { default: CalibrateHandler } = await import('./Action/CalibrateHandler');
+        const { default: CalibrateHandler } = await import('../../../components/collected-dataset-customized/Action/CalibrateHandler');
     
         const canvas = getMainCanvas();
         if (!canvas) {
@@ -1645,5 +1645,10 @@ const ActionButtonGroup = dynamic(() => Promise.resolve(
 ), { ssr: false });
 // Create a client-only version of ActionButtonGroup
 // const ActionButtonGroup = dynamic(() => Promise.resolve(ActionButtonGroupInner), { ssr: false });
+
+// Add default export component
+export default function ActionButtonPage() {
+  return null; // This is a utility file, so we don't need to render anything
+}
 
 export { ActionButton, ActionButtonGroup };

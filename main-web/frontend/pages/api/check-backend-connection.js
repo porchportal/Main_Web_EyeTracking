@@ -53,6 +53,7 @@ export default async function handler(req, res) {
     
     return res.status(200).json({
       connected: true,
+      authValid: true,
       status: 'ok',
       backendUrl: BACKEND_URL,
       dataCenter: data
@@ -61,6 +62,7 @@ export default async function handler(req, res) {
     console.error('Backend connection error:', error);
     return res.status(500).json({
       connected: false,
+      authValid: false,
       error: error.message,
       backendUrl: BACKEND_URL,
       timestamp: new Date().toISOString()

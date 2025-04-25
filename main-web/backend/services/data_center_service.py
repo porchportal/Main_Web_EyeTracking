@@ -61,5 +61,9 @@ class DataCenterService:
         """Get all current values"""
         return self.data_center.get_all_values()
 
+    def get_value(self, key: str) -> Any:
+        """Get a value from the data center"""
+        return self.data_center.get_value(key)
+
 # Create a singleton instance
 data_center_service = DataCenterService() 

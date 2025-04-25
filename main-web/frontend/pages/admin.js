@@ -73,7 +73,7 @@ import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import styles from '../styles/Consent.module.css';
 import { useConsent } from '../components/consent/ConsentContext';
-import { useAdminSettings } from './collected-dataset-customized/components-gui/adminSettings';
+import { useAdminSettings } from '../pages/collected-dataset-customized/components-gui/adminSettings';
 import fs from 'fs';
 import path from 'path';
 

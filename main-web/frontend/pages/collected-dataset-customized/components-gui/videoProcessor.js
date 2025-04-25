@@ -1,5 +1,6 @@
 // videoProcessor.js
 import { useState, useRef, useCallback, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 
 const useVideoProcessor = () => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -260,5 +261,75 @@ const useVideoProcessor = () => {
   };
 };
 
-// Make sure to export the hook as default
-export default useVideoProcessor;
+// Create the VideoProcessor component
+const VideoProcessorComponent = () => {
+  const {
+    isProcessing,
+    processingResults,
+    processingError,
+    backendAvailable,
+    videoRef,
+    canvasRef,
+    options,
+    startVideoProcessing,
+    stopVideoProcessing,
+    toggleVideoProcessing,
+    updateOptions,
+    processCurrentFrame
+  } = useVideoProcessor();
+
+  return (
+    <div className="video-processor-container">
+      <div className="video-container">
+        <video
+          ref={videoRef}
+          style={{
+            width: '100%',
+            maxWidth: '640px',
+            height: 'auto',
+            display: isProcessing ? 'block' : 'none'
+          }}
+          playsInline
+        />
+        <canvas
+          ref={canvasRef}
+          style={{
+            width: '100%',
+            maxWidth: '640px',
+            height: 'auto',
+            display: isProcessing ? 'block' : 'none'
+          }}
+        />
+      </div>
+      
+      {processingError && (
+        <div className="error-message">
+          Error: {processingError}
+        </div>
+      )}
+      
+      {backendAvailable === false && (
+        <div className="error-message">
+          Backend connection not available
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Create a client-side only version of the component
+const VideoProcessor = dynamic(() => Promise.resolve(VideoProcessorComponent), {
+  ssr: false
+});
+
+// Create the actual page component
+export default function VideoProcessorPage() {
+  return (
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-2xl font-bold mb-4">Video Processor</h1>
+        <VideoProcessor />
+      </div>
+    </div>
+  );
+}

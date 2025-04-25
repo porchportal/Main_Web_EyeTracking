@@ -1,6 +1,6 @@
 // cameraAccess.js
 import React, { useEffect, useRef, useState } from 'react';
-import { getHighestResolutionConstraints } from '../components-gui/Helper/savefile';
+import { getHighestResolutionConstraints } from '../../../components/collected-dataset/Helper/savefile';
 
 const CameraAccess = ({ 
   isShowing, 

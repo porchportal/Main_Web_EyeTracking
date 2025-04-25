@@ -5,6 +5,7 @@ import Cookies from 'js-cookie';
 const CONSENT_COOKIE = 'eye_tracking_consent';
 const CONSENT_DETAILS_COOKIE = 'consent_details';
 const USER_PROFILE_COOKIE = 'user_profile';
+const USER_PREFERENCES_COOKIE = 'user_preferences';
 
 // Get or create a user ID
 export const getOrCreateUserId = () => {
@@ -54,6 +55,37 @@ export const updateUserProfile = (profileData) => {
   } catch (error) {
     console.error('Error updating user profile:', error);
     throw error;
+  }
+};
+
+// Get user preferences
+export const getUserPreferences = () => {
+  try {
+    const preferencesStr = Cookies.get(USER_PREFERENCES_COOKIE);
+    if (preferencesStr) {
+      return JSON.parse(preferencesStr);
+    }
+    return null;
+  } catch (error) {
+    console.error('Error reading user preferences:', error);
+    return null;
+  }
+};
+
+// Update user preferences
+export const updateUserPreferences = (preferencesData) => {
+  try {
+    const currentPreferences = getUserPreferences() || {};
+    const updatedPreferences = {
+      ...currentPreferences,
+      ...preferencesData,
+      updatedAt: new Date().toISOString()
+    };
+    Cookies.set(USER_PREFERENCES_COOKIE, JSON.stringify(updatedPreferences), { expires: 365 });
+    return updatedPreferences;
+  } catch (error) {
+    console.error('Error updating user preferences:', error);
+    return null;
   }
 };
 

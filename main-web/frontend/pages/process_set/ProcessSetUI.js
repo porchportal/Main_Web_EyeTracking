@@ -320,3 +320,8 @@ export const ProcessingProgress = ({ isProcessing, progressData }) => {
     </div>
   );
 };
+
+// Add default export component
+export default function ProcessSetUIPage() {
+  return null; // This is a utility file, so we don't need to render anything
+}

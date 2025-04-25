@@ -230,3 +230,8 @@ export const useAdminSettings = (ref) => {
 
   return { settings, updateSettings };
 };
+
+// Add default export component
+export default function AdminSettings() {
+  return null; // This is a utility file, so we don't need to render anything
+}

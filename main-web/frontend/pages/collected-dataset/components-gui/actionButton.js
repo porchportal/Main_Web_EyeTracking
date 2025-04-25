@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import dynamic from 'next/dynamic';
-import { generateCalibrationPoints } from './Action/CalibratePoints';
+import { generateCalibrationPoints } from '../../../components/collected-dataset/Action/CalibratePoints';
 import { 
   showCapturePreview, 
   drawRedDot, 
   getRandomPosition,
   createCountdownElement,
   runCountdown
-} from './Action/countSave';
-import { captureImagesAtPoint } from './Helper/savefile';
+} from '../../../components/collected-dataset/Action/countSave';
+import { captureImagesAtPoint } from '../../../components/collected-dataset/Helper/savefile';
 import { useRouter } from 'next/router';
 
 // Create a basic ActionButton component
@@ -766,7 +766,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
       // Generate calibration points based on the canvas size
-      const { generateCalibrationPoints } = await import('./Action/CalibratePoints');
+      const { generateCalibrationPoints } = await import('../../../components/collected-dataset/Action/CalibratePoints');
       const points = generateCalibrationPoints(canvasWidth, canvasHeight);
       
       if (!points || points.length === 0) {
@@ -1062,7 +1062,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
 
     const setupCalibration = async () => {
       try {
-        const { default: CalibrateHandler } = await import('./Action/CalibrateHandler');
+        const { default: CalibrateHandler } = await import('../../../components/collected-dataset/Action/CalibrateHandler');
     
         const canvas = getMainCanvas();
         if (!canvas) {
@@ -1548,10 +1548,64 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     </div>
   );
 });
-const ActionButtonGroup = dynamic(() => Promise.resolve(
-  forwardRef((props, ref) => <ActionButtonGroupInner {...props} ref={ref} />)
-), { ssr: false });
-// Create a client-only version of ActionButtonGroup
-// const ActionButtonGroup = dynamic(() => Promise.resolve(ActionButtonGroupInner), { ssr: false });
+const ActionButtonGroup = dynamic(() => Promise.resolve(ActionButtonGroupInner), {
+  ssr: false
+});
+
+// Create the actual page component
+export default function ActionButtonPage() {
+  const actionButtonRef = useRef();
+  const [cameraAccess, setCameraAccess] = useState(false);
+  const [isCompact, setIsCompact] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsCompact(window.innerWidth < 768);
+    };
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', handleResize);
+      handleResize();
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('resize', handleResize);
+      }
+    };
+  }, []);
+
+  const handleActionClick = (action) => {
+    if (actionButtonRef.current) {
+      switch (action) {
+        case 'random':
+          actionButtonRef.current.handleRandomDot();
+          break;
+        case 'setRandom':
+          actionButtonRef.current.handleSetRandom();
+          break;
+        case 'calibrate':
+          actionButtonRef.current.handleSetCalibrate();
+          break;
+        case 'clear':
+          actionButtonRef.current.handleClearAll();
+          break;
+      }
+    }
+  };
+
+  return (
+    <div className="flex flex-col min-h-screen bg-gray-100">
+      <main className="flex-grow p-4">
+        <ActionButtonGroup
+          ref={actionButtonRef}
+          triggerCameraAccess={setCameraAccess}
+          isCompactMode={isCompact}
+          onActionClick={handleActionClick}
+        />
+      </main>
+    </div>
+  );
+}
 
 export { ActionButton, ActionButtonGroup };

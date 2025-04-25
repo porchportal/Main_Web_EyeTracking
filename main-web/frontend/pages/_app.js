@@ -8,6 +8,7 @@ import { ProcessStatusProvider, BackendConnectionProvider } from '../utils/state
 import { ConsentProvider } from '../components/consent/ConsentContext';
 // import ConnectionStatusIndicator from '../components/ConnectionStatusIndicator';
 import Layout from '../components/layout/Layout';
+// import { generateCalibrationPoints } from '../components/collected-dataset-customized/Action/CalibratePoints';
 
 function MyApp({ Component, pageProps }) {
   return (

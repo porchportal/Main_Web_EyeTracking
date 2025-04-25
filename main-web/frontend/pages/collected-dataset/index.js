@@ -6,7 +6,7 @@ import TopBar from './components-gui/topBar';
 import DisplayResponse from './components-gui/displayResponse';
 import { ActionButtonGroup } from './components-gui/actionButton';
 // import StatusIndicator from './components-gui/StatusIndicator';
-import { showCapturePreview, captureImagesAtPoint, drawRedDot, getRandomPosition, runCountdown } from './components-gui/Action/countSave';
+import { showCapturePreview, captureImagesAtPoint, drawRedDot, getRandomPosition, runCountdown } from '../../components/collected-dataset/Action/countSave';
 import { useConsent } from '../../components/consent/ConsentContext';
 
 // Dynamically load the video processor component (not the hook directly)
@@ -534,8 +534,8 @@ export default function CollectedDatasetPage() {
           
           // Load all required modules first, then proceed with execution
           Promise.all([
-            import('./components-gui/Action/countSave'),
-            import('./components-gui/Helper/savefile')
+            import('../../components/collected-dataset/Action/countSave'),
+            import('../../components/collected-dataset/Helper/savefile')
           ]).then(async ([
             countSaveModule,
             savefileModule
@@ -711,7 +711,7 @@ export default function CollectedDatasetPage() {
               // Wait briefly for camera to initialize
               setTimeout(() => {
                 // Use the directly imported captureImagesAtPoint from the Helper/savefile.js
-                import('./components-gui/Helper/savefile').then(({ captureImagesAtPoint }) => {
+                import('../../components/collected-dataset/Helper/savefile').then(({ captureImagesAtPoint }) => {
                   captureImagesAtPoint({
                     point: position,
                     captureCount: captureCounter,
@@ -846,9 +846,9 @@ export default function CollectedDatasetPage() {
           
           // Load all required modules first, then proceed with execution
           Promise.all([
-            import('./components-gui/Action/CalibratePoints'),
-            import('./components-gui/Action/countSave'),
-            import('./components-gui/Helper/savefile')
+            import('../../components/collected-dataset/Action/CalibratePoints'),
+            import('../../components/collected-dataset/Action/countSave'),
+            import('../../components/collected-dataset/Helper/savefile')
           ]).then(async ([
             calibratePointsModule,
             countSaveModule,
