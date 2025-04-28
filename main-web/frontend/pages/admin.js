@@ -128,6 +128,8 @@ export default function AdminPage({ initialSettings }) {
   const [selectedUserId, setSelectedUserId] = useState('default');
   const pollingInterval = useRef(null);
   const [userProfiles, setUserProfiles] = useState({});
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   // Initialize tempSettings with initial settings
   useEffect(() => {
@@ -273,7 +275,7 @@ export default function AdminPage({ initialSettings }) {
         headers: {
           'Content-Type': 'application/json',
           // 'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-          'X-API-Key': process.env.API_KEY
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
         },
         body: JSON.stringify({
           userId: selectedUserId,
@@ -314,7 +316,7 @@ export default function AdminPage({ initialSettings }) {
             headers: {
               'Content-Type': 'application/json',
               // 'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-              'X-API-Key': process.env.API_KEY
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
             },
             body: JSON.stringify({
               userId: selectedUserId,
@@ -356,7 +358,7 @@ export default function AdminPage({ initialSettings }) {
         headers: {
           'Content-Type': 'application/json',
           // 'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-          'X-API-Key': process.env.API_KEY
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
         },
         body: JSON.stringify({
           userId: selectedUserId,
@@ -460,7 +462,7 @@ export default function AdminPage({ initialSettings }) {
           headers: {
             'Content-Type': 'application/json',
             // 'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-            'X-API-Key': process.env.API_KEY
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
           },
           body: JSON.stringify({
             userId: selectedUserId,
@@ -565,6 +567,48 @@ export default function AdminPage({ initialSettings }) {
       'Incomplete';
   };
 
+  const handleDeleteClick = (userId) => {
+    setDeleteTarget(userId);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      console.log('API Key being sent:', process.env.NEXT_PUBLIC_API_KEY);
+      const response = await fetch('/api/admin/delete-consent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+        },
+        body: JSON.stringify({
+          userId: deleteTarget
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Delete error response:', errorData);
+        throw new Error('Failed to delete consent data');
+      }
+
+      // Update the consent data by removing the deleted row
+      setConsentData(prevData => prevData.filter(data => data.userId !== deleteTarget));
+      showNotification('Consent data deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting consent data:', error);
+      showNotification('Failed to delete consent data. Please try again.', 'error');
+    } finally {
+      setShowDeleteConfirm(false);
+      setDeleteTarget(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteConfirm(false);
+    setDeleteTarget(null);
+  };
+
   if (loading) {
     return (
       <div className={styles.preferencesContainer}>
@@ -629,14 +673,22 @@ export default function AdminPage({ initialSettings }) {
                     <td>{new Date(data.timestamp).toLocaleString()}</td>
                     <td>{new Date(data.receivedAt).toLocaleString()}</td>
                     <td>
-                      {!data.status && (
+                      <div className={styles.actionButtons}>
+                        {!data.status && (
+                          <button
+                            className={styles.overrideButton}
+                            onClick={() => handleOverrideAccess(data.userId)}
+                          >
+                            Grant Access
+                          </button>
+                        )}
                         <button
-                          className={styles.overrideButton}
-                          onClick={() => handleOverrideAccess(data.userId)}
+                          className={styles.deleteButton}
+                          onClick={() => handleDeleteClick(data.userId)}
                         >
-                          Grant Access
+                          Delete
                         </button>
-                      )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -644,6 +696,30 @@ export default function AdminPage({ initialSettings }) {
             </table>
           </div>
         </div>
+  
+        {/* Delete Confirmation Dialog */}
+        {showDeleteConfirm && (
+          <div className={styles.confirmationDialog}>
+            <div className={styles.confirmationContent}>
+              <h3>Confirm Delete</h3>
+              <p>Are you sure you want to delete this consent row?</p>
+              <div className={styles.confirmationButtons}>
+                <button
+                  className={styles.confirmButton}
+                  onClick={handleDeleteConfirm}
+                >
+                  OK
+                </button>
+                <button
+                  className={styles.cancelButton}
+                  onClick={handleDeleteCancel}
+                >
+                  Not
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
   
         {/* User Selection Section - Now Second */}
         <div className={styles.settingsSection}>
