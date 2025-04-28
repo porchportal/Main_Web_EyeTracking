@@ -25,40 +25,113 @@ const CameraAccess = ({
   const [processingResults, setProcessingResults] = useState(null);
   const frameQueue = useRef([]);
   const isProcessing = useRef(false);
+  const [wsStatus, setWsStatus] = useState('disconnected');
+  const [isLinked, setIsLinked] = useState(false);
   
   // WebSocket connection
-  useEffect(() => {
-    if (!isShowing) return;
+  const connectWebSocket = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      console.log('WebSocket already connected');
+      return;
+    }
 
-    const ws = new WebSocket('ws://localhost:8000/ws/video');
-    wsRef.current = ws;
+    setWsStatus('connecting');
+    try {
+      // Connect to FastAPI WebSocket endpoint
+      const ws = new WebSocket('ws://localhost:8000/ws/video');
+      wsRef.current = ws;
 
-    ws.onopen = () => {
-      console.log('WebSocket connected');
-    };
+      // Set a connection timeout
+      const connectionTimeout = setTimeout(() => {
+        if (ws.readyState !== WebSocket.OPEN) {
+          console.error('WebSocket connection timeout');
+          ws.close();
+          setWsStatus('error');
+          setErrorMessage('Connection timeout. Please check if the backend server is running.');
+          setIsLinked(false);
+        }
+      }, 5000);
 
-    ws.onmessage = (event) => {
-      try {
-        const result = JSON.parse(event.data);
-        setProcessingResults(result);
-        drawResults(result);
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
+      ws.onopen = () => {
+        console.log('WebSocket connected to FastAPI backend');
+        clearTimeout(connectionTimeout);
+        setWsStatus('connected');
+        setErrorMessage('');
+        setIsLinked(true);
+        if (isVideoReady) {
+          processingInterval.current = setInterval(captureAndProcessFrame, 33);
+        }
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const result = JSON.parse(event.data);
+          setProcessingResults(result);
+          drawResults(result);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
+        }
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        clearTimeout(connectionTimeout);
+        setWsStatus('error');
+        setErrorMessage('Failed to connect to FastAPI backend. Please check if the server is running.');
+        setIsLinked(false);
+      };
+
+      ws.onclose = (event) => {
+        console.log('WebSocket disconnected:', event.code, event.reason);
+        clearTimeout(connectionTimeout);
+        setWsStatus('disconnected');
+        setIsLinked(false);
+        // Stop frame processing
+        if (processingInterval.current) {
+          clearInterval(processingInterval.current);
+          processingInterval.current = null;
+        }
+        
+        // If the connection was closed due to an error, show error message
+        if (event.code !== 1000) { // 1000 is normal closure
+          setErrorMessage(`WebSocket connection closed: ${event.reason || 'Unknown reason'}`);
+        }
+      };
+    } catch (error) {
+      console.error('Error creating WebSocket:', error);
+      setWsStatus('error');
+      setErrorMessage('Failed to create WebSocket connection. Please check your network connection.');
+      setIsLinked(false);
+    }
+  };
+
+  const disconnectWebSocket = () => {
+    if (wsRef.current) {
+      wsRef.current.close(1000, 'User requested disconnect');
+      wsRef.current = null;
+      setWsStatus('disconnected');
+      setIsLinked(false);
+      // Stop frame processing
+      if (processingInterval.current) {
+        clearInterval(processingInterval.current);
+        processingInterval.current = null;
       }
-    };
+      // Clear the canvas to remove any overlays
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext('2d');
+        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+      }
+    }
+  };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
-
-    ws.onclose = () => {
-      console.log('WebSocket disconnected');
-    };
+  useEffect(() => {
+    if (!isShowing) {
+      disconnectWebSocket();
+      return;
+    }
 
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      disconnectWebSocket();
     };
   }, [isShowing]);
 
@@ -70,29 +143,32 @@ const CameraAccess = ({
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Only draw on canvas if WebSocket is connected
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      // Clear canvas
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Save the current context state
-    ctx.save();
+      // Save the current context state
+      ctx.save();
 
-    // Flip the context horizontally to mirror the video
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
+      // Flip the context horizontally to mirror the video
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
 
-    // Draw video frame to canvas at high resolution
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      // Draw video frame to canvas at high resolution
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Restore the context state
-    ctx.restore();
+      // Restore the context state
+      ctx.restore();
 
-    // Convert canvas to blob with high quality
-    canvas.toBlob((blob) => {
-      if (blob && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        // Send frame to backend
-        wsRef.current.send(blob);
-      }
-    }, 'image/jpeg', 0.95);
+      // Convert canvas to blob with high quality
+      canvas.toBlob((blob) => {
+        if (blob && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          // Send frame to backend
+          wsRef.current.send(blob);
+        }
+      }, 'image/jpeg', 0.95);
+    }
   };
 
   // Draw processing results
@@ -135,6 +211,42 @@ const CameraAccess = ({
     setIsVideoReady(false);
 
     try {
+      // Check if MediaDevices API is supported
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
+        // Try to polyfill the MediaDevices API
+        if (typeof navigator !== 'undefined') {
+          navigator.mediaDevices = {};
+        }
+        
+        // Add getUserMedia polyfill if needed
+        if (!navigator.mediaDevices.getUserMedia) {
+          navigator.mediaDevices.getUserMedia = function(constraints) {
+            // First get ahold of the legacy getUserMedia, if present
+            const getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+            
+            // Some browsers just don't implement it - return a rejected promise with an error
+            if (!getUserMedia) {
+              return Promise.reject(new Error('getUserMedia is not implemented in this browser'));
+            }
+            
+            // Otherwise, wrap the call to the old navigator.getUserMedia with a Promise
+            return new Promise(function(resolve, reject) {
+              getUserMedia.call(navigator, constraints, resolve, reject);
+            });
+          };
+        }
+      }
+
+      // Check if we're on HTTPS or localhost
+      const isSecure = window.location.protocol === 'https:' || 
+                      window.location.hostname === 'localhost' || 
+                      window.location.hostname === '127.0.0.1' ||
+                      process.env.NODE_ENV === 'development';
+      
+      if (!isSecure) {
+        throw new Error('Camera access requires HTTPS or localhost. Please use HTTPS or run the application on localhost.');
+      }
+
       console.log('Starting camera access with highest resolution...');
 
       // Get highest resolution constraints
@@ -158,9 +270,12 @@ const CameraAccess = ({
         try {
           await videoRef.current.play();
           console.log('Video playing successfully!');
+          setIsVideoReady(true);
           
-          // Start frame processing
-          processingInterval.current = setInterval(captureAndProcessFrame, 33); // ~30fps
+          // Start frame processing if WebSocket is connected
+          if (wsStatus === 'connected') {
+            processingInterval.current = setInterval(captureAndProcessFrame, 33); // ~30fps
+          }
         } catch (playError) {
           console.error('Error playing video:', playError);
           setErrorMessage('Unable to start video stream. Please try again.');
@@ -168,7 +283,23 @@ const CameraAccess = ({
       }
     } catch (error) {
       console.error('Camera access error:', error);
-      setErrorMessage(`Camera error: ${error.message || 'Unknown error'}`);
+      let errorMessage = 'Camera error: ';
+      
+      if (error.name === 'NotAllowedError') {
+        errorMessage += 'Camera access was denied. Please allow camera access in your browser settings.';
+      } else if (error.name === 'NotFoundError') {
+        errorMessage += 'No camera found. Please connect a camera and try again.';
+      } else if (error.name === 'NotReadableError') {
+        errorMessage += 'Camera is already in use by another application.';
+      } else if (error.name === 'OverconstrainedError') {
+        errorMessage += 'Camera does not support the requested resolution.';
+      } else if (error.message === 'getUserMedia is not implemented in this browser') {
+        errorMessage += 'Your browser does not support camera access. Please try using a modern browser like Chrome, Firefox, or Edge.';
+      } else {
+        errorMessage += error.message || 'Unknown error';
+      }
+      
+      setErrorMessage(errorMessage);
     }
   };
 
@@ -452,8 +583,8 @@ const CameraAccess = ({
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: '30vw', // 30% of viewport width
-        height: '30vh', // 30% of viewport height
+        width: '30vw',
+        height: '30vh',
         backgroundColor: 'white',
         borderRadius: '8px',
         boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
@@ -467,8 +598,8 @@ const CameraAccess = ({
           width: '100%',
           height: '100%',
           objectFit: 'cover',
-          transform: 'scaleX(-1)', // Flip horizontally
-          opacity: 0 // Keep video hidden but functional
+          transform: 'scaleX(-1)',
+          opacity: 1
         }}
         playsInline
         muted
@@ -482,26 +613,70 @@ const CameraAccess = ({
           left: 0,
           width: '100%',
           height: '100%',
-          zIndex: 1
+          zIndex: 1,
+          pointerEvents: 'none',
+          display: isLinked ? 'block' : 'none' // Hide canvas when not linked
         }}
       />
-      <button
-        onClick={onClose}
-        style={{
+      <div style={{
+        position: 'absolute',
+        top: '10px',
+        right: '10px',
+        display: 'flex',
+        gap: '10px',
+        zIndex: 2
+      }}>
+        <button
+          onClick={onClose}
+          style={{
+            padding: '8px 12px',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            transition: 'background-color 0.3s ease'
+          }}
+        >
+          Close
+        </button>
+        
+        <button
+          onClick={() => {
+            if (isLinked) {
+              disconnectWebSocket();
+            } else {
+              connectWebSocket();
+            }
+          }}
+          style={{
+            padding: '8px 12px',
+            backgroundColor: isLinked ? 'rgba(255, 0, 0, 0.7)' : 'rgba(0, 255, 0, 0.7)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            transition: 'background-color 0.3s ease'
+          }}
+        >
+          {isLinked ? 'Unlink' : 'Link'}
+        </button>
+      </div>
+
+      {wsStatus === 'error' && (
+        <div style={{
           position: 'absolute',
-          top: '10px',
+          top: '50px',
           right: '10px',
           padding: '8px 12px',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backgroundColor: 'rgba(255, 0, 0, 0.7)',
           color: 'white',
-          border: 'none',
           borderRadius: '4px',
-          cursor: 'pointer',
           zIndex: 2
-        }}
-      >
-        Close
-      </button>
+        }}>
+          Connection Error: {errorMessage}
+        </div>
+      )}
     </div>
   );
 };
