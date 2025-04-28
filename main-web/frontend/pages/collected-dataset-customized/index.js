@@ -8,6 +8,7 @@ import { ActionButtonGroup } from './components-gui/actionButton';
 import { showCapturePreview, captureImagesAtPoint, drawRedDot, getRandomPosition, runCountdown } from '../../components/collected-dataset-customized/Action/countSave';
 import { generateCalibrationPoints } from '../../components/collected-dataset-customized/Action/CalibratePoints';
 import { useConsent } from '../../components/consent/ConsentContext';
+import { useRouter } from 'next/router';
 
 // Dynamically load the video processor component (not the hook directly)
 const VideoProcessorComponent = dynamic(
@@ -48,129 +49,147 @@ const DynamicCameraAccess = dynamic(
 );
 
 export default function CollectedDatasetPage() {
-  // State for hydration detection
+  const router = useRouter();
+  const { userId: consentUserId } = useConsent();
+  const [userData, setUserData] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isHydrated, setIsHydrated] = useState(false);
-  
-  // State for camera management
-  const [showCamera, setShowCamera] = useState(false);
-  const [showPermissionPopup, setShowPermissionPopup] = useState(false);
+  const [backendStatus, setBackendStatus] = useState('checking');
   const [showTopBar, setShowTopBar] = useState(true);
-  const [showMetrics, setShowMetrics] = useState(true);
+  const [showWarning, setShowWarning] = useState(false);
+  const [warningMessage, setWarningMessage] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
   const [outputText, setOutputText] = useState('');
-  const [metrics, setMetrics] = useState({
-    width: '---',
-    height: '---',
-    distance: '---'
-  });
-  const [windowSize, setWindowSize] = useState({
-    width: 0,
-    height: 0,
-    percentage: 100
-  });
-  
-  // References and other state
-  const previewAreaRef = useRef(null);
-  const canvasRef = useRef(null);
-  const videoRef = useRef(null);
-  
-  // State for capture tracking
-  const [captureCounter, setCaptureCounter] = useState(1);
-  const [captureFolder, setCaptureFolder] = useState('');
-  
-  // State for camera processing options
+  const [showMetrics, setShowMetrics] = useState(true);
+  const [showPermissionPopup, setShowPermissionPopup] = useState(false);
+  const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
+  const [showCameraPlaceholder, setShowCameraPlaceholder] = useState(false);
   const [showHeadPose, setShowHeadPose] = useState(false);
   const [showBoundingBox, setShowBoundingBox] = useState(false);
   const [showMask, setShowMask] = useState(false);
   const [showParameters, setShowParameters] = useState(false);
-  
-  // State to track if camera square should be shown
-  const [showCameraPlaceholder, setShowCameraPlaceholder] = useState(false);
-  
-  // To store the camera permission state
-  const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
-  
-  // State for warning message
-  const [showWarning, setShowWarning] = useState(false);
-  const [warningMessage, setWarningMessage] = useState('');
-  
-  // Backend connection status
-  const [backendStatus, setBackendStatus] = useState('checking');
-
-  const actionButtonGroupRef = useRef(null);
-  const [statusMessage, setStatusMessage] = useState('');
-  
-  // State for settings visibility
-  const [showSettings, setShowSettings] = useState(false);
-  
-  // State for current user ID
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0, percentage: 100 });
+  const [metrics, setMetrics] = useState({ width: '---', height: '---', distance: '---' });
+  const [captureCounter, setCaptureCounter] = useState(1);
+  const [captureFolder, setCaptureFolder] = useState('');
   const [currentUserId, setCurrentUserId] = useState('default');
-  
-  // Get user ID from consent context
-  const { userId } = useConsent();
-  
-  // Handle user ID changes
-  useEffect(() => {
-    if (userId && userId !== currentUserId) {
-      console.log('User ID changed in index.js:', userId);
-      setCurrentUserId(userId);
-      
-      // Dispatch event to notify other components
-      const event = new CustomEvent('userIdChange', {
-        detail: { userId }
-      });
-      window.dispatchEvent(event);
-      
-      // Load settings for the new user
-      loadSettings(userId);
-    }
-  }, [userId, currentUserId]);
+  const [showSettings, setShowSettings] = useState(false);
 
-  // Load settings for a specific user
-  const loadSettings = async (userId) => {
-    try {
-      console.log('Loading settings for user:', userId);
-      const response = await fetch(`/api/data-center/settings/${userId}`);
-      if (!response.ok) throw new Error('Failed to fetch settings');
+  // Refs
+  const previewAreaRef = useRef(null);
+  const canvasRef = useRef(null);
+  const videoRef = useRef(null);
+  const actionButtonGroupRef = useRef(null);
+
+  // Set hydrated state after mount
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  // Load user data
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (!router.isReady) return;
       
-      const userSettings = await response.json();
-      console.log('Fetched settings:', userSettings);
-      
-      // Dispatch settings update event
-      const event = new CustomEvent('captureSettingsUpdate', {
-        detail: {
-          type: 'captureSettings',
-          userId,
-          ...userSettings
+      try {
+        if (router.query.userData) {
+          const parsedData = JSON.parse(router.query.userData);
+          setUserData(parsedData);
+          return;
         }
-      });
-      window.dispatchEvent(event);
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    }
-  };
 
-  // Listen for settings updates
-  useEffect(() => {
-    const handleSettingsUpdate = (event) => {
-      if (event.detail && event.detail.type === 'captureSettings') {
-        const { userId, times, delay } = event.detail;
-        if (userId === currentUserId) {
-          // Update the settings for this user
-          if (actionButtonGroupRef.current && actionButtonGroupRef.current.updateSettings) {
-            actionButtonGroupRef.current.updateSettings({
-              times: times || 1,
-              delay: delay || 3
-            });
+        if (router.query.userId) {
+          const response = await fetch(`/api/user-preferences/${router.query.userId}`);
+          if (!response.ok) {
+            throw new Error('Failed to fetch user data');
           }
+          const data = await response.json();
+          setUserData(data);
         }
+      } catch (err) {
+        console.error('Error loading user data:', err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
-    return () => {
-      window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    loadUserData();
+  }, [router.isReady, router.query]);
+
+  // Check backend connection
+  useEffect(() => {
+    const checkBackendConnection = async () => {
+      try {
+        const response = await fetch('/api/check-backend-connection');
+        const data = await response.json();
+        setBackendStatus(data.connected ? 'connected' : 'disconnected');
+      } catch (error) {
+        console.error('Error checking backend connection:', error);
+        setBackendStatus('disconnected');
+      }
     };
-  }, [currentUserId]);
+
+    if (isHydrated) {
+      checkBackendConnection();
+    }
+  }, [isHydrated]);
+
+  // Update window size
+  useEffect(() => {
+    const updateDimensions = () => {
+      if (previewAreaRef.current) {
+        const width = previewAreaRef.current.offsetWidth;
+        const height = previewAreaRef.current.offsetHeight;
+        const screenPercentage = (window.innerWidth / window.screen.width) * 100;
+        
+        setMetrics(prev => ({ ...prev, width, height }));
+        setWindowSize({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          percentage: Math.round(screenPercentage)
+        });
+      }
+    };
+
+    if (isHydrated) {
+      updateDimensions();
+      window.addEventListener('resize', updateDimensions);
+      return () => window.removeEventListener('resize', updateDimensions);
+    }
+  }, [isHydrated]);
+
+  // Initialize settings based on user data
+  useEffect(() => {
+    if (userData && consentUserId) {
+      console.log('Initializing settings for user:', consentUserId, userData);
+      
+      // Initialize user-specific settings
+      if (userData.preferences) {
+        const { preferences } = userData;
+        
+        // Update camera settings if available
+        if (preferences.cameraSettings) {
+          const { showHeadPose, showBoundingBox, showMask, showParameters } = preferences.cameraSettings;
+          setShowHeadPose(showHeadPose || false);
+          setShowBoundingBox(showBoundingBox || false);
+          setShowMask(showMask || false);
+          setShowParameters(showParameters || false);
+        }
+        
+        // Update other settings as needed
+        if (preferences.metrics) {
+          setShowMetrics(preferences.metrics.show || true);
+        }
+        
+        if (preferences.topBar) {
+          setShowTopBar(preferences.topBar.show || true);
+        }
+      }
+    }
+  }, [userData, consentUserId]);
 
   // Improved get canvas function that tries multiple methods
   const getMainCanvas = () => {
@@ -345,11 +364,6 @@ export default function CollectedDatasetPage() {
     }
   }, [captureFolder, isClient, isHydrated]);
   
-  // Set hydrated state after mount to prevent hydration mismatch
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
-
   // Check backend connection on mount
   useEffect(() => {
     if (!isClient || !isHydrated) return; // Skip on server or before hydration
@@ -378,52 +392,6 @@ export default function CollectedDatasetPage() {
     }, 2000);
   }, [isHydrated]);
 
-  // Update metrics and window size when component mounts and on window resize
-  useEffect(() => {
-    if (!isClient || !isHydrated) return; // Skip on server or before hydration
-    
-    const updateDimensions = () => {
-      if (previewAreaRef.current) {
-        const width = previewAreaRef.current.offsetWidth;
-        const height = previewAreaRef.current.offsetHeight;
-        
-        // Calculate what percentage of the screen we're using
-        const screenPercentage = (window.innerWidth / window.screen.width) * 100;
-        
-        setMetrics(prev => ({
-          ...prev,
-          width,
-          height
-        }));
-        
-        setWindowSize({
-          width: window.innerWidth,
-          height: window.innerHeight,
-          percentage: Math.round(screenPercentage)
-        });
-
-        // Update canvas dimensions
-        adjustCanvasDimensions();
-      }
-    };
-
-    // Initial calculation
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    
-    // Clean up
-    return () => {
-      window.removeEventListener('resize', updateDimensions);
-    };
-  }, [isHydrated]);
-
-  // Add effect to update canvas when dimensions change
-  useEffect(() => {
-    if (isClient && isHydrated) {
-      adjustCanvasDimensions();
-    }
-  }, [windowSize, showTopBar, isHydrated]);
-  
   // Add styles to document head for button highlighting
   useEffect(() => {
     if (!isClient || !isHydrated) return;
@@ -1208,28 +1176,28 @@ export default function CollectedDatasetPage() {
 
   // Initialize settings when component mounts
   useEffect(() => {
-    if (userId) {
+    if (consentUserId) {
       // Set the current user ID
-      setCurrentUserId(userId);
+      setCurrentUserId(consentUserId);
       
       // Dispatch event to update settings for this user
       const event = new CustomEvent('captureSettingsUpdate', {
         detail: {
           type: 'captureSettings',
-          userId: userId
+          userId: consentUserId
         }
       });
       window.dispatchEvent(event);
     }
-  }, [userId]);
+  }, [consentUserId]);
 
   // Load settings from backend when component mounts
   useEffect(() => {
     const loadSettings = async () => {
-      if (!userId) return;
+      if (!consentUserId) return;
       
       try {
-        const response = await fetch(`/api/data-center/settings/${userId}`);
+        const response = await fetch(`/api/data-center/settings/${consentUserId}`);
         if (!response.ok) {
           throw new Error('Failed to load settings');
         }
@@ -1245,7 +1213,7 @@ export default function CollectedDatasetPage() {
             const event = new CustomEvent('captureSettingsUpdate', {
               detail: {
                 type: 'captureSettings',
-                userId: userId,
+                userId: consentUserId,
                 times: loadedSettings.times,
                 delay: loadedSettings.delay
               }
@@ -1266,15 +1234,15 @@ export default function CollectedDatasetPage() {
 
     // Add a small delay to ensure components are mounted
     setTimeout(loadSettings, 1000);
-  }, [userId]);
+  }, [consentUserId]);
 
   // Add polling for real-time updates
   useEffect(() => {
     const fetchUpdates = async () => {
-      if (!userId) return;
+      if (!consentUserId) return;
       
       try {
-        const response = await fetch(`/api/data-center/settings/${userId}`);
+        const response = await fetch(`/api/data-center/settings/${consentUserId}`);
         if (!response.ok) throw new Error('Failed to fetch settings');
         
         const settings = await response.json();
@@ -1297,12 +1265,12 @@ export default function CollectedDatasetPage() {
     return () => {
       clearInterval(interval);
     };
-  }, [userId]);
+  }, [consentUserId]);
 
   // Add event listeners for settings and image updates
   useEffect(() => {
     const handleSettingsUpdate = (event) => {
-      if (event.detail?.type === 'captureSettings' && event.detail?.userId === userId) {
+      if (event.detail?.type === 'captureSettings' && event.detail?.userId === consentUserId) {
         const { times, delay } = event.detail;
         if (actionButtonGroupRef.current && actionButtonGroupRef.current.updateSettings) {
           actionButtonGroupRef.current.updateSettings({ times, delay });
@@ -1311,7 +1279,7 @@ export default function CollectedDatasetPage() {
     };
 
     const handleImageUpdate = (event) => {
-      if (event.detail?.type === 'image' && event.detail?.userId === userId) {
+      if (event.detail?.type === 'image' && event.detail?.userId === consentUserId) {
         const { image } = event.detail;
         // Update image in the UI if needed
         // You can add your image update logic here
@@ -1325,7 +1293,71 @@ export default function CollectedDatasetPage() {
       window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
       window.removeEventListener('imageUpdate', handleImageUpdate);
     };
-  }, [userId]);
+  }, [consentUserId]);
+
+  // Load settings for a specific user
+  const loadSettings = async (userId) => {
+    try {
+      console.log('Loading settings for user:', userId);
+      const response = await fetch(`/api/data-center/settings/${userId}`);
+      if (!response.ok) throw new Error('Failed to fetch settings');
+      
+      const userSettings = await response.json();
+      console.log('Fetched settings:', userSettings);
+      
+      // Dispatch settings update event
+      const event = new CustomEvent('captureSettingsUpdate', {
+        detail: {
+          type: 'captureSettings',
+          userId,
+          ...userSettings
+        }
+      });
+      window.dispatchEvent(event);
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
+
+  // Handle user ID changes
+  useEffect(() => {
+    if (consentUserId && consentUserId !== currentUserId) {
+      console.log('User ID changed in index.js:', consentUserId);
+      setCurrentUserId(consentUserId);
+      
+      // Dispatch event to notify other components
+      const event = new CustomEvent('userIdChange', {
+        detail: { userId: consentUserId }
+      });
+      window.dispatchEvent(event);
+      
+      // Load settings for the new user
+      loadSettings(consentUserId);
+    }
+  }, [consentUserId, currentUserId]);
+
+  // Listen for settings updates
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      if (event.detail && event.detail.type === 'captureSettings') {
+        const { userId, times, delay } = event.detail;
+        if (userId === currentUserId) {
+          // Update the settings for this user
+          if (actionButtonGroupRef.current && actionButtonGroupRef.current.updateSettings) {
+            actionButtonGroupRef.current.updateSettings({
+              times: times || 1,
+              delay: delay || 3
+            });
+          }
+        }
+      }
+    };
+
+    window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    return () => {
+      window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    };
+  }, [currentUserId]);
 
   return (
     <div className={`main-container ${getSizeClass()}`}>
@@ -1333,9 +1365,6 @@ export default function CollectedDatasetPage() {
         <title>Camera Dataset Collection</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
-      
-      {/* Load the video processor component */}
-      {isHydrated && isClient && <VideoProcessorComponent />}
       
       {/* Backend connection status banner */}
       {isHydrated && backendStatus === 'disconnected' && (
@@ -1353,46 +1382,6 @@ export default function CollectedDatasetPage() {
           zIndex: 1100
         }}>
           ⚠️ Backend disconnected. Hurry up, Make ONLINE please and Using mock mode
-        </div>
-      )}
-      
-      {/* TopBar component with onButtonClick handler - conditionally rendered */}
-      {showTopBar && (
-        <TopBar 
-          onButtonClick={handleActionButtonClick}
-          onCameraAccess={() => setShowPermissionPopup(true)}
-          outputText={statusMessage || outputText}
-          onOutputChange={(text) => setOutputText(text)}
-          onToggleTopBar={toggleTopBar}
-          onToggleMetrics={toggleMetrics}
-          canvasRef={canvasRef}
-        />
-      )}
-      
-      {/* Show restore button when TopBar is hidden - positioned at top right */}
-      {!showTopBar && (
-        <div className="restore-button-container" style={{
-          position: 'fixed',
-          top: '10px',
-          right: '10px',
-          zIndex: 1000
-        }}>
-          <button 
-            className="restore-btn"
-            onClick={() => toggleTopBar(true)}
-            title="Show TopBar and Metrics"
-            style={{
-              padding: '5px 10px',
-              background: '#0066cc',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '16px',
-              cursor: 'pointer'
-            }}
-          >
-            ≡
-          </button>
         </div>
       )}
       
@@ -1415,193 +1404,244 @@ export default function CollectedDatasetPage() {
         </div>
       )}
 
-      {/* Main preview area */}
-      <div 
-        ref={previewAreaRef}
-        className="camera-preview-area"
-        style={{ 
-          height: showTopBar ? 'calc(100vh - 120px)' : '100vh',
-          marginTop: backendStatus === 'disconnected' ? '32px' : '0',
-          position: 'relative',
-          backgroundColor: '#f5f5f5',
-          overflow: 'hidden'
-        }}
-      >
-        {/* Action buttons for camera control - moved outside conditional rendering */}
-        <div className="camera-action-buttons-container" style={{ 
-          position: 'absolute',
-          bottom: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 10,
-          maxWidth: '600px',
-          width: '100%',
-          padding: '0 20px'
-        }}>
-          <ActionButtonGroup
-            ref={actionButtonGroupRef}
-            triggerCameraAccess={triggerCameraAccess}
-            isCompactMode={windowSize.width < 768}
-            onActionClick={handleActionButtonClick}
-          />
+      {isLoading ? (
+        <div className="loading-container">
+          <p>Loading user settings...</p>
         </div>
-
-        {!showCamera ? (
-          <>
-            <div className="camera-preview-message" style={{
-              padding: '20px',
-              textAlign: 'center',
-              position: showTopBar ? 'relative' : 'absolute',
-              width: '100%',
-              zIndex: 5
+      ) : (
+        <>
+          {/* Load the video processor component */}
+          {isHydrated && isClient && <VideoProcessorComponent />}
+          
+          {/* TopBar component with onButtonClick handler - conditionally rendered */}
+          {showTopBar && (
+            <TopBar 
+              onButtonClick={handleActionButtonClick}
+              onCameraAccess={() => setShowPermissionPopup(true)}
+              outputText={statusMessage || outputText}
+              onOutputChange={(text) => setOutputText(text)}
+              onToggleTopBar={toggleTopBar}
+              onToggleMetrics={toggleMetrics}
+              canvasRef={canvasRef}
+            />
+          )}
+          
+          {/* Show restore button when TopBar is hidden - positioned at top right */}
+          {!showTopBar && (
+            <div className="restore-button-container" style={{
+              position: 'fixed',
+              top: '10px',
+              right: '10px',
+              zIndex: 1000
             }}>
-              <p>Camera preview will appear here</p>
-              <p className="camera-size-indicator">Current window: {windowSize.percentage}% of screen width</p>
-              
-              {/* Camera placeholder square - small version */}
-              {isHydrated && showCameraPlaceholder && (
-                <div 
-                  className="camera-placeholder-square"
-                  style={{
-                    width: '180px',
-                    height: '135px',
-                    margin: '20px auto',
-                    border: '2px dashed #666',
-                    borderRadius: '4px',
-                    backgroundColor: '#f5f5f5',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <div style={{ fontSize: '1.5rem' }}>📷</div>
-                </div>
-              )}
-            </div>
-            
-            {/* Canvas for eye tracking dots */}
-            <div 
-              className="canvas-container" 
-              style={{ 
-                position: 'absolute', 
-                top: 0,
-                left: 0,
-                width: '100%', 
-                height: '100%',
-                backgroundColor: 'white',
-                overflow: 'hidden',
-                border: 'none',
-                zIndex: 10 
-              }}
-            >
-              <canvas 
-                ref={canvasRef}
-                className="tracking-canvas"
-                style={{ 
-                  width: '100%', 
-                  height: '100%',
-                  display: 'block' 
+              <button 
+                className="restore-btn"
+                onClick={() => toggleTopBar(true)}
+                title="Show TopBar and Metrics"
+                style={{
+                  padding: '5px 10px',
+                  background: '#0066cc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '16px',
+                  cursor: 'pointer'
                 }}
+              >
+                ≡
+              </button>
+            </div>
+          )}
+
+          {/* Main preview area */}
+          <div 
+            ref={previewAreaRef}
+            className="camera-preview-area"
+            style={{ 
+              height: showTopBar ? 'calc(100vh - 120px)' : '100vh',
+              marginTop: backendStatus === 'disconnected' ? '32px' : '0',
+              position: 'relative',
+              backgroundColor: '#f5f5f5',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Action buttons for camera control - moved outside conditional rendering */}
+            <div className="camera-action-buttons-container" style={{ 
+              position: 'absolute',
+              bottom: '20px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 10,
+              maxWidth: '600px',
+              width: '100%',
+              padding: '0 20px'
+            }}>
+              <ActionButtonGroup
+                ref={actionButtonGroupRef}
+                triggerCameraAccess={triggerCameraAccess}
+                isCompactMode={windowSize.width < 768}
+                onActionClick={handleActionButtonClick}
               />
             </div>
-          </>
-        ) : null}
-              
-        {/* Metrics info - conditionally rendered */}
-        {isHydrated && showMetrics && (
-          <DisplayResponse 
-            width={metrics.width} 
-            height={metrics.height} 
-            distance={metrics.distance}
-            isVisible={showMetrics}
-          />
-        )}
-        
-        {/* Camera component - using client-only version */}
-        {isHydrated && isClient && showCamera && (
-          <DynamicCameraAccess
-            isShowing={showCamera} 
-            onClose={handleCameraClose}
-            onCameraReady={handleCameraReady}
-            showHeadPose={showHeadPose}
-            showBoundingBox={showBoundingBox}
-            showMask={showMask}
-            showParameters={showParameters}
-            videoRef={videoRef}
-          />
-        )}
-        
-        {/* Camera permission popup */}
-        {isHydrated && isClient && showPermissionPopup && (
-          <div className="camera-permission-popup" style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 2000
-          }}>
-            <div className="camera-permission-dialog" style={{
-              width: '400px',
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              padding: '20px',
-              boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
-            }}>
-              <h3 className="camera-permission-title" style={{
-                margin: '0 0 15px',
-                fontSize: '18px',
-                fontWeight: 'bold'
-              }}>Camera Access Required</h3>
-              <p className="camera-permission-message" style={{
-                margin: '0 0 20px',
-                fontSize: '14px',
-                lineHeight: '1.4'
-              }}>
-                This application needs access to your camera to function properly. 
-                When prompted by your browser, please click "Allow" to grant camera access.
-              </p>
-              <div className="camera-permission-buttons" style={{
+
+            {!showCamera ? (
+              <>
+                <div className="camera-preview-message" style={{
+                  padding: '20px',
+                  textAlign: 'center',
+                  position: showTopBar ? 'relative' : 'absolute',
+                  width: '100%',
+                  zIndex: 5
+                }}>
+                  <p>Camera preview will appear here</p>
+                  <p className="camera-size-indicator">Current window: {windowSize.percentage}% of screen width</p>
+                  
+                  {/* Camera placeholder square - small version */}
+                  {isHydrated && showCameraPlaceholder && (
+                    <div 
+                      className="camera-placeholder-square"
+                      style={{
+                        width: '180px',
+                        height: '135px',
+                        margin: '20px auto',
+                        border: '2px dashed #666',
+                        borderRadius: '4px',
+                        backgroundColor: '#f5f5f5',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <div style={{ fontSize: '1.5rem' }}>📷</div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Canvas for eye tracking dots */}
+                <div 
+                  className="canvas-container" 
+                  style={{ 
+                    position: 'absolute', 
+                    top: 0,
+                    left: 0,
+                    width: '100%', 
+                    height: '100%',
+                    backgroundColor: 'white',
+                    overflow: 'hidden',
+                    border: 'none',
+                    zIndex: 10 
+                  }}
+                >
+                  <canvas 
+                    ref={canvasRef}
+                    className="tracking-canvas"
+                    style={{ 
+                      width: '100%', 
+                      height: '100%',
+                      display: 'block' 
+                    }}
+                  />
+                </div>
+              </>
+            ) : null}
+                  
+            {/* Metrics info - conditionally rendered */}
+            {isHydrated && showMetrics && (
+              <DisplayResponse 
+                width={metrics.width} 
+                height={metrics.height} 
+                distance={metrics.distance}
+                isVisible={showMetrics}
+              />
+            )}
+            
+            {/* Camera component - using client-only version */}
+            {isHydrated && isClient && showCamera && (
+              <DynamicCameraAccess
+                isShowing={showCamera} 
+                onClose={handleCameraClose}
+                onCameraReady={handleCameraReady}
+                showHeadPose={showHeadPose}
+                showBoundingBox={showBoundingBox}
+                showMask={showMask}
+                showParameters={showParameters}
+                videoRef={videoRef}
+              />
+            )}
+            
+            {/* Camera permission popup */}
+            {isHydrated && isClient && showPermissionPopup && (
+              <div className="camera-permission-popup" style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'rgba(0, 0, 0, 0.5)',
                 display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '10px'
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 2000
               }}>
-                <button 
-                  onClick={handlePermissionDenied}
-                  className="camera-btn"
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: '#f0f0f0',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handlePermissionAccepted}
-                  className="camera-btn"
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: '#0066cc',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Continue
-                </button>
+                <div className="camera-permission-dialog" style={{
+                  width: '400px',
+                  backgroundColor: 'white',
+                  borderRadius: '8px',
+                  padding: '20px',
+                  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
+                }}>
+                  <h3 className="camera-permission-title" style={{
+                    margin: '0 0 15px',
+                    fontSize: '18px',
+                    fontWeight: 'bold'
+                  }}>Camera Access Required</h3>
+                  <p className="camera-permission-message" style={{
+                    margin: '0 0 20px',
+                    fontSize: '14px',
+                    lineHeight: '1.4'
+                  }}>
+                    This application needs access to your camera to function properly. 
+                    When prompted by your browser, please click "Allow" to grant camera access.
+                  </p>
+                  <div className="camera-permission-buttons" style={{
+                    display: 'flex',
+                    justifyContent: 'flex-end',
+                    gap: '10px'
+                  }}>
+                    <button 
+                      onClick={handlePermissionDenied}
+                      className="camera-btn"
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#f0f0f0',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      onClick={handlePermissionAccepted}
+                      className="camera-btn"
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#0066cc',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Continue
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }

@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react';
 import { useConsent } from '../components/consent/ConsentContext';
 import { isProfileComplete } from '../utils/consentManager';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 export default function HomePage() {
   const router = useRouter();
   const { isProcessReady, toggleProcessStatus } = useProcessStatus();
@@ -14,6 +16,126 @@ export default function HomePage() {
   const [isAdminOverride, setIsAdminOverride] = useState(false);
   const [buttonStates, setButtonStates] = useState({});
   const [mounted, setMounted] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
+
+  // Fetch user data from MongoDB
+  const fetchUserData = async () => {
+    if (!userId) {
+      console.log('No userId available, skipping fetch');
+      return;
+    }
+    
+    try {
+      console.log(`Attempt ${retryCount + 1}/${MAX_RETRIES}: Fetching user data for ID: ${userId}`);
+      const response = await fetch(`${API_BASE_URL}/api/user-preferences/${userId}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          url: `${API_BASE_URL}/api/user-preferences/${userId}`
+        });
+
+        if (response.status === 404 && retryCount < MAX_RETRIES) {
+          console.log('User not found, attempting to create new profile');
+          // Create new user profile
+          const createResponse = await fetch(`${API_BASE_URL}/api/user-preferences/${userId}`, {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              userId: userId,
+              username: '',
+              sex: '',
+              age: '',
+              image_background: '',
+              preferences: {}
+            })
+          });
+          
+          if (!createResponse.ok) {
+            const createErrorData = await createResponse.json().catch(() => ({}));
+            console.error('Failed to create profile:', {
+              status: createResponse.status,
+              statusText: createResponse.statusText,
+              errorData: createErrorData,
+              url: `${API_BASE_URL}/api/user-preferences/${userId}`
+            });
+            
+            if (retryCount < MAX_RETRIES) {
+              setRetryCount(prev => prev + 1);
+              setTimeout(() => {
+                console.log(`Retrying profile creation (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+                fetchUserData();
+              }, 2000);
+              return;
+            }
+            
+            throw new Error(`Failed to create user profile: ${createErrorData.detail || 'Unknown error'}`);
+          }
+          
+          console.log('Successfully created new profile');
+          // Fetch the newly created profile
+          const newResponse = await fetch(`${API_BASE_URL}/api/user-preferences/${userId}`, {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            }
+          });
+          if (!newResponse.ok) {
+            throw new Error('Failed to fetch newly created profile');
+          }
+          
+          const data = await newResponse.json();
+          console.log('Fetched new user data:', data);
+          setUserData(data);
+          setRetryCount(0); // Reset retry count on success
+        } else {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+      } else {
+        const data = await response.json();
+        console.log('Successfully fetched user data:', data);
+        setUserData(data);
+        setRetryCount(0); // Reset retry count on success
+      }
+    } catch (error) {
+      console.error('Error in fetchUserData:', error);
+      if (retryCount < MAX_RETRIES) {
+        setRetryCount(prev => prev + 1);
+        setTimeout(() => {
+          console.log(`Retrying fetch (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+          fetchUserData();
+        }, 2000);
+      } else {
+        console.error('Max retries reached, giving up');
+        setRetryCount(0);
+      }
+    }
+  };
+
+  // Fetch user data when userId changes
+  useEffect(() => {
+    if (userId) {
+      fetchUserData();
+    }
+  }, [userId]);
+
+  // Reset retry count when userId changes
+  useEffect(() => {
+    setRetryCount(0);
+  }, [userId]);
 
   // Check profile completion on mount
   useEffect(() => {
@@ -31,17 +153,13 @@ export default function HomePage() {
 
     // Add effect to handle button state updates
     const handleButtonStateUpdate = (event) => {
-      console.log('Received button state update:', event.detail);
-      if (event.detail) {
-        setButtonStates(prev => {
-          const newState = {
-            ...prev,
-            [event.detail.userId]: event.detail.enabled
-          };
-          console.log('Updated button states:', newState);
-          return newState;
-        });
-      }
+      const { userId, enabled } = event.detail;
+      console.log('Button state update received:', { userId, enabled });
+      
+      setButtonStates(prev => ({
+        ...prev,
+        [userId]: enabled
+      }));
     };
 
     window.addEventListener('buttonStateUpdate', handleButtonStateUpdate);
@@ -68,61 +186,65 @@ export default function HomePage() {
     return () => window.removeEventListener('adminOverride', handleAdminOverride);
   }, []);
 
-  const handleButtonClick = (destination) => {
-    if (destination === 'process-set' && (!isConnected || !authValid)) {
-      checkConnection(true);
-
-      if (!isConnected) {
-        alert('Unable to connect to backend. Please make sure the backend server is running.');
-        return;
-      } else if (!authValid) {
-        alert('Connected to backend but authentication failed. Please check your API key.');
-        return;
-      }
-    }
-
-    // Special handling for collected-dataset-custom
+  // Add this function before handleButtonClick
+  const isButtonDisabled = (destination) => {
+    // Special case for collected-dataset-custom
     if (destination === 'collected-dataset-custom') {
-      const isEnabled = buttonStates[userId] || isAdminOverride;
-      console.log('Button click check:', { userId, buttonStates, isEnabled });
-      if (!isEnabled) {
-        return; // Don't proceed if button is disabled
-      }
+      return !buttonStates[userId];
+    }
+    
+    // Default case for other buttons
+    return false;
+  };
+
+  const handleButtonClick = (destination) => {
+    if (isButtonDisabled(destination)) {
+      console.log(`Button ${destination} is disabled`);
+      return;
     }
 
     switch (destination) {
-      case 'testing-model':
-        router.push('/testing-model');
-        break;
-      case 'realtime-model':
-        router.push('/realtime-model');
-        break;
-      case 'collected-dataset':
-        router.push('/collected-dataset');
-        break;
       case 'collected-dataset-custom':
-        router.push('/collected-dataset-customized');
+        // Fetch user data before navigation
+        const fetchAndNavigate = async () => {
+          try {
+            const response = await fetch(`/api/user-preferences/${userId}`);
+            if (!response.ok) {
+              throw new Error('Failed to fetch user data');
+            }
+            const userData = await response.json();
+            
+            // Navigate with both userId and userData
+            router.push({
+              pathname: '/collected-dataset-customized',
+              query: {
+                userId: userId,
+                userData: JSON.stringify(userData)
+              }
+            });
+          } catch (error) {
+            console.error('Error fetching user data:', error);
+            // Fallback to just userId if fetch fails
+            router.push({
+              pathname: '/collected-dataset-customized',
+              query: { userId: userId }
+            });
+          }
+        };
+        
+        fetchAndNavigate();
         break;
-      case 'process-set':
-        router.push('/process_set');
-        break;
-      case 'preferences':
-        router.push('/preferences');
-        break;
-      default:
-        alert(`Navigating to ${destination} - This feature is coming soon!`);
-        break;
+        
+      // ... rest of the cases ...
     }
   };
 
   // Get button class based on consent status and admin override
   const getButtonClass = (destination) => {
-    if (destination === 'collected-dataset-custom') {
-      const isEnabled = buttonStates[userId] || isAdminOverride;
-      console.log('Button state check:', { userId, buttonStates, isEnabled });
-      return isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
-    }
-    return styles.button;
+    const isEnabled = buttonStates[userId] || false;
+    console.log('Button state check:', { destination, userId, isEnabled });
+    
+    return isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
   };
 
   const getProcessButtonClass = () => {
@@ -137,19 +259,13 @@ export default function HomePage() {
   };
 
   // Add button overlay component
-  const ButtonOverlay = ({ destination }) => {
-    if (destination === 'collected-dataset-custom') {
-      const showOverlay = !buttonStates[userId] && !isAdminOverride;
-      console.log('Overlay check:', { userId, buttonStates, showOverlay });
-      if (showOverlay) {
-        return (
-          <div className={styles.buttonOverlay}>
-            <span className={styles.overlayIcon}>✕</span>
-          </div>
-        );
-      }
-    }
-    return null;
+  const ButtonOverlay = ({ enabled }) => {
+    if (enabled) return null;
+    return (
+      <div className={styles.buttonOverlay}>
+        <span className={styles.overlayIcon}>✕</span>
+      </div>
+    );
   };
 
   return (
@@ -170,7 +286,7 @@ export default function HomePage() {
             onClick={() => handleButtonClick('collected-dataset-custom')}
           >
             <h2>Collected Dataset with customization</h2>
-            <ButtonOverlay destination="collected-dataset-custom" />
+            <ButtonOverlay enabled={buttonStates[userId] || false} />
           </button>
           <button className={styles.menuButton} onClick={() => handleButtonClick('collected-dataset')}>
             <h2>Collected Dataset</h2>

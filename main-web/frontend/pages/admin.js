@@ -525,52 +525,40 @@ export default function AdminPage({ initialSettings }) {
 
   // Add effect to handle profile updates
   useEffect(() => {
-    const handleProfileUpdate = (event) => {
-      console.log('Admin received profile update:', event.detail);
-      if (event.detail && event.detail.type === 'profile') {
-        const { userId, profile } = event.detail;
-        setUserProfiles(prev => ({
-          ...prev,
-          [userId]: profile
-        }));
+    const handleAdminUpdate = (event) => {
+      const { userId, profile } = event.detail;
+      console.log('Admin update received:', { userId, profile });
+      
+      setUserProfiles(prev => ({
+        ...prev,
+        [userId]: profile
+      }));
 
-        // Check if profile is complete
-        const isProfileComplete = profile.username && profile.sex;
-        console.log('Profile completion check:', { userId, isProfileComplete });
-        
-        // Dispatch event to enable/disable access
-        const accessEvent = new CustomEvent('adminOverride', {
+      // Check if profile is complete and update button state
+      if (profile.isComplete) {
+        const buttonEvent = new CustomEvent('buttonStateUpdate', {
           detail: {
-            type: 'adminOverride',
             userId: userId,
-            enabled: isProfileComplete
+            enabled: true
           }
         });
-        window.dispatchEvent(accessEvent);
-
-        // Also update the button state directly
-        if (typeof window !== 'undefined') {
-          const buttonStateEvent = new CustomEvent('buttonStateUpdate', {
-            detail: {
-              userId: userId,
-              enabled: isProfileComplete
-            }
-          });
-          window.dispatchEvent(buttonStateEvent);
-          console.log('Dispatched button state update:', { userId, enabled: isProfileComplete });
-        }
+        window.dispatchEvent(buttonEvent);
       }
     };
 
-    window.addEventListener('adminUpdate', handleProfileUpdate);
-    return () => window.removeEventListener('adminUpdate', handleProfileUpdate);
+    window.addEventListener('adminUpdate', handleAdminUpdate);
+    return () => window.removeEventListener('adminUpdate', handleAdminUpdate);
   }, []);
 
   // Add user profiles to the consent data display
   const getProfileStatus = (userId) => {
     const profile = userProfiles[userId];
-    if (!profile) return 'No Profile';
-    return `${profile.username} (${profile.sex})`;
+    if (!profile) return 'No profile';
+    
+    const isComplete = profile.username && profile.sex;
+    return isComplete ? 
+      `Complete (${profile.username}, ${profile.sex}${profile.age ? `, ${profile.age}` : ''})` : 
+      'Incomplete';
   };
 
   if (loading) {

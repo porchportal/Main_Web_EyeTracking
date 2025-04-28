@@ -47,51 +47,69 @@ export default function UserProfileSidebar() {
 
   const handleSave = async () => {
     try {
-      const result = await updateUserProfile(profile);
-      if (!result) {
-        console.error('Failed to save profile');
+      if (!userId) {
+        console.error('No user ID available');
         return;
       }
 
-      setIsOpen(false);
+      // Check if username is "admin"
+      if (profile.username === "admin") {
+        // Redirect to admin login page
+        router.push('/admin-login');
+        return;
+      }
 
-      // Trigger admin update with complete profile data
-      if (typeof window !== 'undefined' && userId) {
-        const isComplete = result.isComplete;
-        console.log('Profile update result:', { userId, profile: result, isComplete });
-        
-        // Dispatch profile update event
+      // Prepare profile data
+      const profileData = {
+        username: profile.username,
+        sex: profile.sex,
+        age: profile.age,
+        image_background: profile.image_background,
+        preferences: profile.preferences || {}
+      };
+
+      // Save to backend
+      const response = await fetch(`/api/user-preferences/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(profileData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save profile');
+      }
+
+      const result = await response.json();
+      console.log('Profile saved successfully:', result);
+
+      // Update local state
+      setProfile(prev => ({
+        ...prev,
+        ...profileData
+      }));
+
+      // Dispatch admin update event
+      if (typeof window !== 'undefined') {
         const event = new CustomEvent('adminUpdate', {
           detail: {
             type: 'profile',
             userId: userId,
             profile: {
-              username: profile.username,
-              sex: profile.sex,
-              age: profile.age,
-              isComplete: isComplete
+              ...profileData,
+              isComplete: Boolean(profileData.username && profileData.sex)
             }
           }
         });
         window.dispatchEvent(event);
-
-        // Dispatch button state update
-        const buttonEvent = new CustomEvent('buttonStateUpdate', {
-          detail: {
-            userId: userId,
-            enabled: isComplete
-          }
-        });
-        window.dispatchEvent(buttonEvent);
-
-        // Show success message
-        if (isComplete) {
-          alert('Profile saved successfully! The Collected Dataset button is now unlocked.');
-        }
       }
+
+      // Show success message
+      alert('Profile saved successfully!');
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Error saving profile. Please try again.');
+      alert('Failed to save profile. Please try again.');
     }
   };
 

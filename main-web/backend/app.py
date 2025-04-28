@@ -1,18 +1,23 @@
 # app.py - Main FastAPI entry point with added consent routes
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
 import asyncio
 import json
 from datetime import datetime
+from pydantic import BaseModel
+import os
+from dotenv import load_dotenv
+from motor.motor_asyncio import AsyncIOMotorClient
+from pathlib import Path
 
 # Import configuration
 from config.settings import settings
 
 # Import database connection
-from db.mongodb import db
+from db.mongodb import db, MongoDB
 
 # Import routers
 from routes import preferences
@@ -35,6 +40,16 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+# Load environment variables
+env_path = Path(__file__).parent.parent / '.env.backend'
+logger.info(f"Loading environment variables from: {env_path}")
+load_dotenv(dotenv_path=env_path)
+
+# Log environment variables (without sensitive data)
+logger.info("Environment variables loaded:")
+logger.info(f"ADMIN_USERNAME is set: {bool(os.getenv('ADMIN_USERNAME'))}")
+logger.info(f"ADMIN_PASSWORD is set: {bool(os.getenv('ADMIN_PASSWORD'))}")
 
 # Create FastAPI app
 app = FastAPI(
@@ -71,37 +86,14 @@ async def verify_api_key(api_key: str = Depends(api_key_header)):
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize connections and resources on startup"""
-    try:
-        # Try to connect to MongoDB, but continue even if it fails
-        mongodb_connected = await db.connect()
-        
-        if mongodb_connected:
-            # Initialize collections and indexes only if MongoDB is connected
-            try:
-                from services.preferences import PreferencesService
-                await PreferencesService.initialize_collection()
-                logger.info("MongoDB collections initialized successfully")
-            except Exception as e:
-                logger.error(f"Error initializing MongoDB collections: {e}")
-        else:
-            logger.warning("Skipping MongoDB collection initialization due to connection failure")
-        
-        logger.info("Application startup completed")
-    except Exception as e:
-        logger.error(f"Error during application startup: {e}")
-        # Don't raise the error - allow the application to start anyway
-        logger.info("Application will continue startup despite errors")
+    """Initialize MongoDB connection on startup."""
+    if not await MongoDB.connect():
+        logger.error("Failed to connect to MongoDB on startup")
+
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Clean up resources on shutdown"""
-    try:
-        # Close MongoDB connection
-        await db.close()
-        
-        logger.info("Application shutdown completed successfully")
-    except Exception as e:
-        logger.error(f"Error during application shutdown: {e}")
+    """Close MongoDB connection on shutdown."""
+    await MongoDB.close()
 
 # Include the preferences router with API key authentication
 app.include_router(
@@ -173,45 +165,14 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/health")
 async def health_check():
-    """
-    Health check endpoint that verifies the service is running correctly
-    and checks critical dependencies.
-    """
+    """Health check endpoint to verify MongoDB connection."""
     try:
-        # Check if data center service is initialized
-        data_center_status = "ok"
-        try:
-            # Try to get a value to verify data center is working
-            test_value = data_center_service.get_value("test_key")
-            if test_value is None:
-                data_center_status = "initialized"
-        except Exception as e:
-            data_center_status = f"error: {str(e)}"
-
-        # Check WebSocket connections
-        ws_status = "ok"
-        try:
-            active_ws_count = len(active_connections)
-            ws_status = f"ok ({active_ws_count} active connections)"
-        except Exception as e:
-            ws_status = f"error: {str(e)}"
-
-        return {
-            "status": "ok",
-            "timestamp": datetime.now().isoformat(),
-            "components": {
-                "api": "ok",
-                "data_center": data_center_status,
-                "websocket": ws_status
-            }
-        }
+        if await MongoDB.ensure_connected():
+            return {"status": "healthy", "mongodb": "connected"}
+        return {"status": "degraded", "mongodb": "disconnected"}
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return {
-            "status": "error",
-            "error": str(e),
-            "timestamp": datetime.now().isoformat()
-        }
+        logger.error(f"Health check failed: {str(e)}")
+        return {"status": "unhealthy", "mongodb": "error"}
 
 @app.get("/api/check-backend-connection")
 async def check_backend_connection():
@@ -232,8 +193,114 @@ async def check_status():
         "active_connections": len(active_connections)
     }
 
+class UserPreferences(BaseModel):
+    username: Optional[str] = None
+    sex: Optional[str] = None
+    age: Optional[int] = None
+    preferences: Optional[Dict[str, Any]] = None
+
+@app.get("/api/user-preferences/{user_id}")
+async def get_user_preferences(user_id: str):
+    """Get user preferences from MongoDB."""
+    try:
+        if not await MongoDB.ensure_connected():
+            raise HTTPException(status_code=503, detail="Database connection unavailable")
+        
+        db = MongoDB.get_db()
+        user_data = await db.users.find_one({"user_id": user_id})
+        
+        if not user_data:
+            # Return empty preferences instead of 404
+            return {
+                "user_id": user_id,
+                "username": None,
+                "sex": None,
+                "age": None,
+                "preferences": {}
+            }
+        
+        # Remove MongoDB _id field from response
+        user_data.pop("_id", None)
+        return user_data
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching user preferences: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.post("/api/user-preferences/{user_id}")
+async def update_user_preferences(user_id: str, preferences: UserPreferences):
+    """Update user preferences in MongoDB."""
+    try:
+        if not await MongoDB.ensure_connected():
+            raise HTTPException(status_code=503, detail="Database connection unavailable")
+        
+        db = MongoDB.get_db()
+        
+        # Convert Pydantic model to dict and include user_id
+        update_data = preferences.dict(exclude_unset=True)
+        update_data["user_id"] = user_id
+        
+        # Ensure preferences field exists
+        if "preferences" not in update_data:
+            update_data["preferences"] = {}
+        
+        result = await db.users.update_one(
+            {"user_id": user_id},
+            {"$set": update_data},
+            upsert=True
+        )
+        
+        if result.modified_count == 0 and not result.upserted_id:
+            logger.warning(f"No changes made to user preferences for user_id: {user_id}")
+        
+        return {"status": "success", "message": "Preferences updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating user preferences: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 app.include_router(data_center_router)
 app.include_router(admin_updates_router)
+
+# Admin authentication route
+class AdminLogin(BaseModel):
+    username: str
+    password: str
+
+@app.post("/api/admin/auth")
+async def admin_auth(login: AdminLogin):
+    try:
+        logger.info(f"Received login attempt for username: {login.username}")
+        
+        # Get expected credentials from environment
+        expected_username = os.getenv("ADMIN_USERNAME")
+        expected_password = os.getenv("ADMIN_PASSWORD")
+        
+        logger.info(f"Expected credentials - Username: {expected_username}")
+        logger.info(f"Received credentials - Username: {login.username}, Password: {login.password}")
+        
+        # Check if environment variables are set
+        if not expected_username or not expected_password:
+            logger.error("Admin credentials not found in environment variables")
+            raise HTTPException(
+                status_code=500,
+                detail="Server configuration error"
+            )
+        
+        # Check credentials
+        if login.username == expected_username and login.password == expected_password:
+            logger.info("Login successful")
+            return {"message": "Authentication successful"}
+        else:
+            logger.warning("Invalid credentials")
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during authentication: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
