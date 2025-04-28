@@ -272,7 +272,8 @@ export default function AdminPage({ initialSettings }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          // 'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          'X-API-Key': process.env.API_KEY
         },
         body: JSON.stringify({
           userId: selectedUserId,
@@ -312,7 +313,8 @@ export default function AdminPage({ initialSettings }) {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+              // 'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+              'X-API-Key': process.env.API_KEY
             },
             body: JSON.stringify({
               userId: selectedUserId,
@@ -353,7 +355,8 @@ export default function AdminPage({ initialSettings }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          // 'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          'X-API-Key': process.env.API_KEY
         },
         body: JSON.stringify({
           userId: selectedUserId,
@@ -456,7 +459,8 @@ export default function AdminPage({ initialSettings }) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+            // 'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+            'X-API-Key': process.env.API_KEY
           },
           body: JSON.stringify({
             userId: selectedUserId,
@@ -583,7 +587,7 @@ export default function AdminPage({ initialSettings }) {
       <Head>
         <title>Admin Dashboard</title>
       </Head>
-
+  
       <main className={styles.main}>
         <h1>Admin Dashboard</h1>
         
@@ -600,27 +604,8 @@ export default function AdminPage({ initialSettings }) {
             <p><small>{debugInfo}</small></p>
           </div>
         )}
-
-        {/* User Selection Section */}
-        <div className={styles.settingsSection}>
-          <h2>Select User</h2>
-          <div className={styles.settingItem}>
-            <select
-              value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
-              className={styles.selectInput}
-            >
-              <option value="">Select a user...</option>
-              {consentData.map((data) => (
-                <option key={data.userId} value={data.userId}>
-                  User: {data.userId}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        
-        {/* Consent Data Section */}
+  
+        {/* Consent Data Section - Now First */}
         <div className={styles.settingsSection}>
           <h2>Consent Data</h2>
           <div className={styles.consentTable}>
@@ -659,7 +644,26 @@ export default function AdminPage({ initialSettings }) {
             </table>
           </div>
         </div>
-
+  
+        {/* User Selection Section - Now Second */}
+        <div className={styles.settingsSection}>
+          <h2>Select User</h2>
+          <div className={styles.settingItem}>
+            <select
+              value={selectedUserId}
+              onChange={(e) => setSelectedUserId(e.target.value)}
+              className={styles.selectInput}
+            >
+              <option value="">Select a user...</option>
+              {consentData.map((data) => (
+                <option key={data.userId} value={data.userId}>
+                  User: {data.userId}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        
         {/* Settings Sections (only shown when a user is selected) */}
         {selectedUserId && (
           <>
@@ -703,7 +707,7 @@ export default function AdminPage({ initialSettings }) {
                 </div>
               </div>
             </div>
-
+  
             {/* Image Settings Section */}
             <div className={styles.settingsSection}>
               <h2>Image Settings</h2>
@@ -725,7 +729,7 @@ export default function AdminPage({ initialSettings }) {
                 </button>
               </div>
             </div>
-
+  
             {/* Zoom Control Section */}
             <div className={styles.settingsSection}>
               <h2>Zoom Control</h2>
