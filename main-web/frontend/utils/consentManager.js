@@ -42,8 +42,9 @@ export const getUserProfile = () => {
 };
 
 // Update user profile
-export const updateUserProfile = (profileData) => {
+export const updateUserProfile = async (profileData) => {
   try {
+    // Save to cookies
     const currentProfile = getUserProfile() || {};
     const updatedProfile = {
       ...currentProfile,
@@ -51,10 +52,64 @@ export const updateUserProfile = (profileData) => {
       updatedAt: new Date().toISOString()
     };
     Cookies.set(USER_PROFILE_COOKIE, JSON.stringify(updatedProfile), { expires: 365 });
-    return updatedProfile;
+
+    // Save to backend (MongoDB)
+    try {
+      const userId = getOrCreateUserId();
+      const response = await fetch('/api/user-preferences', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          preferences: updatedProfile
+        })
+      });
+      
+      if (!response.ok) {
+        console.warn('Failed to save profile to backend');
+        return null;
+      }
+
+      // Check if profile is complete (has username and sex)
+      const isComplete = updatedProfile.username && updatedProfile.sex;
+      
+      // Store profile completion status in session storage
+      if (isComplete) {
+        sessionStorage.setItem('profileComplete', 'true');
+        sessionStorage.setItem('userId', userId);
+      }
+
+      return {
+        ...updatedProfile,
+        isComplete
+      };
+    } catch (saveError) {
+      console.warn('Error saving profile to backend:', saveError);
+      return null;
+    }
   } catch (error) {
     console.error('Error updating user profile:', error);
     throw error;
+  }
+};
+
+// Check if profile is complete
+export const isProfileComplete = () => {
+  try {
+    // First check session storage
+    const sessionComplete = sessionStorage.getItem('profileComplete');
+    if (sessionComplete === 'true') {
+      return true;
+    }
+
+    // Then check cookies
+    const profile = getUserProfile();
+    return profile && profile.username && profile.sex;
+  } catch (error) {
+    console.error('Error checking profile completion:', error);
+    return false;
   }
 };
 

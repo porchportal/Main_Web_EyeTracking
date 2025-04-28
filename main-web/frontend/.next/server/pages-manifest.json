@@ -5,5 +5,5 @@
   "/": "pages/index.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
   "/process_set": "pages/process_set.js",
-  "/collected-dataset": "pages/collected-dataset.js"
+  "/collected-dataset-customized": "pages/collected-dataset-customized.js"
 }

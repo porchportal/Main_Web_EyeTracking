@@ -127,6 +127,7 @@ export default function AdminPage({ initialSettings }) {
   const [debugInfo, setDebugInfo] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('default');
   const pollingInterval = useRef(null);
+  const [userProfiles, setUserProfiles] = useState({});
 
   // Initialize tempSettings with initial settings
   useEffect(() => {
@@ -522,6 +523,56 @@ export default function AdminPage({ initialSettings }) {
     }, 3000);
   };
 
+  // Add effect to handle profile updates
+  useEffect(() => {
+    const handleProfileUpdate = (event) => {
+      console.log('Admin received profile update:', event.detail);
+      if (event.detail && event.detail.type === 'profile') {
+        const { userId, profile } = event.detail;
+        setUserProfiles(prev => ({
+          ...prev,
+          [userId]: profile
+        }));
+
+        // Check if profile is complete
+        const isProfileComplete = profile.username && profile.sex;
+        console.log('Profile completion check:', { userId, isProfileComplete });
+        
+        // Dispatch event to enable/disable access
+        const accessEvent = new CustomEvent('adminOverride', {
+          detail: {
+            type: 'adminOverride',
+            userId: userId,
+            enabled: isProfileComplete
+          }
+        });
+        window.dispatchEvent(accessEvent);
+
+        // Also update the button state directly
+        if (typeof window !== 'undefined') {
+          const buttonStateEvent = new CustomEvent('buttonStateUpdate', {
+            detail: {
+              userId: userId,
+              enabled: isProfileComplete
+            }
+          });
+          window.dispatchEvent(buttonStateEvent);
+          console.log('Dispatched button state update:', { userId, enabled: isProfileComplete });
+        }
+      }
+    };
+
+    window.addEventListener('adminUpdate', handleProfileUpdate);
+    return () => window.removeEventListener('adminUpdate', handleProfileUpdate);
+  }, []);
+
+  // Add user profiles to the consent data display
+  const getProfileStatus = (userId) => {
+    const profile = userProfiles[userId];
+    if (!profile) return 'No Profile';
+    return `${profile.username} (${profile.sex})`;
+  };
+
   if (loading) {
     return (
       <div className={styles.preferencesContainer}>
@@ -590,6 +641,7 @@ export default function AdminPage({ initialSettings }) {
                 <tr>
                   <th>User ID</th>
                   <th>Consent Status</th>
+                  <th>Profile</th>
                   <th>Timestamp</th>
                   <th>Received At</th>
                   <th>Actions</th>
@@ -600,6 +652,7 @@ export default function AdminPage({ initialSettings }) {
                   <tr key={index}>
                     <td>{data.userId}</td>
                     <td>{data.status ? 'Accepted' : 'Declined'}</td>
+                    <td>{getProfileStatus(data.userId)}</td>
                     <td>{new Date(data.timestamp).toLocaleString()}</td>
                     <td>{new Date(data.receivedAt).toLocaleString()}</td>
                     <td>

@@ -45,12 +45,53 @@ export default function UserProfileSidebar() {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
-      updateUserProfile(profile);
+      const result = await updateUserProfile(profile);
+      if (!result) {
+        console.error('Failed to save profile');
+        return;
+      }
+
       setIsOpen(false);
+
+      // Trigger admin update with complete profile data
+      if (typeof window !== 'undefined' && userId) {
+        const isComplete = result.isComplete;
+        console.log('Profile update result:', { userId, profile: result, isComplete });
+        
+        // Dispatch profile update event
+        const event = new CustomEvent('adminUpdate', {
+          detail: {
+            type: 'profile',
+            userId: userId,
+            profile: {
+              username: profile.username,
+              sex: profile.sex,
+              age: profile.age,
+              isComplete: isComplete
+            }
+          }
+        });
+        window.dispatchEvent(event);
+
+        // Dispatch button state update
+        const buttonEvent = new CustomEvent('buttonStateUpdate', {
+          detail: {
+            userId: userId,
+            enabled: isComplete
+          }
+        });
+        window.dispatchEvent(buttonEvent);
+
+        // Show success message
+        if (isComplete) {
+          alert('Profile saved successfully! The Collected Dataset button is now unlocked.');
+        }
+      }
     } catch (error) {
       console.error('Error saving profile:', error);
+      alert('Error saving profile. Please try again.');
     }
   };
 
