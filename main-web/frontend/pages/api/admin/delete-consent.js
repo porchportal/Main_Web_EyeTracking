@@ -9,16 +9,8 @@ export default async function handler(req, res) {
 
   // Check for API key
   const apiKey = req.headers['x-api-key'];
-  console.log('Received API Key:', apiKey);
-  console.log('Expected API Key:', process.env.NEXT_PUBLIC_API_KEY);
-  
   if (!apiKey || apiKey !== process.env.NEXT_PUBLIC_API_KEY) {
-    console.log('API Key mismatch or missing');
-    return res.status(401).json({ 
-      error: 'Unauthorized',
-      receivedKey: apiKey,
-      expectedKey: process.env.NEXT_PUBLIC_API_KEY
-    });
+    return res.status(401).json({ error: 'Unauthorized' });
   }
 
   const { userId } = req.body;

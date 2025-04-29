@@ -101,7 +101,13 @@ export default function CollectedDatasetPage() {
         }
 
         if (router.query.userId) {
-          const response = await fetch(`/api/user-preferences/${router.query.userId}`);
+          const response = await fetch(`/user-preferences/${router.query.userId}`, {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+            }
+          });
           if (!response.ok) {
             throw new Error('Failed to fetch user data');
           }

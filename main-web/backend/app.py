@@ -26,6 +26,7 @@ from routes import files
 from routes import preview
 from routes.data_center_routes import router as data_center_router
 from routes.admin_updates import router as admin_updates_router
+from routes.consent import router as consent_router
 # from routes import consent 
 
 # Import response models
@@ -60,13 +61,14 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Configure CORS to allow requests from frontend
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=["*"],  # In production, replace with specific origins
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"]
+    allow_methods=["*"],  # Allows all methods including OPTIONS
+    allow_headers=["*"],  # Allows all headers including X-API-Key
+    expose_headers=["*"]
 )
 
 # API Key authentication
@@ -115,6 +117,12 @@ app.include_router(
 # Include the preview router with API key authentication
 app.include_router(
     preview.router,
+    dependencies=[Depends(verify_api_key)]
+)
+
+# Include the consent router with API key authentication
+app.include_router(
+    consent_router,
     dependencies=[Depends(verify_api_key)]
 )
 
@@ -229,6 +237,7 @@ async def get_user_preferences(user_id: str):
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/api/user-preferences/{user_id}")
+@app.put("/api/user-preferences/{user_id}")
 async def update_user_preferences(user_id: str, preferences: UserPreferences):
     """Update user preferences in MongoDB."""
     try:

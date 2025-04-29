@@ -22,5 +22,11 @@
     "status": true,
     "timestamp": "2025-04-24T03:51:25.095Z",
     "receivedAt": "2025-04-24T03:51:25.253Z"
+  },
+  {
+    "userId": "5a8c4878-4d91-4467-b063-671d3e127280",
+    "status": true,
+    "timestamp": "2025-04-28T14:12:16.172Z",
+    "receivedAt": "2025-04-28T14:12:16.234Z"
   }
 ]

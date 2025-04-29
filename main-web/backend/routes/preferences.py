@@ -6,6 +6,7 @@ import logging
 from model_preference.preferences import UserPreferences, UserPreferencesUpdate, ConsentUpdate
 from model_preference.response import DataResponse, ErrorResponse
 from services.preferences import PreferencesService
+from auth import verify_api_key
 
 # Set up router
 router = APIRouter(
@@ -19,7 +20,7 @@ router = APIRouter(
 
 logger = logging.getLogger(__name__)
 
-@router.get("/{user_id}", response_model=DataResponse[Dict[str, Any]])
+@router.get("/{user_id}", response_model=DataResponse[Dict[str, Any]], dependencies=[Depends(verify_api_key)])
 async def get_user_preferences(user_id: str = Path(..., description="User ID")):
     """Get user preferences by user ID"""
     try:
@@ -42,7 +43,7 @@ async def get_user_preferences(user_id: str = Path(..., description="User ID")):
             detail=f"Failed to retrieve user preferences: {str(e)}"
         )
 
-@router.post("", response_model=DataResponse[Dict[str, Any]])
+@router.post("", response_model=DataResponse[Dict[str, Any]], dependencies=[Depends(verify_api_key)])
 async def create_user_preferences(preferences: UserPreferences):
     """Create new user preferences"""
     try:
@@ -59,7 +60,7 @@ async def create_user_preferences(preferences: UserPreferences):
             detail=f"Failed to create user preferences: {str(e)}"
         )
 
-@router.put("/{user_id}", response_model=DataResponse[Dict[str, Any]])
+@router.put("/{user_id}", response_model=DataResponse[Dict[str, Any]], dependencies=[Depends(verify_api_key)])
 async def update_user_preferences(
     update: UserPreferencesUpdate,
     user_id: str = Path(..., description="User ID")
@@ -79,7 +80,7 @@ async def update_user_preferences(
             detail=f"Failed to update user preferences: {str(e)}"
         )
 
-@router.put("/{user_id}/consent", response_model=DataResponse[Dict[str, Any]])
+@router.put("/{user_id}/consent", response_model=DataResponse[Dict[str, Any]], dependencies=[Depends(verify_api_key)])
 async def update_user_consent(
     update: ConsentUpdate,
     user_id: str = Path(..., description="User ID")
@@ -99,7 +100,7 @@ async def update_user_consent(
             detail=f"Failed to update user consent: {str(e)}"
         )
 
-@router.delete("/{user_id}", response_model=DataResponse)
+@router.delete("/{user_id}", response_model=DataResponse, dependencies=[Depends(verify_api_key)])
 async def delete_user_preferences(user_id: str = Path(..., description="User ID")):
     """Delete user preferences"""
     try:

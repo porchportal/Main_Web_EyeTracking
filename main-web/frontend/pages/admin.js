@@ -77,6 +77,8 @@ import { useAdminSettings } from '../pages/collected-dataset-customized/componen
 import fs from 'fs';
 import path from 'path';
 
+const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+
 export async function getServerSideProps() {
   // Define the path to the settings file
   const settingsPath = path.join(process.cwd(), 'public', 'admin', 'capture_settings.json');
@@ -574,21 +576,22 @@ export default function AdminPage({ initialSettings }) {
 
   const handleDeleteConfirm = async () => {
     try {
-      console.log('API Key being sent:', process.env.NEXT_PUBLIC_API_KEY);
-      const response = await fetch('/api/admin/delete-consent', {
-        method: 'POST',
+      console.log('Using API Key:', process.env.NEXT_PUBLIC_API_KEY);
+      const response = await fetch(`${API_BASE_URL}/consent/${deleteTarget}`, {
+        method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
-        },
-        body: JSON.stringify({
-          userId: deleteTarget
-        })
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV' // Fallback for testing
+        }
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Delete error response:', errorData);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Delete error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData
+        });
         throw new Error('Failed to delete consent data');
       }
 

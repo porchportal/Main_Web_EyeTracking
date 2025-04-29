@@ -61,18 +61,19 @@ export default function UserProfileSidebar() {
 
       // Prepare profile data
       const profileData = {
-        username: profile.username,
-        sex: profile.sex,
-        age: profile.age,
-        image_background: profile.image_background,
-        preferences: profile.preferences || {}
+        preferences: {
+          username: profile.username,
+          sex: profile.sex,
+          age: profile.age
+        }
       };
 
       // Save to backend
       const response = await fetch(`/api/user-preferences/${userId}`, {
-        method: 'POST',
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
         },
         body: JSON.stringify(profileData)
       });
@@ -87,7 +88,7 @@ export default function UserProfileSidebar() {
       // Update local state
       setProfile(prev => ({
         ...prev,
-        ...profileData
+        ...profileData.preferences
       }));
 
       // Dispatch admin update event
@@ -97,8 +98,8 @@ export default function UserProfileSidebar() {
             type: 'profile',
             userId: userId,
             profile: {
-              ...profileData,
-              isComplete: Boolean(profileData.username && profileData.sex)
+              ...profileData.preferences,
+              isComplete: Boolean(profileData.preferences.username && profileData.preferences.sex)
             }
           }
         });

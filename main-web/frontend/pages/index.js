@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { useConsent } from '../components/consent/ConsentContext';
 import { isProfileComplete } from '../utils/consentManager';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
 export default function HomePage() {
   const router = useRouter();
@@ -32,7 +32,8 @@ export default function HomePage() {
       const response = await fetch(`${API_BASE_URL}/api/user-preferences/${userId}`, {
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
         }
       });
       
@@ -52,7 +53,8 @@ export default function HomePage() {
             method: 'POST',
             headers: {
               'Accept': 'application/json',
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
             },
             body: JSON.stringify({
               userId: userId,
@@ -90,7 +92,8 @@ export default function HomePage() {
           const newResponse = await fetch(`${API_BASE_URL}/api/user-preferences/${userId}`, {
             headers: {
               'Accept': 'application/json',
-              'Content-Type': 'application/json'
+              'Content-Type': 'application/json',
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
             }
           });
           if (!newResponse.ok) {
@@ -108,7 +111,20 @@ export default function HomePage() {
         const data = await response.json();
         console.log('Successfully fetched user data:', data);
         setUserData(data);
-        setRetryCount(0); // Reset retry count on success
+        
+        // Check both profile completion and local storage
+        const savedState = localStorage.getItem(`buttonState_${userId}`);
+        const isComplete = data.isComplete || savedState === 'true';
+        
+        if (isComplete) {
+          setButtonStates(prev => ({
+            ...prev,
+            [userId]: true
+          }));
+          localStorage.setItem(`buttonState_${userId}`, 'true');
+        }
+        
+        setRetryCount(0);
       }
     } catch (error) {
       console.error('Error in fetchUserData:', error);
@@ -151,7 +167,22 @@ export default function HomePage() {
       }));
     }
 
-    // Add effect to handle button state updates
+    // Add effect to handle profile updates
+    const handleAdminUpdate = (event) => {
+      const { userId, profile } = event.detail;
+      console.log('Admin update received:', { userId, profile });
+      
+      // Check if profile is complete and update button state
+      if (profile.isComplete) {
+        setButtonStates(prev => ({
+          ...prev,
+          [userId]: true
+        }));
+        // Save to local storage
+        localStorage.setItem(`buttonState_${userId}`, 'true');
+      }
+    };
+
     const handleButtonStateUpdate = (event) => {
       const { userId, enabled } = event.detail;
       console.log('Button state update received:', { userId, enabled });
@@ -160,10 +191,28 @@ export default function HomePage() {
         ...prev,
         [userId]: enabled
       }));
+      // Save to local storage
+      localStorage.setItem(`buttonState_${userId}`, enabled.toString());
     };
 
+    // Load button state from local storage on mount
+    if (userId) {
+      const savedState = localStorage.getItem(`buttonState_${userId}`);
+      if (savedState !== null) {
+        setButtonStates(prev => ({
+          ...prev,
+          [userId]: savedState === 'true'
+        }));
+      }
+    }
+
+    window.addEventListener('adminUpdate', handleAdminUpdate);
     window.addEventListener('buttonStateUpdate', handleButtonStateUpdate);
-    return () => window.removeEventListener('buttonStateUpdate', handleButtonStateUpdate);
+    
+    return () => {
+      window.removeEventListener('adminUpdate', handleAdminUpdate);
+      window.removeEventListener('buttonStateUpdate', handleButtonStateUpdate);
+    };
   }, [userId]);
 
   // Add effect to handle admin override events
@@ -198,17 +247,31 @@ export default function HomePage() {
   };
 
   const handleButtonClick = (destination) => {
+    // Check if button is disabled
     if (isButtonDisabled(destination)) {
       console.log(`Button ${destination} is disabled`);
       return;
     }
 
+    // Check consent status
+    if (consentStatus === null) {
+      console.log('Consent not set, showing banner');
+      return;
+    }
+
+    // Handle navigation based on destination
     switch (destination) {
       case 'collected-dataset-custom':
         // Fetch user data before navigation
         const fetchAndNavigate = async () => {
           try {
-            const response = await fetch(`/api/user-preferences/${userId}`);
+            const response = await fetch(`${API_BASE_URL}/api/user-preferences/${userId}`, {
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+              }
+            });
             if (!response.ok) {
               throw new Error('Failed to fetch user data');
             }
@@ -234,8 +297,25 @@ export default function HomePage() {
         
         fetchAndNavigate();
         break;
-        
-      // ... rest of the cases ...
+
+      case 'collected-dataset':
+        router.push('/collected-dataset');
+        break;
+
+      case 'testing-model':
+        router.push('/testing-model');
+        break;
+
+      case 'realtime-model':
+        router.push('/realtime-model');
+        break;
+
+      case 'process-set':
+        router.push('/process-set');
+        break;
+
+      default:
+        console.warn(`Unknown destination: ${destination}`);
     }
   };
 
@@ -267,6 +347,7 @@ export default function HomePage() {
       </div>
     );
   };
+  
 
   return (
     <div className={styles.container}>
@@ -284,6 +365,7 @@ export default function HomePage() {
           <button 
             className={getButtonClass('collected-dataset-custom')} 
             onClick={() => handleButtonClick('collected-dataset-custom')}
+            style={{ height: '180px' }}
           >
             <h2>Collected Dataset with customization</h2>
             <ButtonOverlay enabled={buttonStates[userId] || false} />

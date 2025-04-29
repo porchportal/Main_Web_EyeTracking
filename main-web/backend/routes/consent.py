@@ -81,3 +81,27 @@ async def update_user_consent(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to update user consent: {str(e)}"
         )
+
+@router.delete("/{user_id}", response_model=DataResponse)
+async def delete_user_consent(user_id: str = Path(..., description="User ID")):
+    """Delete user consent data"""
+    try:
+        # Use the existing preferences service to delete user data
+        deleted = await PreferencesService.delete_preferences(user_id)
+        
+        if not deleted:
+            return DataResponse(
+                success=True,
+                message="No consent data found to delete",
+            )
+            
+        return DataResponse(
+            success=True,
+            message="User consent data deleted successfully"
+        )
+    except Exception as e:
+        logger.error(f"Error deleting consent for user {user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to delete user consent: {str(e)}"
+        )
