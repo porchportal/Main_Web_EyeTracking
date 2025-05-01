@@ -311,7 +311,7 @@ export default function HomePage() {
         break;
 
       case 'process-set':
-        router.push('/process-set');
+        router.push('/process_set');
         break;
 
       default:

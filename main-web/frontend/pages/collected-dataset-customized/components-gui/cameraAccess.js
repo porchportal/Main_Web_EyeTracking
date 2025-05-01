@@ -211,56 +211,177 @@ const CameraAccess = ({
     setIsVideoReady(false);
 
     try {
-      // Check if MediaDevices API is supported
-      if (typeof navigator === 'undefined' || !navigator.mediaDevices) {
-        // Try to polyfill the MediaDevices API
-        if (typeof navigator !== 'undefined') {
-          navigator.mediaDevices = {};
-        }
+      // 1. Enhanced Browser Environment Check
+      if (typeof window === 'undefined') {
+        throw new Error('Window object not available - not running in a browser environment');
+      }
+
+      if (typeof navigator === 'undefined') {
+        throw new Error('Navigator object not available - not running in a browser environment');
+      }
+
+      // 2. Comprehensive Browser Detection
+      const userAgent = navigator.userAgent.toLowerCase();
+      const browserInfo = {
+        isChrome: /chrome/.test(userAgent) && !/edge/.test(userAgent),
+        isFirefox: /firefox/.test(userAgent),
+        isSafari: /safari/.test(userAgent) && !/chrome/.test(userAgent),
+        isEdge: /edge/.test(userAgent),
+        isOpera: /opr/.test(userAgent),
+        isIE: /trident/.test(userAgent),
+        isMobile: /mobile|android|iphone|ipad|phone/i.test(userAgent),
+        version: userAgent.match(/(chrome|firefox|safari|edge|opr)\/([0-9]+)/)
+      };
+
+      console.log('Browser Info:', browserInfo);
+
+      // 3. Initialize MediaDevices API
+      if (!navigator.mediaDevices) {
+        console.warn('MediaDevices API not available, initializing...');
+        navigator.mediaDevices = {};
+      }
+
+      // 4. Enhanced MediaDevices Support
+      if (!navigator.mediaDevices.getUserMedia) {
+        console.warn('getUserMedia not available, checking implementations...');
         
-        // Add getUserMedia polyfill if needed
-        if (!navigator.mediaDevices.getUserMedia) {
+        // Try all possible implementations
+        const implementations = {
+          standard: navigator.mediaDevices.getUserMedia,
+          webkit: navigator.webkitGetUserMedia || navigator.mediaDevices.webkitGetUserMedia,
+          moz: navigator.mozGetUserMedia || navigator.mediaDevices.mozGetUserMedia,
+          ms: navigator.msGetUserMedia || navigator.mediaDevices.msGetUserMedia,
+          legacy: navigator.getUserMedia
+        };
+
+        console.log('Available implementations:', Object.keys(implementations).filter(key => implementations[key]));
+
+        // Try to find a working implementation
+        let getUserMedia = null;
+        let implementationName = null;
+
+        for (const [name, impl] of Object.entries(implementations)) {
+          if (impl) {
+            getUserMedia = impl;
+            implementationName = name;
+            break;
+          }
+        }
+
+        if (getUserMedia) {
+          console.log(`Using ${implementationName} implementation of getUserMedia`);
+          
+          // Wrap the implementation in a Promise
           navigator.mediaDevices.getUserMedia = function(constraints) {
-            // First get ahold of the legacy getUserMedia, if present
-            const getUserMedia = navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
-            
-            // Some browsers just don't implement it - return a rejected promise with an error
-            if (!getUserMedia) {
-              return Promise.reject(new Error('getUserMedia is not implemented in this browser'));
-            }
-            
-            // Otherwise, wrap the call to the old navigator.getUserMedia with a Promise
-            return new Promise(function(resolve, reject) {
-              getUserMedia.call(navigator, constraints, resolve, reject);
+            return new Promise((resolve, reject) => {
+              if (implementationName === 'standard') {
+                getUserMedia.call(navigator.mediaDevices, constraints)
+                  .then(resolve)
+                  .catch(reject);
+              } else {
+                getUserMedia.call(navigator, constraints, resolve, reject);
+              }
             });
           };
+        } else {
+          // Provide specific guidance based on browser
+          if (browserInfo.isMobile) {
+            throw new Error('Camera access on mobile devices requires HTTPS. Please use a secure connection.');
+          } else if (browserInfo.isIE) {
+            throw new Error('Internet Explorer does not support camera access. Please use Chrome, Firefox, or Edge.');
+          } else if (browserInfo.isSafari) {
+            throw new Error('Safari requires HTTPS for camera access. Please use a secure connection or try Chrome/Firefox.');
+          } else {
+            throw new Error('Camera access not supported in this browser. Please use Chrome, Firefox, or Edge.');
+          }
         }
       }
 
-      // Check if we're on HTTPS or localhost
+      // 5. Check Security Context
       const isSecure = window.location.protocol === 'https:' || 
                       window.location.hostname === 'localhost' || 
                       window.location.hostname === '127.0.0.1' ||
                       process.env.NODE_ENV === 'development';
       
       if (!isSecure) {
-        throw new Error('Camera access requires HTTPS or localhost. Please use HTTPS or run the application on localhost.');
+        throw new Error(`Camera access requires HTTPS or localhost. Current protocol: ${window.location.protocol}, hostname: ${window.location.hostname}`);
       }
 
-      console.log('Starting camera access with highest resolution...');
+      // 6. Enhanced Permission Handling
+      let permissionStatus = 'prompt';
+      try {
+        if (navigator.permissions && navigator.permissions.query) {
+          const permissionResult = await navigator.permissions.query({ name: 'camera' });
+          permissionStatus = permissionResult.state;
+          console.log('Camera permission status:', permissionStatus);
 
-      // Get highest resolution constraints
+          permissionResult.onchange = () => {
+            console.log('Camera permission changed to:', permissionResult.state);
+            permissionStatus = permissionResult.state;
+          };
+        }
+      } catch (permissionError) {
+        console.warn('Could not check camera permissions:', permissionError);
+      }
+
+      // 7. Handle Permission States
+      if (permissionStatus === 'denied') {
+        throw new Error('Camera access has been permanently denied. Please update your browser settings to allow camera access.');
+      }
+
+      // 8. Get Camera Constraints
+      console.log('Starting camera access with highest resolution...');
       const constraints = await getHighestResolutionConstraints();
       console.log('Using camera constraints:', constraints);
 
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        ...constraints,
+      // 9. Add Fallback Constraints
+      const fallbackConstraints = {
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user',
+          frameRate: { ideal: 30 }
+        },
         audio: false
-      });
+      };
 
-      console.log('High resolution camera access granted!');
+      // 10. Try to Access Camera with Permission Handling
+      let mediaStream;
+      try {
+        console.log('Attempting to access camera with high resolution...');
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          ...constraints,
+          audio: false
+        });
+      } catch (error) {
+        console.warn('Failed to get high resolution stream, trying fallback constraints:', error);
+        try {
+          console.log('Attempting to access camera with fallback constraints...');
+          mediaStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+        } catch (fallbackError) {
+          console.error('Failed to get camera access with fallback constraints:', fallbackError);
+          
+          // Provide specific guidance based on error type
+          if (fallbackError.name === 'NotAllowedError') {
+            if (permissionStatus === 'prompt') {
+              throw new Error('Camera access was denied. Please allow camera access when prompted by your browser.');
+            } else {
+              throw new Error('Camera access has been blocked. Please check your browser settings and allow camera access for this site.');
+            }
+          } else if (fallbackError.name === 'NotFoundError') {
+            throw new Error('No camera found. Please connect a camera and try again.');
+          } else if (fallbackError.name === 'NotReadableError') {
+            throw new Error('Camera is already in use by another application. Please close other applications using the camera.');
+          } else {
+            throw new Error(`Camera access error: ${fallbackError.message}`);
+          }
+        }
+      }
+
+      console.log('Camera access granted successfully!');
       setStream(mediaStream);
 
+      // 11. Setup Video Element
       if (videoRef.current) {
         videoRef.current.playsInline = true;
         videoRef.current.muted = true;
@@ -272,13 +393,12 @@ const CameraAccess = ({
           console.log('Video playing successfully!');
           setIsVideoReady(true);
           
-          // Start frame processing if WebSocket is connected
           if (wsStatus === 'connected') {
-            processingInterval.current = setInterval(captureAndProcessFrame, 33); // ~30fps
+            processingInterval.current = setInterval(captureAndProcessFrame, 33);
           }
         } catch (playError) {
           console.error('Error playing video:', playError);
-          setErrorMessage('Unable to start video stream. Please try again.');
+          throw new Error('Unable to start video stream: ' + playError.message);
         }
       }
     } catch (error) {
@@ -295,6 +415,10 @@ const CameraAccess = ({
         errorMessage += 'Camera does not support the requested resolution.';
       } else if (error.message === 'getUserMedia is not implemented in this browser') {
         errorMessage += 'Your browser does not support camera access. Please try using a modern browser like Chrome, Firefox, or Edge.';
+      } else if (error.message.includes('HTTPS')) {
+        errorMessage += 'Camera access requires HTTPS or localhost. Please use HTTPS or run the application on localhost.';
+      } else if (error.message.includes('permanently denied')) {
+        errorMessage += 'Camera access has been permanently denied. Please update your browser settings.';
       } else {
         errorMessage += error.message || 'Unknown error';
       }

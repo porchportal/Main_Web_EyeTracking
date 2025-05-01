@@ -2,8 +2,9 @@
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
+from fastapi.responses import StreamingResponse
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import asyncio
 import json
 from datetime import datetime
@@ -12,6 +13,7 @@ import os
 from dotenv import load_dotenv
 from motor.motor_asyncio import AsyncIOMotorClient
 from pathlib import Path
+import threading
 
 # Import configuration
 from config.settings import settings
@@ -27,13 +29,15 @@ from routes import preview
 from routes.data_center_routes import router as data_center_router
 from routes.admin_updates import router as admin_updates_router
 from routes.consent import router as consent_router
-# from routes import consent 
 
 # Import response models
 from model_preference.response import HealthResponse
 
 # Import auth
 from auth import verify_api_key
+
+# Import image processing
+from process_images import process_images
 
 # Set up logging
 logging.basicConfig(
@@ -43,7 +47,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Load environment variables
-env_path = Path(__file__).parent.parent / '.env.backend'
+env_path = Path(__file__).parent / '.env.backend'
 logger.info(f"Loading environment variables from: {env_path}")
 load_dotenv(dotenv_path=env_path)
 
@@ -56,7 +60,7 @@ logger.info(f"ADMIN_PASSWORD is set: {bool(os.getenv('ADMIN_PASSWORD'))}")
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.APP_VERSION,
-    description="API for face tracking and user preferences management",
+    description="API for eye tracking and user preferences management",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -64,10 +68,10 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods including OPTIONS
-    allow_headers=["*"],  # Allows all headers including X-API-Key
+    allow_methods=["*"],
+    allow_headers=["*"],
     expose_headers=["*"]
 )
 
@@ -84,43 +88,36 @@ async def verify_api_key(api_key: str = Depends(api_key_header)):
     return api_key
 
 # Event handlers for startup and shutdown
-# Update the startup_event function in app.py
-
 @app.on_event("startup")
 async def startup_event():
-    """Initialize MongoDB connection on startup."""
+    """Initialize services on startup."""
+    # Connect to MongoDB
     if not await MongoDB.connect():
         logger.error("Failed to connect to MongoDB on startup")
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Close MongoDB connection on shutdown."""
+    """Close connections on shutdown."""
     await MongoDB.close()
+    logger.info("Closed all connections")
 
-# Include the preferences router with API key authentication
+# Include routers with API key authentication
 app.include_router(
     preferences.router,
     dependencies=[Depends(verify_api_key)]
 )
-# Include the processing router with API key authentication
 app.include_router(
     processing.router,
     dependencies=[Depends(verify_api_key)]
 )
-
-# Include the files router with API key authentication
 app.include_router(
     files.router,
     dependencies=[Depends(verify_api_key)]
 )
-
-# Include the preview router with API key authentication
 app.include_router(
     preview.router,
     dependencies=[Depends(verify_api_key)]
 )
-
-# Include the consent router with API key authentication
 app.include_router(
     consent_router,
     dependencies=[Depends(verify_api_key)]
@@ -138,19 +135,12 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             try:
-                # Receive video frame data
                 data = await websocket.receive_bytes()
-                
-                # Process the frame (you can add your processing logic here)
-                # For now, we'll just send back a dummy response
                 response = {
                     "status": "processed",
                     "message": "Frame received and processed"
                 }
-                
-                # Send the response back to the client
                 await websocket.send_json(response)
-                
             except WebSocketDisconnect:
                 logger.info("Client disconnected")
                 break
@@ -160,7 +150,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     "status": "error",
                     "message": f"Error processing frame: {str(e)}"
                 })
-                
     except Exception as e:
         logger.error(f"WebSocket error: {str(e)}")
     finally:
@@ -184,9 +173,7 @@ async def health_check():
 
 @app.get("/api/check-backend-connection")
 async def check_backend_connection():
-    """
-    Endpoint for frontend to check if backend is available
-    """
+    """Endpoint for frontend to check if backend is available"""
     return {"connected": True, "status": "ok"}
 
 @app.get("/test-auth", dependencies=[Depends(verify_api_key)])
@@ -218,7 +205,6 @@ async def get_user_preferences(user_id: str):
         user_data = await db.users.find_one({"user_id": user_id})
         
         if not user_data:
-            # Return empty preferences instead of 404
             return {
                 "user_id": user_id,
                 "username": None,
@@ -227,7 +213,6 @@ async def get_user_preferences(user_id: str):
                 "preferences": {}
             }
         
-        # Remove MongoDB _id field from response
         user_data.pop("_id", None)
         return user_data
     except HTTPException:
@@ -246,11 +231,9 @@ async def update_user_preferences(user_id: str, preferences: UserPreferences):
         
         db = MongoDB.get_db()
         
-        # Convert Pydantic model to dict and include user_id
         update_data = preferences.dict(exclude_unset=True)
         update_data["user_id"] = user_id
         
-        # Ensure preferences field exists
         if "preferences" not in update_data:
             update_data["preferences"] = {}
         
@@ -283,14 +266,9 @@ async def admin_auth(login: AdminLogin):
     try:
         logger.info(f"Received login attempt for username: {login.username}")
         
-        # Get expected credentials from environment
-        expected_username = os.getenv("ADMIN_USERNAME")
-        expected_password = os.getenv("ADMIN_PASSWORD")
+        expected_username = settings.ADMIN_USERNAME
+        expected_password = settings.ADMIN_PASSWORD
         
-        logger.info(f"Expected credentials - Username: {expected_username}")
-        logger.info(f"Received credentials - Username: {login.username}, Password: {login.password}")
-        
-        # Check if environment variables are set
         if not expected_username or not expected_password:
             logger.error("Admin credentials not found in environment variables")
             raise HTTPException(
@@ -298,7 +276,6 @@ async def admin_auth(login: AdminLogin):
                 detail="Server configuration error"
             )
         
-        # Check credentials
         if login.username == expected_username and login.password == expected_password:
             logger.info("Login successful")
             return {"message": "Authentication successful"}
@@ -310,6 +287,51 @@ async def admin_auth(login: AdminLogin):
     except Exception as e:
         logger.error(f"Error during authentication: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+class ProcessingRequest(BaseModel):
+    user_id: str
+    set_numbers: List[int]
+
+@app.post("/api/queue-processing")
+async def queue_processing(request: ProcessingRequest):
+    """Process images for the given user and set numbers"""
+    try:
+        logger.info(f"Received processing request for user {request.user_id}")
+        
+        # Start processing the images
+        async def process_generator():
+            async for update in process_images(request.set_numbers):
+                yield json.dumps(update) + "\n"
+        
+        return StreamingResponse(
+            process_generator(),
+            media_type="application/x-ndjson"
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in processing: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+@app.get("/api/processing-status")
+async def get_processing_status(user_id: str):
+    """Get the processing status for a user"""
+    try:
+        # For now, we'll return a simple status since we're not tracking it
+        return {
+            "status": "processing",
+            "message": "Processing in progress",
+            "progress": 0,
+            "user_id": user_id
+        }
+    except Exception as e:
+        logger.error(f"Error getting processing status: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 if __name__ == "__main__":
     import uvicorn

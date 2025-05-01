@@ -1,34 +1,42 @@
-# version: '3.8'
+version: '3.8'
 
 services:
-  mongodb:
-    image: mongo:8.0.8
-    container_name: mongodb
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
     ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
+      - "5672:5672"  # AMQP protocol port
+      - "15672:15672"  # Management UI port
     environment:
-      MONGO_INITDB_DATABASE: face_tracking_app
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
     container_name: backend
     ports:
       - "8000:8000"
-    env_file:
-      - .env.backend
-
-  frontend:
-    build: ./frontend
-    container_name: frontend
-    ports:
-      - "3000:3000"
-    env_file:
-      - .env.frontend
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=guest
+      - RABBITMQ_PASSWORD=guest
+      - RABBITMQ_QUEUE=image_processing_queue
     depends_on:
-      - backend
+      rabbitmq:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./uploads:/app/uploads
 
 volumes:
-  mongo-data:
-    driver: local
+  rabbitmq_data:

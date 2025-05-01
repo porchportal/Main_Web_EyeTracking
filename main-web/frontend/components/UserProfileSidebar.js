@@ -62,8 +62,8 @@ export default function UserProfileSidebar() {
       // Prepare profile data
       const profileData = {
         preferences: {
-          username: profile.username,
-          sex: profile.sex,
+        username: profile.username,
+        sex: profile.sex,
           age: profile.age
         }
       };

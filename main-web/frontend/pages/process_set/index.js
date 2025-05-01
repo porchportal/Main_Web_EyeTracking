@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import styles from '../../styles/ProcessSet.module.css';
 import { useEffect, useState } from 'react';
+import { useNotification } from './NotificationMessage';
 
 // Import API functions
 import {
@@ -40,6 +41,8 @@ export default function ProcessSet() {
   const [processingStatus, setProcessingStatus] = useState(null);
   const [progressData, setProgressData] = useState(null);
   
+  const [showNotification, NotificationComponent] = useNotification();
+
   // Initialize component on mount
   useEffect(() => {
     setMounted(true);
@@ -124,17 +127,16 @@ export default function ProcessSet() {
         }
       }
       
-      // Compare file counts between folders
-      const compareResult = await compareFileCounts();
-      if (compareResult.success) {
-        // Update process status based on whether there are files to process
-        const needsProcessing = compareResult.captureCount > compareResult.enhanceCount;
-        setIsProcessReady(needsProcessing);
+      // Check if processing is needed
+      const processingResult = await checkFilesNeedProcessing();
+      if (processingResult.success) {
+        // Update isProcessReady state based on needsProcessing
+        setIsProcessReady(processingResult.needsProcessing);
         
-        if (needsProcessing) {
-          showNotification(`${compareResult.captureCount - compareResult.enhanceCount} files need processing`, 'info');
+        if (processingResult.needsProcessing) {
+          showNotification(`${processingResult.filesToProcess - 1} sets need processing`, 'info');
         } else {
-          showNotification('All files are processed', 'success');
+          showNotification('All sets are processed', 'success');
         }
       }
     } else {
@@ -220,78 +222,80 @@ export default function ProcessSet() {
         progress: 0
       });
 
-      // Process all files in parallel
-      const processPromises = filesToProcess.map(async (file, index) => {
+      // Get set numbers to process
+      const set_numbers = filesToProcess.map(file => {
         const match = file.filename.match(/_(\d+)\./);
-        if (!match) return;
-        
-        const setNumber = parseInt(match[1]);
-        const currentFile = `Processing file ${setNumber} (${index + 1}/${filesToProcess.length})`;
-        
-        // Update progress for current file
-        setProgressData(prev => ({
-          ...prev,
-          currentSet: setNumber,
-          currentFile,
-          progress: Math.round((index / filesToProcess.length) * 100)
-        }));
-        
-        showNotification(currentFile, 'info');
-        
-        try {
-          const result = await processFiles([setNumber]);
-          if (!result.success) {
-            throw new Error(`Failed to process set ${setNumber}: ${result.error || 'Unknown error'}`);
-          }
-          
-          // Add to processed sets
-          setProgressData(prev => ({
-            ...prev,
-            processedSets: [...prev.processedSets, setNumber],
-            progress: Math.round(((index + 1) / filesToProcess.length) * 100)
-          }));
-          
-          return { success: true, setNumber };
-        } catch (error) {
-          console.error(`Error processing set ${setNumber}:`, error);
-          return { success: false, setNumber, error };
+        return match ? parseInt(match[1]) : 0;
+      }).filter(num => num > 0);
+
+      // Generate a unique user ID
+      const user_id = `user_${Date.now()}`;
+
+      try {
+        // Send processing request to backend
+        const response = await fetch('/api/queue-processing', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ 
+            user_id,
+            set_numbers 
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to start processing');
         }
-      });
 
-      // Wait for all processing to complete
-      const results = await Promise.all(processPromises);
-      
-      // Check for any errors
-      const errors = results.filter(r => !r.success);
-      if (errors.length > 0) {
-        throw new Error(`Failed to process ${errors.length} files. First error: ${errors[0].error}`);
+        // Start reading the stream
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const updates = chunk.split('\n').filter(Boolean);
+          
+          for (const update of updates) {
+            try {
+              const data = JSON.parse(update);
+              console.log('Received processing update:', data);
+              
+              // Update progress data
+              setProgressData(prev => ({
+                ...prev,
+                currentFile: data.message,
+                progress: data.progress || 0
+              }));
+              
+              // Show notification for important updates
+              if (data.status === 'completed') {
+                showNotification('Processing completed', 'success');
+                setIsProcessing(false);
+                await handleCheckFiles();
+              } else if (data.status === 'error') {
+                showNotification(`Error: ${data.message}`, 'error');
+                setIsProcessing(false);
+              }
+            } catch (e) {
+              console.error('Error parsing update:', e);
+            }
+          }
+        }
+
+      } catch (error) {
+        console.error('Error in processing loop:', error);
+        showNotification(`Error: ${error.message}`, 'error');
+        setIsProcessing(false);
       }
-      
-      showNotification('Processing completed', 'success');
-      
-      // Refresh file list and check if more processing is needed
-      await handleCheckFiles();
     } catch (error) {
-      console.error('Error processing files:', error);
+      console.error('Error in processing loop:', error);
       showNotification(`Error: ${error.message}`, 'error');
-    } finally {
       setIsProcessing(false);
-      setProgressData(null);
     }
-  };
-
-  // Show notification
-  const showNotification = (message, type) => {
-    setNotification({ show: true, message, type });
-    // Auto-hide after 5 seconds
-    setTimeout(() => {
-      setNotification({ show: false, message: '', type: '' });
-    }, 5000);
-  };
-
-  // Close notification
-  const closeNotification = () => {
-    setNotification({ show: false, message: '', type: '' });
   };
 
   return (
@@ -307,10 +311,7 @@ export default function ProcessSet() {
           Process Image Folder
         </h1>
         
-        <Notification 
-          notification={notification} 
-          onClose={closeNotification} 
-        />
+        {NotificationComponent}
         
         <div className={styles.statusDisplay}>
           <div className={styles.statusIndicator}>
@@ -356,11 +357,6 @@ export default function ProcessSet() {
           </div>
           
           <div className={styles.rightPanel}>
-            {/* {console.log('Rendering FilePreviewPanel with:', {
-              selectedFile,
-              previewImage: previewImageData?.data,
-              previewType: previewImageData?.type
-            })} */}
             <FilePreviewPanel 
               selectedFile={selectedFile}
               previewImage={previewImageData?.data}
@@ -383,16 +379,6 @@ export default function ProcessSet() {
           Back to Home
         </button>
       </main>
-
-      {/* <footer className={styles.footer}>
-        <a 
-          href="https://yourwebsite.com"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by Your Company
-        </a>
-      </footer> */}
     </div>
   );
 }

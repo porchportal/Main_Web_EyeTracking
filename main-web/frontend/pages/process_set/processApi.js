@@ -157,11 +157,50 @@ export const getFilesList = async () => {
 // Check file completeness (if webcam, screen, and parameter files exist for each set)
 export const checkFilesCompleteness = async () => {
   try {
-    const response = await fetchWithRetry('/api/file-api?operation=check-completeness');
-    return response;
+    const response = await fetch('/api/check-files');
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to check files');
+    }
+
+    // Only check files in eye_tracking_captures folder
+    const captureFiles = data.files.capture || [];
+    const fileNumbers = new Set();
+    
+    // Extract file numbers from capture files
+    captureFiles.forEach(file => {
+      const match = file.filename.match(/_(\d+)\./);
+      if (match) {
+        fileNumbers.add(parseInt(match[1]));
+      }
+    });
+
+    // Check for missing files in sequence
+    const missingFiles = [];
+    if (fileNumbers.size > 0) {
+      const minNumber = Math.min(...fileNumbers);
+      const maxNumber = Math.max(...fileNumbers);
+      
+      for (let i = minNumber; i <= maxNumber; i++) {
+        if (!fileNumbers.has(i)) {
+          missingFiles.push(i);
+        }
+      }
+    }
+
+    return {
+      success: true,
+      isComplete: missingFiles.length === 0,
+      missingFiles: missingFiles.length,
+      totalFiles: fileNumbers.size
+    };
   } catch (error) {
     console.error('Error checking files completeness:', error);
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      error: error.message
+    };
   }
 };
   
@@ -205,24 +244,35 @@ export const checkFilesNeedProcessing = async () => {
       throw new Error(response.message || 'Failed to get files list');
     }
     
-    let captureCount = 0;
-    let enhanceCount = 0;
+    // Get unique set numbers from each folder
+    const captureSets = new Set();
+    const enhanceSets = new Set();
     
     if (response.files && Array.isArray(response.files)) {
       response.files.forEach(file => {
-        if (file.path.includes('eye_tracking_captures')) {
-          captureCount++;
-        } else if (file.path.includes('enhance')) {
-          enhanceCount++;
+        const match = file.filename.match(/_(\d+)\./);
+        if (match) {
+          const setNumber = parseInt(match[1]);
+          if (file.path.includes('eye_tracking_captures')) {
+            captureSets.add(setNumber);
+          } else if (file.path.includes('enhance')) {
+            enhanceSets.add(setNumber);
+          }
         }
       });
     }
     
+    const captureCount = captureSets.size;
+    const enhanceCount = enhanceSets.size;
+    const needsProcessing = captureCount > enhanceCount;
+    const filesToProcess = captureCount - enhanceCount;
+    
     return {
       success: true,
-      needsProcessing: captureCount > enhanceCount,
+      needsProcessing,
       captureCount,
-      enhanceCount
+      enhanceCount,
+      filesToProcess
     };
   } catch (error) {
     console.error('Error checking files:', error);
@@ -231,7 +281,8 @@ export const checkFilesNeedProcessing = async () => {
       error: error.message,
       needsProcessing: false,
       captureCount: 0,
-      enhanceCount: 0
+      enhanceCount: 0,
+      filesToProcess: 0
     };
   }
 };

@@ -6,8 +6,9 @@ from fastapi import UploadFile
 import tempfile
 import os
 import traceback
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Generator, AsyncGenerator
 import logging
+import requests
 
 # Import the face tracking class
 # from Main_model02.showframeVisualization import FrameShow_head_face
@@ -65,29 +66,33 @@ def get_face_tracker():
     """
     global image_face_tracker
     if image_face_tracker is None:
-        # Try different possible locations for the model
-        # model_paths = [
-        #     'Main_model02/face_landmarker.task',
-        #     # '../Main_model02/face_landmarker.task',
-        #     # './backend/Main_model02/face_landmarker.task'
-        # ]
-        
-        # model_path = None
-        # for path in model_paths:
-        #     if os.path.exists(path):
-        #         model_path = path
-        #         break
-                
-        # if model_path is None:
-        #     raise FileNotFoundError("Face landmarker model not found in any of the expected locations")
+        try:
+            # Try different possible locations for the model
+            # model_paths = [
+            #     'Main_model02/face_landmarker.task',
+            #     '../Main_model02/face_landmarker.task',
+            #     './backend/Main_model02/face_landmarker.task'
+            # ]
             
-        # print(f"Initializing face tracker with model: {model_path}")
-        image_face_tracker = FrameShow_head_face(
-            # model_path=model_path,
-            isVideo=False,  # Set to False for image processing
-            isHeadposeOn=True,
-            isFaceOn=True
-        )
+            # model_path = None
+            # for path in model_paths:
+            #     if os.path.exists(path):
+            #         model_path = path
+            #         break
+                    
+            # if model_path is None:
+            #     raise FileNotFoundError("Face landmarker model not found in any of the expected locations")
+                
+            # print(f"Initializing face tracker with model: {model_path}")
+            image_face_tracker = FrameShow_head_face(
+                # model_path=model_path,
+                isVideo=False,  # Set to False for image processing
+                isHeadposeOn=True,
+                isFaceOn=True
+            )
+        except Exception as e:
+            print(f"Error initializing face tracker: {str(e)}")
+            raise
         
     return image_face_tracker
 
@@ -434,181 +439,100 @@ async def process_image_handler(
                 
         return {"success": False, "error": f"Error processing image: {str(e)}"}
 
-def process_images(set_numbers: List[int]):
-    """Process images using process_images.py"""
+async def process_images(set_numbers: list) -> AsyncGenerator[Dict[str, Any], None]:
+    """
+    Process images for the given set numbers.
+    Yields progress updates.
+    """
     try:
         # Get the script directory
         current_dir = os.path.dirname(os.path.abspath(__file__))
-        capture_dir = os.path.abspath(os.path.join(current_dir, '../../frontend/public/captures/eye_tracking_captures'))
-        enhance_dir = os.path.abspath(os.path.join(current_dir, '../../frontend/public/captures/enhance'))
+        
+        # Get the directories
+        capture_dir = os.path.abspath(os.path.join(current_dir, '../frontend/public/captures/eye_tracking_captures'))
+        enhance_dir = os.path.abspath(os.path.join(current_dir, '../frontend/public/captures/enhance'))
         
         # Ensure enhance directory exists
         if not os.path.exists(enhance_dir):
             logging.info(f"Creating enhance directory: {enhance_dir}")
             os.makedirs(enhance_dir, exist_ok=True)
         
+        # Get the face tracker
+        face_tracker = get_face_tracker()
+        
         # Process each set number
-        for set_num in set_numbers:
-            # Check if source files exist
-            webcam_src = os.path.join(capture_dir, f'webcam_{set_num:03d}.jpg')
-            if not os.path.exists(webcam_src):
-                logging.error(f"Missing source file for set {set_num}: {webcam_src}")
-                continue
-            
-            # Read the image
-            image = cv2.imread(webcam_src)
-            if image is None:
-                logging.error(f"Could not read image file: {webcam_src}")
-                continue
-            
-            # Get the face tracker
-            face_tracker = get_face_tracker()
-            
-            # Process the image with face tracker
-            timestamp_ms = int(1000)  # Placeholder timestamp
-            metrics, processed_image = face_tracker.process_frame(
-                image,
-                timestamp_ms,
-                isVideo=False,
-                isEnhanceFace=True  # Enable face enhancement
-            )
-            
-            if processed_image is None:
-                logging.error(f"Failed to process image for set {set_num}")
-                continue
-            
-            # Save the processed image
-            webcam_dst = os.path.join(enhance_dir, f'webcam_enhance_{set_num:03d}.jpg')
-            cv2.imwrite(webcam_dst, processed_image)
-            logging.info(f"Saved enhanced image to: {webcam_dst}")
-            
-            # Copy screen image if it exists
-            screen_src = os.path.join(capture_dir, f'screen_{set_num:03d}.jpg')
-            screen_dst = os.path.join(enhance_dir, f'screen_enhance_{set_num:03d}.jpg')
-            if os.path.exists(screen_src):
-                with open(screen_src, 'rb') as src, open(screen_dst, 'wb') as dst:
-                    dst.write(src.read())
-                logging.info(f"Copied screen image to: {screen_dst}")
-            
-            # Update parameter file with new metrics
-            param_src = os.path.join(capture_dir, f'parameter_{set_num:03d}.csv')
-            param_dst = os.path.join(enhance_dir, f'parameter_enhance_{set_num:03d}.csv')
-            
-            if os.path.exists(param_src):
-                # Read original parameters
-                original_params = {}
-                with open(param_src, 'r') as src:
-                    for line in src:
-                        if ',' in line:
-                            key, value = line.strip().split(',', 1)
-                            original_params[key] = value
+        total_sets = len(set_numbers)
+        for i, set_num in enumerate(set_numbers):
+            try:
+                # Update progress
+                progress = int(((i + 1) / total_sets) * 100)
+                yield {
+                    "status": "processing",
+                    "message": f"Processing set {set_num} ({i + 1}/{total_sets})",
+                    "progress": progress
+                }
                 
-                # Update with new metrics if available
-                if metrics is not None:
-                    # Update head pose angles
-                    if hasattr(metrics, 'head_pose_angles'):
-                        pitch, yaw, roll = metrics.head_pose_angles
-                        original_params['pitch'] = f"{pitch:.2f}"
-                        original_params['yaw'] = f"{yaw:.2f}"
-                        original_params['roll'] = f"{roll:.2f}"
-                    
-                    # Update face box
-                    if hasattr(metrics, 'face_box'):
-                        min_pos, max_pos = metrics.face_box
-                        original_params['face_min_position_x'] = str(int(min_pos[0]))
-                        original_params['face_min_position_y'] = str(int(min_pos[1]))
-                        original_params['face_max_position_x'] = str(int(max_pos[0]))
-                        original_params['face_max_position_y'] = str(int(max_pos[1]))
-                        original_params['face_width'] = str(int(max_pos[0] - min_pos[0]))
-                        original_params['face_height'] = str(int(max_pos[1] - min_pos[1]))
-                    
-                    # Update eye positions
-                    if hasattr(metrics, 'eye_centers'):
-                        eye_centers = metrics.eye_centers
-                        if len(eye_centers) > 0:
-                            left_eye = eye_centers[0]
-                            original_params['left_eye_position_x'] = str(int(left_eye[0]))
-                            original_params['left_eye_position_y'] = str(int(left_eye[1]))
-                        if len(eye_centers) > 1:
-                            right_eye = eye_centers[1]
-                            original_params['right_eye_position_x'] = str(int(right_eye[0]))
-                            original_params['right_eye_position_y'] = str(int(right_eye[1]))
-                        if len(eye_centers) > 2:
-                            mid_eye = eye_centers[2]
-                            original_params['center_between_eyes_x'] = str(int(mid_eye[0]))
-                            original_params['center_between_eyes_y'] = str(int(mid_eye[1]))
-                    
-                    # Update eye boxes
-                    if hasattr(metrics, 'left_eye_box'):
-                        min_left, max_left = metrics.left_eye_box
-                        original_params['left_eye_box_min_x'] = str(int(min_left[0]))
-                        original_params['left_eye_box_min_y'] = str(int(min_left[1]))
-                        original_params['left_eye_box_max_x'] = str(int(max_left[0]))
-                        original_params['left_eye_box_max_y'] = str(int(max_left[1]))
-                    
-                    if hasattr(metrics, 'right_eye_box'):
-                        min_right, max_right = metrics.right_eye_box
-                        original_params['right_eye_box_min_x'] = str(int(min_right[0]))
-                        original_params['right_eye_box_min_y'] = str(int(min_right[1]))
-                        original_params['right_eye_box_max_x'] = str(int(max_right[0]))
-                        original_params['right_eye_box_max_y'] = str(int(max_right[1]))
-                    
-                    # Update iris positions
-                    if hasattr(metrics, 'eye_iris_center'):
-                        left_iris, right_iris = metrics.eye_iris_center
-                        original_params['left_iris_center_x'] = str(int(left_iris[0]))
-                        original_params['left_iris_center_y'] = str(int(left_iris[1]))
-                        original_params['right_iris_center_x'] = str(int(right_iris[0]))
-                        original_params['right_iris_center_y'] = str(int(right_iris[1]))
-                    
-                    # Update iris boxes
-                    if hasattr(metrics, 'eye_iris_left_box'):
-                        min_left, max_left = metrics.eye_iris_left_box
-                        original_params['left_iris_min_x'] = str(int(min_left[0]))
-                        original_params['left_iris_min_y'] = str(int(min_left[1]))
-                        original_params['left_iris_max_x'] = str(int(max_left[0]))
-                        original_params['left_iris_max_y'] = str(int(max_left[1]))
-                    
-                    if hasattr(metrics, 'eye_iris_right_box'):
-                        min_right, max_right = metrics.eye_iris_right_box
-                        original_params['right_iris_min_x'] = str(int(min_right[0]))
-                        original_params['right_iris_min_y'] = str(int(min_right[1]))
-                        original_params['right_iris_max_x'] = str(int(max_right[0]))
-                        original_params['right_iris_max_y'] = str(int(max_right[1]))
-                    
-                    # Update eye states
-                    if hasattr(metrics, 'left_eye_state'):
-                        state, ear = metrics.left_eye_state
-                        original_params['left_eye_state'] = state
-                        original_params['left_eye_ear'] = f"{ear:.3f}"
-                    
-                    if hasattr(metrics, 'right_eye_state'):
-                        state, ear = metrics.right_eye_state
-                        original_params['right_eye_state'] = state
-                        original_params['right_eye_ear'] = f"{ear:.3f}"
-                    
-                    # Update depth information
-                    if hasattr(metrics, 'depths'):
-                        face_depth, left_eye_depth, right_eye_depth, chin_depth = metrics.depths
-                        original_params['distance_cm_from_face'] = f"{face_depth:.2f}"
-                        original_params['distance_cm_from_eye'] = f"{(left_eye_depth + right_eye_depth) / 2:.2f}"
-                        original_params['chin_depth'] = f"{chin_depth:.2f}"
-                    
-                    # Update derived parameters
-                    if hasattr(metrics, 'head_pose_angles'):
-                        pitch, yaw, roll = metrics.head_pose_angles
-                        original_params['posture'] = "Looking Down" if pitch > 10 else "Looking Up" if pitch < -10 else "Looking Straight"
-                        original_params['gaze_direction'] = "Looking Right" if yaw > 10 else "Looking Left" if yaw < -10 else "Looking Straight"
+                # Process webcam image
+                webcam_src = os.path.join(capture_dir, f'webcam_{set_num:03d}.jpg')
+                webcam_dst = os.path.join(enhance_dir, f'webcam_enhance_{set_num:03d}.jpg')
                 
-                # Write updated parameters to new file
-                with open(param_dst, 'w') as dst:
-                    dst.write("Parameter,Value\n")
-                    for key, value in original_params.items():
-                        dst.write(f"{key},{value}\n")
-                logging.info(f"Updated parameter file with new metrics: {param_dst}")
+                if not os.path.exists(webcam_src):
+                    logging.error(f"Webcam image not found: {webcam_src}")
+                    continue
+                
+                # Read and process the image
+                image = cv2.imread(webcam_src)
+                if image is None:
+                    logging.error(f"Could not read image: {webcam_src}")
+                    continue
+                
+                # Process the image with face tracker
+                timestamp_ms = int(1000)  # Placeholder timestamp
+                metrics, processed_image = face_tracker.process_frame(
+                    image,
+                    timestamp_ms,
+                    isVideo=False,
+                    isEnhanceFace=True  # Enable face enhancement
+                )
+                
+                # Save the processed image
+                cv2.imwrite(webcam_dst, processed_image)
+                logging.info(f"Saved enhanced webcam image: {webcam_dst}")
+                
+                # Copy screen image
+                screen_src = os.path.join(capture_dir, f'screen_{set_num:03d}.jpg')
+                screen_dst = os.path.join(enhance_dir, f'screen_enhance_{set_num:03d}.jpg')
+                
+                if os.path.exists(screen_src):
+                    with open(screen_src, 'rb') as src, open(screen_dst, 'wb') as dst:
+                        dst.write(src.read())
+                    logging.info(f"Copied screen image: {screen_dst}")
         
-        return True, "Processing completed successfully"
+                # Copy parameter file if it exists
+                param_src = os.path.join(capture_dir, f'parameter_{set_num:03d}.csv')
+                param_dst = os.path.join(enhance_dir, f'parameter_enhance_{set_num:03d}.csv')
+                
+                if os.path.exists(param_src):
+                    with open(param_src, 'r') as src, open(param_dst, 'w') as dst:
+                        dst.write(src.read())
+                    logging.info(f"Copied parameter file: {param_dst}")
+                
+            except Exception as e:
+                logging.error(f"Error processing set {set_num}: {str(e)}")
+                yield {
+                    "status": "error",
+                    "message": f"Error processing set {set_num}: {str(e)}"
+                }
+                continue
         
+        # Final success message
+        yield {
+            "status": "completed",
+            "message": "All images processed successfully",
+            "progress": 100
+        }
+
     except Exception as e:
-        logging.error(f"Error processing images: {str(e)}")
-        return False, str(e)
+        error_msg = f"Error processing images: {str(e)}"
+        logging.error(error_msg)
+        yield {"status": "error", "message": error_msg}

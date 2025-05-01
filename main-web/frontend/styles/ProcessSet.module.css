@@ -422,7 +422,7 @@
   }
   
   /* Notifications */
-  .notification {
+  /* .notification {
     position: fixed;
     top: 1rem;
     left: 50%;
@@ -436,7 +436,50 @@
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
     animation: slideDown 0.3s ease-out;
   }
-  
+   */
+   /* Updated Notification styles */
+  .notification {
+    position: fixed;
+    top: 1rem;
+    right: 1rem; /* Changed from left: 50%, transform: translateX(-50%) to right: 1rem */
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    animation: slideInRight 0.4s ease-out forwards; /* Changed animation name and timing */
+    opacity: 0; /* Start with opacity 0 for smoother animation */
+  }
+
+  /* Updated animation for sliding from right */
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  /* Add fade out animation */
+  .notificationFadeOut {
+    animation: fadeOut 0.4s ease-out forwards;
+  }
+
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+  }
   .infoNotification {
     background-color: #2196F3;
     color: white;

@@ -2,8 +2,7 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
+  "/process_set": "pages/process_set.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/": "pages/index.js",
-  "/collected-dataset-customized": "pages/collected-dataset-customized.js",
-  "/admin": "pages/admin.js"
+  "/api/check-files": "pages/api/check-files.js"
 }
