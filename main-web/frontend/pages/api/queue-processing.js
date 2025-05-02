@@ -23,11 +23,25 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: result.error });
     }
 
-    return res.status(200).json({
-      success: true,
-      message: result.message,
-      status: 'queued'
-    });
+    // Set up SSE headers for streaming response
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Transfer-Encoding', 'chunked');
+
+    // Send initial queued status
+    res.write(`data: ${JSON.stringify({
+      status: 'queued',
+      message: 'Processing request queued',
+      progress: 0
+    })}\n\n`);
+
+    // Keep the connection open
+    res.flushHeaders();
+
+    // The actual processing will be handled by the backend
+    // and progress updates will be sent through the SSE connection
+    return res;
   } catch (error) {
     console.error('Error in queue-processing API:', error);
     return res.status(500).json({ 

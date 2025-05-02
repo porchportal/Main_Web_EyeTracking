@@ -364,7 +364,24 @@ export const captureImages = async (options) => {
     }
   
     try {
-      // Call the captureImagesAtPoint from savefile.js with all necessary parameters
+      // Get highest resolution constraints
+      const constraints = await getHighestResolutionConstraints();
+      console.log('Using camera constraints:', constraints);
+      
+      // Get a new stream with the highest resolution
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const videoTrack = stream.getVideoTracks()[0];
+      const settings = videoTrack.getSettings();
+      console.log('Actual camera settings:', settings);
+      
+      // Update video element with new stream
+      const videoElement = window.videoElement || document.querySelector('video');
+      if (videoElement) {
+        videoElement.srcObject = stream;
+        await videoElement.play();
+      }
+      
+      // Call the captureImagesAtPoint with all necessary parameters
       const result = await captureImagesAtPoint({
         point: position,
         captureCount: captureCounter,
@@ -375,11 +392,18 @@ export const captureImages = async (options) => {
   
       console.log('Capture successful with ID:', result.captureId);
       
+      // Clean up the stream
+      stream.getTracks().forEach(track => track.stop());
+      
       return {
         screenImage: result?.screenImage || '',
         webcamImage: result?.webcamImage || '',
         success: true,
-        captureId: result?.captureId
+        captureId: result?.captureId,
+        resolution: {
+          width: settings.width,
+          height: settings.height
+        }
       };
     } catch (err) {
       console.error('[captureImages] Unexpected error:', err);
@@ -392,6 +416,7 @@ export const captureImages = async (options) => {
       };
     }
   };
+
 /**
  * Generate a random dot position within the canvas
  * @param {HTMLCanvasElement} canvas - Canvas element

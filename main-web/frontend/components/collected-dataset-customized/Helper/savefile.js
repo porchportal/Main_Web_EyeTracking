@@ -178,27 +178,16 @@ export const getHighestResolutionConstraints = async () => {
     videoTrack.stop();
     
     if (capabilities && capabilities.width && capabilities.height) {
-      // Check if the max dimensions have a suspicious square aspect ratio
+      // Use the maximum width and height from device capabilities
       const maxWidth = capabilities.width.max;
       const maxHeight = capabilities.height.max;
       
-      if (maxWidth === maxHeight && maxWidth > 100) {
-        console.warn(`Suspicious square aspect ratio in capabilities: ${maxWidth}×${maxHeight}`);
-        
-        // Use one of the common non-square resolutions instead
-        return {
-          video: {
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
-          }
-        };
-      }
-      
-      // Use the max width and height from device capabilities
+      // Force exact resolution instead of ideal
       return {
         video: {
-          width: { ideal: capabilities.width.max },
-          height: { ideal: capabilities.height.max }
+          width: { exact: maxWidth },
+          height: { exact: maxHeight },
+          frameRate: { ideal: 30 } // Try to maintain good frame rate
         }
       };
     }
@@ -208,12 +197,12 @@ export const getHighestResolutionConstraints = async () => {
   
   // Fallback: try standard resolutions in order
   const resolutions = [
-    { width: { ideal: 4096 }, height: { ideal: 2160 } }, // 4K
-    { width: { ideal: 3840 }, height: { ideal: 2160 } }, // 4K UHD
-    { width: { ideal: 2560 }, height: { ideal: 1440 } }, // 2K QHD
-    { width: { ideal: 1920 }, height: { ideal: 1080 } }, // Full HD
-    { width: { ideal: 1280 }, height: { ideal: 720 } },  // HD
-    { width: { ideal: 640 }, height: { ideal: 480 } },   // VGA
+    { width: { exact: 4096 }, height: { exact: 2160 } }, // 4K
+    { width: { exact: 3840 }, height: { exact: 2160 } }, // 4K UHD
+    { width: { exact: 2560 }, height: { exact: 1440 } }, // 2K QHD
+    { width: { exact: 1920 }, height: { exact: 1080 } }, // Full HD
+    { width: { exact: 1280 }, height: { exact: 720 } },  // HD
+    { width: { exact: 640 }, height: { exact: 480 } },   // VGA
     {}  // Default - let browser decide
   ];
 
@@ -223,7 +212,8 @@ export const getHighestResolutionConstraints = async () => {
       const constraints = {
         video: {
           ...resolution,
-          facingMode: "user"
+          facingMode: "user",
+          frameRate: { ideal: 30 }
         }
       };
       
@@ -235,14 +225,6 @@ export const getHighestResolutionConstraints = async () => {
       const settings = videoTrack.getSettings();
       console.log("Supported resolution:", settings.width, "x", settings.height);
       
-      // Check for square aspect ratio in the actual settings
-      if (settings.width === settings.height && settings.width > 100) {
-        console.warn(`Received suspicious square aspect ratio: ${settings.width}×${settings.height}`);
-        // Continue to next resolution to avoid the square aspect ratio
-        stream.getTracks().forEach(track => track.stop());
-        continue;
-      }
-      
       // Stop the test stream immediately
       stream.getTracks().forEach(track => track.stop());
       
@@ -253,11 +235,12 @@ export const getHighestResolutionConstraints = async () => {
     }
   }
   
-  // If nothing worked, return basic constraints with non-square resolution
+  // If nothing worked, return basic constraints
   return { 
     video: {
-      width: { ideal: 1280 },
-      height: { ideal: 720 }
+      width: { exact: 1280 },
+      height: { exact: 720 },
+      frameRate: { ideal: 30 }
     } 
   };
 };
@@ -434,11 +417,11 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
         if (webcamWidth <= 0 || webcamHeight <= 0) {
           console.warn("Invalid webcam dimensions, trying to get from constraints");
           if (constraints.video && typeof constraints.video === 'object') {
-            if (constraints.video.width && constraints.video.width.ideal) {
-              webcamWidth = constraints.video.width.ideal;
+            if (constraints.video.width && constraints.video.width.exact) {
+              webcamWidth = constraints.video.width.exact;
             }
-            if (constraints.video.height && constraints.video.height.ideal) {
-              webcamHeight = constraints.video.height.ideal;
+            if (constraints.video.height && constraints.video.height.exact) {
+              webcamHeight = constraints.video.height.exact;
             }
           }
           

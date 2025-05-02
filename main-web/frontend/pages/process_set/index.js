@@ -210,6 +210,7 @@ export default function ProcessSet() {
       if (filesToProcess.length === 0) {
         showNotification('No files need processing', 'info');
         setIsProcessing(false);
+        setProgressData(null);
         return;
       }
 
@@ -219,7 +220,9 @@ export default function ProcessSet() {
         totalSets: filesToProcess.length,
         processedSets: [],
         currentFile: '',
-        progress: 0
+        progress: 0,
+        status: 'processing',
+        message: 'Starting processing...'
       });
 
       // Get set numbers to process
@@ -251,50 +254,73 @@ export default function ProcessSet() {
         // Start reading the stream
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
+        let buffer = '';
 
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
-          const chunk = decoder.decode(value);
-          const updates = chunk.split('\n').filter(Boolean);
-          
-          for (const update of updates) {
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep the last incomplete line in the buffer
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            
             try {
-              const data = JSON.parse(update);
+              const data = JSON.parse(line);
               console.log('Received processing update:', data);
               
-              // Update progress data
-              setProgressData(prev => ({
-                ...prev,
-                currentFile: data.message,
-                progress: data.progress || 0
-              }));
-              
-              // Show notification for important updates
-              if (data.status === 'completed') {
-                showNotification('Processing completed', 'success');
-                setIsProcessing(false);
-                await handleCheckFiles();
+              // Update progress data with the backend-provided progress
+              setProgressData(prev => {
+                if (!prev) return prev;
+                
+                const newProcessedSets = [...prev.processedSets];
+                if (data.status === 'processing' && !newProcessedSets.includes(data.currentSet)) {
+                  newProcessedSets.push(data.currentSet);
+                }
+                
+                return {
+                  ...prev,
+                  currentSet: data.currentSet || prev.currentSet,
+                  currentFile: data.currentFile || prev.currentFile,
+                  processedSets: newProcessedSets,
+                  progress: data.progress || Math.round((newProcessedSets.length / prev.totalSets) * 100),
+                  status: data.status || prev.status,
+                  message: data.message || prev.message
+                };
+              });
+
+              // Show notifications for important updates
+              if (data.status === 'warning') {
+                showNotification(data.message, 'warning');
               } else if (data.status === 'error') {
-                showNotification(`Error: ${data.message}`, 'error');
+                showNotification(data.message, 'error');
                 setIsProcessing(false);
+                setProgressData(null);
+              } else if (data.status === 'completed') {
+                showNotification('Processing completed successfully', 'success');
+                setIsProcessing(false);
+                setProgressData(null);
+                // Refresh the files list after completion
+                await handleCheckFiles();
               }
-            } catch (e) {
-              console.error('Error parsing update:', e);
+            } catch (error) {
+              console.error('Error parsing update:', error);
             }
           }
         }
-
       } catch (error) {
-        console.error('Error in processing loop:', error);
-        showNotification(`Error: ${error.message}`, 'error');
+        console.error('Error during processing:', error);
+        showNotification(error.message || 'Error during processing', 'error');
         setIsProcessing(false);
+        setProgressData(null);
       }
     } catch (error) {
       console.error('Error in processing loop:', error);
       showNotification(`Error: ${error.message}`, 'error');
       setIsProcessing(false);
+      setProgressData(null);
     }
   };
 

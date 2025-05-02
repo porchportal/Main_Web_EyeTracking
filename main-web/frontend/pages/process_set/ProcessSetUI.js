@@ -269,54 +269,56 @@ export const ProcessSummary = ({ files }) => {
 };
 
 export const ProcessingProgress = ({ isProcessing, progressData }) => {
-  if (!isProcessing || !progressData) {
-    return null;
-  }
-  
-  const { currentSet, totalSets, processedSets, currentFile, progress } = progressData;
-  const percentComplete = progress;
-  
+  // Return null if not processing or no progress data
+  if (!isProcessing || !progressData) return null;
+
+  const {
+    currentSet,
+    totalSets,
+    progress,
+    currentFile,
+    status,
+    message
+  } = progressData;
+
   return (
-    <div className={styles.progressContainer}>
-      <h3>Processing Progress</h3>
+    <div className={styles.processingProgress}>
+      <div className={styles.progressHeader}>
+        <h3>Processing Progress</h3>
+        <span className={`${styles.statusBadge} ${styles[status]}`}>
+          {status.charAt(0).toUpperCase() + status.slice(1)}
+        </span>
+      </div>
       
-      <div className={styles.progressBar}>
+      <div className={styles.progressBarContainer}>
         <div 
-          className={styles.progressFill} 
-          style={{ width: `${percentComplete}%` }}
-        ></div>
+          className={styles.progressBar}
+          style={{ width: `${progress}%` }}
+        />
       </div>
       
-      <div className={styles.progressStats}>
-        <div className={styles.progressStat}>
-          <span>Current File:</span>
-          <span>{currentFile || 'Starting...'}</span>
+      <div className={styles.progressDetails}>
+        <div className={styles.progressText}>
+          <span>Progress: {progress}%</span>
+          <span>Set {currentSet} of {totalSets}</span>
         </div>
         
-        <div className={styles.progressStat}>
-          <span>Progress:</span>
-          <span>{percentComplete}% ({processedSets.length} of {totalSets} files)</span>
-        </div>
-        
-        <div className={styles.progressStat}>
-          <span>Last Processed:</span>
-          <span>{processedSets.length > 0 ? processedSets[processedSets.length - 1] : 'None'}</span>
+        <div className={styles.currentFile}>
+          {currentFile && (
+            <div className={styles.fileInfo}>
+              <span className={styles.label}>Current File:</span>
+              <span className={styles.value}>{currentFile}</span>
+            </div>
+          )}
+          
+          {message && message !== currentFile && (
+            <div className={styles.messageInfo}>
+              <span className={styles.label}>Status:</span>
+              <span className={styles.value}>{message}</span>
+            </div>
+          )}
         </div>
       </div>
-      
-      {processedSets.length > 0 && (
-        <div className={styles.processedFiles}>
-          <h4>Processed Files:</h4>
-          <div className={styles.processedList}>
-            {processedSets.map((setNumber, index) => (
-              <span key={index} className={styles.processedItem}>
-                {setNumber}
-                {index < processedSets.length - 1 ? ', ' : ''}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -1,10 +1,11 @@
 from pymongo import MongoClient
 from datetime import datetime
+from config.settings import settings
 
 class DataCenter:
     def __init__(self):
-        self.client = MongoClient('mongodb://localhost:27017/')
-        self.db = self.client['eyetracking']
+        self.client = MongoClient(settings.MONGODB_URL)
+        self.db = self.client[settings.MONGODB_DB_NAME]
         self.collection = self.db['data_center']
 
     def update_value(self, key, value, data_type):

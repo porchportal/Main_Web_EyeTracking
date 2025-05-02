@@ -59,7 +59,7 @@ class MongoDB:
 
     @classmethod
     async def ensure_connected(cls):
-        if not cls._client:
+        if cls._client is None:
             return await cls.connect()
         try:
             await cls._client.admin.command('ping')
@@ -70,7 +70,7 @@ class MongoDB:
 
     @classmethod
     def get_db(cls):
-        if not cls._db:
+        if cls._db is None:
             raise Exception("Database not connected. Please call connect() first.")
         return cls._db
 

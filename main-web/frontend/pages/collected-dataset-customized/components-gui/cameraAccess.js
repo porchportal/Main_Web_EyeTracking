@@ -67,7 +67,7 @@ const CameraAccess = ({
         try {
           const result = JSON.parse(event.data);
           setProcessingResults(result);
-          drawResults(result);
+          // drawResults(result);
         } catch (error) {
           console.error('Error parsing WebSocket message:', error);
         }
@@ -172,38 +172,38 @@ const CameraAccess = ({
   };
 
   // Draw processing results
-  const drawResults = (results) => {
-    if (!canvasRef.current || !results) return;
+  // const drawResults = (results) => {
+  //   if (!canvasRef.current || !results) return;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+  //   const canvas = canvasRef.current;
+  //   const ctx = canvas.getContext('2d');
 
-    // Draw bounding box if available
-    if (results.bounding_box && showBoundingBox) {
-      const { x, y, width, height } = results.bounding_box;
-      ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, width, height);
-    }
+  //   // Draw bounding box if available
+  //   if (results.bounding_box && showBoundingBox) {
+  //     const { x, y, width, height } = results.bounding_box;
+  //     ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+  //     ctx.lineWidth = 2;
+  //     ctx.strokeRect(x, y, width, height);
+  //   }
 
-    // Draw head pose if available
-    if (results.head_pose && showHeadPose) {
-      const { pitch, yaw, roll } = results.head_pose;
-      // Draw head pose visualization
-      drawHeadPose(ctx, canvas, pitch, yaw, roll);
-    }
+  //   // Draw head pose if available
+  //   if (results.head_pose && showHeadPose) {
+  //     const { pitch, yaw, roll } = results.head_pose;
+  //     // Draw head pose visualization
+  //     drawHeadPose(ctx, canvas, pitch, yaw, roll);
+  //   }
 
-    // Draw face mask if available
-    if (results.face_mask && showMask) {
-      const { points } = results.face_mask;
-      drawFaceMask(ctx, canvas, points);
-    }
+  //   // Draw face mask if available
+  //   if (results.face_mask && showMask) {
+  //     const { points } = results.face_mask;
+  //     drawFaceMask(ctx, canvas, points);
+  //   }
 
-    // Draw parameters if enabled
-    if (showParameters) {
-      drawParameters(ctx, canvas, results);
-    }
-  };
+  //   // Draw parameters if enabled
+  //   if (showParameters) {
+  //     drawParameters(ctx, canvas, results);
+  //   }
+  // };
 
   // Start camera with highest resolution
   const startCamera = async () => {
@@ -723,7 +723,8 @@ const CameraAccess = ({
           height: '100%',
           objectFit: 'cover',
           transform: 'scaleX(-1)',
-          opacity: 1
+          opacity: 1,
+          zIndex: 1
         }}
         playsInline
         muted
@@ -737,9 +738,9 @@ const CameraAccess = ({
           left: 0,
           width: '100%',
           height: '100%',
-          zIndex: 1,
+          zIndex: 2,
           pointerEvents: 'none',
-          display: isLinked ? 'block' : 'none' // Hide canvas when not linked
+          display: isLinked ? 'block' : 'none'
         }}
       />
       <div style={{
@@ -748,18 +749,19 @@ const CameraAccess = ({
         right: '10px',
         display: 'flex',
         gap: '10px',
-        zIndex: 2
+        zIndex: 3
       }}>
         <button
           onClick={onClose}
           style={{
             padding: '8px 12px',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
             color: 'white',
             border: 'none',
             borderRadius: '4px',
             cursor: 'pointer',
-            transition: 'background-color 0.3s ease'
+            transition: 'background-color 0.3s ease',
+            zIndex: 3
           }}
         >
           Close
@@ -780,7 +782,8 @@ const CameraAccess = ({
             border: 'none',
             borderRadius: '4px',
             cursor: 'pointer',
-            transition: 'background-color 0.3s ease'
+            transition: 'background-color 0.3s ease',
+            zIndex: 3
           }}
         >
           {isLinked ? 'Unlink' : 'Link'}
@@ -796,7 +799,7 @@ const CameraAccess = ({
           backgroundColor: 'rgba(255, 0, 0, 0.7)',
           color: 'white',
           borderRadius: '4px',
-          zIndex: 2
+          zIndex: 3
         }}>
           Connection Error: {errorMessage}
         </div>

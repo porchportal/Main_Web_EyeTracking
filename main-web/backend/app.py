@@ -1,5 +1,5 @@
 # app.py - Main FastAPI entry point with added consent routes
-from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Body
+from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 from fastapi.responses import StreamingResponse
@@ -68,12 +68,25 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=["*"],  # Allow all origins for development
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"]
 )
+
+# Add specific CORS middleware for user preferences
+@app.middleware("http")
+async def add_cors_headers(request: Request, call_next):
+    response = await call_next(request)
+    origin = request.headers.get("origin")
+    if origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization, X-API-Key"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Max-Age"] = "3600"
+    return response
 
 # API Key authentication
 API_KEY = settings.API_KEY
@@ -201,8 +214,11 @@ async def get_user_preferences(user_id: str):
         if not await MongoDB.ensure_connected():
             raise HTTPException(status_code=503, detail="Database connection unavailable")
         
-        db = MongoDB.get_db()
-        user_data = await db.users.find_one({"user_id": user_id})
+        db_instance = MongoDB.get_db()
+        if db_instance is None:
+            raise HTTPException(status_code=503, detail="Database connection unavailable")
+            
+        user_data = await db_instance.users.find_one({"user_id": user_id})
         
         if not user_data:
             return {
@@ -220,6 +236,11 @@ async def get_user_preferences(user_id: str):
     except Exception as e:
         logger.error(f"Error fetching user preferences: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+# Add OPTIONS handler for user preferences
+@app.options("/api/user-preferences/{user_id}")
+async def options_user_preferences():
+    return {"status": "ok"}
 
 @app.post("/api/user-preferences/{user_id}")
 @app.put("/api/user-preferences/{user_id}")

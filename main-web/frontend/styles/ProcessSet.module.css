@@ -586,3 +586,99 @@
     50% { opacity: 1; }
     100% { opacity: 0.6; }
   }
+
+.processingProgress {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.progressHeader h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.2rem;
+}
+
+.statusBadge {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.statusBadge.processing {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.statusBadge.completed {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.statusBadge.error {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.statusBadge.warning {
+  background-color: #fff3e0;
+  color: #ef6c00;
+}
+
+.progressBarContainer {
+  height: 8px;
+  background-color: #e0e0e0;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 15px;
+}
+
+.progressBar {
+  height: 100%;
+  background-color: #1976d2;
+  transition: width 0.3s ease;
+}
+
+.progressDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.progressText {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.currentFile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fileInfo, .messageInfo {
+  display: flex;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.label {
+  color: #666;
+  font-weight: 500;
+}
+
+.value {
+  color: #333;
+}

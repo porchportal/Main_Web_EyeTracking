@@ -1407,7 +1407,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     <div>
       {isCompactMode ? (
         <div className="grid grid-cols-2 gap-2 mb-4">
-          {buttons.filter(b => !b.divider).map((button, index) => (
+          {/* {buttons.filter(b => !b.divider).map((button, index) => (
             <ActionButton 
               key={index}
               text={button.text}
@@ -1416,83 +1416,13 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
               disabled={button.disabled}
               active={button.active}
             />
-          ))}
+          ))} */}
+          <div></div>
         </div>
       ) : (
-        <div className="space-y-2 mb-4">
-          <div className="grid grid-cols-3 gap-2">
-            <ActionButton 
-              text="Set Random"
-              abbreviatedText="SRandom" 
-              onClick={handleSetRandom}
-              disabled={isCapturing}
-            />
-            <ActionButton 
-              text="Go back"
-              abbreviatedText="← Back" 
-              onClick={handleGoBack}
-              customClass="bg-gray-200 hover:bg-gray-300"
-            />
-            <ActionButton 
-              text="Set Calibrate"
-              abbreviatedText="Calibrate" 
-              onClick={handleSetCalibrate}
-              disabled={isCapturing}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <ActionButton 
-              text="Random Dot"
-              abbreviatedText="Random" 
-              onClick={handleRandomDot}
-              disabled={isCapturing}
-            />
-            <ActionButton 
-              text="Clear All"
-              abbreviatedText="Clear" 
-              onClick={handleClearAll}
-            />
-          </div>
-          
-          <hr className="my-3 border-gray-200" />
-          
-          <div className="grid grid-cols-2 gap-2">
-            <ActionButton 
-              text="Draw Head pose"
-              abbreviatedText="Head pose" 
-              onClick={handleToggleHeadPose}
-              active={showHeadPose}
-            />
-            <ActionButton 
-              text="Show Bounding Box"
-              abbreviatedText="☐ Box" 
-              onClick={handleToggleBoundingBox}
-              active={showBoundingBox}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <ActionButton 
-              text={isCameraActive ? "Stop Camera" : "Show Preview"}
-              abbreviatedText={isCameraActive ? "Stop" : "Preview"}
-              onClick={handleToggleCamera}
-              active={isCameraActive}
-            />
-            <ActionButton 
-              text="😷 Show Mask"
-              abbreviatedText="😷 Mask" 
-              onClick={handleToggleMask}
-              active={showMask}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <ActionButton 
-              text="Parameters"
-              abbreviatedText="Values" 
-              onClick={handleToggleParameters}
-              active={showParameters}
-            />
-            <div></div> {/* Empty space for alignment */}
-          </div>
+        <div className="grid grid-cols-2 gap-2">
+          {/* Removed the Parameters button */}
+          <div></div> {/* Empty space for alignment */}
         </div>
       )}
       

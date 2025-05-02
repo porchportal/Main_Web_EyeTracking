@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE: int = Field(default=52428800)  # 50MB
     
     # Logging settings
-    LOG_LEVEL: str = Field(default="INFO")
+    LOG_LEVEL: str = Field(default="WARNING")
     
     class Config:
         env_file = Path(__file__).parent.parent / '.env.backend'

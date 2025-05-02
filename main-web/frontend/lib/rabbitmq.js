@@ -29,66 +29,32 @@ class ProcessingService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || ''
         },
         body: JSON.stringify({ user_id, set_numbers })
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to start processing');
+        const errorData = await response.json();
+        console.error('Backend API error:', errorData);
+        throw new Error(errorData.error || 'Failed to start processing');
       }
 
-      // Start reading the stream
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      while (true) {
-        try {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value);
-          const updates = chunk.split('\n').filter(Boolean);
-          
-          for (const update of updates) {
-            try {
-              const data = JSON.parse(update);
-              console.log('Received processing update:', data);
-              
-              // Update the processing status with the latest progress
-              updateProcessingStatus(user_id, data.status, data.message, data.progress);
-              
-              // If processing is completed or failed, break the loop
-              if (data.status === 'completed' || data.status === 'error') {
-                return {
-                  success: data.status === 'completed',
-                  message: data.message,
-                  status: data.status,
-                  progress: data.progress
-                };
-              }
-            } catch (e) {
-              console.error('Error parsing update:', e);
-            }
-          }
-        } catch (e) {
-          console.error('Error reading stream:', e);
-          throw e;
-        }
-      }
-
+      // Return success response
       return {
         success: true,
-        message: 'Processing completed',
-        status: 'completed',
-        progress: 100
+        message: 'Processing request queued successfully',
+        status: 'queued'
       };
     } catch (error) {
       console.error('Error starting processing:', error);
       // Update status to error
       updateProcessingStatus(user_id, 'error', `Error: ${error.message}`, 0);
-      throw error;
+      return {
+        success: false,
+        error: error.message,
+        status: 'error'
+      };
     }
   }
 

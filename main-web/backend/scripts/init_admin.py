@@ -3,6 +3,7 @@ import asyncio
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 import logging
+from config.settings import settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -14,15 +15,14 @@ load_dotenv(dotenv_path='.env.backend')
 async def init_admin():
     try:
         # MongoDB connection
-        MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-        logger.info(f"Connecting to MongoDB at: {MONGODB_URL}")
+        logger.info(f"Connecting to MongoDB at: {settings.MONGODB_URL}")
         
-        client = AsyncIOMotorClient(MONGODB_URL)
-        db = client.eyetracking
+        client = AsyncIOMotorClient(settings.MONGODB_URL)
+        db = client[settings.MONGODB_DB_NAME]
 
         # Admin credentials from environment variables
-        admin_username = os.getenv("ADMIN_USERNAME", "admin")
-        admin_password = os.getenv("ADMIN_PASSWORD", "1234")
+        admin_username = settings.ADMIN_USERNAME
+        admin_password = settings.ADMIN_PASSWORD
         
         logger.info(f"Initializing admin with username: {admin_username}")
 

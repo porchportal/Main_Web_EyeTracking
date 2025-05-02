@@ -61,10 +61,6 @@ export default async function handler(req, res) {
       const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
       const apiKey = process.env.API_KEY || '';
 
-      console.log("Using backend URL:", backendUrl);
-      // For debugging only - don't log real API keys in production
-      console.log("API key present:", apiKey ? "Yes" : "No");
-
       // Send the request to the FastAPI backend with API key
       const response = await fetch(`${backendUrl}/process-image`, {
         method: 'POST',

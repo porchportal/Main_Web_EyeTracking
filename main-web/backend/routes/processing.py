@@ -8,7 +8,7 @@ import logging
 from auth import verify_api_key
 
 # Import the processing modules
-from process_images import process_image_handler
+from process_images import process_images
 from process_video import process_video_handler
 
 # Set up router with /api prefix
@@ -68,13 +68,14 @@ async def process_image(
     """
     Process a single image for face tracking and analysis
     """
-    return await process_image_handler(
-        file, 
+    async for result in process_images(
+        file=file,
         show_head_pose=showHeadPose.lower() == "true",
         show_bounding_box=showBoundingBox.lower() == "true",
         show_mask=showMask.lower() == "true",
         show_parameters=showParameters.lower() == "true"
-    )
+    ):
+        return result
 
 @router.post("/process-video")
 async def process_video(
@@ -107,13 +108,14 @@ async def process_frame(
     Process a single frame from a video stream
     This endpoint uses the same handler as process-image
     """
-    return await process_image_handler(
-        file, 
+    async for result in process_images(
+        file=file,
         show_head_pose=showHeadPose.lower() == "true",
         show_bounding_box=showBoundingBox.lower() == "true",
         show_mask=showMask.lower() == "true",
         show_parameters=showParameters.lower() == "true"
-    )
+    ):
+        return result
 
 def process_images(set_numbers: List[int]):
     """Process images using process_images.py"""
