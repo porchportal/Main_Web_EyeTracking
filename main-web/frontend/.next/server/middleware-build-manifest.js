@@ -25,15 +25,15 @@ globalThis.__BUILD_MANIFEST = {
       "static/chunks/main.js",
       "static/chunks/pages/_error.js"
     ],
-    "/collected-dataset-customized": [
+    "/admin": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/collected-dataset-customized.js"
+      "static/chunks/pages/admin.js"
     ],
-    "/process_set": [
+    "/admin-login": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/process_set.js"
+      "static/chunks/pages/admin-login.js"
     ]
   },
   "ampFirstPages": []

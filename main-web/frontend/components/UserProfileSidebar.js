@@ -16,6 +16,7 @@ export default function UserProfileSidebar() {
     preferences: {}
   });
   const [statusMessage, setStatusMessageLocal] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
   // Get consent and backend status
   const { userId, consentStatus } = useConsent();
@@ -23,14 +24,47 @@ export default function UserProfileSidebar() {
 
   // Load profile data when component mounts or consent changes
   useEffect(() => {
-    const loadProfile = () => {
-      const savedProfile = getUserProfile();
-      if (savedProfile) {
-        setProfile(savedProfile);
+    const loadProfile = async () => {
+      if (!userId) {
+        setIsLoading(false);
+        return;
+      }
+      
+      try {
+        setIsLoading(true);
+        const response = await fetch(`/api/user-preferences/${userId}`, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to load profile');
+        }
+
+        const data = await response.json();
+        console.log('Loaded profile data:', data); // Debug log
+
+        if (data.data) {
+          setProfile(prev => ({
+            ...prev,
+            username: data.data.username || '',
+            sex: data.data.sex || '',
+            age: data.data.age || '',
+            image_background: data.data.image_background || ''
+          }));
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      } finally {
+        setIsLoading(false);
       }
     };
+
     loadProfile();
-  }, [consentStatus]);
+  }, [userId, consentStatus]);
 
   // Reset sidebar state when route changes
   useEffect(() => {
@@ -61,11 +95,9 @@ export default function UserProfileSidebar() {
 
       // Prepare profile data
       const profileData = {
-        preferences: {
-        username: profile.username,
-        sex: profile.sex,
-          age: profile.age
-        }
+        username: profile.username || null,
+        sex: profile.sex || null,
+        age: profile.age || null
       };
 
       // Save to backend
@@ -79,7 +111,8 @@ export default function UserProfileSidebar() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save profile');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to save profile');
       }
 
       const result = await response.json();
@@ -88,7 +121,7 @@ export default function UserProfileSidebar() {
       // Update local state
       setProfile(prev => ({
         ...prev,
-        ...profileData.preferences
+        ...profileData
       }));
 
       // Dispatch admin update event
@@ -98,8 +131,8 @@ export default function UserProfileSidebar() {
             type: 'profile',
             userId: userId,
             profile: {
-              ...profileData.preferences,
-              isComplete: Boolean(profileData.preferences.username && profileData.preferences.sex)
+              ...profileData,
+              isComplete: Boolean(profileData.username && profileData.sex)
             }
           }
         });
@@ -110,7 +143,7 @@ export default function UserProfileSidebar() {
       alert('Profile saved successfully!');
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Failed to save profile. Please try again.');
+      alert(error.message || 'Failed to save profile. Please try again.');
     }
   };
 
@@ -206,65 +239,74 @@ export default function UserProfileSidebar() {
           )}
         </div>
 
-        <div className={styles.profileForm}>
-          <div className={styles.formGroup}>
-            <label htmlFor="username">Username</label>
-            <input
-              type="text"
-              id="username"
-              name="username"
-              value={profile.username}
-              onChange={handleInputChange}
-            />
+        {isLoading ? (
+          <div className={styles.loadingContainer}>
+            <p>Loading profile data...</p>
           </div>
+        ) : (
+          <div className={styles.profileForm}>
+            <div className={styles.formGroup}>
+              <label htmlFor="username">Username</label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                value={profile.username}
+                onChange={handleInputChange}
+                placeholder="Enter username"
+              />
+            </div>
 
-          <div className={styles.formGroup}>
-            <label htmlFor="sex">Sex</label>
-            <select
-              id="sex"
-              name="sex"
-              value={profile.sex}
-              onChange={handleInputChange}
+            <div className={styles.formGroup}>
+              <label htmlFor="sex">Sex</label>
+              <select
+                id="sex"
+                name="sex"
+                value={profile.sex}
+                onChange={handleInputChange}
+              >
+                <option value="">Select</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="age">Age</label>
+              <input
+                type="number"
+                id="age"
+                name="age"
+                value={profile.age}
+                onChange={handleInputChange}
+                min="1"
+                max="120"
+                placeholder="Enter age"
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label htmlFor="image_background">Background Image URL</label>
+              <input
+                type="text"
+                id="image_background"
+                name="image_background"
+                value={profile.image_background}
+                onChange={handleInputChange}
+                placeholder="Enter image URL"
+              />
+            </div>
+
+            <button 
+              className={styles.saveButton}
+              onClick={handleSave}
+              disabled={isLoading}
             >
-              <option value="">Select</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </select>
+              {isLoading ? 'Saving...' : 'Save Profile'}
+            </button>
           </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="age">Age</label>
-            <input
-              type="number"
-              id="age"
-              name="age"
-              value={profile.age}
-              onChange={handleInputChange}
-              min="1"
-              max="120"
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="image_background">Background Image URL</label>
-            <input
-              type="text"
-              id="image_background"
-              name="image_background"
-              value={profile.image_background}
-              onChange={handleInputChange}
-              placeholder="Enter image URL"
-            />
-          </div>
-
-          <button 
-            className={styles.saveButton}
-            onClick={handleSave}
-          >
-            Save Profile
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );

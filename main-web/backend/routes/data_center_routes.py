@@ -27,7 +27,7 @@ class DateTimeEncoder(json.JSONEncoder):
 async def get_settings(user_id: str):
     """Get settings for a specific user"""
     try:
-        settings = data_center_service.get_value(f"settings_{user_id}")
+        settings = await data_center_service.get_value(f"settings_{user_id}")
         if settings:
             return settings
         return {"times": 1, "delay": 3}  # Default settings
@@ -39,7 +39,7 @@ async def get_settings(user_id: str):
 async def update_settings(user_id: str, settings: Dict[str, Any]):
     """Update settings for a specific user"""
     try:
-        data_center_service.update_value(
+        await data_center_service.update_value(
             f"settings_{user_id}",
             settings,
             "json"
@@ -53,7 +53,7 @@ async def update_settings(user_id: str, settings: Dict[str, Any]):
 async def get_image(user_id: str):
     """Get image for a specific user"""
     try:
-        image = data_center_service.get_value(f"image_{user_id}")
+        image = await data_center_service.get_value(f"image_{user_id}")
         if image:
             return {"image": image}
         return {"image": None}
@@ -65,7 +65,7 @@ async def get_image(user_id: str):
 async def update_image(user_id: str, image_data: Dict[str, str]):
     """Update image for a specific user"""
     try:
-        data_center_service.update_value(
+        await data_center_service.update_value(
             f"image_{user_id}",
             image_data["image"],
             "image"
@@ -79,7 +79,7 @@ async def update_image(user_id: str, image_data: Dict[str, str]):
 async def get_zoom(user_id: str):
     """Get zoom level for a specific user"""
     try:
-        zoom = data_center_service.get_value(f"zoom_{user_id}")
+        zoom = await data_center_service.get_value(f"zoom_{user_id}")
         if zoom:
             return {"zoom": zoom}
         return {"zoom": 1.0}  # Default zoom level
@@ -91,7 +91,7 @@ async def get_zoom(user_id: str):
 async def update_zoom(user_id: str, zoom_data: Dict[str, float]):
     """Update zoom level for a specific user"""
     try:
-        data_center_service.update_value(
+        await data_center_service.update_value(
             f"zoom_{user_id}",
             zoom_data["zoom"],
             "number"
@@ -103,18 +103,31 @@ async def update_zoom(user_id: str, zoom_data: Dict[str, float]):
 
 @router.get("/values")
 async def get_values():
-    """Get all current values"""
-    return data_center_service.get_all_values()
+    """Get all values from the data center"""
+    try:
+        # Initialize the service if needed
+        await data_center_service.initialize()
+        
+        # Get all values (already serialized by DataCenter class)
+        values = await data_center_service.get_all_values()
+        return values
+    except Exception as e:
+        logger.error(f"Error getting all values: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/update")
 async def update_value(data: Dict[str, Any]):
-    """Update a value"""
-    key = data.get('key')
-    value = data.get('value')
-    data_type = data.get('data_type')
-    
-    if not all([key, value, data_type]):
-        return {"error": "Missing required fields"}
-    
-    data_center_service.update_value(key, value, data_type)
-    return {"success": True} 
+    """Update a value in the data center"""
+    try:
+        key = data.get("key")
+        value = data.get("value")
+        data_type = data.get("data_type", "json")
+        
+        if not key or value is None:
+            raise HTTPException(status_code=400, detail="Missing required fields")
+            
+        await data_center_service.update_value(key, value, data_type)
+        return {"success": True, "message": "Value updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating value: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) 

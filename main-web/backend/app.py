@@ -20,6 +20,7 @@ from config.settings import settings
 
 # Import database connection
 from db.mongodb import db, MongoDB
+from db.data_center import DataCenter
 
 # Import routers
 from routes import preferences
@@ -214,23 +215,30 @@ async def get_user_preferences(user_id: str):
         if not await MongoDB.ensure_connected():
             raise HTTPException(status_code=503, detail="Database connection unavailable")
         
-        db_instance = MongoDB.get_db()
-        if db_instance is None:
+        db = MongoDB.get_db()
+        if db is None:
             raise HTTPException(status_code=503, detail="Database connection unavailable")
             
-        user_data = await db_instance.users.find_one({"user_id": user_id})
+        # Get user preferences from user_preferences collection
+        user_data = await db.user_preferences.find_one({"user_id": user_id})
         
         if not user_data:
             return {
-                "user_id": user_id,
-                "username": None,
-                "sex": None,
-                "age": None,
-                "preferences": {}
+                "data": {
+                    "user_id": user_id,
+                    "username": None,
+                    "sex": None,
+                    "age": None,
+                    "image_background": None
+                }
             }
         
+        # Remove MongoDB _id field
         user_data.pop("_id", None)
-        return user_data
+        
+        return {
+            "data": user_data
+        }
     except HTTPException:
         raise
     except Exception as e:
@@ -242,9 +250,14 @@ async def get_user_preferences(user_id: str):
 async def options_user_preferences():
     return {"status": "ok"}
 
-@app.post("/api/user-preferences/{user_id}")
+class UserProfileUpdate(BaseModel):
+    """Model for updating user profile information"""
+    username: Optional[str] = None
+    sex: Optional[str] = None
+    age: Optional[str] = None
+
 @app.put("/api/user-preferences/{user_id}")
-async def update_user_preferences(user_id: str, preferences: UserPreferences):
+async def update_user_preferences(user_id: str, preferences: UserProfileUpdate):
     """Update user preferences in MongoDB."""
     try:
         if not await MongoDB.ensure_connected():
@@ -252,17 +265,52 @@ async def update_user_preferences(user_id: str, preferences: UserPreferences):
         
         db = MongoDB.get_db()
         
-        update_data = preferences.dict(exclude_unset=True)
-        update_data["user_id"] = user_id
+        # 1. Save to user_preferences collection
+        collection = db['user_preferences']
+        update_data = {
+            "user_id": user_id,
+            "username": preferences.username,
+            "sex": preferences.sex,
+            "age": preferences.age,
+            "updated_at": datetime.utcnow()
+        }
         
-        if "preferences" not in update_data:
-            update_data["preferences"] = {}
-        
-        result = await db.users.update_one(
+        result = await collection.update_one(
             {"user_id": user_id},
             {"$set": update_data},
             upsert=True
         )
+        
+        # 2. Save to data_center collection with default values
+        settings_data = {
+            "times": 1,
+            "delay": 3,
+            "image_path": "/asfgrebvxcv",
+            "updateImage": "image.jpg",
+            "set_timeRandomImage": 1,
+            "every_set": 2,
+            "zoom_percentage": 100,
+            "position_zoom": [3, 4],
+            "state_isProcessOn": True,
+            "currentlyPage": "str",
+            "freeState": 3
+        }
+        
+        try:
+            # Initialize DataCenter if needed
+            await DataCenter.initialize()
+            
+            # Save settings to data_center
+            data_center_result = await DataCenter.update_value(
+                f"settings_{user_id}",
+                settings_data,
+                "json"
+            )
+            
+            logger.info(f"Updated data_center settings for user {user_id}: {data_center_result}")
+        except Exception as e:
+            logger.error(f"Failed to update data_center settings for user {user_id}: {str(e)}")
+            # Don't raise the error, just log it since the user preferences were saved successfully
         
         if result.modified_count == 0 and not result.upserted_id:
             logger.warning(f"No changes made to user preferences for user_id: {user_id}")

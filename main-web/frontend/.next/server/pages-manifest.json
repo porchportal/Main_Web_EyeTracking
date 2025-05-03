@@ -2,9 +2,10 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/process_set": "pages/process_set.js",
-  "/api/check-files": "pages/api/check-files.js",
-  "/": "pages/index.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/collected-dataset-customized": "pages/collected-dataset-customized.js"
+  "/": "pages/index.js",
+  "/admin-login": "pages/admin-login.js",
+  "/api/admin/load-settings": "pages/api/admin/load-settings.js",
+  "/admin": "pages/admin.js",
+  "/api/admin/consent-data": "pages/api/admin/consent-data.js"
 }
