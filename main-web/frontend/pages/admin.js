@@ -577,11 +577,29 @@ export default function AdminPage({ initialSettings }) {
   const handleDeleteConfirm = async () => {
     try {
       console.log('Using API Key:', process.env.NEXT_PUBLIC_API_KEY);
+      
+      // First, update user preferences to set cookie to false
+      const updateResponse = await fetch(`/api/user-preferences/${deleteTarget}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+        },
+        body: JSON.stringify({
+          cookie: false
+        })
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error('Failed to update user preferences');
+      }
+
+      // Then delete the consent data
       const response = await fetch(`${API_BASE_URL}/consent/${deleteTarget}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV' // Fallback for testing
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
         }
       });
 
@@ -597,10 +615,10 @@ export default function AdminPage({ initialSettings }) {
 
       // Update the consent data by removing the deleted row
       setConsentData(prevData => prevData.filter(data => data.userId !== deleteTarget));
-      showNotification('Consent data deleted successfully!');
+      showNotification('User data deleted successfully and cookie consent reset!');
     } catch (error) {
-      console.error('Error deleting consent data:', error);
-      showNotification('Failed to delete consent data. Please try again.', 'error');
+      console.error('Error deleting user data:', error);
+      showNotification('Failed to delete user data. Please try again.', 'error');
     } finally {
       setShowDeleteConfirm(false);
       setDeleteTarget(null);

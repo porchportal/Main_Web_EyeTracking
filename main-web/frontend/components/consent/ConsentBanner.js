@@ -1,27 +1,91 @@
 // frontend/components/consent/ConsentBanner.js
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import styles from '../../styles/Consent.module.css';
 import { useConsent } from './ConsentContext';
+import { getOrCreateUserId } from '../../utils/consentManager';
 
 export default function ConsentBanner() {
   const { showBanner, updateConsent } = useConsent();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const [cookieStatus, setCookieStatus] = useState(null);
 
-  // If banner shouldn't be shown, return null
-  if (!showBanner) return null;
+  useEffect(() => {
+    const checkCookieStatus = async () => {
+      try {
+        const userId = getOrCreateUserId();
+        const response = await fetch(`/api/user-preferences/${userId}`, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setCookieStatus(data.data?.cookie ?? false);
+        } else {
+          setCookieStatus(false);
+        }
+      } catch (error) {
+        console.error('Error checking cookie status:', error);
+        setCookieStatus(false);
+      }
+    };
+
+    checkCookieStatus();
+  }, []);
+
+  // If banner shouldn't be shown or cookie is already accepted, return null
+  if (!showBanner || cookieStatus === true) return null;
 
   const handleAccept = async () => {
     setLoading(true);
-    await updateConsent(true);
-    setLoading(false);
+    try {
+      // Update consent status
+      await updateConsent(true);
+      
+      // Get user ID
+      const userId = getOrCreateUserId();
+      
+      // Update user preferences with cookie acceptance
+      const response = await fetch(`/api/user-preferences/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+        },
+        body: JSON.stringify({
+          cookie: true
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save cookie preferences');
+      }
+      
+      setCookieStatus(true);
+      // Redirect to consent setup page
+      router.push('/preferences/consent-setup');
+    } catch (error) {
+      console.error('Error handling cookie acceptance:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDecline = async () => {
     setLoading(true);
-    await updateConsent(false);
-    setLoading(false);
+    try {
+      await updateConsent(false);
+      setCookieStatus(false);
+    } catch (error) {
+      console.error('Error handling cookie decline:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLearnMore = () => {

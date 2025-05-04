@@ -22,6 +22,12 @@ class DataCenter:
             logger.info(f"Initializing DataCenter with URL: {settings.MONGODB_URL}")
             cls._client = AsyncIOMotorClient(settings.MONGODB_URL)
             cls._db = cls._client[settings.MONGODB_DB_NAME]
+            
+            # Create collection if it doesn't exist
+            collections = await cls._db.list_collection_names()
+            if 'data_center' not in collections:
+                await cls._db.create_collection('data_center')
+            
             cls._collection = cls._db['data_center']
             
             # Verify connection and collection
@@ -44,8 +50,8 @@ class DataCenter:
 
             logger.info(f"Updating value for key: {key}, value: {value}, data_type: {data_type}")
             
-            # Ensure the collection exists
-            if not cls._collection:
+            # Ensure the collection is initialized
+            if cls._collection is None:
                 raise Exception("DataCenter collection not initialized")
 
             result = await cls._collection.update_one(
@@ -78,6 +84,10 @@ class DataCenter:
             if not cls._initialized:
                 await cls.initialize()
 
+            # Ensure the collection is initialized
+            if cls._collection is None:
+                raise Exception("DataCenter collection not initialized")
+
             result = await cls._collection.find_one({'key': key})
             return result['value'] if result else None
         except Exception as e:
@@ -104,6 +114,10 @@ class DataCenter:
             if not cls._initialized:
                 await cls.initialize()
 
+            # Ensure the collection is initialized
+            if cls._collection is None:
+                raise Exception("DataCenter collection not initialized")
+
             cursor = cls._collection.find({})
             values = await cursor.to_list(length=None)
             
@@ -126,6 +140,10 @@ class DataCenter:
         try:
             if not cls._initialized:
                 await cls.initialize()
+
+            # Ensure the collection is initialized
+            if cls._collection is None:
+                raise Exception("DataCenter collection not initialized")
 
             result = await cls._collection.delete_one({'key': key})
             logger.info(f"Deleted value for key {key}: {result.deleted_count} documents deleted")

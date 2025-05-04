@@ -229,7 +229,8 @@ async def get_user_preferences(user_id: str):
                     "username": None,
                     "sex": None,
                     "age": None,
-                    "image_background": None
+                    "image_background": None,
+                    "cookie": None
                 }
             }
         
@@ -255,6 +256,7 @@ class UserProfileUpdate(BaseModel):
     username: Optional[str] = None
     sex: Optional[str] = None
     age: Optional[str] = None
+    cookie: Optional[bool] = None
 
 @app.put("/api/user-preferences/{user_id}")
 async def update_user_preferences(user_id: str, preferences: UserProfileUpdate):
@@ -272,6 +274,7 @@ async def update_user_preferences(user_id: str, preferences: UserProfileUpdate):
             "username": preferences.username,
             "sex": preferences.sex,
             "age": preferences.age,
+            "cookie": preferences.cookie,
             "updated_at": datetime.utcnow()
         }
         

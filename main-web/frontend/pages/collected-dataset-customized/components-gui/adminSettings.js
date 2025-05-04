@@ -4,6 +4,7 @@ export const useAdminSettings = (ref) => {
   const [settings, setSettings] = useState({});
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isTopBarUpdated, setIsTopBarUpdated] = useState(false);
+  const [error, setError] = useState(null);
   const initialized = useRef(false);
   const pollingInterval = useRef(null);
 
@@ -13,8 +14,18 @@ export const useAdminSettings = (ref) => {
       if (!currentUserId) return;
       
       try {
-        const response = await fetch(`/api/data-center/settings/${currentUserId}`);
-        if (!response.ok) throw new Error('Failed to fetch settings');
+        const response = await fetch(`/api/data-center/settings/${currentUserId}`, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          }
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Failed to fetch settings');
+        }
         
         const newSettings = await response.json();
         console.log('Fetched settings:', newSettings);
@@ -22,6 +33,7 @@ export const useAdminSettings = (ref) => {
           ...prev,
           [currentUserId]: newSettings
         }));
+        setError(null);
         
         // First update topBar through ref
         if (ref && ref.current) {
@@ -32,6 +44,7 @@ export const useAdminSettings = (ref) => {
         }
       } catch (error) {
         console.error('Error fetching settings:', error);
+        setError(error.message);
       }
     };
 
@@ -132,7 +145,16 @@ export const useAdminSettings = (ref) => {
         if (times !== undefined || delay !== undefined) {
           const newSettings = {
             times: times !== undefined ? times : (settings[userId]?.times || 1),
-            delay: delay !== undefined ? delay : (settings[userId]?.delay || 3)
+            delay: delay !== undefined ? delay : (settings[userId]?.delay || 3),
+            image_path: settings[userId]?.image_path || "/asfgrebvxcv",
+            updateImage: settings[userId]?.updateImage || "image.jpg",
+            set_timeRandomImage: settings[userId]?.set_timeRandomImage || 1,
+            every_set: settings[userId]?.every_set || 2,
+            zoom_percentage: settings[userId]?.zoom_percentage || 100,
+            position_zoom: settings[userId]?.position_zoom || [3, 4],
+            state_isProcessOn: settings[userId]?.state_isProcessOn ?? true,
+            currentlyPage: settings[userId]?.currentlyPage || "str",
+            freeState: settings[userId]?.freeState || 3
           };
 
           setSettings(prev => ({
@@ -155,16 +177,21 @@ export const useAdminSettings = (ref) => {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
+                  'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
                 },
                 body: JSON.stringify(newSettings)
               });
 
               if (!response.ok) {
-                throw new Error('Failed to save settings to backend');
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to save settings to backend');
               }
+              
               console.log('Settings saved to backend:', newSettings);
+              setError(null);
             } catch (error) {
               console.error('Error saving settings to backend:', error);
+              setError(error.message);
             }
           };
           saveToBackend();
@@ -189,15 +216,26 @@ export const useAdminSettings = (ref) => {
         throw new Error('Invalid settings values');
       }
 
+      // Preserve existing settings while updating times and delay
       const updatedSettings = {
-        ...settings,
-        [userId]: {
-          times,
-          delay
-        }
+        ...settings[userId],
+        times,
+        delay,
+        image_path: settings[userId]?.image_path || "/asfgrebvxcv",
+        updateImage: settings[userId]?.updateImage || "image.jpg",
+        set_timeRandomImage: settings[userId]?.set_timeRandomImage || 1,
+        every_set: settings[userId]?.every_set || 2,
+        zoom_percentage: settings[userId]?.zoom_percentage || 100,
+        position_zoom: settings[userId]?.position_zoom || [3, 4],
+        state_isProcessOn: settings[userId]?.state_isProcessOn ?? true,
+        currentlyPage: settings[userId]?.currentlyPage || "str",
+        freeState: settings[userId]?.freeState || 3
       };
 
-      setSettings(updatedSettings);
+      setSettings(prev => ({
+        ...prev,
+        [userId]: updatedSettings
+      }));
       initialized.current = true;
 
       // Save settings to backend
@@ -205,30 +243,35 @@ export const useAdminSettings = (ref) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
         },
-        body: JSON.stringify({ times, delay })
+        body: JSON.stringify(updatedSettings)
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save settings to backend');
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to save settings to backend');
       }
-      console.log('Settings updated and saved:', { userId, times, delay });
+
+      console.log('Settings updated and saved:', { userId, ...updatedSettings });
+      setError(null);
 
       // First update topBar through ref
       if (ref && ref.current) {
         if (ref.current.setCaptureSettings) {
-          ref.current.setCaptureSettings({ times, delay });
+          ref.current.setCaptureSettings(updatedSettings);
           setIsTopBarUpdated(true);
         }
       }
 
     } catch (error) {
       console.error('Error updating settings:', error);
+      setError(error.message);
       throw error;
     }
   };
 
-  return { settings, updateSettings };
+  return { settings, updateSettings, error };
 };
 
 // Add default export component
