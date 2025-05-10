@@ -11,6 +11,7 @@ export const useAdminSettings = (ref) => {
 
   // Helper: Fetch settings for a user from backend
   const fetchSettingsForUser = async (userId) => {
+    console.log('[fetchSettingsForUser] userId:', userId); // Debug log
     if (!userId) return;
     try {
       const response = await fetch(`/api/data-center/settings/${userId}`, {
@@ -48,6 +49,7 @@ export const useAdminSettings = (ref) => {
   // Polling for settings updates
   useEffect(() => {
     if (!currentUserId) return;
+    console.log('[Polling useEffect] currentUserId:', currentUserId); // Debug log
     const fetchSettings = () => fetchSettingsForUser(currentUserId);
     fetchSettings();
     pollingInterval.current = setInterval(fetchSettings, 3000);
@@ -60,6 +62,7 @@ export const useAdminSettings = (ref) => {
   useEffect(() => {
     const handleUserIdChange = (event) => {
       if (event.detail && event.detail.userId) {
+        console.log('[handleUserIdChange] userId:', event.detail.userId); // Debug log
         setCurrentUserId(event.detail.userId);
         fetchSettingsForUser(event.detail.userId);
       }
@@ -110,6 +113,7 @@ export const useAdminSettings = (ref) => {
   // Update settings when they change in the context
   useEffect(() => {
     if (settings && currentUserId) {
+      console.log('[settings useEffect] currentUserId:', currentUserId); // Debug log
       const userSettings = settings[currentUserId];
       if (userSettings) {
         setCurrentSettings(userSettings);
@@ -123,6 +127,7 @@ export const useAdminSettings = (ref) => {
     const handleSettingsUpdate = (event) => {
       if (event.detail && event.detail.type === 'captureSettings') {
         const { userId, times, delay } = event.detail;
+        console.log('[handleSettingsUpdate] userId:', userId, 'currentUserId:', currentUserId); // Debug log
         if (userId === currentUserId) {
           const newSettings = {
             ...currentSettings,
@@ -141,6 +146,7 @@ export const useAdminSettings = (ref) => {
 
   // Update settings for a user (times, delay, image, etc.)
   const updateSettings = async (newSettings, userId) => {
+    console.log('[updateSettings] userId:', userId); // Debug log
     if (!userId) return;
     const updatedSettings = {
       ...settings[userId],
@@ -171,6 +177,7 @@ export const useAdminSettings = (ref) => {
 
   // Upload and update image for a user
   const updateImage = async (userId, base64Image) => {
+    console.log('[updateImage] userId:', userId); // Debug log
     if (!userId || !base64Image) return;
     try {
       const response = await fetch(`/api/data-center/image?user_id=${userId}`, {
