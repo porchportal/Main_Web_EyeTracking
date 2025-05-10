@@ -1,10 +1,10 @@
 {
-  "/_document": "pages/_document.js",
-  "/_error": "pages/_error.js",
   "/_app": "pages/_app.js",
-  "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/": "pages/index.js",
+  "/_error": "pages/_error.js",
+  "/_document": "pages/_document.js",
   "/admin": "pages/admin.js",
+  "/": "pages/index.js",
+  "/collected-dataset-customized": "pages/collected-dataset-customized.js",
   "/api/admin/consent-data": "pages/api/admin/consent-data.js",
-  "/collected-dataset-customized": "pages/collected-dataset-customized.js"
+  "/api/check-backend-connection": "pages/api/check-backend-connection.js"
 }

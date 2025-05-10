@@ -177,7 +177,7 @@ export default function AdminPage({ initialSettings }) {
       if (!selectedUserId) return;
       
       try {
-        const response = await fetch(`/api/admin/update?userId=${selectedUserId}&type=settings`, {
+        const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
@@ -185,12 +185,14 @@ export default function AdminPage({ initialSettings }) {
           }
         });
         
-        if (!response.ok) throw new Error('Failed to fetch settings');
+        if (!response.ok) {
+          throw new Error('Failed to fetch settings');
+        }
         
         const result = await response.json();
         const newSettings = result.data || {};
         
-        // Only update if the settings have actually changed and we're not in the middle of a user edit
+        // Only update if the settings have actually changed
         if (JSON.stringify(newSettings) !== JSON.stringify(tempSettings[selectedUserId])) {
           console.log('Settings updated from polling:', newSettings);
           setTempSettings(prev => ({
@@ -245,16 +247,12 @@ export default function AdminPage({ initialSettings }) {
       
       try {
         console.log('Loading settings for user:', selectedUserId);
-        const response = await fetch(`/api/admin/update`, {
+        const response = await fetch(`/api/admin/update?userId=${selectedUserId}&type=settings`, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
             'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-          },
-          params: {
-            userId: selectedUserId,
-            type: 'settings'
           }
         });
         
@@ -321,7 +319,7 @@ export default function AdminPage({ initialSettings }) {
     }
   }, [settings, selectedUserId]);
 
-  const handleTimeChange = (event) => {
+  const handleTimeChange = async (event) => {
     if (!selectedUserId) {
       setErrorMessage('Please select a user ID first!');
       setTimeout(() => setErrorMessage(''), 3000);
@@ -342,43 +340,35 @@ export default function AdminPage({ initialSettings }) {
       }));
 
       // Then save to database
-      const saveToDatabase = async () => {
-        try {
-          const response = await fetch('/api/admin/update', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-            },
-            body: JSON.stringify({
-              userId: selectedUserId,
-              type: 'settings',
-              data: updatedSettings
-            })
-          });
+      try {
+        const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          },
+          body: JSON.stringify(updatedSettings)
+        });
 
-          if (!response.ok) {
-            throw new Error('Failed to save settings');
-          }
-
-          // Update settings through the hook
-          updateSettings(updatedSettings, selectedUserId);
-
-          console.log(`Updated times to ${times} for user ${selectedUserId}`);
-          setSuccessMessage('Times updated successfully!');
-          setTimeout(() => setSuccessMessage(''), 3000);
-        } catch (error) {
-          console.error('Error saving times:', error);
-          setErrorMessage('Failed to save times. Please try again.');
-          setTimeout(() => setErrorMessage(''), 3000);
+        if (!response.ok) {
+          throw new Error('Failed to save settings');
         }
-      };
 
-      saveToDatabase();
+        // Update settings through the hook
+        updateSettings(updatedSettings, selectedUserId);
+
+        console.log(`Updated times to ${times} for user ${selectedUserId}`);
+        setSuccessMessage('Times updated successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } catch (error) {
+        console.error('Error saving times:', error);
+        setErrorMessage('Failed to save times. Please try again.');
+        setTimeout(() => setErrorMessage(''), 3000);
+      }
     }
   };
 
-  const handleDelayChange = (event) => {
+  const handleDelayChange = async (event) => {
     if (!selectedUserId) {
       setErrorMessage('Please select a user ID first!');
       setTimeout(() => setErrorMessage(''), 3000);
@@ -399,45 +389,37 @@ export default function AdminPage({ initialSettings }) {
       }));
 
       // Then save to database
-      const saveToDatabase = async () => {
-        try {
-          const response = await fetch('/api/admin/update', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-            },
-            body: JSON.stringify({
-              userId: selectedUserId,
-              type: 'settings',
-              data: updatedSettings
-            })
-          });
+      try {
+        const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          },
+          body: JSON.stringify(updatedSettings)
+        });
 
-          if (!response.ok) {
-            throw new Error('Failed to save settings');
-          }
-
-          // Update settings through the hook
-          updateSettings(updatedSettings, selectedUserId);
-
-          console.log(`Updated delay to ${delay} for user ${selectedUserId}`);
-          setSuccessMessage('Delay updated successfully!');
-          setTimeout(() => setSuccessMessage(''), 3000);
-        } catch (error) {
-          console.error('Error saving delay:', error);
-          setErrorMessage('Failed to save delay. Please try again.');
-          setTimeout(() => setErrorMessage(''), 3000);
+        if (!response.ok) {
+          throw new Error('Failed to save settings');
         }
-      };
 
-      saveToDatabase();
+        // Update settings through the hook
+        updateSettings(updatedSettings, selectedUserId);
+
+        console.log(`Updated delay to ${delay} for user ${selectedUserId}`);
+        setSuccessMessage('Delay updated successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } catch (error) {
+        console.error('Error saving delay:', error);
+        setErrorMessage('Failed to save delay. Please try again.');
+        setTimeout(() => setErrorMessage(''), 3000);
+      }
     }
   };
 
   const handleSaveSettings = async () => {
-    if (!selectedUserId) {
-      setErrorMessage('Please select a user ID first!');
+    if (!selectedUserId || selectedUserId === 'default') {
+      setErrorMessage('Please select a user ID before saving settings!');
       setTimeout(() => setErrorMessage(''), 3000);
       return;
     }
@@ -450,29 +432,13 @@ export default function AdminPage({ initialSettings }) {
       }
 
       // Save to database using the correct endpoint
-      const response = await fetch('/api/admin/update', {
+      const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
         },
-        body: JSON.stringify({
-          userId: selectedUserId,
-          type: 'settings',
-          data: {
-            times: currentSettings.times,
-            delay: currentSettings.delay,
-            image_path: currentSettings.image_path,
-            updateImage: currentSettings.updateImage,
-            set_timeRandomImage: currentSettings.set_timeRandomImage,
-            every_set: currentSettings.every_set,
-            zoom_percentage: currentSettings.zoom_percentage,
-            position_zoom: currentSettings.position_zoom,
-            state_isProcessOn: currentSettings.state_isProcessOn,
-            currentlyPage: currentSettings.currentlyPage,
-            freeState: currentSettings.freeState
-          }
-        })
+        body: JSON.stringify(currentSettings)
       });
 
       if (!response.ok) {
@@ -549,6 +515,12 @@ export default function AdminPage({ initialSettings }) {
   };
 
   const handleZoomChange = async (value) => {
+    if (!selectedUserId || selectedUserId === 'default') {
+      setErrorMessage('Please select a user ID before changing zoom level!');
+      setTimeout(() => setErrorMessage(''), 3000);
+      return;
+    }
+
     try {
       const response = await fetch('/api/data-center/zoom', {
         method: 'POST',
@@ -566,16 +538,25 @@ export default function AdminPage({ initialSettings }) {
         throw new Error('Failed to update zoom level');
       }
 
-      showNotification('Zoom level updated successfully!');
+      setSuccessMessage('Zoom level updated successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Error updating zoom level:', error);
-      showNotification('Failed to update zoom level. Please try again.', 'error');
+      setErrorMessage('Failed to update zoom level. Please try again.');
+      setTimeout(() => setErrorMessage(''), 3000);
     }
   };
 
   const handleSaveImage = async () => {
+    if (!selectedUserId || selectedUserId === 'default') {
+      setErrorMessage('Please select a user ID before saving image!');
+      setTimeout(() => setErrorMessage(''), 3000);
+      return;
+    }
+
     if (!selectedImage) {
-      showNotification('Please select an image first', 'error');
+      setErrorMessage('Please select an image first!');
+      setTimeout(() => setErrorMessage(''), 3000);
       return;
     }
 
@@ -614,12 +595,14 @@ export default function AdminPage({ initialSettings }) {
           window.dispatchEvent(event);
         }
 
-        showNotification('Image saved successfully!');
+        setSuccessMessage('Image saved successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000);
       };
       reader.readAsDataURL(selectedImage);
     } catch (error) {
       console.error('Error saving image:', error);
-      showNotification('Failed to save image. Please try again.', 'error');
+      setErrorMessage('Failed to save image. Please try again.');
+      setTimeout(() => setErrorMessage(''), 3000);
     }
   };
 
@@ -755,6 +738,34 @@ export default function AdminPage({ initialSettings }) {
     setDeleteTarget(null);
   };
 
+  // Update the user selection handler
+  const handleUserSelect = (e) => {
+    const newUserId = e.target.value;
+    setSelectedUserId(newUserId);
+    
+    // Reset tempSettings for the new user
+    setTempSettings(prev => ({
+      ...prev,
+      [newUserId]: prev[newUserId] || {
+        times: 1,
+        delay: 3,
+        image_path: "/asfgrebvxcv",
+        updateImage: "image.jpg",
+        set_timeRandomImage: 1,
+        every_set: 2,
+        zoom_percentage: 100,
+        position_zoom: [3, 4],
+        state_isProcessOn: true,
+        currentlyPage: "str",
+        freeState: 3
+      }
+    }));
+
+    // Clear any existing messages
+    setErrorMessage('');
+    setSuccessMessage('');
+  };
+
   if (loading) {
     return (
       <div className={styles.preferencesContainer}>
@@ -881,33 +892,13 @@ export default function AdminPage({ initialSettings }) {
           </div>
         )}
   
-        {/* User Selection Section - Now Second */}
+        {/* User Selection Section */}
         <div className={styles.settingsSection}>
           <h2>Select User</h2>
           <div className={styles.settingItem}>
             <select
               value={selectedUserId}
-              onChange={(e) => {
-                const newUserId = e.target.value;
-                setSelectedUserId(newUserId);
-                // Reset tempSettings for the new user
-                setTempSettings(prev => ({
-                  ...prev,
-                  [newUserId]: prev[newUserId] || {
-                    times: 1,
-                    delay: 3,
-                    image_path: "/asfgrebvxcv",
-                    updateImage: "image.jpg",
-                    set_timeRandomImage: 1,
-                    every_set: 2,
-                    zoom_percentage: 100,
-                    position_zoom: [3, 4],
-                    state_isProcessOn: true,
-                    currentlyPage: "str",
-                    freeState: 3
-                  }
-                }));
-              }}
+              onChange={handleUserSelect}
               className={styles.selectInput}
             >
               <option value="">Select a user...</option>
@@ -933,7 +924,18 @@ export default function AdminPage({ initialSettings }) {
                     type="number"
                     name="time"
                     value={tempSettings[selectedUserId]?.times ?? 1}
-                    onChange={handleTimeChange}
+                    onChange={(e) => {
+                      const newValue = parseInt(e.target.value, 10);
+                      if (!isNaN(newValue) && newValue > 0) {
+                        setTempSettings(prev => ({
+                          ...prev,
+                          [selectedUserId]: {
+                            ...prev[selectedUserId],
+                            times: newValue
+                          }
+                        }));
+                      }
+                    }}
                     min="1"
                     max="100"
                     className={styles.numberInput}
@@ -946,7 +948,18 @@ export default function AdminPage({ initialSettings }) {
                     type="number"
                     name="delay"
                     value={tempSettings[selectedUserId]?.delay ?? 3}
-                    onChange={handleDelayChange}
+                    onChange={(e) => {
+                      const newValue = parseInt(e.target.value, 10);
+                      if (!isNaN(newValue) && newValue > 0) {
+                        setTempSettings(prev => ({
+                          ...prev,
+                          [selectedUserId]: {
+                            ...prev[selectedUserId],
+                            delay: newValue
+                          }
+                        }));
+                      }
+                    }}
                     min="1"
                     max="60"
                     className={styles.numberInput}

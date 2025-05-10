@@ -405,7 +405,7 @@ async def get_processing_status(user_id: str):
             detail=str(e)
         )
 
-# Add new data center endpoints
+# Update the data center endpoints
 @app.get("/api/data-center/settings/{user_id}")
 async def get_user_settings(user_id: str):
     """Get user settings from data center"""
@@ -430,31 +430,53 @@ async def get_user_settings(user_id: str):
                 "freeState": 3
             }
         
-        return settings
+        return {"data": settings}
     except Exception as e:
         logger.error(f"Error getting user settings: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+class SettingsUpdate(BaseModel):
+    times: Optional[int] = None
+    delay: Optional[int] = None
+    image_path: Optional[str] = None
+    updateImage: Optional[str] = None
+    set_timeRandomImage: Optional[int] = None
+    every_set: Optional[int] = None
+    zoom_percentage: Optional[int] = None
+    position_zoom: Optional[List[int]] = None
+    state_isProcessOn: Optional[bool] = None
+    currentlyPage: Optional[str] = None
+    freeState: Optional[int] = None
+
 @app.post("/api/data-center/settings/{user_id}")
-async def update_user_settings(user_id: str, settings: dict):
+async def update_user_settings(user_id: str, settings: SettingsUpdate):
     """Update user settings in data center"""
     try:
         if not await DataCenter.initialize():
             raise HTTPException(status_code=503, detail="Data center not initialized")
         
+        # Get current settings
+        current_settings = await DataCenter.get_value(f"settings_{user_id}") or {}
+        
+        # Update only the provided fields
+        updated_settings = {**current_settings, **settings.dict(exclude_unset=True)}
+        
         result = await DataCenter.update_value(
             f"settings_{user_id}",
-            settings,
+            updated_settings,
             "json"
         )
         
-        return {"status": "success", "message": "Settings updated successfully"}
+        return {"status": "success", "message": "Settings updated successfully", "data": updated_settings}
     except Exception as e:
         logger.error(f"Error updating user settings: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+class ImageUpdate(BaseModel):
+    image: str
+
 @app.post("/api/data-center/image")
-async def update_user_image(user_id: str, image: str):
+async def update_user_image(user_id: str, image_update: ImageUpdate):
     """Update user image in data center"""
     try:
         if not await DataCenter.initialize():
@@ -462,7 +484,7 @@ async def update_user_image(user_id: str, image: str):
         
         result = await DataCenter.update_value(
             f"image_{user_id}",
-            image,
+            image_update.image,
             "image"
         )
         
@@ -471,8 +493,11 @@ async def update_user_image(user_id: str, image: str):
         logger.error(f"Error updating user image: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+class ZoomUpdate(BaseModel):
+    zoom_level: int
+
 @app.post("/api/data-center/zoom")
-async def update_user_zoom(user_id: str, zoom_level: int):
+async def update_user_zoom(user_id: str, zoom_update: ZoomUpdate):
     """Update user zoom level in data center"""
     try:
         if not await DataCenter.initialize():
@@ -480,13 +505,74 @@ async def update_user_zoom(user_id: str, zoom_level: int):
         
         result = await DataCenter.update_value(
             f"zoom_{user_id}",
-            zoom_level,
+            zoom_update.zoom_level,
             "number"
         )
         
         return {"status": "success", "message": "Zoom level updated successfully"}
     except Exception as e:
         logger.error(f"Error updating user zoom level: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Add this model for admin update requests
+class AdminUpdateRequest(BaseModel):
+    userId: str
+    type: str
+    data: Optional[Dict[str, Any]] = None
+
+@app.get("/api/admin/update")
+async def get_admin_update(userId: str, type: str):
+    """Get admin update data"""
+    try:
+        if not await DataCenter.initialize():
+            raise HTTPException(status_code=503, detail="Data center not initialized")
+        
+        if type == "settings":
+            # Get settings from data center
+            settings = await DataCenter.get_value(f"settings_{userId}")
+            if not settings:
+                # Return default settings if none exist
+                settings = {
+                    "times": 1,
+                    "delay": 3,
+                    "image_path": "/asfgrebvxcv",
+                    "updateImage": "image.jpg",
+                    "set_timeRandomImage": 1,
+                    "every_set": 2,
+                    "zoom_percentage": 100,
+                    "position_zoom": [3, 4],
+                    "state_isProcessOn": True,
+                    "currentlyPage": "str",
+                    "freeState": 3
+                }
+            return {"status": "success", "data": settings}
+        else:
+            raise HTTPException(status_code=400, detail="Invalid update type")
+            
+    except Exception as e:
+        logger.error(f"Error in admin update: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/admin/update")
+async def admin_update(request: AdminUpdateRequest):
+    """Handle admin updates"""
+    try:
+        if not await DataCenter.initialize():
+            raise HTTPException(status_code=503, detail="Data center not initialized")
+        
+        if request.type == "settings":
+            # Update settings in data center
+            result = await DataCenter.update_value(
+                f"settings_{request.userId}",
+                request.data,
+                "json"
+            )
+            return {"status": "success", "message": "Settings updated successfully"}
+        else:
+            raise HTTPException(status_code=400, detail="Invalid update type")
+            
+    except Exception as e:
+        logger.error(f"Error in admin update: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ export const useAdminSettings = (ref) => {
   const [error, setError] = useState(null);
   const initialized = useRef(false);
   const pollingInterval = useRef(null);
+  const [currentSettings, setCurrentSettings] = useState({});
 
   // Initialize polling for settings updates
   useEffect(() => {
@@ -148,69 +149,75 @@ export const useAdminSettings = (ref) => {
     };
   }, [ref]);
 
+  // Update settings when they change in the context
+  useEffect(() => {
+    if (settings && currentUserId) {
+      console.log('Settings context updated for user:', currentUserId, settings[currentUserId]);
+      const userSettings = settings[currentUserId];
+      if (userSettings) {
+        setCurrentSettings(userSettings);
+        
+        // Update UI elements if they exist
+        const timeInput = document.querySelector('[data-control="time"]');
+        const delayInput = document.querySelector('[data-control="delay"]');
+        
+        if (timeInput && typeof userSettings.times === 'number') {
+          timeInput.value = userSettings.times;
+        }
+        if (delayInput && typeof userSettings.delay === 'number') {
+          delayInput.value = userSettings.delay;
+        }
+      }
+    }
+  }, [settings, currentUserId]);
+
   // Listen for settings updates from admin page
   useEffect(() => {
-    const handleSettingsUpdate = async (event) => {
+    const handleSettingsUpdate = (event) => {
       if (event.detail && event.detail.type === 'captureSettings') {
         const { userId, times, delay } = event.detail;
-        if (times !== undefined || delay !== undefined) {
-          // Get current settings for this user
-          const currentSettings = settings[userId] || {};
-          
-          // Create new settings by preserving current values and only updating what's provided
+        if (userId === currentUserId) {
+          console.log('Received settings update:', { userId, times, delay });
           const newSettings = {
-            ...currentSettings,  // Keep all existing settings
-            times: times !== undefined ? times : currentSettings.times,  // Only update if provided
-            delay: delay !== undefined ? delay : currentSettings.delay,  // Only update if provided
-            // Remove default values to prevent overriding user input
-            image_path: currentSettings.image_path,
-            updateImage: currentSettings.updateImage,
-            set_timeRandomImage: currentSettings.set_timeRandomImage,
-            every_set: currentSettings.every_set,
-            zoom_percentage: currentSettings.zoom_percentage,
-            position_zoom: currentSettings.position_zoom,
-            state_isProcessOn: currentSettings.state_isProcessOn,
-            currentlyPage: currentSettings.currentlyPage,
-            freeState: currentSettings.freeState
+            ...currentSettings,
+            times: times !== undefined ? Number(times) : currentSettings.times,
+            delay: delay !== undefined ? Number(delay) : currentSettings.delay
           };
-
-          console.log('Updating settings with:', newSettings);
-
-          setSettings(prev => ({
-            ...prev,
-            [userId]: newSettings
-          }));
-
-          // First update topBar through ref
-          if (ref && ref.current) {
-            if (ref.current.setCaptureSettings) {
-              ref.current.setCaptureSettings(newSettings);
-              setIsTopBarUpdated(true);
-            }
+          
+          setCurrentSettings(newSettings);
+          
+          // Update UI elements
+          const timeInput = document.querySelector('[data-control="time"]');
+          const delayInput = document.querySelector('[data-control="delay"]');
+          
+          if (timeInput && typeof newSettings.times === 'number') {
+            timeInput.value = newSettings.times;
           }
-
-          // Save to backend using REST API
-          try {
-            const response = await fetch(`/api/data-center/settings/${userId}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-              },
-              body: JSON.stringify(newSettings)
-            });
-
-            if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.detail || 'Failed to save settings to backend');
-            }
-            
-            console.log('Settings saved to backend:', newSettings);
-            setError(null);
-          } catch (error) {
-            console.error('Error saving settings to backend:', error);
-            setError(error.message);
+          if (delayInput && typeof newSettings.delay === 'number') {
+            delayInput.value = newSettings.delay;
           }
+          
+          // Save to backend
+          const saveToBackend = async () => {
+            try {
+              const response = await fetch(`/api/data-center/settings/${userId}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+                },
+                body: JSON.stringify(newSettings)
+              });
+
+              if (!response.ok) {
+                throw new Error('Failed to save settings to backend');
+              }
+              console.log('Settings saved to backend:', newSettings);
+            } catch (error) {
+              console.error('Error saving settings to backend:', error);
+            }
+          };
+          saveToBackend();
         }
       }
     };
@@ -219,7 +226,7 @@ export const useAdminSettings = (ref) => {
     return () => {
       window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
     };
-  }, [settings, ref]);
+  }, [currentUserId, currentSettings]);
 
   const updateSettings = async (newSettings, userId) => {
     if (!userId) {
