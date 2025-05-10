@@ -399,3 +399,23 @@
 .cancelButton:hover {
   background-color: #444;
 }
+
+.successMessage {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 1rem;
+  margin: 1rem 0;
+  border: 1px solid #c3e6cb;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.errorMessage {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 1rem;
+  margin: 1rem 0;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+  text-align: center;
+}

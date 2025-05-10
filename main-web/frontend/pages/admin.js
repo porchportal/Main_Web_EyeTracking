@@ -132,6 +132,8 @@ export default function AdminPage({ initialSettings }) {
   const [userProfiles, setUserProfiles] = useState({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   // Initialize tempSettings with initial settings
   useEffect(() => {
@@ -175,17 +177,30 @@ export default function AdminPage({ initialSettings }) {
       if (!selectedUserId) return;
       
       try {
-        const response = await fetch(`/api/admin/load-settings?userId=${selectedUserId}`);
+        const response = await fetch(`/api/admin/update?userId=${selectedUserId}&type=settings`, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          }
+        });
+        
         if (!response.ok) throw new Error('Failed to fetch settings');
         
-        const newSettings = await response.json();
-        setTempSettings(prev => ({
-          ...prev,
-          [selectedUserId]: newSettings
-        }));
+        const result = await response.json();
+        const newSettings = result.data || {};
         
-        // Update settings through the hook
-        updateSettings(newSettings, selectedUserId);
+        // Only update if the settings have actually changed and we're not in the middle of a user edit
+        if (JSON.stringify(newSettings) !== JSON.stringify(tempSettings[selectedUserId])) {
+          console.log('Settings updated from polling:', newSettings);
+          setTempSettings(prev => ({
+            ...prev,
+            [selectedUserId]: {
+              ...prev[selectedUserId],
+              ...newSettings
+            }
+          }));
+        }
       } catch (error) {
         console.error('Error fetching settings:', error);
       }
@@ -223,107 +238,287 @@ export default function AdminPage({ initialSettings }) {
     fetchConsentData();
   }, []);
 
+  // Add this effect to load initial settings when a user is selected
+  useEffect(() => {
+    const loadUserSettings = async () => {
+      if (!selectedUserId) return;
+      
+      try {
+        console.log('Loading settings for user:', selectedUserId);
+        const response = await fetch(`/api/admin/update`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          },
+          params: {
+            userId: selectedUserId,
+            type: 'settings'
+          }
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          const data = result.data || {};
+          console.log('Loaded settings for user:', selectedUserId, data);
+          
+          // Initialize tempSettings with the loaded data
+          setTempSettings(prev => ({
+            ...prev,
+            [selectedUserId]: {
+              times: data.times || 1,
+              delay: data.delay || 3,
+              image_path: data.image_path || "/asfgrebvxcv",
+              updateImage: data.updateImage || "image.jpg",
+              set_timeRandomImage: data.set_timeRandomImage || 1,
+              every_set: data.every_set || 2,
+              zoom_percentage: data.zoom_percentage || 100,
+              position_zoom: data.position_zoom || [3, 4],
+              state_isProcessOn: data.state_isProcessOn ?? true,
+              currentlyPage: data.currentlyPage || "str",
+              freeState: data.freeState || 3
+            }
+          }));
+
+          // Update settings through the hook
+          updateSettings(data, selectedUserId);
+        } else {
+          console.log('No existing settings found for user:', selectedUserId);
+          // Initialize with default settings
+          setTempSettings(prev => ({
+            ...prev,
+            [selectedUserId]: {
+              times: 1,
+              delay: 3,
+              image_path: "/asfgrebvxcv",
+              updateImage: "image.jpg",
+              set_timeRandomImage: 1,
+              every_set: 2,
+              zoom_percentage: 100,
+              position_zoom: [3, 4],
+              state_isProcessOn: true,
+              currentlyPage: "str",
+              freeState: 3
+            }
+          }));
+        }
+      } catch (error) {
+        console.error('Error loading user settings:', error);
+      }
+    };
+
+    loadUserSettings();
+  }, [selectedUserId]);
+
+  // Add this effect to sync settings with adminSettings hook
+  useEffect(() => {
+    if (selectedUserId && settings[selectedUserId]) {
+      setTempSettings(prev => ({
+        ...prev,
+        [selectedUserId]: settings[selectedUserId]
+      }));
+    }
+  }, [settings, selectedUserId]);
+
   const handleTimeChange = (event) => {
+    if (!selectedUserId) {
+      setErrorMessage('Please select a user ID first!');
+      setTimeout(() => setErrorMessage(''), 3000);
+      return;
+    }
+
     const times = parseInt(event.target.value, 10);
     if (!isNaN(times) && times > 0) {
-      const newSettings = {
-        times,
-        delay: settings[selectedUserId]?.delay || 3
+      // Update local state first
+      const updatedSettings = {
+        ...tempSettings[selectedUserId],
+        times: times
       };
-      updateDataCenterSettings(newSettings);
+      
+      setTempSettings(prev => ({
+        ...prev,
+        [selectedUserId]: updatedSettings
+      }));
+
+      // Then save to database
+      const saveToDatabase = async () => {
+        try {
+          const response = await fetch('/api/admin/update', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+            },
+            body: JSON.stringify({
+              userId: selectedUserId,
+              type: 'settings',
+              data: updatedSettings
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to save settings');
+          }
+
+          // Update settings through the hook
+          updateSettings(updatedSettings, selectedUserId);
+
+          console.log(`Updated times to ${times} for user ${selectedUserId}`);
+          setSuccessMessage('Times updated successfully!');
+          setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (error) {
+          console.error('Error saving times:', error);
+          setErrorMessage('Failed to save times. Please try again.');
+          setTimeout(() => setErrorMessage(''), 3000);
+        }
+      };
+
+      saveToDatabase();
     }
   };
 
   const handleDelayChange = (event) => {
+    if (!selectedUserId) {
+      setErrorMessage('Please select a user ID first!');
+      setTimeout(() => setErrorMessage(''), 3000);
+      return;
+    }
+
     const delay = parseInt(event.target.value, 10);
     if (!isNaN(delay) && delay > 0) {
-      const newSettings = {
-        times: settings[selectedUserId]?.times || 1,
-        delay
+      // Update local state first
+      const updatedSettings = {
+        ...tempSettings[selectedUserId],
+        delay: delay
       };
-      updateDataCenterSettings(newSettings);
+      
+      setTempSettings(prev => ({
+        ...prev,
+        [selectedUserId]: updatedSettings
+      }));
+
+      // Then save to database
+      const saveToDatabase = async () => {
+        try {
+          const response = await fetch('/api/admin/update', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+            },
+            body: JSON.stringify({
+              userId: selectedUserId,
+              type: 'settings',
+              data: updatedSettings
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to save settings');
+          }
+
+          // Update settings through the hook
+          updateSettings(updatedSettings, selectedUserId);
+
+          console.log(`Updated delay to ${delay} for user ${selectedUserId}`);
+          setSuccessMessage('Delay updated successfully!');
+          setTimeout(() => setSuccessMessage(''), 3000);
+        } catch (error) {
+          console.error('Error saving delay:', error);
+          setErrorMessage('Failed to save delay. Please try again.');
+          setTimeout(() => setErrorMessage(''), 3000);
+        }
+      };
+
+      saveToDatabase();
     }
   };
 
-  const updateDataCenterSettings = async (newSettings) => {
-    try {
-      // Update local settings
-      const updatedSettings = {
-        ...settings,
-        [selectedUserId]: newSettings
-      };
-      
-      // Update settings through the hook
-      updateSettings(newSettings, selectedUserId);
+  const handleSaveSettings = async () => {
+    if (!selectedUserId) {
+      setErrorMessage('Please select a user ID first!');
+      setTimeout(() => setErrorMessage(''), 3000);
+      return;
+    }
 
-      // Update global settings if they exist
-      if (typeof window !== 'undefined') {
-        window.captureSettings = newSettings;
-        
-        // Dispatch a custom event for components to listen to
-        const event = new CustomEvent('captureSettingsUpdate', {
-          detail: {
-            type: 'settings',
-            userId: selectedUserId,
-            settings: newSettings
-          }
-        });
-        window.dispatchEvent(event);
+    try {
+      // Get current settings for the selected user
+      const currentSettings = tempSettings[selectedUserId];
+      if (!currentSettings) {
+        throw new Error('No settings found for selected user');
       }
 
-      // Save to server using REST API
+      // Save to database using the correct endpoint
       const response = await fetch('/api/admin/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // 'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
         },
         body: JSON.stringify({
           userId: selectedUserId,
           type: 'settings',
-          data: newSettings
+          data: {
+            times: currentSettings.times,
+            delay: currentSettings.delay,
+            image_path: currentSettings.image_path,
+            updateImage: currentSettings.updateImage,
+            set_timeRandomImage: currentSettings.set_timeRandomImage,
+            every_set: currentSettings.every_set,
+            zoom_percentage: currentSettings.zoom_percentage,
+            position_zoom: currentSettings.position_zoom,
+            state_isProcessOn: currentSettings.state_isProcessOn,
+            currentlyPage: currentSettings.currentlyPage,
+            freeState: currentSettings.freeState
+          }
         })
       });
 
       if (!response.ok) {
         throw new Error('Failed to save settings');
       }
+
+      // Get the updated settings from the response
+      const result = await response.json();
+      
+      // Update local state with the saved settings
+      setTempSettings(prev => ({
+        ...prev,
+        [selectedUserId]: {
+          ...prev[selectedUserId],
+          ...currentSettings
+        }
+      }));
+
+      // Update settings through the hook
+      updateSettings(currentSettings, selectedUserId);
+
+      console.log(`Saved all settings for user ${selectedUserId}:`, currentSettings);
+      setSuccessMessage('Settings saved successfully!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
-      console.error('Error updating settings:', error);
-      showNotification('Failed to update settings. Please try again.', 'error');
+      console.error('Error saving settings:', error);
+      setErrorMessage('Failed to save settings. Please try again.');
+      setTimeout(() => setErrorMessage(''), 3000);
     }
   };
 
-  // Add an effect to handle settings updates
-  useEffect(() => {
-    const handleSettingsUpdate = (event) => {
-      if (event.detail && event.detail.type === 'settings') {
-        // Update index.js with new settings
-        // This will run after topBar.js is updated
-      }
-    };
-    window.addEventListener('settingsUpdated', handleSettingsUpdate);
-    return () => window.removeEventListener('settingsUpdated', handleSettingsUpdate);
-  }, []);
-
-  const handleImageChange = (event) => {
+  const handleImageChange = async (event) => {
     if (event.target.files && event.target.files[0]) {
       const reader = new FileReader();
       reader.onload = async (e) => {
         try {
           // Save image to server using REST API
-          const response = await fetch('/api/admin/update', {
+          const response = await fetch('/api/data-center/image', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              // 'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
               'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
             },
             body: JSON.stringify({
               userId: selectedUserId,
-              type: 'image',
-              data: e.target.result
+              image: e.target.result
             })
           });
 
@@ -355,85 +550,26 @@ export default function AdminPage({ initialSettings }) {
 
   const handleZoomChange = async (value) => {
     try {
-      const response = await fetch('/api/admin/update', {
+      const response = await fetch('/api/data-center/zoom', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // 'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
           'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
         },
         body: JSON.stringify({
           userId: selectedUserId,
-          type: 'zoom',
-          data: value
+          zoomLevel: value
         })
       });
 
       if (!response.ok) {
         throw new Error('Failed to update zoom level');
       }
+
+      showNotification('Zoom level updated successfully!');
     } catch (error) {
       console.error('Error updating zoom level:', error);
       showNotification('Failed to update zoom level. Please try again.', 'error');
-    }
-  };
-
-  const handleSaveSettings = async () => {
-    try {
-      // Get current settings for selected user
-      const userSettings = tempSettings[selectedUserId] || { times: 1, delay: 3 };
-      
-      // Log what we're trying to update
-      console.log(`Admin: Saving settings for user ${selectedUserId}:`, userSettings);
-
-      // Update local settings
-      setTempSettings(prev => ({
-        ...prev,
-        [selectedUserId]: userSettings
-      }));
-
-      // Update settings through the hook
-      updateSettings(userSettings, selectedUserId);
-
-      // Update global settings
-      if (typeof window !== 'undefined') {
-        window.captureSettings = userSettings;
-        
-        // Dispatch a custom event for components to listen to
-        const event = new CustomEvent('captureSettingsUpdate', {
-          detail: {
-            type: 'captureSettings',
-            userId: selectedUserId,
-            times: userSettings.times,
-            delay: userSettings.delay
-          }
-        });
-        window.dispatchEvent(event);
-      }
-
-      // Save to server using REST API
-      const response = await fetch('/api/admin/update', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-        },
-        body: JSON.stringify({
-          userId: selectedUserId,
-          type: 'settings',
-          data: userSettings
-        }),
-      });
-  
-      if (!response.ok) {
-        throw new Error('Failed to save settings');
-      }
-  
-      // Show success notification
-      showNotification(`Settings saved successfully for user ${selectedUserId}!`);
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      showNotification('Failed to save settings. Please try again.', 'error');
     }
   };
 
@@ -449,28 +585,17 @@ export default function AdminPage({ initialSettings }) {
       reader.onload = async (e) => {
         const base64Image = e.target.result;
         
-        // Send image to data center via WebSocket
-        if (ws.current && ws.current.readyState === WebSocket.OPEN) {
-          ws.current.send(JSON.stringify({
-            key: `image_${selectedUserId}`,
-            value: base64Image,
-            data_type: 'image'
-          }));
-        }
-
-        // Save to server using new unified endpoint
-        const response = await fetch('/api/admin/update', {
+        // Save to server using REST API
+        const response = await fetch('/api/data-center/image', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            // 'X-API-Key': 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
             'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
           },
           body: JSON.stringify({
             userId: selectedUserId,
-            type: 'image',
-            data: base64Image
-          }),
+            image: base64Image
+          })
         });
 
         if (!response.ok) {
@@ -670,6 +795,20 @@ export default function AdminPage({ initialSettings }) {
           </div>
         )}
   
+        {/* Success Message */}
+        {successMessage && (
+          <div className={styles.successMessage}>
+            {successMessage}
+          </div>
+        )}
+        
+        {/* Error Message */}
+        {errorMessage && (
+          <div className={styles.errorMessage}>
+            {errorMessage}
+          </div>
+        )}
+  
         {/* Consent Data Section - Now First */}
         <div className={styles.settingsSection}>
           <h2>Consent Data</h2>
@@ -748,13 +887,33 @@ export default function AdminPage({ initialSettings }) {
           <div className={styles.settingItem}>
             <select
               value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
+              onChange={(e) => {
+                const newUserId = e.target.value;
+                setSelectedUserId(newUserId);
+                // Reset tempSettings for the new user
+                setTempSettings(prev => ({
+                  ...prev,
+                  [newUserId]: prev[newUserId] || {
+                    times: 1,
+                    delay: 3,
+                    image_path: "/asfgrebvxcv",
+                    updateImage: "image.jpg",
+                    set_timeRandomImage: 1,
+                    every_set: 2,
+                    zoom_percentage: 100,
+                    position_zoom: [3, 4],
+                    state_isProcessOn: true,
+                    currentlyPage: "str",
+                    freeState: 3
+                  }
+                }));
+              }}
               className={styles.selectInput}
             >
               <option value="">Select a user...</option>
-              {consentData.map((data) => (
-                <option key={data.userId} value={data.userId}>
-                  User: {data.userId}
+              {Array.from(new Set(consentData.map(data => data.userId))).map((userId) => (
+                <option key={userId} value={userId}>
+                  User: {userId}
                 </option>
               ))}
             </select>
@@ -773,7 +932,7 @@ export default function AdminPage({ initialSettings }) {
                   <input
                     type="number"
                     name="time"
-                    value={tempSettings[selectedUserId]?.times || 1}
+                    value={tempSettings[selectedUserId]?.times ?? 1}
                     onChange={handleTimeChange}
                     min="1"
                     max="100"
@@ -786,7 +945,7 @@ export default function AdminPage({ initialSettings }) {
                   <input
                     type="number"
                     name="delay"
-                    value={tempSettings[selectedUserId]?.delay || 3}
+                    value={tempSettings[selectedUserId]?.delay ?? 3}
                     onChange={handleDelayChange}
                     min="1"
                     max="60"
@@ -798,6 +957,7 @@ export default function AdminPage({ initialSettings }) {
                   <button
                     onClick={handleSaveSettings}
                     className={styles.saveButton}
+                    disabled={!selectedUserId}
                   >
                     Save Settings
                   </button>

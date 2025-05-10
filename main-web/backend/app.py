@@ -405,6 +405,90 @@ async def get_processing_status(user_id: str):
             detail=str(e)
         )
 
+# Add new data center endpoints
+@app.get("/api/data-center/settings/{user_id}")
+async def get_user_settings(user_id: str):
+    """Get user settings from data center"""
+    try:
+        if not await DataCenter.initialize():
+            raise HTTPException(status_code=503, detail="Data center not initialized")
+        
+        settings = await DataCenter.get_value(f"settings_{user_id}")
+        if not settings:
+            # Return default settings if none exist
+            settings = {
+                "times": 1,
+                "delay": 3,
+                "image_path": "/asfgrebvxcv",
+                "updateImage": "image.jpg",
+                "set_timeRandomImage": 1,
+                "every_set": 2,
+                "zoom_percentage": 100,
+                "position_zoom": [3, 4],
+                "state_isProcessOn": True,
+                "currentlyPage": "str",
+                "freeState": 3
+            }
+        
+        return settings
+    except Exception as e:
+        logger.error(f"Error getting user settings: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/data-center/settings/{user_id}")
+async def update_user_settings(user_id: str, settings: dict):
+    """Update user settings in data center"""
+    try:
+        if not await DataCenter.initialize():
+            raise HTTPException(status_code=503, detail="Data center not initialized")
+        
+        result = await DataCenter.update_value(
+            f"settings_{user_id}",
+            settings,
+            "json"
+        )
+        
+        return {"status": "success", "message": "Settings updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating user settings: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/data-center/image")
+async def update_user_image(user_id: str, image: str):
+    """Update user image in data center"""
+    try:
+        if not await DataCenter.initialize():
+            raise HTTPException(status_code=503, detail="Data center not initialized")
+        
+        result = await DataCenter.update_value(
+            f"image_{user_id}",
+            image,
+            "image"
+        )
+        
+        return {"status": "success", "message": "Image updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating user image: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/data-center/zoom")
+async def update_user_zoom(user_id: str, zoom_level: int):
+    """Update user zoom level in data center"""
+    try:
+        if not await DataCenter.initialize():
+            raise HTTPException(status_code=503, detail="Data center not initialized")
+        
+        result = await DataCenter.update_value(
+            f"zoom_{user_id}",
+            zoom_level,
+            "number"
+        )
+        
+        return {"status": "success", "message": "Zoom level updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating user zoom level: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
