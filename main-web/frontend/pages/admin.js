@@ -284,22 +284,27 @@ export default function AdminPage({ initialSettings }) {
         } else {
           console.log('No existing settings found for user:', selectedUserId);
           // Initialize with default settings
+          const defaultSettings = {
+            times: 1,
+            delay: 3,
+            image_path: "/asfgrebvxcv",
+            updateImage: "image.jpg",
+            set_timeRandomImage: 1,
+            every_set: 2,
+            zoom_percentage: 100,
+            position_zoom: [3, 4],
+            state_isProcessOn: true,
+            currentlyPage: "str",
+            freeState: 3
+          };
+          
           setTempSettings(prev => ({
             ...prev,
-            [selectedUserId]: {
-              times: 1,
-              delay: 3,
-              image_path: "/asfgrebvxcv",
-              updateImage: "image.jpg",
-              set_timeRandomImage: 1,
-              every_set: 2,
-              zoom_percentage: 100,
-              position_zoom: [3, 4],
-              state_isProcessOn: true,
-              currentlyPage: "str",
-              freeState: 3
-            }
+            [selectedUserId]: defaultSettings
           }));
+          
+          // Update settings through the hook with default values
+          updateSettings(defaultSettings, selectedUserId);
         }
       } catch (error) {
         console.error('Error loading user settings:', error);
@@ -447,20 +452,18 @@ export default function AdminPage({ initialSettings }) {
 
       // Get the updated settings from the response
       const result = await response.json();
+      const savedSettings = result.data || currentSettings;
       
       // Update local state with the saved settings
       setTempSettings(prev => ({
         ...prev,
-        [selectedUserId]: {
-          ...prev[selectedUserId],
-          ...currentSettings
-        }
+        [selectedUserId]: savedSettings
       }));
 
       // Update settings through the hook
-      updateSettings(currentSettings, selectedUserId);
+      updateSettings(savedSettings, selectedUserId);
 
-      console.log(`Saved all settings for user ${selectedUserId}:`, currentSettings);
+      console.log(`Saved all settings for user ${selectedUserId}:`, savedSettings);
       setSuccessMessage('Settings saved successfully!');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
