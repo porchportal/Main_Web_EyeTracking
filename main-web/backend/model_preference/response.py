@@ -1,7 +1,6 @@
 # backend/models/response.py
 from typing import Optional, Generic, TypeVar, Dict, Any, List
 from pydantic import BaseModel, Field
-from pydantic.generics import GenericModel
 
 T = TypeVar('T')
 
@@ -12,7 +11,7 @@ class ResponseBase(BaseModel):
     message: Optional[str] = Field(None, description="Response message")
 
 
-class DataResponse(GenericModel, Generic[T]):
+class DataResponse(BaseModel, Generic[T]):
     """Generic data response with success status, message, and data payload"""
     success: bool = True
     message: Optional[str] = None

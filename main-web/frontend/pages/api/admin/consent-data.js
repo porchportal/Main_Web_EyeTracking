@@ -35,11 +35,22 @@ export default async function handler(req, res) {
         existingData = JSON.parse(fileContent);
       }
       
-      // Add new consent data
-      existingData.push({
-        ...consentData,
-        receivedAt: new Date().toISOString()
-      });
+      // Check if user already exists in the data
+      const existingIndex = existingData.findIndex(data => data.userId === consentData.userId);
+      
+      if (existingIndex !== -1) {
+        // Update existing entry
+        existingData[existingIndex] = {
+          ...consentData,
+          receivedAt: new Date().toISOString()
+        };
+      } else {
+        // Add new entry
+        existingData.push({
+          ...consentData,
+          receivedAt: new Date().toISOString()
+        });
+      }
       
       // Save updated data
       fs.writeFileSync(consentFile, JSON.stringify(existingData, null, 2));

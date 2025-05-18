@@ -229,7 +229,28 @@ export default function AdminPage({ initialSettings }) {
           throw new Error('Failed to fetch consent data');
         }
         const data = await response.json();
-        setConsentData(data);
+        
+        // Filter out duplicates by keeping only the most recent entry for each userId
+        const uniqueData = data.reduce((acc, current) => {
+          const existingIndex = acc.findIndex(item => item.userId === current.userId);
+          
+          if (existingIndex === -1) {
+            // If user doesn't exist in accumulator, add them
+            acc.push(current);
+          } else {
+            // If user exists, keep the most recent entry
+            const existing = acc[existingIndex];
+            const existingDate = new Date(existing.receivedAt);
+            const currentDate = new Date(current.receivedAt);
+            
+            if (currentDate > existingDate) {
+              acc[existingIndex] = current;
+            }
+          }
+          return acc;
+        }, []);
+        
+        setConsentData(uniqueData);
       } catch (err) {
         setError(err.message);
       } finally {
