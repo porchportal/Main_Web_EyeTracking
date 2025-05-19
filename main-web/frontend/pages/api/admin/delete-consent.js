@@ -9,7 +9,13 @@ export default async function handler(req, res) {
 
   // Check for API key
   const apiKey = req.headers['x-api-key'];
-  if (!apiKey || apiKey !== process.env.NEXT_PUBLIC_API_KEY) {
+  const expectedApiKey = process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+  
+  if (!apiKey || apiKey !== expectedApiKey) {
+    console.error('API Key validation failed:', {
+      received: apiKey,
+      expected: expectedApiKey
+    });
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -19,29 +25,29 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'User ID is required' });
   }
 
-  const adminDir = path.join(process.cwd(), 'public', 'admin');
-  const consentFile = path.join(adminDir, 'consent_data.json');
-
   try {
-    // Check if the consent file exists
-    if (!fs.existsSync(consentFile)) {
-      return res.status(404).json({ error: 'Consent data file not found' });
+    // Delete from admin consent file
+    const adminDir = path.join(process.cwd(), 'public', 'admin');
+    const consentFile = path.join(adminDir, 'consent_data.json');
+
+    if (fs.existsSync(consentFile)) {
+      const fileContent = fs.readFileSync(consentFile, 'utf8');
+      let existingData = JSON.parse(fileContent);
+      
+      // Filter out the user to be deleted
+      const updatedData = existingData.filter(data => data.userId !== userId);
+      
+      // Save the updated data
+      fs.writeFileSync(consentFile, JSON.stringify(updatedData, null, 2));
     }
 
-    // Read existing data
-    const fileContent = fs.readFileSync(consentFile, 'utf8');
-    let existingData = JSON.parse(fileContent);
+    // Delete from individual consent file
+    const consentDir = path.join(process.cwd(), 'public', 'consent');
+    const userConsentFile = path.join(consentDir, `consent_${userId}.json`);
 
-    // Filter out the user to be deleted
-    const updatedData = existingData.filter(data => data.userId !== userId);
-
-    // If no data was removed, the user wasn't found
-    if (existingData.length === updatedData.length) {
-      return res.status(404).json({ error: 'User not found in consent data' });
+    if (fs.existsSync(userConsentFile)) {
+      fs.unlinkSync(userConsentFile);
     }
-
-    // Save the updated data
-    fs.writeFileSync(consentFile, JSON.stringify(updatedData, null, 2));
 
     return res.status(200).json({ success: true });
   } catch (error) {

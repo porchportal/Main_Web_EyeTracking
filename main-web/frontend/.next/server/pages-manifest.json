@@ -2,9 +2,10 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/": "pages/index.js",
   "/admin": "pages/admin.js",
+  "/": "pages/index.js",
+  "/api/admin/delete-consent": "pages/api/admin/delete-consent.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/preferences/consent-setup": "pages/preferences/consent-setup.js",
+  "/admin-login": "pages/admin-login.js",
   "/api/admin/consent-data": "pages/api/admin/consent-data.js"
 }

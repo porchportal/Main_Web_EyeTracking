@@ -575,6 +575,176 @@ async def admin_update(request: AdminUpdateRequest):
         logger.error(f"Error in admin update: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.delete("/api/data-center/delete/{user_id}")
+async def delete_user_data_center(user_id: str):
+    """Delete all user data from data center"""
+    try:
+        if not await DataCenter.initialize():
+            raise HTTPException(status_code=503, detail="Data center not initialized")
+        
+        # Delete all keys related to this user
+        keys_to_delete = [
+            f"settings_{user_id}",
+            f"image_{user_id}",
+            f"zoom_{user_id}"
+        ]
+        
+        for key in keys_to_delete:
+            await DataCenter.delete_value(key)
+        
+        return {"status": "success", "message": "User data deleted from data center"}
+    except Exception as e:
+        logger.error(f"Error deleting user data from data center: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/user-preferences/{user_id}")
+async def delete_user_preferences(user_id: str):
+    """Delete user preferences from MongoDB"""
+    try:
+        if not await MongoDB.ensure_connected():
+            raise HTTPException(status_code=503, detail="Database connection unavailable")
+        
+        db = MongoDB.get_db()
+        if db is None:
+            raise HTTPException(status_code=503, detail="Database connection unavailable")
+        
+        # Delete from user_preferences collection
+        result = await db.user_preferences.delete_one({"user_id": user_id})
+        
+        if result.deleted_count == 0:
+            logger.warning(f"No user preferences found for user_id: {user_id}")
+        
+        return {"status": "success", "message": "User preferences deleted successfully"}
+    except Exception as e:
+        logger.error(f"Error deleting user preferences: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/consent/{user_id}")
+async def delete_user_consent(user_id: str):
+    """Delete user consent data and related data from all collections"""
+    try:
+        if not await MongoDB.ensure_connected():
+            raise HTTPException(status_code=503, detail="Database connection unavailable")
+        
+        db = MongoDB.get_db()
+        if db is None:
+            raise HTTPException(status_code=503, detail="Database connection unavailable")
+        
+        # Delete from user_preferences collection
+        await db.user_preferences.delete_one({"user_id": user_id})
+        
+        # Delete from consent collection if it exists
+        if 'consent' in await db.list_collection_names():
+            await db.consent.delete_one({"user_id": user_id})
+        
+        # Delete from data_center collection
+        if await DataCenter.initialize():
+            # Delete all keys related to this user
+            keys_to_delete = [
+                f"settings_{user_id}",
+                f"image_{user_id}",
+                f"zoom_{user_id}"
+            ]
+            
+            for key in keys_to_delete:
+                await DataCenter.delete_value(key)
+        
+        return {
+            "success": True,
+            "message": "User data deleted successfully",
+            "data": {
+                "user_id": user_id,
+                "deleted_at": datetime.utcnow().isoformat()
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error deleting user data: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete user data: {str(e)}"
+        )
+
+@app.get("/consent/{user_id}")
+async def get_user_consent(user_id: str):
+    """Get user consent status by user ID"""
+    try:
+        if not await MongoDB.ensure_connected():
+            raise HTTPException(status_code=503, detail="Database connection unavailable")
+        
+        db = MongoDB.get_db()
+        if db is None:
+            raise HTTPException(status_code=503, detail="Database connection unavailable")
+        
+        # Check if user exists in user_preferences
+        user_data = await db.user_preferences.find_one({"user_id": user_id})
+        
+        if not user_data:
+            # Return empty data with null consent status if user not found
+            return {
+                "success": True,
+                "message": "No consent status found for user",
+                "data": {
+                    "user_id": user_id,
+                    "consent_status": None,
+                    "consent_updated_at": None
+                }
+            }
+        
+        # Return just the consent-related data
+        return {
+            "success": True,
+            "data": {
+                "user_id": user_id,
+                "consent_status": user_data.get("consent_status"),
+                "consent_updated_at": user_data.get("updated_at")
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving consent for user {user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to retrieve user consent: {str(e)}"
+        )
+
+@app.put("/consent/{user_id}")
+async def update_user_consent(user_id: str, consent_data: dict):
+    """Update user consent status"""
+    try:
+        if not await MongoDB.ensure_connected():
+            raise HTTPException(status_code=503, detail="Database connection unavailable")
+        
+        db = MongoDB.get_db()
+        if db is None:
+            raise HTTPException(status_code=503, detail="Database connection unavailable")
+        
+        # Update user preferences with consent status
+        update_data = {
+            "user_id": user_id,
+            "consent_status": consent_data.get("consent_status"),
+            "updated_at": datetime.utcnow()
+        }
+        
+        result = await db.user_preferences.update_one(
+            {"user_id": user_id},
+            {"$set": update_data},
+            upsert=True
+        )
+        
+        if result.modified_count == 0 and not result.upserted_id:
+            logger.warning(f"No changes made to user consent for user_id: {user_id}")
+        
+        return {
+            "success": True,
+            "message": "Consent status updated successfully",
+            "data": update_data
+        }
+    except Exception as e:
+        logger.error(f"Error updating consent for user {user_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update user consent: {str(e)}"
+        )
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

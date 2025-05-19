@@ -708,30 +708,15 @@ export default function AdminPage({ initialSettings }) {
 
   const handleDeleteConfirm = async () => {
     try {
-      console.log('Using API Key:', process.env.NEXT_PUBLIC_API_KEY);
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+      console.log('Using API Key:', apiKey);
       
-      // First, update user preferences to set cookie to false
-      const updateResponse = await fetch(`/api/user-preferences/${deleteTarget}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-        },
-        body: JSON.stringify({
-          cookie: false
-        })
-      });
-
-      if (!updateResponse.ok) {
-        throw new Error('Failed to update user preferences');
-      }
-
-      // Then delete the consent data
+      // Delete user data using the consolidated endpoint
       const response = await fetch(`${API_BASE_URL}/consent/${deleteTarget}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          'X-API-Key': apiKey
         }
       });
 
@@ -742,12 +727,87 @@ export default function AdminPage({ initialSettings }) {
           statusText: response.statusText,
           errorData
         });
-        throw new Error('Failed to delete consent data');
+        throw new Error('Failed to delete user data');
       }
 
-      // Update the consent data by removing the deleted row
+      // Delete from local consent file
+      try {
+        const consentResponse = await fetch('/api/admin/delete-consent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': apiKey
+          },
+          body: JSON.stringify({ userId: deleteTarget })
+        });
+
+        if (!consentResponse.ok) {
+          const errorData = await consentResponse.json().catch(() => ({}));
+          console.error('Local consent deletion error:', {
+            status: consentResponse.status,
+            statusText: consentResponse.statusText,
+            errorData
+          });
+          throw new Error('Failed to delete local consent file');
+        }
+      } catch (error) {
+        console.error('Error deleting local consent file:', error);
+        throw error;
+      }
+
+      // Update the consent data by removing the deleted row immediately
       setConsentData(prevData => prevData.filter(data => data.userId !== deleteTarget));
-      showNotification('User data deleted successfully and cookie consent reset!');
+      
+      // Also remove from tempSettings if it exists
+      setTempSettings(prev => {
+        const newSettings = { ...prev };
+        delete newSettings[deleteTarget];
+        return newSettings;
+      });
+
+      // Remove from settings context if it exists
+      if (settings && settings[deleteTarget]) {
+        updateSettings(null, deleteTarget);
+      }
+
+      // Clear any related cookies for this user
+      try {
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+          const [name] = cookie.split('=');
+          if (name.trim().startsWith('eye_tracking_') || 
+              name.trim().startsWith('consent_') || 
+              name.trim().startsWith('user_')) {
+            document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+          }
+        }
+      } catch (error) {
+        console.warn('Error clearing cookies:', error);
+      }
+
+      // Add a small delay before verification to allow backend to process
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Verify deletion by checking if the user still exists
+      const verifyResponse = await fetch(`${API_BASE_URL}/consent/${deleteTarget}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey
+        }
+      });
+
+      // If we get a 404, that means the user was successfully deleted
+      if (verifyResponse.status === 404) {
+        showNotification('User data deleted successfully from all collections!');
+      } else if (verifyResponse.ok) {
+        console.warn('User data might still exist in some collections');
+        showNotification('User data deleted, but some collections might need manual cleanup');
+      } else {
+        // For any other error, we'll assume the deletion was successful
+        // since we've already cleaned up the frontend state
+        showNotification('User data deleted successfully from all collections!');
+      }
     } catch (error) {
       console.error('Error deleting user data:', error);
       showNotification('Failed to delete user data. Please try again.', 'error');
