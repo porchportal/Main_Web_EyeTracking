@@ -9,9 +9,16 @@ export const useAdminSettings = (ref) => {
   const pollingInterval = useRef(null);
   const [currentSettings, setCurrentSettings] = useState({});
 
+  // Debug logging for settings changes
+  useEffect(() => {
+    console.log('AdminSettings - Current Settings:', settings);
+    console.log('AdminSettings - Current User ID:', currentUserId);
+    console.log('AdminSettings - Is TopBar Updated:', isTopBarUpdated);
+  }, [settings, currentUserId, isTopBarUpdated]);
+
   // Helper: Fetch settings for a user from backend
   const fetchSettingsForUser = async (userId) => {
-    console.log('[fetchSettingsForUser] userId:', userId); // Debug log
+    console.log('[AdminSettings] fetchSettingsForUser - userId:', userId);
     if (!userId) return;
     try {
       const response = await fetch(`/api/data-center/settings/${userId}`, {
@@ -26,6 +33,8 @@ export const useAdminSettings = (ref) => {
         throw new Error(errorData.detail || 'Failed to fetch settings');
       }
       const result = await response.json();
+      console.log('[AdminSettings] fetchSettingsForUser - Received settings:', result.data);
+      
       // result.data contains the settings object
       const newSettings = result.data || {};
       setSettings(prev => ({
@@ -34,13 +43,16 @@ export const useAdminSettings = (ref) => {
       }));
       setCurrentSettings(newSettings);
       setError(null);
+      
       // Update TopBar if ref provided
       if (ref && ref.current && ref.current.setCaptureSettings) {
+        console.log('[AdminSettings] Updating TopBar with settings:', newSettings);
         ref.current.setCaptureSettings(newSettings);
         setIsTopBarUpdated(true);
       }
       return newSettings;
     } catch (error) {
+      console.error('[AdminSettings] Error fetching settings:', error);
       setError(error.message);
       return null;
     }

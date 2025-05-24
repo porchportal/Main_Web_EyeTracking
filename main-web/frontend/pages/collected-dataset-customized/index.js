@@ -6,7 +6,7 @@ import TopBar from './components-gui/topBar';
 import DisplayResponse from './components-gui/displayResponse';
 import { ActionButtonGroup } from './components-gui/actionButton';
 import { showCapturePreview, captureImagesAtPoint, drawRedDot, getRandomPosition, runCountdown } from '../../components/collected-dataset-customized/Action/countSave';
-import { generateCalibrationPoints } from '../../components/collected-dataset-customized/Action/CalibratePoints';
+// import { generateCalibrationPoints } from '../../components/collected-dataset-customized/Action/CalibratePoints';
 import { useConsent } from '../../components/consent/ConsentContext';
 import { useRouter } from 'next/router';
 

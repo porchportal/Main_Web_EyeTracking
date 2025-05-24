@@ -29,6 +29,11 @@ globalThis.__BUILD_MANIFEST = {
       "static/chunks/webpack.js",
       "static/chunks/main.js",
       "static/chunks/pages/admin.js"
+    ],
+    "/collected-dataset-customized": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/collected-dataset-customized.js"
     ]
   },
   "ampFirstPages": []

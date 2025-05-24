@@ -19,6 +19,13 @@ const TopBar = ({
   const [currentSettings, setCurrentSettings] = useState({ times: 1, delay: 3 });
   const [currentUserId, setCurrentUserId] = useState(null);
 
+  // Debug logging for settings changes
+  useEffect(() => {
+    console.log('TopBar - Current Settings State:', currentSettings);
+    console.log('TopBar - Settings from context:', settings);
+    console.log('TopBar - Current User ID:', currentUserId);
+  }, [currentSettings, settings, currentUserId]);
+
   // Update canvas status when prop changes
   useEffect(() => {
     setCanvasStatus(isCanvasVisible);
@@ -28,17 +35,23 @@ const TopBar = ({
   useEffect(() => {
     const handleUserIdChange = async (event) => {
       if (event.detail && event.detail.userId) {
-        console.log('User ID changed:', event.detail.userId);
+        console.log('TopBar - User ID changed:', event.detail.userId);
         const newUserId = event.detail.userId;
         setCurrentUserId(newUserId);
         
         // Immediately fetch settings for the new user
         try {
-          const response = await fetch(`/api/data-center/settings/${newUserId}`);
+          const response = await fetch(`/api/data-center/settings/${newUserId}`, {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+            }
+          });
           if (!response.ok) throw new Error('Failed to fetch settings');
           
           const userSettings = await response.json();
-          console.log('Fetched settings for new user:', userSettings);
+          console.log('TopBar - Fetched settings for new user:', userSettings);
           setCurrentSettings(userSettings);
           
           // Also update through the settings context
@@ -46,7 +59,7 @@ const TopBar = ({
             await updateSettings(userSettings, newUserId);
           }
         } catch (error) {
-          console.error('Error fetching settings for new user:', error);
+          console.error('TopBar - Error fetching settings for new user:', error);
         }
       }
     };
@@ -60,9 +73,10 @@ const TopBar = ({
   // Update settings when they change in the context
   useEffect(() => {
     if (settings && currentUserId) {
-      console.log('Settings context updated for user:', currentUserId, settings[currentUserId]);
+      console.log('TopBar - Settings context updated for user:', currentUserId, settings[currentUserId]);
       const userSettings = settings[currentUserId];
       if (userSettings) {
+        console.log('TopBar - Updating current settings with:', userSettings);
         setCurrentSettings(userSettings);
       }
     }
@@ -71,39 +85,48 @@ const TopBar = ({
   // Listen for settings updates from admin page
   useEffect(() => {
     const handleSettingsUpdate = (event) => {
+      console.log('TopBar - Settings Update Event Received:', event.detail);
       if (event.detail && event.detail.type === 'captureSettings') {
         const { userId, times, delay } = event.detail;
-        console.log('Received settings update:', { userId, times, delay });
-        if (userId === currentUserId) {
-          console.log('Updating settings for current user:', userId);
-          console.log('Current settings before update:', currentSettings);
-          const newSettings = {
-            times: times !== undefined ? times : currentSettings.times,
-            delay: delay !== undefined ? delay : currentSettings.delay
-          };
-          setCurrentSettings(newSettings);
-          
-          // Save to backend
-          const saveToBackend = async () => {
-            try {
-              const response = await fetch(`/api/data-center/settings/${userId}`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(newSettings)
-              });
+        console.log('TopBar - Processing settings update:', { userId, times, delay });
+        console.log('TopBar - Current User ID:', currentUserId);
+        console.log('TopBar - User ID comparison:', {
+          received: userId,
+          current: currentUserId,
+          match: userId === currentUserId
+        });
+        
+        // Force update regardless of user ID match for now
+        const newSettings = {
+          times: Number(times) || currentSettings.times,
+          delay: Number(delay) || currentSettings.delay
+        };
+        console.log('TopBar - New settings to be applied:', newSettings);
+        console.log('TopBar - Current settings before update:', currentSettings);
+        
+        setCurrentSettings(newSettings);
+        
+        // Save to backend
+        const saveToBackend = async () => {
+          try {
+            const response = await fetch(`/api/data-center/settings/${userId}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+              },
+              body: JSON.stringify(newSettings)
+            });
 
-              if (!response.ok) {
-                throw new Error('Failed to save settings to backend');
-              }
-              console.log('Settings saved to backend:', newSettings);
-            } catch (error) {
-              console.error('Error saving settings to backend:', error);
+            if (!response.ok) {
+              throw new Error('Failed to save settings to backend');
             }
-          };
-          saveToBackend();
-        }
+            console.log('TopBar - Settings saved to backend successfully');
+          } catch (error) {
+            console.error('TopBar - Error saving settings to backend:', error);
+          }
+        };
+        saveToBackend();
       }
     };
 
@@ -112,6 +135,11 @@ const TopBar = ({
       window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
     };
   }, [currentUserId, currentSettings]);
+
+  // Add a new effect to monitor currentSettings changes
+  useEffect(() => {
+    console.log('TopBar - currentSettings changed:', currentSettings);
+  }, [currentSettings]);
 
   // Handle settings change
   const handleSettingsChange = async (newSettings) => {
@@ -154,14 +182,14 @@ const TopBar = ({
         </div>
 
         <div className="controls-container">
-          <div className="control-group">
+          <div className="control-group" key={`times-${currentSettings.times}-${Date.now()}`}>
             <span className="control-label">Time(s):</span>
             <div className="control-input">
               <span className="control-input-field">{currentSettings.times}</span>
             </div>
           </div>
           
-          <div className="control-group">
+          <div className="control-group" key={`delay-${currentSettings.delay}-${Date.now()}`}>
             <span className="control-label">Delay(s):</span>
             <div className="control-input">
               <span className="control-input-field">{currentSettings.delay}</span>

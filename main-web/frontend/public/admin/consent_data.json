@@ -84,9 +84,15 @@
     "receivedAt": "2025-05-18T11:09:06.020Z"
   },
   {
-    "userId": "f084cf66-3b92-427d-8071-28f74288719c",
-    "status": false,
-    "timestamp": "2025-05-18T12:24:59.206Z",
-    "receivedAt": "2025-05-18T12:24:59.220Z"
+    "userId": "2190b35c-69d3-4023-9c2f-2944e184c872",
+    "status": true,
+    "timestamp": "2025-05-24T08:38:44.800Z",
+    "receivedAt": "2025-05-24T08:38:44.820Z"
+  },
+  {
+    "userId": "78d27556-d45b-4f59-b122-dc5a7cc70bb1",
+    "status": true,
+    "timestamp": "2025-05-24T09:27:08.373Z",
+    "receivedAt": "2025-05-24T09:27:08.384Z"
   }
 ]

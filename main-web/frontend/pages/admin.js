@@ -1004,51 +1004,127 @@ export default function AdminPage({ initialSettings }) {
               <div className={styles.settingsSubScroll}>
                 <div className={styles.settingItem}>
                   <label>Time(s):</label>
-                  <input
-                    type="number"
-                    name="time"
-                    value={tempSettings[selectedUserId]?.times ?? 1}
-                    onChange={(e) => {
-                      const newValue = parseInt(e.target.value, 10);
-                      if (!isNaN(newValue) && newValue > 0) {
-                        setTempSettings(prev => ({
-                          ...prev,
-                          [selectedUserId]: {
-                            ...prev[selectedUserId],
-                            times: newValue
+                  <div className={styles.numberInputContainer}>
+                    <input
+                      type="number"
+                      name="time"
+                      value={tempSettings[selectedUserId]?.times ?? 1}
+                      onChange={(e) => {
+                        const newValue = parseInt(e.target.value, 10);
+                        if (!isNaN(newValue) && newValue > 0) {
+                          setTempSettings(prev => ({
+                            ...prev,
+                            [selectedUserId]: {
+                              ...prev[selectedUserId],
+                              times: newValue
+                            }
+                          }));
+                        }
+                      }}
+                      min="1"
+                      max="100"
+                      className={styles.numberInput}
+                      data-control="time"
+                    />
+                    <div className={styles.numberControls}>
+                      <button 
+                        className={styles.numberControl}
+                        onClick={() => {
+                          const currentValue = tempSettings[selectedUserId]?.times ?? 1;
+                          if (currentValue < 100) {
+                            setTempSettings(prev => ({
+                              ...prev,
+                              [selectedUserId]: {
+                                ...prev[selectedUserId],
+                                times: currentValue + 1
+                              }
+                            }));
                           }
-                        }));
-                      }
-                    }}
-                    min="1"
-                    max="100"
-                    className={styles.numberInput}
-                    data-control="time"
-                  />
+                        }}
+                      >
+                        ▲
+                      </button>
+                      <button 
+                        className={styles.numberControl}
+                        onClick={() => {
+                          const currentValue = tempSettings[selectedUserId]?.times ?? 1;
+                          if (currentValue > 1) {
+                            setTempSettings(prev => ({
+                              ...prev,
+                              [selectedUserId]: {
+                                ...prev[selectedUserId],
+                                times: currentValue - 1
+                              }
+                            }));
+                          }
+                        }}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <div className={styles.settingItem}>
                   <label>Delay(s):</label>
-                  <input
-                    type="number"
-                    name="delay"
-                    value={tempSettings[selectedUserId]?.delay ?? 3}
-                    onChange={(e) => {
-                      const newValue = parseInt(e.target.value, 10);
-                      if (!isNaN(newValue) && newValue > 0) {
-                        setTempSettings(prev => ({
-                          ...prev,
-                          [selectedUserId]: {
-                            ...prev[selectedUserId],
-                            delay: newValue
+                  <div className={styles.numberInputContainer}>
+                    <input
+                      type="number"
+                      name="delay"
+                      value={tempSettings[selectedUserId]?.delay ?? 3}
+                      onChange={(e) => {
+                        const newValue = parseInt(e.target.value, 10);
+                        if (!isNaN(newValue) && newValue > 0) {
+                          setTempSettings(prev => ({
+                            ...prev,
+                            [selectedUserId]: {
+                              ...prev[selectedUserId],
+                              delay: newValue
+                            }
+                          }));
+                        }
+                      }}
+                      min="1"
+                      max="60"
+                      className={styles.numberInput}
+                      data-control="delay"
+                    />
+                    <div className={styles.numberControls}>
+                      <button 
+                        className={styles.numberControl}
+                        onClick={() => {
+                          const currentValue = tempSettings[selectedUserId]?.delay ?? 3;
+                          if (currentValue < 60) {
+                            setTempSettings(prev => ({
+                              ...prev,
+                              [selectedUserId]: {
+                                ...prev[selectedUserId],
+                                delay: currentValue + 1
+                              }
+                            }));
                           }
-                        }));
-                      }
-                    }}
-                    min="1"
-                    max="60"
-                    className={styles.numberInput}
-                    data-control="delay"
-                  />
+                        }}
+                      >
+                        ▲
+                      </button>
+                      <button 
+                        className={styles.numberControl}
+                        onClick={() => {
+                          const currentValue = tempSettings[selectedUserId]?.delay ?? 3;
+                          if (currentValue > 1) {
+                            setTempSettings(prev => ({
+                              ...prev,
+                              [selectedUserId]: {
+                                ...prev[selectedUserId],
+                                delay: currentValue - 1
+                              }
+                            }));
+                          }
+                        }}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
                 </div>
                 <div className={styles.settingItem}>
                   <button
