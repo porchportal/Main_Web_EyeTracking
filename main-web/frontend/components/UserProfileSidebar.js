@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import styles from '../styles/UserProfile.module.css';
-import { getUserProfile, updateUserProfile } from '../utils/consentManager';
+// import { getUserProfile, updateUserProfile } from '../utils/consentManager';
 import { useConsent } from './consent/ConsentContext';
 import { useBackendConnection } from '../utils/stateManager';
+import { getOrCreateUserId } from '../utils/consentManager';
 
 export default function UserProfileSidebar() {
   const router = useRouter();
@@ -15,28 +16,38 @@ export default function UserProfileSidebar() {
     image_background: '',
     preferences: {}
   });
-  const [statusMessage, setStatusMessageLocal] = useState('');
+  // const [statusMessage, setStatusMessageLocal] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [localUserId, setLocalUserId] = useState(null);
 
   // Get consent and backend status
   const { userId, consentStatus } = useConsent();
   const { isConnected, authValid } = useBackendConnection();
 
+  // Update local user ID when consent status changes
+  useEffect(() => {
+    if (consentStatus) {
+      const newUserId = getOrCreateUserId();
+      setLocalUserId(newUserId);
+    }
+  }, [consentStatus]);
+
   // Load profile data when component mounts or consent changes
   useEffect(() => {
     const loadProfile = async () => {
-      if (!userId) {
+      const currentUserId = localUserId || userId;
+      if (!currentUserId) {
         setIsLoading(false);
         return;
       }
       
       try {
         setIsLoading(true);
-        const response = await fetch(`/api/user-preferences/${userId}`, {
+        const response = await fetch(`/api/user-preferences/${currentUserId}`, {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
           }
         });
 
@@ -45,7 +56,7 @@ export default function UserProfileSidebar() {
         }
 
         const data = await response.json();
-        console.log('Loaded profile data:', data); // Debug log
+        console.log('Loaded profile data:', data);
 
         if (data.data) {
           setProfile(prev => ({
@@ -64,7 +75,7 @@ export default function UserProfileSidebar() {
     };
 
     loadProfile();
-  }, [userId, consentStatus]);
+  }, [userId, localUserId, consentStatus]);
 
   // Reset sidebar state when route changes
   useEffect(() => {
@@ -81,7 +92,7 @@ export default function UserProfileSidebar() {
 
   const handleSave = async () => {
     try {
-      if (!userId) {
+      if (!localUserId) {
         console.error('No user ID available');
         return;
       }
@@ -101,11 +112,12 @@ export default function UserProfileSidebar() {
       };
 
       // Save to backend
-      const response = await fetch(`/api/user-preferences/${userId}`, {
+      const response = await fetch(`/api/user-preferences/${localUserId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          // 'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
         },
         body: JSON.stringify(profileData)
       });
@@ -129,7 +141,7 @@ export default function UserProfileSidebar() {
         const event = new CustomEvent('adminUpdate', {
           detail: {
             type: 'profile',
-            userId: userId,
+            userId: localUserId,
             profile: {
               ...profileData,
               isComplete: Boolean(profileData.username && profileData.sex)
@@ -147,12 +159,12 @@ export default function UserProfileSidebar() {
     }
   };
 
-  const updateStatusMessage = (message) => {
-    if (setStatusMessage) {
-      setStatusMessage(message);
-    }
-    setStatusMessageLocal(message);
-  };
+  // const updateStatusMessage = (message) => {
+  //   if (setStatusMessage) {
+  //     setStatusMessage(message);
+  //   }
+  //   setStatusMessageLocal(message);
+  // };
 
   // Don't render anything if consent is not accepted
   if (!consentStatus) {
@@ -215,7 +227,7 @@ export default function UserProfileSidebar() {
         <div className={styles.statusSection}>
           <div className={styles.statusItem}>
             <span className={styles.statusLabel}>User ID:</span>
-            <span className={styles.statusValue}>{userId || 'Not set'}</span>
+            <span className={styles.statusValue}>{localUserId || userId || 'Not set'}</span>
           </div>
           <div className={styles.statusItem}>
             <span className={styles.statusLabel}>Consent Status:</span>

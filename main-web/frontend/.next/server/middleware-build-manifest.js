@@ -30,10 +30,15 @@ globalThis.__BUILD_MANIFEST = {
       "static/chunks/main.js",
       "static/chunks/pages/admin.js"
     ],
-    "/collected-dataset-customized": [
+    "/admin-login": [
       "static/chunks/webpack.js",
       "static/chunks/main.js",
-      "static/chunks/pages/collected-dataset-customized.js"
+      "static/chunks/pages/admin-login.js"
+    ],
+    "/preferences/consent-setup": [
+      "static/chunks/webpack.js",
+      "static/chunks/main.js",
+      "static/chunks/pages/preferences/consent-setup.js"
     ]
   },
   "ampFirstPages": []

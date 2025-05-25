@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 
 export const useAdminSettings = (ref) => {
   const [settings, setSettings] = useState({});
-  const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(() => {
+    // Initialize from localStorage on mount
+    return localStorage.getItem('currentUserId');
+  });
   const [isTopBarUpdated, setIsTopBarUpdated] = useState(false);
   const [error, setError] = useState(null);
   const initialized = useRef(false);
@@ -61,7 +64,7 @@ export const useAdminSettings = (ref) => {
   // Polling for settings updates
   useEffect(() => {
     if (!currentUserId) return;
-    console.log('[Polling useEffect] currentUserId:', currentUserId); // Debug log
+    console.log('[Polling useEffect] currentUserId:', currentUserId);
     const fetchSettings = () => fetchSettingsForUser(currentUserId);
     fetchSettings();
     pollingInterval.current = setInterval(fetchSettings, 3000);
@@ -74,14 +77,24 @@ export const useAdminSettings = (ref) => {
   useEffect(() => {
     const handleUserIdChange = (event) => {
       if (event.detail && event.detail.userId) {
-        console.log('[handleUserIdChange] userId:', event.detail.userId); // Debug log
-        setCurrentUserId(event.detail.userId);
-        fetchSettingsForUser(event.detail.userId);
+        console.log('[handleUserIdChange] userId:', event.detail.userId);
+        const newUserId = event.detail.userId;
+        setCurrentUserId(newUserId);
+        localStorage.setItem('currentUserId', newUserId);
+        fetchSettingsForUser(newUserId);
       }
     };
     window.addEventListener('userIdChange', handleUserIdChange);
     return () => window.removeEventListener('userIdChange', handleUserIdChange);
   }, [ref]);
+
+  // Initial settings fetch on mount if we have a user ID
+  useEffect(() => {
+    if (currentUserId && !initialized.current) {
+      fetchSettingsForUser(currentUserId);
+      initialized.current = true;
+    }
+  }, [currentUserId]);
 
   // Effect to handle index.js update after TopBar is updated
   useEffect(() => {

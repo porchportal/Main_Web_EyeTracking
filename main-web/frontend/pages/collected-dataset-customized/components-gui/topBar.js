@@ -16,8 +16,15 @@ const TopBar = ({
   const router = useRouter();
   const [canvasStatus, setCanvasStatus] = useState(isCanvasVisible);
   const { settings, updateSettings } = useAdminSettings();
-  const [currentSettings, setCurrentSettings] = useState({ times: 1, delay: 3 });
   const [currentUserId, setCurrentUserId] = useState(null);
+
+  const getInitialSettings = () => {
+    if (settings && currentUserId && settings[currentUserId]) {
+      return settings[currentUserId];
+    }
+    return { times: 1, delay: 3 };
+  };
+  const [currentSettings, setCurrentSettings] = useState(getInitialSettings());
 
   // Debug logging for settings changes
   useEffect(() => {
@@ -70,9 +77,39 @@ const TopBar = ({
     };
   }, [updateSettings]);
 
+  // Fetch settings on initial load if we have a user ID
+  useEffect(() => {
+    if (currentUserId) {
+      const fetchInitialSettings = async () => {
+        try {
+          const response = await fetch(`/api/data-center/settings/${currentUserId}`, {
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+            }
+          });
+          if (!response.ok) throw new Error('Failed to fetch settings');
+          
+          const userSettings = await response.json();
+          console.log('TopBar - Fetched initial settings:', userSettings);
+          setCurrentSettings(userSettings);
+          
+          if (updateSettings) {
+            await updateSettings(userSettings, currentUserId);
+          }
+        } catch (error) {
+          console.error('TopBar - Error fetching initial settings:', error);
+        }
+      };
+      
+      fetchInitialSettings();
+    }
+  }, [currentUserId, updateSettings]);
+
   // Update settings when they change in the context
   useEffect(() => {
-    if (settings && currentUserId) {
+    if (settings && currentUserId && settings[currentUserId]) {
       console.log('TopBar - Settings context updated for user:', currentUserId, settings[currentUserId]);
       const userSettings = settings[currentUserId];
       if (userSettings) {
@@ -122,8 +159,23 @@ const TopBar = ({
               throw new Error('Failed to save settings to backend');
             }
             console.log('TopBar - Settings saved to backend successfully');
+
+            // Immediately fetch the latest settings from the backend
+            const fetchResponse = await fetch(`/api/data-center/settings/${userId}`, {
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+              }
+            });
+            if (!fetchResponse.ok) throw new Error('Failed to fetch settings after save');
+            const latestSettings = await fetchResponse.json();
+            setCurrentSettings(latestSettings);
+            if (updateSettings) {
+              await updateSettings(latestSettings, userId);
+            }
           } catch (error) {
-            console.error('TopBar - Error saving settings to backend:', error);
+            console.error('TopBar - Error saving/fetching settings to backend:', error);
           }
         };
         saveToBackend();

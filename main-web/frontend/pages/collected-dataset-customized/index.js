@@ -1538,7 +1538,7 @@ export default function CollectedDatasetPage() {
                     zIndex: 10 
                   }}
                 >
-                  <canvas 
+                  {/* <canvas 
                     ref={canvasRef}
                     className="tracking-canvas"
                     style={{ 
@@ -1546,7 +1546,7 @@ export default function CollectedDatasetPage() {
                       height: '100%',
                       display: 'block' 
                     }}
-                  />
+                  /> */}
                 </div>
               </>
             ) : null}

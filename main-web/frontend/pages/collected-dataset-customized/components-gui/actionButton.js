@@ -76,7 +76,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
   // State for button actions
   const [randomTimes, setRandomTimes] = useState(1);
   const [delaySeconds, setDelaySeconds] = useState(3);
-  const [showCaptureSettings, setShowCaptureSettings] = useState(false);
   const canvasRef = useRef(null);
   const [processStatus, setProcessStatus] = useState('');
   const [countdownValue, setCountdownValue] = useState(null);
@@ -102,7 +101,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
 
   // Initialize settings from props
   useEffect(() => {
-    if (settings && settings[currentUserId]) {
+    if (settings && currentUserId && settings[currentUserId]) {
       const userSettings = settings[currentUserId];
       setRandomTimes(Number(userSettings.times) || 1);
       setDelaySeconds(Number(userSettings.delay) || 3);
@@ -120,7 +119,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       delay: delaySeconds
     }),
     setCaptureSettings: (newSettings) => {
-      console.log('ActionButton: Setting capture settings:', newSettings);
       if (newSettings) {
         if (typeof newSettings.times === 'number') {
           setRandomTimes(newSettings.times);
@@ -128,20 +126,9 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         if (typeof newSettings.delay === 'number') {
           setDelaySeconds(newSettings.delay);
         }
-        // Update UI elements if they exist
-        const timeInput = document.querySelector('[data-control="time"]');
-        const delayInput = document.querySelector('[data-control="delay"]');
-        
-        if (timeInput) {
-          timeInput.value = newSettings.times;
-        }
-        if (delayInput) {
-          delayInput.value = newSettings.delay;
-        }
       }
     },
     updateSettings: (newSettings) => {
-      console.log('ActionButton: Updating settings:', newSettings);
       if (newSettings) {
         if (typeof newSettings.times === 'number') {
           setRandomTimes(newSettings.times);
@@ -159,7 +146,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       if (event.detail && event.detail.type === 'userIdChange') {
         const newUserId = event.detail.userId;
         setCurrentUserId(newUserId);
-        
         // Update settings for new user
         if (settings && settings[newUserId]) {
           const userSettings = settings[newUserId];
@@ -168,7 +154,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         }
       }
     };
-
     window.addEventListener('userIdChange', handleUserIdChange);
     return () => {
       window.removeEventListener('userIdChange', handleUserIdChange);
@@ -192,7 +177,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         }
       }
     };
-
     window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
     return () => {
       window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
@@ -228,6 +212,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       if (timeInput) {
         const timeValue = parseInt(timeInput.value, 10);
         if (!isNaN(timeValue) && timeValue > 0) {
+          console.log('Updating randomTimes to:', timeValue);
           setRandomTimes(timeValue);
         }
       }
@@ -237,6 +222,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       if (delayInput) {
         const delayValue = parseInt(delayInput.value, 10);
         if (!isNaN(delayValue) && delayValue > 0) {
+          console.log('Updating delaySeconds to:', delayValue);
           setDelaySeconds(delayValue);
         }
       }
@@ -248,10 +234,12 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     
     if (timeInput) {
       timeInput.addEventListener('change', updateControlValues);
+      timeInput.addEventListener('input', updateControlValues); // Also listen for input events
     }
     
     if (delayInput) {
       delayInput.addEventListener('change', updateControlValues);
+      delayInput.addEventListener('input', updateControlValues); // Also listen for input events
     }
     
     // Initial update
@@ -261,10 +249,12 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     return () => {
       if (timeInput) {
         timeInput.removeEventListener('change', updateControlValues);
+        timeInput.removeEventListener('input', updateControlValues);
       }
       
       if (delayInput) {
         delayInput.removeEventListener('change', updateControlValues);
+        delayInput.removeEventListener('input', updateControlValues);
       }
     };
   }, []);
@@ -297,30 +287,34 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
   // Helper function to get the main canvas - improved to be more reliable
   const getMainCanvas = () => {
     // Try multiple methods to find the canvas
-    
     if (canvasRef.current) {
-      // console.log("Using direct canvasRef.current reference");
+      console.log("Using direct canvasRef.current reference");
       return canvasRef.current;
     }
     
     if (typeof window !== 'undefined' && window.whiteScreenCanvas) {
-      // console.log("Using global whiteScreenCanvas reference");
-      canvasRef.current = window.whiteScreenCanvas; // Update our ref
+      console.log("Using global whiteScreenCanvas reference");
+      canvasRef.current = window.whiteScreenCanvas;
       return window.whiteScreenCanvas;
     }
 
     if (typeof document !== 'undefined') {
-      const canvasElement = document.querySelector('.tracking-canvas');
-      if (canvasElement) {
-        // console.log("Found canvas via DOM selector");
-        canvasRef.current = canvasElement; // Update our ref
-        if (typeof window !== 'undefined') {
-          window.whiteScreenCanvas = canvasElement; // Update global ref too
+      // Try multiple selectors to find the canvas
+      const selectors = ['.tracking-canvas', 'canvas', '#tracking-canvas'];
+      for (const selector of selectors) {
+        const canvasElement = document.querySelector(selector);
+        if (canvasElement) {
+          console.log(`Found canvas via selector: ${selector}`);
+          canvasRef.current = canvasElement;
+          if (typeof window !== 'undefined') {
+            window.whiteScreenCanvas = canvasElement;
+          }
+          return canvasElement;
         }
-        return canvasElement;
       }
     }
     
+    console.error("No canvas found through any method");
     return null;
   };
   const makeCanvasFullscreen = (canvas) => {
@@ -467,10 +461,22 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       // Wait for UI updates to take effect
       await new Promise(resolve => setTimeout(resolve, 200));
       
-      // Get canvas reference
-      const canvas = getMainCanvas();
+      // Get canvas reference with retries
+      let canvas = null;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (!canvas && retryCount < maxRetries) {
+        canvas = getMainCanvas();
+        if (!canvas) {
+          console.warn(`Canvas not found, retry ${retryCount + 1}/${maxRetries}`);
+          await new Promise(resolve => setTimeout(resolve, 500));
+          retryCount++;
+        }
+      }
+      
       if (!canvas) {
-        throw new Error("Canvas not available for dot process");
+        throw new Error("Canvas not available after multiple retries");
       }
       
       // Save original state for restoration
@@ -1017,28 +1023,21 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     if (isCapturing) return;
     
     try {
-      // Read values from TopBar inputs
-      const timeInput = document.querySelector('.control-input-field');
-      const delayInput = document.querySelectorAll('.control-input-field')[1];
-      let times = randomTimes || 1;
-      let delay = delaySeconds || 3;
-      
-      // Parse input values if available
-      if (timeInput) {
-        const parsedTime = parseInt(timeInput.value, 10);
-        if (!isNaN(parsedTime) && parsedTime > 0) {
-          times = parsedTime;
-          setRandomTimes(times);
-        }
-      }
+      // Always get the latest settings from context for the current user
+      const userSettings = settings && settings[currentUserId] ? settings[currentUserId] : {};
+      const times = Number(userSettings.times) || Number(randomTimes) || 1;
+      const delay = Number(userSettings.delay) || Number(delaySeconds) || 3;
 
-      if (delayInput) {
-        const parsedDelay = parseInt(delayInput.value, 10);
-        if (!isNaN(parsedDelay) && parsedDelay > 0) {
-          delay = parsedDelay;
-          setDelaySeconds(delay);
-        }
-      }
+      // Log current settings before starting
+      console.log('Starting Set Random with settings:', {
+        randomTimes,
+        delaySeconds,
+        currentUserId,
+        settings,
+        userSettings,
+        times,
+        delay
+      });
 
       // Hide TopBar
       if (typeof onActionClick === 'function') {
@@ -1058,6 +1057,8 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         // Update status for current capture
         setProcessStatus(`Capture ${currentIndex} of ${times}`);
         setRemainingCaptures(times - currentIndex + 1);
+        
+        console.log(`Starting capture ${currentIndex} of ${times}`);
         
         // Use handleDotProcess for each capture
         const result = await handleDotProcess({
@@ -1094,11 +1095,15 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         
         if (result && result.success) {
           successCount++;
+          console.log(`Successfully completed capture ${currentIndex}`);
+        } else {
+          console.warn(`Capture ${currentIndex} may have failed:`, result);
         }
         
         // Wait between captures - but only if there are more captures to go
         if (currentIndex < times) {
           setProcessStatus(`Waiting ${delay}s before next capture...`);
+          console.log(`Waiting ${delay}s before next capture...`);
           await new Promise(resolve => setTimeout(resolve, delay * 1000));
         }
       }
@@ -1106,6 +1111,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       // Completion notification
       setProcessStatus(`Random capture sequence completed: ${successCount}/${times} captures successful`);
       setRemainingCaptures(0);
+      console.log(`Completed all captures: ${successCount}/${times} successful`);
 
     } catch (error) {
       console.error("Random sequence error:", error);
@@ -1459,7 +1465,26 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
           <canvas 
             ref={canvasRef}
             className="tracking-canvas"
-            style={{ width: '100%', height: '100%' }}
+            id="tracking-canvas"
+            style={{ 
+              width: '100%', 
+              height: '100%',
+              display: 'block' // Ensure canvas is displayed as block
+            }}
+            onLoad={(e) => {
+              // Initialize canvas when it loads
+              const canvas = e.target;
+              if (canvas) {
+                canvasRef.current = canvas;
+                if (typeof window !== 'undefined') {
+                  window.whiteScreenCanvas = canvas;
+                }
+                // Initialize canvas with white background
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+              }
+            }}
           />
           
           {/* Overlay for countdown on dot */}
