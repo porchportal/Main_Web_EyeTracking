@@ -4,9 +4,7 @@
   "/_document": "pages/_document.js",
   "/": "pages/index.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/api/admin/delete-consent": "pages/api/admin/delete-consent.js",
-  "/api/admin/consent-data": "pages/api/admin/consent-data.js",
-  "/admin-login": "pages/admin-login.js",
   "/admin": "pages/admin.js",
-  "/preferences/consent-setup": "pages/preferences/consent-setup.js"
+  "/collected-dataset-customized": "pages/collected-dataset-customized.js",
+  "/api/admin/consent-data": "pages/api/admin/consent-data.js"
 }

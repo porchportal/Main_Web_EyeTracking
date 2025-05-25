@@ -1,6 +1,28 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { useAdminSettings } from './adminSettings';
+import { getOrCreateUserId } from '../../../utils/consentManager';
+
+// Improved debounce function
+const debounce = (func, wait) => {
+  let timeout;
+  let lastArgs;
+  let lastThis;
+  
+  return function executedFunction(...args) {
+    lastArgs = args;
+    lastThis = this;
+    
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    
+    timeout = setTimeout(() => {
+      timeout = null;
+      func.apply(lastThis, lastArgs);
+    }, wait);
+  };
+};
 
 const TopBar = ({ 
   onButtonClick,
@@ -17,194 +39,134 @@ const TopBar = ({
   const [canvasStatus, setCanvasStatus] = useState(isCanvasVisible);
   const { settings, updateSettings } = useAdminSettings();
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [currentSettings, setCurrentSettings] = useState({ times: 1, delay: 3 });
+  const isUpdatingRef = useRef(false);
 
-  const getInitialSettings = () => {
-    if (settings && currentUserId && settings[currentUserId]) {
-      return settings[currentUserId];
+  // Memoized function to fetch settings
+  const fetchSettings = useCallback(async (userId) => {
+    if (!userId || isUpdatingRef.current) return;
+    
+    try {
+      isUpdatingRef.current = true;
+      const response = await fetch(`/api/data-center/settings/${userId}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch settings');
+      }
+
+      const userSettings = await response.json();
+      if (userSettings && (userSettings.times || userSettings.delay)) {
+        setCurrentSettings(userSettings);
+        if (updateSettings) {
+          await updateSettings(userSettings, userId);
+        }
+      }
+    } catch (error) {
+      console.error('TopBar - Error fetching settings:', error);
+    } finally {
+      isUpdatingRef.current = false;
     }
-    return { times: 1, delay: 3 };
-  };
-  const [currentSettings, setCurrentSettings] = useState(getInitialSettings());
+  }, [updateSettings]);
 
-  // Debug logging for settings changes
+  // Debounced save settings function
+  const debouncedSaveSettings = useCallback(
+    debounce(async (userId, newSettings) => {
+      if (!userId || isUpdatingRef.current) return;
+      
+      try {
+        isUpdatingRef.current = true;
+        const response = await fetch(`/api/data-center/settings/${userId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+          },
+          body: JSON.stringify(newSettings)
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save settings to backend');
+        }
+
+        const latestSettings = await response.json();
+        setCurrentSettings(latestSettings);
+        if (updateSettings) {
+          await updateSettings(latestSettings, userId);
+        }
+      } catch (error) {
+        console.error('TopBar - Error saving settings:', error);
+      } finally {
+        isUpdatingRef.current = false;
+      }
+    }, 500),
+    [updateSettings]
+  );
+
+  // Initialize user ID and fetch initial settings
   useEffect(() => {
-    console.log('TopBar - Current Settings State:', currentSettings);
-    console.log('TopBar - Settings from context:', settings);
-    console.log('TopBar - Current User ID:', currentUserId);
-  }, [currentSettings, settings, currentUserId]);
+    const initializeUserId = async () => {
+      const userId = getOrCreateUserId();
+      if (userId) {
+        setCurrentUserId(userId);
+        await fetchSettings(userId);
+        setIsLoading(false);
+      }
+    };
+    initializeUserId();
+  }, [fetchSettings]);
 
   // Update canvas status when prop changes
   useEffect(() => {
     setCanvasStatus(isCanvasVisible);
   }, [isCanvasVisible]);
 
-  // Listen for user ID changes and immediately fetch settings
+  // Listen for user ID changes
   useEffect(() => {
     const handleUserIdChange = async (event) => {
-      if (event.detail && event.detail.userId) {
-        console.log('TopBar - User ID changed:', event.detail.userId);
+      if (event.detail?.userId) {
         const newUserId = event.detail.userId;
         setCurrentUserId(newUserId);
-        
-        // Immediately fetch settings for the new user
-        try {
-          const response = await fetch(`/api/data-center/settings/${newUserId}`, {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-            }
-          });
-          if (!response.ok) throw new Error('Failed to fetch settings');
-          
-          const userSettings = await response.json();
-          console.log('TopBar - Fetched settings for new user:', userSettings);
-          setCurrentSettings(userSettings);
-          
-          // Also update through the settings context
-          if (updateSettings) {
-            await updateSettings(userSettings, newUserId);
-          }
-        } catch (error) {
-          console.error('TopBar - Error fetching settings for new user:', error);
-        }
+        await fetchSettings(newUserId);
       }
     };
 
     window.addEventListener('userIdChange', handleUserIdChange);
-    return () => {
-      window.removeEventListener('userIdChange', handleUserIdChange);
-    };
-  }, [updateSettings]);
-
-  // Fetch settings on initial load if we have a user ID
-  useEffect(() => {
-    if (currentUserId) {
-      const fetchInitialSettings = async () => {
-        try {
-          const response = await fetch(`/api/data-center/settings/${currentUserId}`, {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-            }
-          });
-          if (!response.ok) throw new Error('Failed to fetch settings');
-          
-          const userSettings = await response.json();
-          console.log('TopBar - Fetched initial settings:', userSettings);
-          setCurrentSettings(userSettings);
-          
-          if (updateSettings) {
-            await updateSettings(userSettings, currentUserId);
-          }
-        } catch (error) {
-          console.error('TopBar - Error fetching initial settings:', error);
-        }
-      };
-      
-      fetchInitialSettings();
-    }
-  }, [currentUserId, updateSettings]);
-
-  // Update settings when they change in the context
-  useEffect(() => {
-    if (settings && currentUserId && settings[currentUserId]) {
-      console.log('TopBar - Settings context updated for user:', currentUserId, settings[currentUserId]);
-      const userSettings = settings[currentUserId];
-      if (userSettings) {
-        console.log('TopBar - Updating current settings with:', userSettings);
-        setCurrentSettings(userSettings);
-      }
-    }
-  }, [settings, currentUserId]);
+    return () => window.removeEventListener('userIdChange', handleUserIdChange);
+  }, [fetchSettings]);
 
   // Listen for settings updates from admin page
   useEffect(() => {
     const handleSettingsUpdate = (event) => {
-      console.log('TopBar - Settings Update Event Received:', event.detail);
-      if (event.detail && event.detail.type === 'captureSettings') {
+      if (event.detail?.type === 'captureSettings') {
         const { userId, times, delay } = event.detail;
-        console.log('TopBar - Processing settings update:', { userId, times, delay });
-        console.log('TopBar - Current User ID:', currentUserId);
-        console.log('TopBar - User ID comparison:', {
-          received: userId,
-          current: currentUserId,
-          match: userId === currentUserId
-        });
         
-        // Force update regardless of user ID match for now
-        const newSettings = {
-          times: Number(times) || currentSettings.times,
-          delay: Number(delay) || currentSettings.delay
-        };
-        console.log('TopBar - New settings to be applied:', newSettings);
-        console.log('TopBar - Current settings before update:', currentSettings);
-        
-        setCurrentSettings(newSettings);
-        
-        // Save to backend
-        const saveToBackend = async () => {
-          try {
-            const response = await fetch(`/api/data-center/settings/${userId}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-              },
-              body: JSON.stringify(newSettings)
-            });
-
-            if (!response.ok) {
-              throw new Error('Failed to save settings to backend');
-            }
-            console.log('TopBar - Settings saved to backend successfully');
-
-            // Immediately fetch the latest settings from the backend
-            const fetchResponse = await fetch(`/api/data-center/settings/${userId}`, {
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-              }
-            });
-            if (!fetchResponse.ok) throw new Error('Failed to fetch settings after save');
-            const latestSettings = await fetchResponse.json();
-            setCurrentSettings(latestSettings);
-            if (updateSettings) {
-              await updateSettings(latestSettings, userId);
-            }
-          } catch (error) {
-            console.error('TopBar - Error saving/fetching settings to backend:', error);
-          }
-        };
-        saveToBackend();
+        // Only update if values have actually changed
+        if (times !== currentSettings.times || delay !== currentSettings.delay) {
+          const newSettings = {
+            times: Number(times) || currentSettings.times,
+            delay: Number(delay) || currentSettings.delay
+          };
+          debouncedSaveSettings(userId, newSettings);
+        }
       }
     };
 
     window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
-    return () => {
-      window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
-    };
-  }, [currentUserId, currentSettings]);
-
-  // Add a new effect to monitor currentSettings changes
-  useEffect(() => {
-    console.log('TopBar - currentSettings changed:', currentSettings);
-  }, [currentSettings]);
+    return () => window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
+  }, [currentSettings, debouncedSaveSettings]);
 
   // Handle settings change
-  const handleSettingsChange = async (newSettings) => {
-    try {
-      if (currentUserId) {
-        console.log('Updating settings for user:', currentUserId, newSettings);
-        await updateSettings(newSettings, currentUserId);
-        setCurrentSettings(newSettings);
-      }
-    } catch (error) {
-      console.error('Error updating settings:', error);
-    }
-  };
+  const handleSettingsChange = useCallback(async (newSettings) => {
+    if (!currentUserId) return;
+    debouncedSaveSettings(currentUserId, newSettings);
+  }, [currentUserId, debouncedSaveSettings]);
 
   const handleButtonClick = (actionType) => {
     if (onButtonClick) {

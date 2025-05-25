@@ -11,6 +11,9 @@ export const useAdminSettings = (ref) => {
   const initialized = useRef(false);
   const pollingInterval = useRef(null);
   const [currentSettings, setCurrentSettings] = useState({});
+  const [lastUpdateTime, setLastUpdateTime] = useState(0);
+  const POLLING_INTERVAL = 10000; // Increase to 10 seconds
+  const MIN_UPDATE_INTERVAL = 2000; // Minimum time between updates
 
   // Debug logging for settings changes
   useEffect(() => {
@@ -64,14 +67,32 @@ export const useAdminSettings = (ref) => {
   // Polling for settings updates
   useEffect(() => {
     if (!currentUserId) return;
-    console.log('[Polling useEffect] currentUserId:', currentUserId);
-    const fetchSettings = () => fetchSettingsForUser(currentUserId);
-    fetchSettings();
-    pollingInterval.current = setInterval(fetchSettings, 3000);
-    return () => {
-      if (pollingInterval.current) clearInterval(pollingInterval.current);
+    
+    const fetchSettings = async () => {
+      const now = Date.now();
+      if (now - lastUpdateTime < MIN_UPDATE_INTERVAL) {
+        return; // Skip if last update was too recent
+      }
+      
+      try {
+        const newSettings = await fetchSettingsForUser(currentUserId);
+        if (newSettings) {
+          setLastUpdateTime(now);
+        }
+      } catch (error) {
+        console.error('[AdminSettings] Polling error:', error);
+      }
     };
-  }, [currentUserId, ref]);
+
+    fetchSettings();
+    pollingInterval.current = setInterval(fetchSettings, POLLING_INTERVAL);
+    
+    return () => {
+      if (pollingInterval.current) {
+        clearInterval(pollingInterval.current);
+      }
+    };
+  }, [currentUserId, ref, lastUpdateTime]);
 
   // Listen for userId changes (from index.js navigation)
   useEffect(() => {
@@ -171,13 +192,20 @@ export const useAdminSettings = (ref) => {
 
   // Update settings for a user (times, delay, image, etc.)
   const updateSettings = async (newSettings, userId) => {
-    console.log('[updateSettings] userId:', userId); // Debug log
+    console.log('[updateSettings] userId:', userId);
     if (!userId) return;
+    
+    const now = Date.now();
+    if (now - lastUpdateTime < MIN_UPDATE_INTERVAL) {
+      console.log('[updateSettings] Skipping update - too soon after last update');
+      return;
+    }
+
     const updatedSettings = {
       ...settings[userId],
       ...newSettings
     };
-    setSettings(prev => ({ ...prev, [userId]: updatedSettings }));
+
     try {
       const response = await fetch(`/api/data-center/settings/${userId}`, {
         method: 'POST',
@@ -187,13 +215,16 @@ export const useAdminSettings = (ref) => {
         },
         body: JSON.stringify(updatedSettings)
       });
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || 'Failed to save settings');
       }
+
       const result = await response.json();
       setSettings(prev => ({ ...prev, [userId]: result.data || updatedSettings }));
       setCurrentSettings(result.data || updatedSettings);
+      setLastUpdateTime(now);
       setError(null);
     } catch (error) {
       setError(error.message);
