@@ -1,15 +1,27 @@
-FROM python:3.9-slim
+FROM continuumio/miniconda3:latest
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies and clean up in the same layer
 RUN apt-get update && apt-get install -y \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+    libglib2.0-0 \
+    libsm6 \
+    libxrender1 \
+    libxext6 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && conda create -n eyetracking python=3.9 -y \
+    && conda clean -afy
 
-# Copy requirements first to leverage Docker cache
+# Make RUN commands use the new environment
+SHELL ["conda", "run", "-n", "eyetracking", "/bin/bash", "-c"]
+
+# Copy only requirements first
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Install Python dependencies and clean up in the same layer
+RUN pip install --no-cache-dir -r requirements.txt \
+    && rm -rf ~/.cache/pip/*
 
 # Copy the rest of the application
 COPY . .
@@ -20,5 +32,5 @@ RUN mkdir -p uploads
 # Expose the port the app runs on
 EXPOSE 8000
 
-# Command to run the application
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Activate conda environment and run the application
+CMD ["conda", "run", "-n", "eyetracking", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
