@@ -480,3 +480,233 @@
 .numberControl:first-child {
   border-bottom: 1px solid #ccc;
 }
+
+.settingsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.settingsSection {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.buttonOrderSection {
+  grid-row: span 3;
+  background: #f4f6fb;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 4px 24px rgba(80, 112, 255, 0.07);
+}
+
+.buttonOrderSection h2 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+/* --- Drag & Drop Priority List Styles --- */
+.infoBox {
+  background: #eaf3ff;
+  border: 1px solid #b6d4fe;
+  border-radius: 10px;
+  padding: 18px 24px;
+  margin-bottom: 24px;
+  color: #2563eb;
+  font-size: 15px;
+  box-shadow: 0 2px 8px rgba(80,112,255,0.04);
+}
+.infoBox ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.taskList {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.taskCard {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(80,112,255,0.07);
+  border: 1.5px solid #e5e7eb;
+  padding: 18px 20px;
+  transition: box-shadow 0.2s, border 0.2s;
+  cursor: move;
+}
+.taskCard:active, .taskCard:hover {
+  border: 1.5px solid #2563eb;
+  box-shadow: 0 4px 16px rgba(80,112,255,0.13);
+}
+.taskCheckbox {
+  width: 20px;
+  height: 20px;
+  accent-color: #2563eb;
+  margin-right: 2px;
+}
+.dragHandle {
+  color: #bdbdbd;
+  cursor: grab;
+  margin-right: 2px;
+  display: flex;
+  align-items: center;
+}
+.priorityBadge {
+  min-width: 38px;
+  text-align: center;
+  padding: 4px 0;
+  border-radius: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  border: 1.5px solid;
+  margin-right: 2px;
+}
+.priorityBadgeRed {
+  background: #ffeaea;
+  color: #d32f2f;
+  border-color: #ffc1c1;
+}
+.priorityBadgeYellow {
+  background: #fffbe6;
+  color: #b59f00;
+  border-color: #ffe58f;
+}
+.priorityBadgeGreen {
+  background: #eaffea;
+  color: #388e3c;
+  border-color: #b7eb8f;
+}
+.priorityBadgeGray {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border-color: #e5e7eb;
+}
+.priorityInputContainer {
+  width: 54px;
+  margin-right: 2px;
+}
+.priorityInput {
+  width: 48px;
+  padding: 4px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 15px;
+  background: #fff;
+  color: #222;
+  text-align: center;
+}
+.priorityInput:disabled {
+  background: #f3f4f6;
+  color: #bdbdbd;
+  cursor: not-allowed;
+}
+.taskContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.editRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.editInput {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #b6d4fe;
+  border-radius: 6px;
+  font-size: 15px;
+}
+.saveEditBtn {
+  background: #eaffea;
+  color: #388e3c;
+  border: 1px solid #b7eb8f;
+  border-radius: 6px;
+  padding: 4px 7px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.saveEditBtn:hover {
+  background: #b7eb8f;
+}
+.cancelEditBtn {
+  background: #ffeaea;
+  color: #d32f2f;
+  border: 1px solid #ffc1c1;
+  border-radius: 6px;
+  padding: 4px 7px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.cancelEditBtn:hover {
+  background: #ffc1c1;
+}
+.taskInfoRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.taskName {
+  font-weight: 600;
+  font-size: 16px;
+  color: #222;
+  margin-right: 8px;
+}
+.taskDesc {
+  display: block;
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+.editBtn {
+  background: none;
+  border: none;
+  color: #bdbdbd;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background 0.2s, color 0.2s;
+}
+.editBtn:hover {
+  background: #eaf3ff;
+  color: #2563eb;
+}
+.orderSummaryBox {
+  margin-top: 32px;
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 18px 24px;
+  box-shadow: 0 1px 4px rgba(80,112,255,0.04);
+  border: 1px solid #e5e7eb;
+}
+.orderSummaryTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #222;
+  margin-bottom: 8px;
+}
+.orderSummaryRow {
+  font-size: 15px;
+  color: #444;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.orderSummaryNone {
+  color: #bdbdbd;
+  font-style: italic;
+}

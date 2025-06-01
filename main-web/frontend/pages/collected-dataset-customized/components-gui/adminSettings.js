@@ -29,11 +29,32 @@ const debounce = (func, wait) => {
   };
 };
 
+// Helper function to safely access localStorage
+const getLocalStorage = (key) => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(key);
+  } catch (error) {
+    console.warn('Error accessing localStorage:', error);
+    return null;
+  }
+};
+
+// Helper function to safely set localStorage
+const setLocalStorage = (key, value) => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    console.warn('Error setting localStorage:', error);
+  }
+};
+
 export const useAdminSettings = (ref) => {
   const [settings, setSettings] = useState({});
   const [currentUserId, setCurrentUserId] = useState(() => {
-    // Initialize from localStorage on mount
-    return localStorage.getItem('currentUserId');
+    // Initialize from localStorage on mount, safely
+    return getLocalStorage('currentUserId');
   });
   const [isTopBarUpdated, setIsTopBarUpdated] = useState(false);
   const [error, setError] = useState(null);
@@ -192,7 +213,7 @@ export const useAdminSettings = (ref) => {
         console.log('[handleUserIdChange] userId:', event.detail.userId);
         const newUserId = event.detail.userId;
         setCurrentUserId(newUserId);
-        localStorage.setItem('currentUserId', newUserId);
+        setLocalStorage('currentUserId', newUserId);
         fetchSettingsForUser(newUserId);
       }
     };
@@ -226,13 +247,13 @@ export const useAdminSettings = (ref) => {
   // Load settings from localStorage on mount (optional, fallback)
   useEffect(() => {
     try {
-      const savedSettings = localStorage.getItem('adminSettings');
+      const savedSettings = getLocalStorage('adminSettings');
       if (savedSettings) {
         const parsedSettings = JSON.parse(savedSettings);
         setSettings(parsedSettings);
       }
     } catch (error) {
-      // Ignore
+      console.warn('Error loading settings from localStorage:', error);
     }
   }, []);
 
@@ -240,8 +261,10 @@ export const useAdminSettings = (ref) => {
   useEffect(() => {
     if (initialized.current) {
       try {
-        localStorage.setItem('adminSettings', JSON.stringify(settings));
-      } catch (error) {}
+        setLocalStorage('adminSettings', JSON.stringify(settings));
+      } catch (error) {
+        console.warn('Error saving settings to localStorage:', error);
+      }
     } else {
       initialized.current = true;
     }
@@ -369,7 +392,13 @@ export const useAdminSettings = (ref) => {
     }
   };
 
-  return { settings, updateSettings, updateImage, error };
+  return {
+    settings,
+    currentSettings,
+    currentUserId,
+    error,
+    updateSettings: fetchSettingsForUser
+  };
 };
 
 // Add default export component

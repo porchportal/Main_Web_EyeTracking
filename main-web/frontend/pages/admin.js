@@ -76,6 +76,7 @@ import { useConsent } from '../components/consent/ConsentContext';
 import { useAdminSettings } from '../pages/collected-dataset-customized/components-gui/adminSettings';
 import fs from 'fs';
 import path from 'path';
+import DragDropPriorityList from './adminDrag&Drop';
 
 const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
@@ -134,6 +135,7 @@ export default function AdminPage({ initialSettings }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
 
   // Initialize tempSettings with initial settings
   useEffect(() => {
@@ -995,9 +997,9 @@ export default function AdminPage({ initialSettings }) {
           </div>
         </div>
         
-        {/* Settings Sections (only shown when a user is selected) */}
+        {/* Settings Grid Container */}
         {selectedUserId && (
-          <>
+          <div className={styles.settingsGrid}>
             {/* Capture Settings Section */}
             <div className={styles.settingsSection}>
               <h2>Capture Settings</h2>
@@ -1005,27 +1007,27 @@ export default function AdminPage({ initialSettings }) {
                 <div className={styles.settingItem}>
                   <label>Time(s):</label>
                   <div className={styles.numberInputContainer}>
-                  <input
-                    type="number"
-                    name="time"
-                    value={tempSettings[selectedUserId]?.times ?? 1}
-                    onChange={(e) => {
-                      const newValue = parseInt(e.target.value, 10);
-                      if (!isNaN(newValue) && newValue > 0) {
-                        setTempSettings(prev => ({
-                          ...prev,
-                          [selectedUserId]: {
-                            ...prev[selectedUserId],
-                            times: newValue
-                          }
-                        }));
-                      }
-                    }}
-                    min="1"
-                    max="100"
-                    className={styles.numberInput}
-                    data-control="time"
-                  />
+                    <input
+                      type="number"
+                      name="time"
+                      value={tempSettings[selectedUserId]?.times ?? 1}
+                      onChange={(e) => {
+                        const newValue = parseInt(e.target.value, 10);
+                        if (!isNaN(newValue) && newValue > 0) {
+                          setTempSettings(prev => ({
+                            ...prev,
+                            [selectedUserId]: {
+                              ...prev[selectedUserId],
+                              times: newValue
+                            }
+                          }));
+                        }
+                      }}
+                      min="1"
+                      max="100"
+                      className={styles.numberInput}
+                      data-control="time"
+                    />
                     <div className={styles.numberControls}>
                       <button 
                         className={styles.numberControl}
@@ -1067,27 +1069,27 @@ export default function AdminPage({ initialSettings }) {
                 <div className={styles.settingItem}>
                   <label>Delay(s):</label>
                   <div className={styles.numberInputContainer}>
-                  <input
-                    type="number"
-                    name="delay"
-                    value={tempSettings[selectedUserId]?.delay ?? 3}
-                    onChange={(e) => {
-                      const newValue = parseInt(e.target.value, 10);
-                      if (!isNaN(newValue) && newValue > 0) {
-                        setTempSettings(prev => ({
-                          ...prev,
-                          [selectedUserId]: {
-                            ...prev[selectedUserId],
-                            delay: newValue
-                          }
-                        }));
-                      }
-                    }}
-                    min="1"
-                    max="60"
-                    className={styles.numberInput}
-                    data-control="delay"
-                  />
+                    <input
+                      type="number"
+                      name="delay"
+                      value={tempSettings[selectedUserId]?.delay ?? 3}
+                      onChange={(e) => {
+                        const newValue = parseInt(e.target.value, 10);
+                        if (!isNaN(newValue) && newValue > 0) {
+                          setTempSettings(prev => ({
+                            ...prev,
+                            [selectedUserId]: {
+                              ...prev[selectedUserId],
+                              delay: newValue
+                            }
+                          }));
+                        }
+                      }}
+                      min="1"
+                      max="60"
+                      className={styles.numberInput}
+                      data-control="delay"
+                    />
                     <div className={styles.numberControls}>
                       <button 
                         className={styles.numberControl}
@@ -1137,7 +1139,13 @@ export default function AdminPage({ initialSettings }) {
                 </div>
               </div>
             </div>
-  
+
+            {/* Required Button Click Order Section */}
+            <div className={styles.buttonOrderSection}>
+              <h2>Required Button Click Order</h2>
+              <DragDropPriorityList />
+            </div>
+
             {/* Image Settings Section */}
             <div className={styles.settingsSection}>
               <h2>Image Settings</h2>
@@ -1159,7 +1167,7 @@ export default function AdminPage({ initialSettings }) {
                 </button>
               </div>
             </div>
-  
+
             {/* Zoom Control Section */}
             <div className={styles.settingsSection}>
               <h2>Zoom Control</h2>
@@ -1179,7 +1187,7 @@ export default function AdminPage({ initialSettings }) {
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </main>
     </div>
