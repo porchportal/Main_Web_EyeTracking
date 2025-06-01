@@ -1,4 +1,33 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+
+// Add deep comparison utility
+const isEqual = (obj1, obj2) => {
+  if (obj1 === obj2) return true;
+  if (typeof obj1 !== 'object' || typeof obj2 !== 'object') return false;
+  if (obj1 === null || obj2 === null) return false;
+  
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+  
+  if (keys1.length !== keys2.length) return false;
+  
+  return keys1.every(key => 
+    keys2.includes(key) && isEqual(obj1[key], obj2[key])
+  );
+};
+
+// Add debounce utility
+const debounce = (func, wait) => {
+  let timeout;
+  return function executedFunction(...args) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
 
 export const useAdminSettings = (ref) => {
   const [settings, setSettings] = useState({});
@@ -12,8 +41,17 @@ export const useAdminSettings = (ref) => {
   const pollingInterval = useRef(null);
   const [currentSettings, setCurrentSettings] = useState({});
   const [lastUpdateTime, setLastUpdateTime] = useState(0);
-  const POLLING_INTERVAL = 10000; // Increase to 10 seconds
-  const MIN_UPDATE_INTERVAL = 2000; // Minimum time between updates
+  
+  // Increase intervals to reduce API calls
+  const POLLING_INTERVAL = 30000; // 30 seconds
+  const MIN_UPDATE_INTERVAL = 5000; // 5 seconds
+  const CACHE_DURATION = 60000; // 1 minute
+  
+  // Add cache for settings with timestamp
+  const settingsCache = useRef(new Map());
+  const lastSettingsUpdate = useRef(new Map());
+  const pendingUpdates = useRef(new Map());
+  const isUpdating = useRef(false);
 
   // Debug logging for settings changes
   useEffect(() => {
@@ -22,11 +60,37 @@ export const useAdminSettings = (ref) => {
     console.log('AdminSettings - Is TopBar Updated:', isTopBarUpdated);
   }, [settings, currentUserId, isTopBarUpdated]);
 
-  // Helper: Fetch settings for a user from backend
-  const fetchSettingsForUser = async (userId) => {
-    console.log('[AdminSettings] fetchSettingsForUser - userId:', userId);
+  // Helper: Fetch settings for a user from backend with enhanced caching
+  const fetchSettingsForUser = useCallback(async (userId) => {
     if (!userId) return;
+
+    // Check cache first
+    const cachedSettings = settingsCache.current.get(userId);
+    const lastUpdate = lastSettingsUpdate.current.get(userId);
+    const now = Date.now();
+
+    // If we have cached settings and they're recent enough, use them
+    if (cachedSettings && lastUpdate && (now - lastUpdate < CACHE_DURATION)) {
+      console.log('[AdminSettings] Using cached settings for user:', userId);
+      return cachedSettings;
+    }
+
+    // If there's already a pending update, return the cached value
+    if (pendingUpdates.current.has(userId)) {
+      console.log('[AdminSettings] Pending update exists, using cached value');
+      return cachedSettings;
+    }
+
+    // If an update is in progress, return the cached value
+    if (isUpdating.current) {
+      console.log('[AdminSettings] Update in progress, using cached value');
+      return cachedSettings;
+    }
+
     try {
+      isUpdating.current = true;
+      pendingUpdates.current.set(userId, true);
+
       const response = await fetch(`/api/data-center/settings/${userId}`, {
         headers: {
           'Accept': 'application/json',
@@ -34,57 +98,76 @@ export const useAdminSettings = (ref) => {
           'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
         }
       });
+      
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.detail || 'Failed to fetch settings');
       }
+      
       const result = await response.json();
-      console.log('[AdminSettings] fetchSettingsForUser - Received settings:', result.data);
-      
-      // result.data contains the settings object
       const newSettings = result.data || {};
-      setSettings(prev => ({
-        ...prev,
-        [userId]: newSettings
-      }));
-      setCurrentSettings(newSettings);
-      setError(null);
       
-      // Update TopBar if ref provided
-      if (ref && ref.current && ref.current.setCaptureSettings) {
-        console.log('[AdminSettings] Updating TopBar with settings:', newSettings);
-        ref.current.setCaptureSettings(newSettings);
-        setIsTopBarUpdated(true);
+      // Only update if settings have actually changed
+      if (!isEqual(settings[userId], newSettings)) {
+        setSettings(prev => ({
+          ...prev,
+          [userId]: newSettings
+        }));
+        setCurrentSettings(newSettings);
+        
+        // Update cache
+        settingsCache.current.set(userId, newSettings);
+        lastSettingsUpdate.current.set(userId, now);
+        
+        // Update TopBar if ref provided
+        if (ref && ref.current && ref.current.setCaptureSettings) {
+          ref.current.setCaptureSettings(newSettings);
+          setIsTopBarUpdated(true);
+        }
       }
+      
+      setError(null);
       return newSettings;
     } catch (error) {
       console.error('[AdminSettings] Error fetching settings:', error);
       setError(error.message);
-      return null;
+      return cachedSettings; // Return cached settings on error
+    } finally {
+      isUpdating.current = false;
+      pendingUpdates.current.delete(userId);
     }
-  };
+  }, [ref, settings]);
 
-  // Polling for settings updates
+  // Debounced version of fetchSettingsForUser
+  const debouncedFetchSettings = useCallback(
+    debounce((userId) => {
+      fetchSettingsForUser(userId);
+    }, 1000),
+    [fetchSettingsForUser]
+  );
+
+  // Polling for settings updates with enhanced optimization
   useEffect(() => {
     if (!currentUserId) return;
     
     const fetchSettings = async () => {
       const now = Date.now();
       if (now - lastUpdateTime < MIN_UPDATE_INTERVAL) {
-        return; // Skip if last update was too recent
+        return;
       }
       
       try {
-        const newSettings = await fetchSettingsForUser(currentUserId);
-        if (newSettings) {
-          setLastUpdateTime(now);
-        }
+        await debouncedFetchSettings(currentUserId);
+        setLastUpdateTime(now);
       } catch (error) {
         console.error('[AdminSettings] Polling error:', error);
       }
     };
 
+    // Initial fetch
     fetchSettings();
+    
+    // Set up polling with increased interval
     pollingInterval.current = setInterval(fetchSettings, POLLING_INTERVAL);
     
     return () => {
@@ -92,7 +175,7 @@ export const useAdminSettings = (ref) => {
         clearInterval(pollingInterval.current);
       }
     };
-  }, [currentUserId, ref, lastUpdateTime]);
+  }, [currentUserId, lastUpdateTime, debouncedFetchSettings]);
 
   // Listen for userId changes (from index.js navigation)
   useEffect(() => {
@@ -190,9 +273,8 @@ export const useAdminSettings = (ref) => {
     return () => window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
   }, [currentUserId, currentSettings]);
 
-  // Update settings for a user (times, delay, image, etc.)
-  const updateSettings = async (newSettings, userId) => {
-    console.log('[updateSettings] userId:', userId);
+  // Update settings for a user with enhanced optimization
+  const updateSettings = useCallback(async (newSettings, userId) => {
     if (!userId) return;
     
     const now = Date.now();
@@ -206,7 +288,16 @@ export const useAdminSettings = (ref) => {
       ...newSettings
     };
 
+    // Check if settings have actually changed
+    if (isEqual(settings[userId], updatedSettings)) {
+      console.log('[updateSettings] Settings unchanged, skipping update');
+      return;
+    }
+
     try {
+      isUpdating.current = true;
+      pendingUpdates.current.set(userId, true);
+
       const response = await fetch(`/api/data-center/settings/${userId}`, {
         method: 'POST',
         headers: {
@@ -222,14 +313,22 @@ export const useAdminSettings = (ref) => {
       }
 
       const result = await response.json();
-      setSettings(prev => ({ ...prev, [userId]: result.data || updatedSettings }));
-      setCurrentSettings(result.data || updatedSettings);
+      const finalSettings = result.data || updatedSettings;
+      
+      // Update state and cache
+      setSettings(prev => ({ ...prev, [userId]: finalSettings }));
+      setCurrentSettings(finalSettings);
+      settingsCache.current.set(userId, finalSettings);
+      lastSettingsUpdate.current.set(userId, now);
       setLastUpdateTime(now);
       setError(null);
     } catch (error) {
       setError(error.message);
+    } finally {
+      isUpdating.current = false;
+      pendingUpdates.current.delete(userId);
     }
-  };
+  }, [settings, lastUpdateTime]);
 
   // Upload and update image for a user
   const updateImage = async (userId, base64Image) => {

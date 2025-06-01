@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { generateCalibrationPoints } from '../../../components/collected-dataset-customized/Action/CalibratePoints';
 import { 
@@ -12,7 +12,23 @@ import { captureImagesAtPoint } from '../../../components/collected-dataset-cust
 import { useRouter } from 'next/router';
 import { useAdminSettings } from './adminSettings';
 
-// Create a basic ActionButton component
+// Add deep comparison utility
+const isEqual = (obj1, obj2) => {
+  if (obj1 === obj2) return true;
+  if (typeof obj1 !== 'object' || typeof obj2 !== 'object') return false;
+  if (obj1 === null || obj2 === null) return false;
+  
+  const keys1 = Object.keys(obj1);
+  const keys2 = Object.keys(obj2);
+  
+  if (keys1.length !== keys2.length) return false;
+  
+  return keys1.every(key => 
+    keys2.includes(key) && isEqual(obj1[key], obj2[key])
+  );
+};
+
+// Create a basic ActionButton component with optimization
 const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabled = false, active = false }) => {
   const [isAbbreviated, setIsAbbreviated] = useState(false);
   const { settings } = useAdminSettings();
@@ -21,27 +37,44 @@ const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabl
   const [captureCounter, setCaptureCounter] = useState(1);
   const [processStatus, setProcessStatus] = useState('');
 
-  // Check window size and set abbreviated mode
+  // Memoize button props to prevent unnecessary re-renders
+  const buttonProps = useMemo(() => ({
+    className: `action-button ${customClass} ${isAbbreviated ? 'abbreviated' : ''} ${active ? 'active' : ''}`,
+    onClick,
+    disabled,
+    title: text
+  }), [customClass, isAbbreviated, active, onClick, disabled, text]);
+
+  // Check window size and set abbreviated mode with debounce
   useEffect(() => {
-    // Skip during SSR
     if (typeof window === 'undefined') return;
     
+    let timeoutId;
     const handleResize = () => {
-      const width = window.innerWidth;
-      setIsAbbreviated(width < 768);
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const width = window.innerWidth;
+        setIsAbbreviated(width < 768);
+      }, 100);
     };
     
     window.addEventListener('resize', handleResize);
     handleResize(); // Initial call
     
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+    };
   }, []);
 
-  // Add effect to listen for user ID changes
+  // Add effect to listen for user ID changes with optimization
   useEffect(() => {
     const handleUserIdChange = (event) => {
       if (event.detail && event.detail.type === 'userIdChange') {
-        setCurrentUserId(event.detail.userId);
+        const newUserId = event.detail.userId;
+        if (newUserId !== currentUserId) {
+          setCurrentUserId(newUserId);
+        }
       }
     };
 
@@ -49,15 +82,10 @@ const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabl
     return () => {
       window.removeEventListener('userIdChange', handleUserIdChange);
     };
-  }, []);
+  }, [currentUserId]);
 
   return (
-    <button
-      className={`action-button ${customClass} ${isAbbreviated ? 'abbreviated' : ''} ${active ? 'active' : ''}`}
-      onClick={onClick}
-      disabled={disabled}
-      title={text}
-    >
+    <button {...buttonProps}>
       {isAbbreviated ? abbreviatedText : text}
       {processStatus && (
         <div className="process-status">
@@ -68,7 +96,7 @@ const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabl
   );
 };
 
-// Create the ActionButtonGroup component with client-side only rendering
+// Create the ActionButtonGroup component with client-side only rendering and optimization
 const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode, onActionClick }, ref) => {
   const router = useRouter();
   const { settings, updateSettings } = useAdminSettings(ref);
@@ -99,46 +127,89 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
   const [showPermissionPopup, setShowPermissionPopup] = useState(false);
   const [currentUserId, setCurrentUserId] = useState('default');
 
-  // Initialize settings from props
+  // Add cache for settings
+  const settingsCache = useRef(new Map());
+  const lastSettingsUpdate = useRef(new Map());
+
+  // Memoize button configurations
+  const buttons = useMemo(() => [
+    { 
+      text: "Set Random", 
+      abbreviatedText: "SRandom", 
+      onClick: handleSetRandom,
+      disabled: isCapturing
+    },
+    { 
+      text: "Random Dot", 
+      abbreviatedText: "Random", 
+      onClick: handleRandomDot,
+      disabled: isCapturing 
+    },
+    { 
+      text: "Set Calibrate", 
+      abbreviatedText: "Calibrate", 
+      onClick: handleSetCalibrate,
+      disabled: isCapturing 
+    },
+    { 
+      text: "Clear All", 
+      abbreviatedText: "Clear", 
+      onClick: handleClearAll
+    },
+    { divider: true },
+    { 
+      text: "Draw Head pose", 
+      abbreviatedText: "Head pose", 
+      onClick: handleToggleHeadPose,
+      active: showHeadPose
+    },
+    { 
+      text: "Show Bounding Box", 
+      abbreviatedText: "☐ Box", 
+      onClick: handleToggleBoundingBox,
+      active: showBoundingBox
+    },
+    { 
+      text: isCameraActive ? "Stop Camera" : "Show Preview", 
+      abbreviatedText: isCameraActive ? "Stop" : "Preview", 
+      onClick: () => {
+        if (!isCameraActive && !triggerCameraAccess(true)) {
+          setShowPermissionPopup(true);
+        } else {
+          handleToggleCamera();
+        }
+      },
+      active: isCameraActive,
+      disabled: isCapturing
+    },
+    { 
+      text: "😷 Show Mask", 
+      abbreviatedText: "😷 Mask", 
+      onClick: handleToggleMask,
+      active: showMask
+    },
+    { 
+      text: "Parameters", 
+      abbreviatedText: "Values", 
+      onClick: handleToggleParameters,
+      active: showParameters
+    }
+  ], [isCapturing, showHeadPose, showBoundingBox, isCameraActive, showMask, showParameters]);
+
+  // Optimize settings updates
   useEffect(() => {
     if (settings && currentUserId && settings[currentUserId]) {
       const userSettings = settings[currentUserId];
-      setRandomTimes(Number(userSettings.times) || 1);
-      setDelaySeconds(Number(userSettings.delay) || 3);
+      const cachedSettings = settingsCache.current.get(currentUserId);
+      
+      if (!isEqual(cachedSettings, userSettings)) {
+        setRandomTimes(Number(userSettings.times) || 1);
+        setDelaySeconds(Number(userSettings.delay) || 3);
+        settingsCache.current.set(currentUserId, userSettings);
+        lastSettingsUpdate.current.set(currentUserId, Date.now());
+      }
     }
   }, [settings, currentUserId]);
-
-  // Expose methods through ref
-  useImperativeHandle(ref, () => ({
-    handleRandomDot,
-    handleSetRandom,
-    handleSetCalibrate,
-    handleClearAll,
-    getCaptureSettings: () => ({
-      times: randomTimes,
-      delay: delaySeconds
-    }),
-    setCaptureSettings: (newSettings) => {
-      if (newSettings) {
-        if (typeof newSettings.times === 'number') {
-          setRandomTimes(newSettings.times);
-        }
-        if (typeof newSettings.delay === 'number') {
-          setDelaySeconds(newSettings.delay);
-        }
-      }
-    },
-    updateSettings: (newSettings) => {
-      if (newSettings) {
-        if (typeof newSettings.times === 'number') {
-          setRandomTimes(newSettings.times);
-        }
-        if (typeof newSettings.delay === 'number') {
-          setDelaySeconds(newSettings.delay);
-        }
-      }
-    }
-  }), [randomTimes, delaySeconds]);
 
   // Listen for user ID changes
   useEffect(() => {
@@ -1342,110 +1413,35 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     router.push('/');
   };
 
-  // Button configurations with both full and abbreviated text
-  const buttons = [
-    { 
-      text: "Set Random", 
-      abbreviatedText: "SRandom", 
-      onClick: handleSetRandom,
-      disabled: isCapturing
-    },
-    { 
-      text: "Random Dot", 
-      abbreviatedText: "Random", 
-      onClick: handleRandomDot,
-      disabled: isCapturing 
-    },
-    { 
-      text: "Set Calibrate", 
-      abbreviatedText: "Calibrate", 
-      onClick: handleSetCalibrate,
-      disabled: isCapturing 
-    },
-    { 
-      text: "Clear All", 
-      abbreviatedText: "Clear", 
-      onClick: handleClearAll
-    },
-    { divider: true },
-    { 
-      text: "Draw Head pose", 
-      abbreviatedText: "Head pose", 
-      onClick: handleToggleHeadPose,
-      active: showHeadPose
-    },
-    { 
-      text: "Show Bounding Box", 
-      abbreviatedText: "☐ Box", 
-      onClick: handleToggleBoundingBox,
-      active: showBoundingBox
-    },
-    { 
-      text: isCameraActive ? "Stop Camera" : "Show Preview", 
-      abbreviatedText: isCameraActive ? "Stop" : "Preview", 
-      onClick: () => {
-        // If camera permission is needed but not granted, show popup
-        if (!isCameraActive && !triggerCameraAccess(true)) {
-          setShowPermissionPopup(true);
-        } else {
-          handleToggleCamera();
-        }
-      },
-      active: isCameraActive,
-      disabled: isCapturing // Disable camera toggle while capturing
-    },
-    { 
-      text: "😷 Show Mask", 
-      abbreviatedText: "😷 Mask", 
-      onClick: handleToggleMask,
-      active: showMask
-    },
-    { 
-      text: "Parameters", 
-      abbreviatedText: "Values", 
-      onClick: handleToggleParameters,
-      active: showParameters
-    }
-  ];
-
   // Mobile layout - 2x5 grid
   return (
     <div>
       {isCompactMode ? (
         <div className="grid grid-cols-2 gap-2 mb-4">
-          {/* {buttons.filter(b => !b.divider).map((button, index) => (
-            <ActionButton 
-              key={index}
-              text={button.text}
-              abbreviatedText={button.abbreviatedText}
-              onClick={button.onClick}
-              disabled={button.disabled}
-              active={button.active}
-            />
-          ))} */}
           <div></div>
         </div>
       ) : (
         <div className="grid grid-cols-2 gap-2">
-          {/* Removed the Parameters button */}
-          <div></div> {/* Empty space for alignment */}
+          <div></div>
         </div>
       )}
       
-      {/* Status display for calibration and random sequence */}
-      {(processStatus || remainingCaptures > 0 || countdownValue) && (
-        <div className="status-display mt-4 p-2 bg-blue-50 rounded-md">
-          {processStatus && (
-            <div className="text-sm font-medium text-blue-800">{processStatus}</div>
-          )}
-          {remainingCaptures > 0 && (
-            <div className="text-sm font-medium text-yellow-600">Remaining: {remainingCaptures}</div>
-          )}
-          {countdownValue && (
-            <div className="text-2xl font-bold text-red-600">{countdownValue}</div>
-          )}
-        </div>
-      )}
+      {/* Status display with memoization */}
+      {useMemo(() => (
+        (processStatus || remainingCaptures > 0 || countdownValue) && (
+          <div className="status-display mt-4 p-2 bg-blue-50 rounded-md">
+            {processStatus && (
+              <div className="text-sm font-medium text-blue-800">{processStatus}</div>
+            )}
+            {remainingCaptures > 0 && (
+              <div className="text-sm font-medium text-yellow-600">Remaining: {remainingCaptures}</div>
+            )}
+            {countdownValue && (
+              <div className="text-2xl font-bold text-red-600">{countdownValue}</div>
+            )}
+          </div>
+        )
+      ), [processStatus, remainingCaptures, countdownValue])}
       
       {/* Canvas for drawing dots */}
       {showCanvas && (
