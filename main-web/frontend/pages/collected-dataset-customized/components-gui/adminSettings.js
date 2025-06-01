@@ -42,16 +42,17 @@ export const useAdminSettings = (ref) => {
   const [currentSettings, setCurrentSettings] = useState({});
   const [lastUpdateTime, setLastUpdateTime] = useState(0);
   
-  // Increase intervals to reduce API calls
-  const POLLING_INTERVAL = 30000; // 30 seconds
-  const MIN_UPDATE_INTERVAL = 5000; // 5 seconds
-  const CACHE_DURATION = 60000; // 1 minute
+  // Constants for timing
+  const MIN_UPDATE_INTERVAL = 2000; // 2 seconds minimum between updates
+  const CACHE_DURATION = 30000; // 30 seconds cache duration
+  const POLLING_INTERVAL = 5000; // 5 seconds polling interval
   
-  // Add cache for settings with timestamp
+  // Cache and state tracking
   const settingsCache = useRef(new Map());
   const lastSettingsUpdate = useRef(new Map());
   const pendingUpdates = useRef(new Map());
   const isUpdating = useRef(false);
+  const lastKnownSettings = useRef(new Map());
 
   // Debug logging for settings changes
   useEffect(() => {
@@ -107,23 +108,30 @@ export const useAdminSettings = (ref) => {
       const result = await response.json();
       const newSettings = result.data || {};
       
-      // Only update if settings have actually changed
-      if (!isEqual(settings[userId], newSettings)) {
+      // Compare with last known settings
+      const lastKnown = lastKnownSettings.current.get(userId);
+      const hasChanged = !isEqual(lastKnown, newSettings);
+      
+      if (hasChanged) {
+        console.log('[AdminSettings] Settings changed, updating...');
         setSettings(prev => ({
           ...prev,
           [userId]: newSettings
         }));
         setCurrentSettings(newSettings);
         
-        // Update cache
+        // Update caches
         settingsCache.current.set(userId, newSettings);
         lastSettingsUpdate.current.set(userId, now);
+        lastKnownSettings.current.set(userId, newSettings);
         
         // Update TopBar if ref provided
         if (ref && ref.current && ref.current.setCaptureSettings) {
           ref.current.setCaptureSettings(newSettings);
           setIsTopBarUpdated(true);
         }
+      } else {
+        console.log('[AdminSettings] Settings unchanged, skipping update');
       }
       
       setError(null);
@@ -136,7 +144,7 @@ export const useAdminSettings = (ref) => {
       isUpdating.current = false;
       pendingUpdates.current.delete(userId);
     }
-  }, [ref, settings]);
+  }, [ref]);
 
   // Debounced version of fetchSettingsForUser
   const debouncedFetchSettings = useCallback(
@@ -146,7 +154,7 @@ export const useAdminSettings = (ref) => {
     [fetchSettingsForUser]
   );
 
-  // Polling for settings updates with enhanced optimization
+  // Polling for settings updates with value-based optimization
   useEffect(() => {
     if (!currentUserId) return;
     
@@ -167,7 +175,7 @@ export const useAdminSettings = (ref) => {
     // Initial fetch
     fetchSettings();
     
-    // Set up polling with increased interval
+    // Set up polling with value-based interval
     pollingInterval.current = setInterval(fetchSettings, POLLING_INTERVAL);
     
     return () => {
@@ -273,7 +281,7 @@ export const useAdminSettings = (ref) => {
     return () => window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
   }, [currentUserId, currentSettings]);
 
-  // Update settings for a user with enhanced optimization
+  // Update settings for a user with value-based optimization
   const updateSettings = useCallback(async (newSettings, userId) => {
     if (!userId) return;
     
@@ -288,8 +296,11 @@ export const useAdminSettings = (ref) => {
       ...newSettings
     };
 
-    // Check if settings have actually changed
-    if (isEqual(settings[userId], updatedSettings)) {
+    // Compare with last known settings
+    const lastKnown = lastKnownSettings.current.get(userId);
+    const hasChanged = !isEqual(lastKnown, updatedSettings);
+
+    if (!hasChanged) {
       console.log('[updateSettings] Settings unchanged, skipping update');
       return;
     }
@@ -315,11 +326,12 @@ export const useAdminSettings = (ref) => {
       const result = await response.json();
       const finalSettings = result.data || updatedSettings;
       
-      // Update state and cache
+      // Update state and caches
       setSettings(prev => ({ ...prev, [userId]: finalSettings }));
       setCurrentSettings(finalSettings);
       settingsCache.current.set(userId, finalSettings);
       lastSettingsUpdate.current.set(userId, now);
+      lastKnownSettings.current.set(userId, finalSettings);
       setLastUpdateTime(now);
       setError(null);
     } catch (error) {
