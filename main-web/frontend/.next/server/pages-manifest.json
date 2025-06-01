@@ -3,8 +3,9 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/collected-dataset": "pages/collected-dataset.js",
-  "/preferences/consent-setup": "pages/preferences/consent-setup.js",
-  "/api/preferences/get": "pages/api/preferences/get.js",
-  "/": "pages/index.js"
+  "/admin": "pages/admin.js",
+  "/api/admin/consent-data": "pages/api/admin/consent-data.js",
+  "/admin-login": "pages/admin-login.js",
+  "/": "pages/index.js",
+  "/collected-dataset-customized": "pages/collected-dataset-customized.js"
 }

@@ -7,6 +7,13 @@ const CONSENT_DETAILS_COOKIE = 'consent_details';
 const USER_PROFILE_COOKIE = 'user_profile';
 const USER_PREFERENCES_COOKIE = 'user_preferences';
 
+// Cookie options that work for both localhost and IP addresses
+const COOKIE_OPTIONS = {
+  expires: 365,
+  path: '/',
+  sameSite: 'Lax'
+};
+
 // Get or create a user ID
 export const getOrCreateUserId = () => {
   try {
@@ -51,7 +58,7 @@ export const updateUserProfile = async (profileData) => {
       ...profileData,
       updatedAt: new Date().toISOString()
     };
-    Cookies.set(USER_PROFILE_COOKIE, JSON.stringify(updatedProfile), { expires: 365 });
+    Cookies.set(USER_PROFILE_COOKIE, JSON.stringify(updatedProfile), COOKIE_OPTIONS);
 
     // Save to backend (MongoDB)
     try {
@@ -136,7 +143,7 @@ export const updateUserPreferences = (preferencesData) => {
       ...preferencesData,
       updatedAt: new Date().toISOString()
     };
-    Cookies.set(USER_PREFERENCES_COOKIE, JSON.stringify(updatedPreferences), { expires: 365 });
+    Cookies.set(USER_PREFERENCES_COOKIE, JSON.stringify(updatedPreferences), COOKIE_OPTIONS);
     return updatedPreferences;
   } catch (error) {
     console.error('Error updating user preferences:', error);
@@ -191,8 +198,8 @@ export const updateUserConsent = async (status, details = {}) => {
     };
     
     // Save to cookies
-    Cookies.set(CONSENT_COOKIE, status.toString(), { expires: 365 }); // Expires in 1 year
-    Cookies.set(CONSENT_DETAILS_COOKIE, JSON.stringify(consentData), { expires: 365 });
+    Cookies.set(CONSENT_COOKIE, status.toString(), COOKIE_OPTIONS);
+    Cookies.set(CONSENT_DETAILS_COOKIE, JSON.stringify(consentData), COOKIE_OPTIONS);
     
     // Send consent data to admin
     try {
@@ -207,8 +214,8 @@ export const updateUserConsent = async (status, details = {}) => {
       if (!response.ok) {
         console.warn('Failed to send consent data to admin');
       }
-    } catch (saveError) {
-      console.warn('Error sending consent data:', saveError);
+    } catch (error) {
+      console.warn('Error sending consent data to admin:', error);
     }
     
     return {
@@ -218,35 +225,27 @@ export const updateUserConsent = async (status, details = {}) => {
       consentDetails: consentData
     };
   } catch (error) {
-    console.error('Error updating consent:', error);
+    console.error('Error updating user consent:', error);
     throw error;
   }
 };
 
-// Clear user consent and profile
+// Clear user consent
 export const clearUserConsent = () => {
   try {
-    Cookies.remove(CONSENT_COOKIE);
-    Cookies.remove(CONSENT_DETAILS_COOKIE);
-    Cookies.remove(USER_PROFILE_COOKIE);
+    Cookies.remove(CONSENT_COOKIE, COOKIE_OPTIONS);
+    Cookies.remove(CONSENT_DETAILS_COOKIE, COOKIE_OPTIONS);
     return true;
   } catch (error) {
-    console.error('Error clearing consent:', error);
+    console.error('Error clearing user consent:', error);
     return false;
   }
 };
 
-// Reset consent banner by clearing cookies and refreshing the page
+// Reset consent banner
 export const resetConsentBanner = () => {
   try {
-    // Clear all consent-related cookies
-    Cookies.remove(CONSENT_COOKIE);
-    Cookies.remove(CONSENT_DETAILS_COOKIE);
-    Cookies.remove(USER_PROFILE_COOKIE);
-    
-    // Refresh the page to trigger the consent initialization
-    window.location.reload();
-    
+    clearUserConsent();
     return true;
   } catch (error) {
     console.error('Error resetting consent banner:', error);

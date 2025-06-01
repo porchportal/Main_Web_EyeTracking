@@ -4,6 +4,12 @@ import { getUserConsent, updateUserConsent, getOrCreateUserId } from '../../util
 
 const ConsentContext = createContext();
 
+// Check if running on localhost
+const isLocalhost = () => {
+  if (typeof window === 'undefined') return false;
+  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+};
+
 export function ConsentProvider({ children }) {
   const [consentState, setConsentState] = useState({
     loading: true,
@@ -11,17 +17,49 @@ export function ConsentProvider({ children }) {
     consentStatus: null,
     consentUpdatedAt: null,
     consentDetails: null,
-    showBanner: false,
+    showBanner: true,
   });
 
   useEffect(() => {
-    // Get consent data from localStorage
+    // Get consent data from cookies
     const initializeConsent = async () => {
       try {
+        // If running on localhost, automatically set consent
+        if (isLocalhost()) {
+          const userId = getOrCreateUserId();
+          const autoConsentData = {
+            userId,
+            consentStatus: true,
+            consentUpdatedAt: new Date().toISOString(),
+            consentDetails: {
+              userId,
+              status: true,
+              timestamp: new Date().toISOString(),
+              autoEnabled: true
+            }
+          };
+
+          // Update cookies with auto-consent
+          await updateUserConsent(true, { userId });
+
+          setConsentState({
+            loading: false,
+            userId: autoConsentData.userId,
+            consentStatus: true,
+            consentUpdatedAt: autoConsentData.consentUpdatedAt,
+            consentDetails: autoConsentData.consentDetails,
+            showBanner: false
+          });
+
+          console.log('Auto-enabled consent for localhost:', autoConsentData);
+          return;
+        }
+
+        // Normal flow for non-localhost
         const consentData = await getUserConsent();
+        console.log('Initial consent data:', consentData);
         
-        // If no consent data exists or consentStatus is null, show the banner
-        if (consentData.consentStatus === null) {
+        if (!consentData || consentData.consentStatus === null) {
           setConsentState({
             loading: false,
             userId: null,
@@ -33,28 +71,16 @@ export function ConsentProvider({ children }) {
           return;
         }
         
-        // Try to get detailed consent preferences if available
-        let consentDetails = null;
-        try {
-          const detailsStr = localStorage.getItem('consent_details');
-          if (detailsStr) {
-            consentDetails = JSON.parse(detailsStr);
-          }
-        } catch (e) {
-          console.error('Error parsing consent details:', e);
-        }
-        
         setConsentState({
           loading: false,
           userId: consentData.userId,
           consentStatus: consentData.consentStatus,
           consentUpdatedAt: consentData.consentUpdatedAt,
-          consentDetails,
+          consentDetails: consentData.consentDetails,
           showBanner: false
         });
       } catch (error) {
         console.error('Error initializing consent:', error);
-        // If there's an error, show the banner
         setConsentState({
           loading: false,
           userId: null,
@@ -72,12 +98,17 @@ export function ConsentProvider({ children }) {
   const updateConsent = async (status) => {
     try {
       const userId = consentState.userId || getOrCreateUserId();
-      const updatedConsent = await updateUserConsent(status);
+      console.log('Updating consent with userId:', userId);
+      
+      const updatedConsent = await updateUserConsent(status, { userId });
+      console.log('Updated consent data:', updatedConsent);
       
       setConsentState(prev => ({
         ...prev,
+        userId: updatedConsent.userId,
         consentStatus: updatedConsent.consentStatus,
         consentUpdatedAt: updatedConsent.consentUpdatedAt,
+        consentDetails: updatedConsent.consentDetails,
         showBanner: false
       }));
       
