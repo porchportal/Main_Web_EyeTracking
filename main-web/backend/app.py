@@ -15,9 +15,6 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pathlib import Path
 import threading
 
-# Import configuration
-from config.settings import settings
-
 # Import database connection
 from db.mongodb import db, MongoDB
 from db.data_center import DataCenter
@@ -42,7 +39,7 @@ from process_images import process_images
 
 # Set up logging
 logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL),
+    level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -59,8 +56,8 @@ logger.info(f"ADMIN_PASSWORD is set: {bool(os.getenv('ADMIN_PASSWORD'))}")
 
 # Create FastAPI app
 app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.APP_VERSION,
+    title="Eye Tracking API",
+    version="1.0.0",
     description="API for eye tracking and user preferences management",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -90,7 +87,7 @@ async def add_cors_headers(request: Request, call_next):
     return response
 
 # API Key authentication
-API_KEY = settings.API_KEY
+API_KEY = os.getenv("API_KEY")
 api_key_header = APIKeyHeader(name="X-API-Key")
 
 async def verify_api_key(api_key: str = Depends(api_key_header)):
@@ -338,8 +335,8 @@ async def admin_auth(login: AdminLogin):
     try:
         logger.info(f"Received login attempt for username: {login.username}")
         
-        expected_username = settings.ADMIN_USERNAME
-        expected_password = settings.ADMIN_PASSWORD
+        expected_username = os.getenv("ADMIN_USERNAME")
+        expected_password = os.getenv("ADMIN_PASSWORD")
         
         if not expected_username or not expected_password:
             logger.error("Admin credentials not found in environment variables")

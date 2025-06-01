@@ -3,10 +3,15 @@ from typing import List, Optional
 from pydantic import BaseModel
 import os
 from datetime import datetime, timedelta
-from config.settings import get_settings
 from auth import verify_api_key
 import logging
 import re
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load environment variables
+env_path = Path(__file__).parent.parent / '.env.backend'
+load_dotenv(dotenv_path=env_path)
 
 # Set up router with /api prefix
 router = APIRouter(
@@ -17,8 +22,6 @@ router = APIRouter(
         500: {"description": "Internal server error"}
     }
 )
-
-settings = get_settings()
 
 class FileInfo(BaseModel):
     filename: str
@@ -263,7 +266,7 @@ async def list_files(operation: str = "list"):
 async def delete_file(filename: str):
     """Delete a file from the upload directory"""
     try:
-        file_path = os.path.join(settings.UPLOAD_DIR, filename)
+        file_path = os.path.join(os.getenv('UPLOAD_DIR'), filename)
         if not os.path.exists(file_path):
             raise HTTPException(status_code=404, detail="File not found")
             

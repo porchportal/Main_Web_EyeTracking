@@ -1,8 +1,14 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from datetime import datetime
-from config.settings import settings
+import os
 import logging
 from bson import ObjectId
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load environment variables
+env_path = Path(__file__).parent.parent / '.env.backend'
+load_dotenv(dotenv_path=env_path)
 
 logger = logging.getLogger(__name__)
 
@@ -19,9 +25,9 @@ class DataCenter:
             if cls._initialized:
                 return True
 
-            logger.info(f"Initializing DataCenter with URL: {settings.MONGODB_URL}")
-            cls._client = AsyncIOMotorClient(settings.MONGODB_URL)
-            cls._db = cls._client[settings.MONGODB_DB_NAME]
+            logger.info(f"Initializing DataCenter with URL: {os.getenv('MONGODB_URL')}")
+            cls._client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
+            cls._db = cls._client[os.getenv("MONGODB_DB_NAME")]
             
             # Create collection if it doesn't exist
             collections = await cls._db.list_collection_names()

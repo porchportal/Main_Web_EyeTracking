@@ -4,7 +4,12 @@ import logging
 from motor.motor_asyncio import AsyncIOMotorClient
 from typing import Optional
 import asyncio
-from config.settings import settings
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load environment variables
+env_path = Path(__file__).parent.parent / '.env.backend'
+load_dotenv(dotenv_path=env_path)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -26,8 +31,8 @@ class MongoDB:
             cls._connection_attempts += 1
             logger.info(f"Attempting to connect to MongoDB (attempt {cls._connection_attempts})")
             
-            cls._client = AsyncIOMotorClient(settings.MONGODB_URL)
-            cls._db = cls._client[settings.MONGODB_DB_NAME]
+            cls._client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
+            cls._db = cls._client[os.getenv("MONGODB_DB_NAME")]
             
             # Verify connection
             await cls._client.admin.command('ping')
