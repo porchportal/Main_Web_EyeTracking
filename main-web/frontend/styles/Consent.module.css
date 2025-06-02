@@ -251,52 +251,74 @@
   background-color: #3d8b40;
 }
 
-/* Add these to your Consent.module.css file */
-
+/* Notification Styles */
 .notification {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 12px 20px;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    z-index: 1000;
-    animation: fadeInOut 3s ease-in-out;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    max-width: 300px;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 15px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+  max-width: 400px;
+}
+
+.notificationContent {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.notificationIcon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.notificationMessage {
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.notificationSuccess {
+  background-color: #4caf50;
+  color: white;
+  border-left: 4px solid #388e3c;
+}
+
+.notificationError {
+  background-color: #f44336;
+  color: white;
+  border-left: 4px solid #d32f2f;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
   }
-  
-  .notificationSuccess {
-    background-color: #4caf50;
-    color: white;
-    border-left: 4px solid #388e3c;
+  to {
+    transform: translateX(0);
+    opacity: 1;
   }
-  
-  .notificationError {
-    background-color: #f44336;
-    color: white;
-    border-left: 4px solid #d32f2f;
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateX(0);
+    opacity: 1;
   }
-  
-  @keyframes fadeInOut {
-    0% {
-      opacity: 0;
-      transform: translateY(-20px);
-    }
-    10% {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    90% {
-      opacity: 1;
-      transform: translateY(0);
-    }
-    100% {
-      opacity: 0;
-      transform: translateY(-20px);
-    }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
   }
+}
+
+/* Remove old message styles */
+.successMessage,
+.errorMessage {
+  display: none;
+}
 
 .section {
   margin-bottom: 2rem;
@@ -398,26 +420,6 @@
 
 .cancelButton:hover {
   background-color: #444;
-}
-
-.successMessage {
-  background-color: #d4edda;
-  color: #155724;
-  padding: 1rem;
-  margin: 1rem 0;
-  border: 1px solid #c3e6cb;
-  border-radius: 4px;
-  text-align: center;
-}
-
-.errorMessage {
-  background-color: #f8d7da;
-  color: #721c24;
-  padding: 1rem;
-  margin: 1rem 0;
-  border: 1px solid #f5c6cb;
-  border-radius: 4px;
-  text-align: center;
 }
 
 .numberInputContainer {
@@ -759,4 +761,108 @@
   opacity: 0;
   transform: translateY(-10px);
   height: 0;
+}
+
+.saveOrderContainer {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.saveOrderButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #4CAF50;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.saveOrderButton:hover {
+  background-color: #45a049;
+}
+
+.saveOrderButton:active {
+  background-color: #3d8b40;
+}
+
+.saveStatus {
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  animation: fadeInOut 3s ease-in-out;
+}
+
+.saveStatus.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.saveStatus.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.userSelectionSection {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+  padding: 0 20px;
+}
+
+.userSelectionContainer {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: #fff;
+  padding: 15px 25px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  min-width: 300px;
+}
+
+.userSelectionLabel {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+}
+
+.userSelectionInput {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #333;
+  background-color: #fff;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  min-width: 200px;
+}
+
+.userSelectionInput:hover {
+  border-color: #4CAF50;
+}
+
+.userSelectionInput:focus {
+  outline: none;
+  border-color: #4CAF50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+}
+
+.userSelectionInput option {
+  padding: 8px;
 }

@@ -13,6 +13,7 @@ export default function DragDropPriorityList() {
   const [draggedItem, setDraggedItem] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
+  const [saveStatus, setSaveStatus] = useState({ show: false, message: '', type: '' });
 
   // Handle drag start
   const handleDragStart = (e, item) => {
@@ -136,10 +137,48 @@ export default function DragDropPriorityList() {
     return styles.priorityBadgeGreen;
   };
 
+  // Add save functionality
+  const handleSaveOrder = async () => {
+    try {
+      // Get the ordered items with their priorities
+      const orderedItems = items
+        .filter(item => item.hasPriority)
+        .sort((a, b) => a.priority - b.priority)
+        .map(item => ({
+          id: item.id,
+          name: item.name,
+          priority: item.priority
+        }));
+
+      // Here you would typically make an API call to save the order
+      // For now, we'll just show a success message
+      setSaveStatus({
+        show: true,
+        message: 'Button order saved successfully!',
+        type: 'success'
+      });
+
+      // Hide the success message after 3 seconds
+      setTimeout(() => {
+        setSaveStatus({
+          show: false,
+          message: '',
+          type: ''
+        });
+      }, 3000);
+    } catch (error) {
+      setSaveStatus({
+        show: true,
+        message: 'Failed to save button order. Please try again.',
+        type: 'error'
+      });
+    }
+  };
+
   return (
     <div className={styles.buttonOrderSection}>
       {/* Info Box */}
-      <div className={styles.infoBox}>
+      {/* <div className={styles.infoBox}>
         <ul>
           <li>Toggle the checkbox to enable/disable priority for each item</li>
           <li>Drag items using the grip handle to reorder</li>
@@ -147,7 +186,7 @@ export default function DragDropPriorityList() {
           <li>Edit item names by clicking the edit icon</li>
           <li>Priority colors: Red (1-2), Yellow (3-4), Green (5+), Gray (disabled)</li>
         </ul>
-      </div>
+      </div> */}
       {/* Task List */}
       <div className={styles.taskList}>
         {items
@@ -220,6 +259,21 @@ export default function DragDropPriorityList() {
               </div>
             </div>
           ))}
+      </div>
+      {/* Save Button */}
+      <div className={styles.saveOrderContainer}>
+        <button
+          onClick={handleSaveOrder}
+          className={styles.saveOrderButton}
+        >
+          <Save size={16} />
+          Save Button Order
+        </button>
+        {saveStatus.show && (
+          <div className={`${styles.saveStatus} ${styles[saveStatus.type]}`}>
+            {saveStatus.message}
+          </div>
+        )}
       </div>
       {/* Order Summary */}
       <div className={styles.orderSummaryBox}>
