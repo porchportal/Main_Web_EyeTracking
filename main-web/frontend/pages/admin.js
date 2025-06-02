@@ -66,7 +66,7 @@ export default function AdminPage({ initialSettings }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [buttonOrder, setButtonOrder] = useState("");
+
 
   // Initialize tempSettings with initial settings
   useEffect(() => {
@@ -236,20 +236,14 @@ export default function AdminPage({ initialSettings }) {
             }
           }));
 
-          // Set button order from settings
-          setButtonOrder(data.buttons_order || "");
-
           // Update settings through the hook
           updateSettings(data, selectedUserId);
         } else {
           console.log('No existing settings found for user:', selectedUserId);
           // Initialize with default settings
           const defaultSettings = {
-            times_set_random: 1,
-            delay_set_random: 3,
-            times_set_calibrate: 1,
-            run_every_of_random: 1,
-            buttons_order: "",
+            times: 1,
+            delay: 3,
             image_path: "/asfgrebvxcv",
             updateImage: "image.jpg",
             set_timeRandomImage: 1,
@@ -265,8 +259,6 @@ export default function AdminPage({ initialSettings }) {
             ...prev,
             [selectedUserId]: defaultSettings
           }));
-          
-          setButtonOrder("");
           
           // Update settings through the hook with default values
           updateSettings(defaultSettings, selectedUserId);
@@ -665,98 +657,14 @@ export default function AdminPage({ initialSettings }) {
     setDeleteTarget(null);
   };
 
-  // Add handler for saving calibrate settings
-  const handleSaveCalibrateSettings = async () => {
-    if (!selectedUserId || selectedUserId === 'default') {
-      showNotification('Please select a user ID before saving calibrate settings!', 'error');
-      return;
-    }
-
-    try {
-      const updatedSettings = {
-        ...tempSettings[selectedUserId],
-        times_set_calibrate: tempSettings[selectedUserId]?.times_set_calibrate || 1,
-        run_every_of_random: tempSettings[selectedUserId]?.run_every_of_random || 1
-      };
-
-      const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-        },
-        body: JSON.stringify(updatedSettings)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save calibrate settings');
-      }
-
-      // Update local state
-      setTempSettings(prev => ({
-        ...prev,
-        [selectedUserId]: updatedSettings
-      }));
-
-      // Update settings through the hook
-      updateSettings(updatedSettings, selectedUserId);
-
-      showNotification('Calibrate settings saved successfully!', 'success');
-    } catch (error) {
-      console.error('Error saving calibrate settings:', error);
-      showNotification('Failed to save calibrate settings. Please try again.', 'error');
-    }
-  };
-
-  // Add handler for saving button order
-  const handleSaveButtonOrder = async () => {
-    if (!selectedUserId || selectedUserId === 'default') {
-      showNotification('Please select a user ID before saving button order!', 'error');
-      return;
-    }
-
-    try {
-      const updatedSettings = {
-        ...tempSettings[selectedUserId],
-        buttons_order: buttonOrder
-      };
-
-      const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-        },
-        body: JSON.stringify(updatedSettings)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save button order');
-      }
-
-      // Update local state
-      setTempSettings(prev => ({
-        ...prev,
-        [selectedUserId]: updatedSettings
-      }));
-
-      // Update settings through the hook
-      updateSettings(updatedSettings, selectedUserId);
-
-      showNotification('Button order saved successfully!', 'success');
-    } catch (error) {
-      console.error('Error saving button order:', error);
-      showNotification('Failed to save button order. Please try again.', 'error');
-    }
-  };
-
-  // Update the handleUserSelect function to also load button order
+  // Update the user selection handler
   const handleUserSelect = async (e) => {
     const newUserId = e.target.value;
     setSelectedUserId(newUserId);
     
     if (newUserId) {
       try {
+        // Fetch settings from MongoDB
         const response = await fetch(`${API_BASE_URL}/settings/${newUserId}`, {
           method: 'GET',
           headers: {
@@ -772,39 +680,34 @@ export default function AdminPage({ initialSettings }) {
           // Update tempSettings with MongoDB data
           setTempSettings(prev => ({
             ...prev,
-            [newUserId]: {
-              times_set_random: userSettings.times_set_random || 1,
-              delay_set_random: userSettings.delay_set_random || 3,
-              times_set_calibrate: userSettings.times_set_calibrate || 1,
-              run_every_of_random: userSettings.run_every_of_random || 1,
-              buttons_order: userSettings.buttons_order || "",
-              image_path: userSettings.image_path || "/asfgrebvxcv",
-              updateImage: userSettings.updateImage || "image.jpg",
-              set_timeRandomImage: userSettings.set_timeRandomImage || 1,
-              every_set: userSettings.every_set || 2,
-              zoom_percentage: userSettings.zoom_percentage || 100,
-              position_zoom: userSettings.position_zoom || [3, 4],
-              state_isProcessOn: userSettings.state_isProcessOn ?? true,
-              currentlyPage: userSettings.currentlyPage || "str",
-              freeState: userSettings.freeState || 3
+            [selectedUserId]: {
+              times_set_random: data.times_set_random || 1,
+              delay_set_random: data.delay_set_random || 3,
+              times_set_calibrate: data.times_set_calibrate || 1,
+              run_every_of_random: data.run_every_of_random || 1,
+              buttons_order: data.buttons_order || "",
+              image_path: data.image_path || "/asfgrebvxcv",
+              updateImage: data.updateImage || "image.jpg",
+              set_timeRandomImage: data.set_timeRandomImage || 1,
+              every_set: data.every_set || 2,
+              zoom_percentage: data.zoom_percentage || 100,
+              position_zoom: data.position_zoom || [3, 4],
+              state_isProcessOn: data.state_isProcessOn ?? true,
+              currentlyPage: data.currentlyPage || "str",
+              freeState: data.freeState || 3
             }
           }));
-
-          // Set button order from settings
-          setButtonOrder(userSettings.buttons_order || "");
 
           // Update settings through the hook
           updateSettings(userSettings, newUserId);
           
-          showNotification('Settings loaded successfully!', 'success');
+          setSuccessMessage('Settings loaded successfully!');
+          setTimeout(() => setSuccessMessage(''), 3000);
         } else {
-          // Initialize with defaults
+          // If no settings found, initialize with defaults
           const defaultSettings = {
-            times_set_random: 1,
-            delay_set_random: 3,
-            times_set_calibrate: 1,
-            run_every_of_random: 1,
-            buttons_order: "",
+            times: 1,
+            delay: 3,
             image_path: "/asfgrebvxcv",
             updateImage: "image.jpg",
             set_timeRandomImage: 1,
@@ -813,7 +716,9 @@ export default function AdminPage({ initialSettings }) {
             position_zoom: [3, 4],
             state_isProcessOn: true,
             currentlyPage: "str",
-            freeState: 3
+            freeState: 3,
+            calibrateTime: 1,
+            runSetRandomEvery: 1
           };
           
           setTempSettings(prev => ({
@@ -821,24 +726,21 @@ export default function AdminPage({ initialSettings }) {
             [newUserId]: defaultSettings
           }));
           
-          setButtonOrder("");
-          
           // Update settings through the hook with default values
           updateSettings(defaultSettings, newUserId);
           
-          showNotification('Using default settings for new user', 'success');
+          setSuccessMessage('Using default settings for new user');
+          setTimeout(() => setSuccessMessage(''), 3000);
         }
       } catch (error) {
         console.error('Error loading user settings:', error);
-        showNotification('Failed to load user settings. Using defaults.', 'error');
+        setErrorMessage('Failed to load user settings. Using defaults.');
+        setTimeout(() => setErrorMessage(''), 3000);
         
         // Initialize with defaults on error
         const defaultSettings = {
-          times_set_random: 1,
-          delay_set_random: 3,
-          times_set_calibrate: 1,
-          run_every_of_random: 1,
-          buttons_order: "",
+          times: 1,
+          delay: 3,
           image_path: "/asfgrebvxcv",
           updateImage: "image.jpg",
           set_timeRandomImage: 1,
@@ -847,15 +749,15 @@ export default function AdminPage({ initialSettings }) {
           position_zoom: [3, 4],
           state_isProcessOn: true,
           currentlyPage: "str",
-          freeState: 3
+          freeState: 3,
+          calibrateTime: 1,
+          runSetRandomEvery: 1
         };
         
         setTempSettings(prev => ({
           ...prev,
           [newUserId]: defaultSettings
         }));
-        
-        setButtonOrder("");
         
         // Update settings through the hook with default values
         updateSettings(defaultSettings, newUserId);
@@ -866,8 +768,10 @@ export default function AdminPage({ initialSettings }) {
         ...prev,
         [newUserId]: null
       }));
-      setButtonOrder("");
     }
+
+    // Clear any existing messages
+    setErrorMessage('');
   };
 
   if (loading) {
@@ -1041,7 +945,7 @@ export default function AdminPage({ initialSettings }) {
                     <input
                       type="number"
                       name="time"
-                      value={tempSettings[selectedUserId]?.times_set_random ?? 1}
+                      value={tempSettings[selectedUserId]?.times ?? 1}
                       onChange={(e) => {
                         const newValue = parseInt(e.target.value, 10);
                         if (!isNaN(newValue) && newValue > 0) {
@@ -1049,7 +953,7 @@ export default function AdminPage({ initialSettings }) {
                             ...prev,
                             [selectedUserId]: {
                               ...prev[selectedUserId],
-                              times_set_random: newValue
+                              times: newValue
                             }
                           }));
                         }
@@ -1063,13 +967,13 @@ export default function AdminPage({ initialSettings }) {
                       <button 
                         className={styles.numberControl}
                         onClick={() => {
-                          const currentValue = tempSettings[selectedUserId]?.times_set_random ?? 1;
+                          const currentValue = tempSettings[selectedUserId]?.times ?? 1;
                           if (currentValue < 100) {
                             setTempSettings(prev => ({
                               ...prev,
                               [selectedUserId]: {
                                 ...prev[selectedUserId],
-                                times_set_random: currentValue + 1
+                                times: currentValue + 1
                               }
                             }));
                           }
@@ -1080,13 +984,13 @@ export default function AdminPage({ initialSettings }) {
                       <button 
                         className={styles.numberControl}
                         onClick={() => {
-                          const currentValue = tempSettings[selectedUserId]?.times_set_random ?? 1;
+                          const currentValue = tempSettings[selectedUserId]?.times ?? 1;
                           if (currentValue > 1) {
                             setTempSettings(prev => ({
                               ...prev,
                               [selectedUserId]: {
                                 ...prev[selectedUserId],
-                                times_set_random: currentValue - 1
+                                times: currentValue - 1
                               }
                             }));
                           }
@@ -1103,7 +1007,7 @@ export default function AdminPage({ initialSettings }) {
                     <input
                       type="number"
                       name="delay"
-                      value={tempSettings[selectedUserId]?.delay_set_random ?? 3}
+                      value={tempSettings[selectedUserId]?.delay ?? 3}
                       onChange={(e) => {
                         const newValue = parseInt(e.target.value, 10);
                         if (!isNaN(newValue) && newValue > 0) {
@@ -1111,7 +1015,7 @@ export default function AdminPage({ initialSettings }) {
                             ...prev,
                             [selectedUserId]: {
                               ...prev[selectedUserId],
-                              delay_set_random: newValue
+                              delay: newValue
                             }
                           }));
                         }
@@ -1125,13 +1029,13 @@ export default function AdminPage({ initialSettings }) {
                       <button 
                         className={styles.numberControl}
                         onClick={() => {
-                          const currentValue = tempSettings[selectedUserId]?.delay_set_random ?? 3;
+                          const currentValue = tempSettings[selectedUserId]?.delay ?? 3;
                           if (currentValue < 60) {
                             setTempSettings(prev => ({
                               ...prev,
                               [selectedUserId]: {
                                 ...prev[selectedUserId],
-                                delay_set_random: currentValue + 1
+                                delay: currentValue + 1
                               }
                             }));
                           }
@@ -1142,13 +1046,13 @@ export default function AdminPage({ initialSettings }) {
                       <button 
                         className={styles.numberControl}
                         onClick={() => {
-                          const currentValue = tempSettings[selectedUserId]?.delay_set_random ?? 3;
+                          const currentValue = tempSettings[selectedUserId]?.delay ?? 3;
                           if (currentValue > 1) {
                             setTempSettings(prev => ({
                               ...prev,
                               [selectedUserId]: {
                                 ...prev[selectedUserId],
-                                delay_set_random: currentValue - 1
+                                delay: currentValue - 1
                               }
                             }));
                           }
@@ -1174,19 +1078,7 @@ export default function AdminPage({ initialSettings }) {
             {/* Required Button Click Order Section */}
             <div className={styles.div2}>
               <h2>Required Button Click Order</h2>
-              <DragDropPriorityList 
-                onOrderChange={(newOrder) => setButtonOrder(newOrder)}
-                initialOrder={buttonOrder}
-              />
-              <div className={styles.settingItem}>
-                <button
-                  onClick={handleSaveButtonOrder}
-                  className={styles.saveButton}
-                  disabled={!selectedUserId}
-                >
-                  Save Button Order
-                </button>
-              </div>
+              <DragDropPriorityList />
             </div>
 
             {/* Set Calibrate Section */}
@@ -1199,7 +1091,7 @@ export default function AdminPage({ initialSettings }) {
                     <input
                       type="number"
                       name="calibrateTime"
-                      value={tempSettings[selectedUserId]?.times_set_calibrate ?? 1}
+                      value={tempSettings[selectedUserId]?.calibrateTime ?? 1}
                       onChange={(e) => {
                         const newValue = parseInt(e.target.value, 10);
                         if (!isNaN(newValue) && newValue > 0) {
@@ -1207,7 +1099,7 @@ export default function AdminPage({ initialSettings }) {
                             ...prev,
                             [selectedUserId]: {
                               ...prev[selectedUserId],
-                              times_set_calibrate: newValue
+                              calibrateTime: newValue
                             }
                           }));
                         }
@@ -1221,13 +1113,13 @@ export default function AdminPage({ initialSettings }) {
                       <button 
                         className={styles.numberControl}
                         onClick={() => {
-                          const currentValue = tempSettings[selectedUserId]?.times_set_calibrate ?? 1;
+                          const currentValue = tempSettings[selectedUserId]?.calibrateTime ?? 1;
                           if (currentValue < 100) {
                             setTempSettings(prev => ({
                               ...prev,
                               [selectedUserId]: {
                                 ...prev[selectedUserId],
-                                times_set_calibrate: currentValue + 1
+                                calibrateTime: currentValue + 1
                               }
                             }));
                           }
@@ -1238,13 +1130,13 @@ export default function AdminPage({ initialSettings }) {
                       <button 
                         className={styles.numberControl}
                         onClick={() => {
-                          const currentValue = tempSettings[selectedUserId]?.times_set_calibrate ?? 1;
+                          const currentValue = tempSettings[selectedUserId]?.calibrateTime ?? 1;
                           if (currentValue > 1) {
                             setTempSettings(prev => ({
                               ...prev,
                               [selectedUserId]: {
                                 ...prev[selectedUserId],
-                                times_set_calibrate: currentValue - 1
+                                calibrateTime: currentValue - 1
                               }
                             }));
                           }
@@ -1255,13 +1147,13 @@ export default function AdminPage({ initialSettings }) {
                     </div>
                   </div>
                 </div>
-                <div className={`${styles.settingItem} ${styles.fadeInOut} ${tempSettings[selectedUserId]?.times_set_calibrate > 1 ? styles.show : styles.hide}`}>
+                <div className={`${styles.settingItem} ${styles.fadeInOut} ${tempSettings[selectedUserId]?.calibrateTime > 1 ? styles.show : styles.hide}`}>
                   <label>Run Set Random Every:</label>
                   <div className={styles.numberInputContainer}>
                     <input
                       type="number"
                       name="runSetRandomEvery"
-                      value={tempSettings[selectedUserId]?.run_every_of_random ?? 1}
+                      value={tempSettings[selectedUserId]?.runSetRandomEvery ?? 1}
                       onChange={(e) => {
                         const newValue = parseInt(e.target.value, 10);
                         if (!isNaN(newValue) && newValue > 0) {
@@ -1269,7 +1161,7 @@ export default function AdminPage({ initialSettings }) {
                             ...prev,
                             [selectedUserId]: {
                               ...prev[selectedUserId],
-                              run_every_of_random: newValue
+                              runSetRandomEvery: newValue
                             }
                           }));
                         }
@@ -1283,13 +1175,13 @@ export default function AdminPage({ initialSettings }) {
                       <button 
                         className={styles.numberControl}
                         onClick={() => {
-                          const currentValue = tempSettings[selectedUserId]?.run_every_of_random ?? 1;
+                          const currentValue = tempSettings[selectedUserId]?.runSetRandomEvery ?? 1;
                           if (currentValue < 100) {
                             setTempSettings(prev => ({
                               ...prev,
                               [selectedUserId]: {
                                 ...prev[selectedUserId],
-                                run_every_of_random: currentValue + 1
+                                runSetRandomEvery: currentValue + 1
                               }
                             }));
                           }
@@ -1300,13 +1192,13 @@ export default function AdminPage({ initialSettings }) {
                       <button 
                         className={styles.numberControl}
                         onClick={() => {
-                          const currentValue = tempSettings[selectedUserId]?.run_every_of_random ?? 1;
+                          const currentValue = tempSettings[selectedUserId]?.runSetRandomEvery ?? 1;
                           if (currentValue > 1) {
                             setTempSettings(prev => ({
                               ...prev,
                               [selectedUserId]: {
                                 ...prev[selectedUserId],
-                                run_every_of_random: currentValue - 1
+                                runSetRandomEvery: currentValue - 1
                               }
                             }));
                           }
@@ -1319,11 +1211,11 @@ export default function AdminPage({ initialSettings }) {
                 </div>
                 <div className={styles.settingItem}>
                   <button
-                    onClick={handleSaveCalibrateSettings}
+                    onClick={handleSaveSettings}
                     className={styles.saveButton}
                     disabled={!selectedUserId}
                   >
-                    Save Calibrate Settings
+                    Save Settings
                   </button>
                 </div>
               </div>
