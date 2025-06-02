@@ -347,103 +347,103 @@ export default function AdminPage({ initialSettings }) {
     }
   }, [settings, selectedUserId]);
 
-  const handleTimeChange = async (event) => {
-    if (!selectedUserId) {
-      setErrorMessage('Please select a user ID first!');
-      setTimeout(() => setErrorMessage(''), 3000);
-      return;
-    }
+  // const handleTimeChange = async (event) => {
+  //   if (!selectedUserId) {
+  //     setErrorMessage('Please select a user ID first!');
+  //     setTimeout(() => setErrorMessage(''), 3000);
+  //     return;
+  //   }
 
-    const times = parseInt(event.target.value, 10);
-    if (!isNaN(times) && times > 0) {
-      // Update local state first
-      const updatedSettings = {
-        ...tempSettings[selectedUserId],
-        times: times
-      };
+  //   const times = parseInt(event.target.value, 10);
+  //   if (!isNaN(times) && times > 0) {
+  //     // Update local state first
+  //     const updatedSettings = {
+  //       ...tempSettings[selectedUserId],
+  //       times: times
+  //     };
       
-      setTempSettings(prev => ({
-        ...prev,
-        [selectedUserId]: updatedSettings
-      }));
+  //     setTempSettings(prev => ({
+  //       ...prev,
+  //       [selectedUserId]: updatedSettings
+  //     }));
 
-      // Then save to database
-      try {
-        const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-          },
-          body: JSON.stringify(updatedSettings)
-        });
+  //     // Then save to database
+  //     try {
+  //       const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
+  //         method: 'POST',
+  //         headers: {
+  //           'Content-Type': 'application/json',
+  //           'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+  //         },
+  //         body: JSON.stringify(updatedSettings)
+  //       });
 
-        if (!response.ok) {
-          throw new Error('Failed to save settings');
-        }
+  //       if (!response.ok) {
+  //         throw new Error('Failed to save settings');
+  //       }
 
-        // Update settings through the hook
-        updateSettings(updatedSettings, selectedUserId);
+  //       // Update settings through the hook
+  //       updateSettings(updatedSettings, selectedUserId);
 
-        console.log(`Updated times to ${times} for user ${selectedUserId}`);
-        setSuccessMessage('Times updated successfully!');
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } catch (error) {
-        console.error('Error saving times:', error);
-        setErrorMessage('Failed to save times. Please try again.');
-        setTimeout(() => setErrorMessage(''), 3000);
-      }
-    }
-  };
+  //       console.log(`Updated times to ${times} for user ${selectedUserId}`);
+  //       setSuccessMessage('Times updated successfully!');
+  //       setTimeout(() => setSuccessMessage(''), 3000);
+  //     } catch (error) {
+  //       console.error('Error saving times:', error);
+  //       setErrorMessage('Failed to save times. Please try again.');
+  //       setTimeout(() => setErrorMessage(''), 3000);
+  //     }
+  //   }
+  // };
 
-  const handleDelayChange = async (event) => {
-    if (!selectedUserId) {
-      setErrorMessage('Please select a user ID first!');
-      setTimeout(() => setErrorMessage(''), 3000);
-      return;
-    }
+  // const handleDelayChange = async (event) => {
+  //   if (!selectedUserId) {
+  //     setErrorMessage('Please select a user ID first!');
+  //     setTimeout(() => setErrorMessage(''), 3000);
+  //     return;
+  //   }
 
-    const delay = parseInt(event.target.value, 10);
-    if (!isNaN(delay) && delay > 0) {
-      // Update local state first
-      const updatedSettings = {
-        ...tempSettings[selectedUserId],
-        delay: delay
-      };
+  //   const delay = parseInt(event.target.value, 10);
+  //   if (!isNaN(delay) && delay > 0) {
+  //     // Update local state first
+  //     const updatedSettings = {
+  //       ...tempSettings[selectedUserId],
+  //       delay: delay
+  //     };
       
-      setTempSettings(prev => ({
-        ...prev,
-        [selectedUserId]: updatedSettings
-      }));
+  //     setTempSettings(prev => ({
+  //       ...prev,
+  //       [selectedUserId]: updatedSettings
+  //     }));
 
-      // Then save to database
-      try {
-        const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-          },
-          body: JSON.stringify(updatedSettings)
-        });
+  //     // Then save to database
+  //     try {
+  //       const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
+  //         method: 'POST',
+  //         headers: {
+  //           'Content-Type': 'application/json',
+  //           'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+  //         },
+  //         body: JSON.stringify(updatedSettings)
+  //       });
 
-        if (!response.ok) {
-          throw new Error('Failed to save settings');
-        }
+  //       if (!response.ok) {
+  //         throw new Error('Failed to save settings');
+  //       }
 
-        // Update settings through the hook
-        updateSettings(updatedSettings, selectedUserId);
+  //       // Update settings through the hook
+  //       updateSettings(updatedSettings, selectedUserId);
 
-        console.log(`Updated delay to ${delay} for user ${selectedUserId}`);
-        setSuccessMessage('Delay updated successfully!');
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } catch (error) {
-        console.error('Error saving delay:', error);
-        setErrorMessage('Failed to save delay. Please try again.');
-        setTimeout(() => setErrorMessage(''), 3000);
-      }
-    }
-  };
+  //       console.log(`Updated delay to ${delay} for user ${selectedUserId}`);
+  //       setSuccessMessage('Delay updated successfully!');
+  //       setTimeout(() => setSuccessMessage(''), 3000);
+  //     } catch (error) {
+  //       console.error('Error saving delay:', error);
+  //       setErrorMessage('Failed to save delay. Please try again.');
+  //       setTimeout(() => setErrorMessage(''), 3000);
+  //     }
+  //   }
+  // };
 
   const handleSaveSettings = async () => {
     if (!selectedUserId || selectedUserId === 'default') {
@@ -1001,8 +1001,8 @@ export default function AdminPage({ initialSettings }) {
         {selectedUserId && (
           <div className={styles.settingsGrid}>
             {/* Capture Settings Section */}
-            <div className={styles.settingsSection}>
-              <h2>Capture Settings</h2>
+            <div className={styles.div1}>
+              <h2>Capture Settings on Set Random Action</h2>
               <div className={styles.settingsSubScroll}>
                 <div className={styles.settingItem}>
                   <label>Time(s):</label>
@@ -1141,14 +1141,154 @@ export default function AdminPage({ initialSettings }) {
             </div>
 
             {/* Required Button Click Order Section */}
-            <div className={styles.buttonOrderSection}>
+            <div className={styles.div2}>
               <h2>Required Button Click Order</h2>
               <DragDropPriorityList />
             </div>
 
+            {/* Set Calibrate Section */}
+            <div className={styles.div3}>
+              <h2>Set Calibrate</h2>
+              <div className={styles.settingsSubScroll}>
+                <div className={styles.settingItem}>
+                  <label>Time(s):</label>
+                  <div className={styles.numberInputContainer}>
+                    <input
+                      type="number"
+                      name="calibrateTime"
+                      value={tempSettings[selectedUserId]?.calibrateTime ?? 1}
+                      onChange={(e) => {
+                        const newValue = parseInt(e.target.value, 10);
+                        if (!isNaN(newValue) && newValue > 0) {
+                          setTempSettings(prev => ({
+                            ...prev,
+                            [selectedUserId]: {
+                              ...prev[selectedUserId],
+                              calibrateTime: newValue
+                            }
+                          }));
+                        }
+                      }}
+                      min="1"
+                      max="100"
+                      className={styles.numberInput}
+                      data-control="calibrateTime"
+                    />
+                    <div className={styles.numberControls}>
+                      <button 
+                        className={styles.numberControl}
+                        onClick={() => {
+                          const currentValue = tempSettings[selectedUserId]?.calibrateTime ?? 1;
+                          if (currentValue < 100) {
+                            setTempSettings(prev => ({
+                              ...prev,
+                              [selectedUserId]: {
+                                ...prev[selectedUserId],
+                                calibrateTime: currentValue + 1
+                              }
+                            }));
+                          }
+                        }}
+                      >
+                        ▲
+                      </button>
+                      <button 
+                        className={styles.numberControl}
+                        onClick={() => {
+                          const currentValue = tempSettings[selectedUserId]?.calibrateTime ?? 1;
+                          if (currentValue > 1) {
+                            setTempSettings(prev => ({
+                              ...prev,
+                              [selectedUserId]: {
+                                ...prev[selectedUserId],
+                                calibrateTime: currentValue - 1
+                              }
+                            }));
+                          }
+                        }}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className={`${styles.settingItem} ${styles.fadeInOut} ${tempSettings[selectedUserId]?.calibrateTime > 1 ? styles.show : styles.hide}`}>
+                  <label>Run Set Random Every:</label>
+                  <div className={styles.numberInputContainer}>
+                    <input
+                      type="number"
+                      name="runSetRandomEvery"
+                      value={tempSettings[selectedUserId]?.runSetRandomEvery ?? 1}
+                      onChange={(e) => {
+                        const newValue = parseInt(e.target.value, 10);
+                        if (!isNaN(newValue) && newValue > 0) {
+                          setTempSettings(prev => ({
+                            ...prev,
+                            [selectedUserId]: {
+                              ...prev[selectedUserId],
+                              runSetRandomEvery: newValue
+                            }
+                          }));
+                        }
+                      }}
+                      min="1"
+                      max="100"
+                      className={styles.numberInput}
+                      data-control="runSetRandomEvery"
+                    />
+                    <div className={styles.numberControls}>
+                      <button 
+                        className={styles.numberControl}
+                        onClick={() => {
+                          const currentValue = tempSettings[selectedUserId]?.runSetRandomEvery ?? 1;
+                          if (currentValue < 100) {
+                            setTempSettings(prev => ({
+                              ...prev,
+                              [selectedUserId]: {
+                                ...prev[selectedUserId],
+                                runSetRandomEvery: currentValue + 1
+                              }
+                            }));
+                          }
+                        }}
+                      >
+                        ▲
+                      </button>
+                      <button 
+                        className={styles.numberControl}
+                        onClick={() => {
+                          const currentValue = tempSettings[selectedUserId]?.runSetRandomEvery ?? 1;
+                          if (currentValue > 1) {
+                            setTempSettings(prev => ({
+                              ...prev,
+                              [selectedUserId]: {
+                                ...prev[selectedUserId],
+                                runSetRandomEvery: currentValue - 1
+                              }
+                            }));
+                          }
+                        }}
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className={styles.settingItem}>
+                  <button
+                    onClick={handleSaveSettings}
+                    className={styles.saveButton}
+                    disabled={!selectedUserId}
+                  >
+                    Save Settings
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Image Settings Section */}
-            <div className={styles.settingsSection}>
-              <h2>Image Settings</h2>
+            <div className={styles.div4}>
+              <h2>Image Background Settings</h2>
               <div className={styles.settingItem}>
                 <label>Upload Image:</label>
                 <input
@@ -1169,8 +1309,8 @@ export default function AdminPage({ initialSettings }) {
             </div>
 
             {/* Zoom Control Section */}
-            <div className={styles.settingsSection}>
-              <h2>Zoom Control</h2>
+            <div className={styles.div5}>
+              <h2>Zoom Control Respond</h2>
               <div className={styles.settingItem}>
                 <label>Zoom Level:</label>
                 <div className={styles.zoomControls}>

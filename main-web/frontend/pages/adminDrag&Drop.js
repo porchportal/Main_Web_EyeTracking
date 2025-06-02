@@ -4,11 +4,10 @@ import styles from '../styles/Consent.module.css';
 
 export default function DragDropPriorityList() {
   const [items, setItems] = useState([
-    { id: 1, name: 'Task 1', priority: 1, description: 'High priority task', hasPriority: true },
-    { id: 2, name: 'Task 2', priority: 2, description: 'Medium priority task', hasPriority: true },
-    { id: 3, name: 'Task 3', priority: null, description: 'Low priority task', hasPriority: false },
-    { id: 4, name: 'Task 4', priority: 3, description: 'Another task', hasPriority: true },
-    { id: 5, name: 'Task 5', priority: null, description: 'Final task', hasPriority: false }
+    { id: 1, name: 'Show preview', priority: 1, description: 'High priority task', hasPriority: true },
+    { id: 2, name: 'Set Calibrate', priority: 2, description: 'Medium priority task', hasPriority: true },
+    { id: 3, name: 'Set Random', priority: null, description: 'Low priority task', hasPriority: false },
+    { id: 4, name: 'Random Dot', priority: 3, description: 'Another task', hasPriority: true },
   ]);
   
   const [draggedItem, setDraggedItem] = useState(null);
