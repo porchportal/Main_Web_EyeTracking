@@ -132,69 +132,69 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
   const lastSettingsUpdate = useRef(new Map());
 
   // Memoize button configurations
-  const buttons = useMemo(() => [
-    { 
-      text: "Set Random", 
-      abbreviatedText: "SRandom", 
-      onClick: handleSetRandom,
-      disabled: isCapturing
-    },
-    { 
-      text: "Random Dot", 
-      abbreviatedText: "Random", 
-      onClick: handleRandomDot,
-      disabled: isCapturing 
-    },
-    { 
-      text: "Set Calibrate", 
-      abbreviatedText: "Calibrate", 
-      onClick: handleSetCalibrate,
-      disabled: isCapturing 
-    },
-    { 
-      text: "Clear All", 
-      abbreviatedText: "Clear", 
-      onClick: handleClearAll
-    },
-    { divider: true },
-    { 
-      text: "Draw Head pose", 
-      abbreviatedText: "Head pose", 
-      onClick: handleToggleHeadPose,
-      active: showHeadPose
-    },
-    { 
-      text: "Show Bounding Box", 
-      abbreviatedText: "☐ Box", 
-      onClick: handleToggleBoundingBox,
-      active: showBoundingBox
-    },
-    { 
-      text: isCameraActive ? "Stop Camera" : "Show Preview", 
-      abbreviatedText: isCameraActive ? "Stop" : "Preview", 
-      onClick: () => {
-        if (!isCameraActive && !triggerCameraAccess(true)) {
-          setShowPermissionPopup(true);
-        } else {
-          handleToggleCamera();
-        }
-      },
-      active: isCameraActive,
-      disabled: isCapturing
-    },
-    { 
-      text: "😷 Show Mask", 
-      abbreviatedText: "😷 Mask", 
-      onClick: handleToggleMask,
-      active: showMask
-    },
-    { 
-      text: "Parameters", 
-      abbreviatedText: "Values", 
-      onClick: handleToggleParameters,
-      active: showParameters
-    }
-  ], [isCapturing, showHeadPose, showBoundingBox, isCameraActive, showMask, showParameters]);
+  // const buttons = useMemo(() => [
+  //   { 
+  //     text: "Set Random", 
+  //     abbreviatedText: "SRandom", 
+  //     onClick: handleSetRandom,
+  //     disabled: isCapturing
+  //   },
+  //   { 
+  //     text: "Random Dot", 
+  //     abbreviatedText: "Random", 
+  //     onClick: handleRandomDot,
+  //     disabled: isCapturing 
+  //   },
+  //   { 
+  //     text: "Set Calibrate", 
+  //     abbreviatedText: "Calibrate", 
+  //     onClick: handleSetCalibrate,
+  //     disabled: isCapturing 
+  //   },
+  //   { 
+  //     text: "Clear All", 
+  //     abbreviatedText: "Clear", 
+  //     onClick: handleClearAll
+  //   },
+  //   { divider: true },
+  //   { 
+  //     text: "Draw Head pose", 
+  //     abbreviatedText: "Head pose", 
+  //     onClick: handleToggleHeadPose,
+  //     active: showHeadPose
+  //   },
+  //   { 
+  //     text: "Show Bounding Box", 
+  //     abbreviatedText: "☐ Box", 
+  //     onClick: handleToggleBoundingBox,
+  //     active: showBoundingBox
+  //   },
+  //   { 
+  //     text: isCameraActive ? "Stop Camera" : "Show Preview", 
+  //     abbreviatedText: isCameraActive ? "Stop" : "Preview", 
+  //     onClick: () => {
+  //       if (!isCameraActive && !triggerCameraAccess(true)) {
+  //         setShowPermissionPopup(true);
+  //       } else {
+  //         handleToggleCamera();
+  //       }
+  //     },
+  //     active: isCameraActive,
+  //     disabled: isCapturing
+  //   },
+  //   { 
+  //     text: "😷 Show Mask", 
+  //     abbreviatedText: "😷 Mask", 
+  //     onClick: handleToggleMask,
+  //     active: showMask
+  //   },
+  //   { 
+  //     text: "Parameters", 
+  //     abbreviatedText: "Values", 
+  //     onClick: handleToggleParameters,
+  //     active: showParameters
+  //   }
+  // ], [isCapturing, showHeadPose, showBoundingBox, isCameraActive, showMask, showParameters]);
 
   // Optimize settings updates
   useEffect(() => {
@@ -203,8 +203,8 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       const cachedSettings = settingsCache.current.get(currentUserId);
       
       if (!isEqual(cachedSettings, userSettings)) {
-        setRandomTimes(Number(userSettings.times) || 1);
-        setDelaySeconds(Number(userSettings.delay) || 3);
+        setRandomTimes(Number(userSettings.times_set_random) || 1);
+        setDelaySeconds(Number(userSettings.delay_set_random) || 3);
         settingsCache.current.set(currentUserId, userSettings);
         lastSettingsUpdate.current.set(currentUserId, Date.now());
       }
@@ -220,8 +220,8 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         // Update settings for new user
         if (settings && settings[newUserId]) {
           const userSettings = settings[newUserId];
-          setRandomTimes(Number(userSettings.times) || 1);
-          setDelaySeconds(Number(userSettings.delay) || 3);
+          setRandomTimes(Number(userSettings.times_set_random) || 1);
+          setDelaySeconds(Number(userSettings.delay_set_random) || 3);
         }
       }
     };
@@ -235,14 +235,14 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
   useEffect(() => {
     const handleSettingsUpdate = (event) => {
       if (event.detail && event.detail.type === 'captureSettings') {
-        const { userId, times, delay } = event.detail;
+        const { userId, times_set_random, delay_set_random } = event.detail;
         if (userId === currentUserId) {
-          if (times !== undefined) {
-            const newTimes = Number(times) || 1;
+          if (times_set_random !== undefined) {
+            const newTimes = Number(times_set_random) || 1;
             setRandomTimes(newTimes);
           }
-          if (delay !== undefined) {
-            const newDelay = Number(delay) || 3;
+          if (delay_set_random !== undefined) {
+            const newDelay = Number(delay_set_random) || 3;
             setDelaySeconds(newDelay);
           }
         }
@@ -1096,8 +1096,8 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     try {
       // Always get the latest settings from context for the current user
       const userSettings = settings && settings[currentUserId] ? settings[currentUserId] : {};
-      const times = Number(userSettings.times) || Number(randomTimes) || 1;
-      const delay = Number(userSettings.delay) || Number(delaySeconds) || 3;
+      const times = Number(userSettings.times_set_random) || Number(randomTimes) || 1;
+      const delay = Number(userSettings.delay_set_random) || Number(delaySeconds) || 3;
 
       // Log current settings before starting
       console.log('Starting Set Random with settings:', {

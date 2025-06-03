@@ -40,7 +40,7 @@ const TopBar = ({
   const { settings, updateSettings } = useAdminSettings();
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentSettings, setCurrentSettings] = useState({ times: 1, delay: 3 });
+  const [currentSettings, setCurrentSettings] = useState({ times_set_random: 1, delay_set_random: 3 });
   const isUpdatingRef = useRef(false);
 
   // Memoized function to fetch settings
@@ -62,7 +62,7 @@ const TopBar = ({
       }
 
       const userSettings = await response.json();
-      if (userSettings && (userSettings.times || userSettings.delay)) {
+      if (userSettings && (userSettings.times_set_random || userSettings.delay_set_random)) {
         setCurrentSettings(userSettings);
         if (updateSettings) {
           await updateSettings(userSettings, userId);
@@ -145,13 +145,13 @@ const TopBar = ({
   useEffect(() => {
     const handleSettingsUpdate = (event) => {
       if (event.detail?.type === 'captureSettings') {
-        const { userId, times, delay } = event.detail;
+        const { userId, times_set_random, delay_set_random } = event.detail;
         
         // Only update if values have actually changed
-        if (times !== currentSettings.times || delay !== currentSettings.delay) {
+        if (times_set_random !== currentSettings.times_set_random || delay_set_random !== currentSettings.delay_set_random) {
           const newSettings = {
-            times: Number(times) || currentSettings.times,
-            delay: Number(delay) || currentSettings.delay
+            times_set_random: Number(times_set_random) || currentSettings.times_set_random,
+            delay_set_random: Number(delay_set_random) || currentSettings.delay_set_random
           };
           debouncedSaveSettings(userId, newSettings);
         }
@@ -196,17 +196,17 @@ const TopBar = ({
         </div>
 
         <div className="controls-container">
-          <div className="control-group" key={`times-${currentSettings.times}-${Date.now()}`}>
+          <div className="control-group" key={`times-${currentSettings.times_set_random}-${Date.now()}`}>
             <span className="control-label">Time(s):</span>
             <div className="control-input">
-              <span className="control-input-field">{currentSettings.times}</span>
+              <span className="control-input-field">{currentSettings.times_set_random}</span>
             </div>
           </div>
           
-          <div className="control-group" key={`delay-${currentSettings.delay}-${Date.now()}`}>
+          <div className="control-group" key={`delay-${currentSettings.delay_set_random}-${Date.now()}`}>
             <span className="control-label">Delay(s):</span>
             <div className="control-input">
-              <span className="control-input-field">{currentSettings.delay}</span>
+              <span className="control-input-field">{currentSettings.delay_set_random}</span>
             </div>
           </div>
         </div>

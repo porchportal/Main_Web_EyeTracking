@@ -1472,7 +1472,7 @@ export default function CollectedDatasetPage() {
             }}
           >
             {/* Action buttons for camera control - moved outside conditional rendering */}
-            <div className="camera-action-buttons-container" style={{ 
+            {/* <div className="camera-action-buttons-container" style={{ 
               position: 'absolute',
               bottom: '20px',
               left: '50%',
@@ -1488,7 +1488,7 @@ export default function CollectedDatasetPage() {
                 isCompactMode={windowSize.width < 768}
                 onActionClick={handleActionButtonClick}
               />
-            </div>
+            </div> */}
 
             {!showCamera ? (
               <>
