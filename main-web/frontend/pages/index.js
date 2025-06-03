@@ -6,7 +6,8 @@ import { useEffect, useState } from 'react';
 import { useConsent } from '../components/consent/ConsentContext';
 import { isProfileComplete } from '../utils/consentManager';
 
-const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+// const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 export default function HomePage() {
   const router = useRouter();

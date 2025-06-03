@@ -14,7 +14,8 @@ services:
     env_file:
       - ./backend/.env.backend
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     networks:
       - app-network
 
@@ -44,6 +45,12 @@ services:
       - mongodb_data:/data/db
     environment:
       - MONGO_INITDB_DATABASE=eye_tracking
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
     networks:
       - app-network

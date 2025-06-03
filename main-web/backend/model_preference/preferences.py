@@ -19,7 +19,7 @@ class UserPreferences(BaseModel):
     last_active: Optional[datetime] = Field(None, description="When the user was last active")
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "user_id": "user_a1b2c3d4e5",
                 "consent_status": True,

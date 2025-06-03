@@ -25,6 +25,11 @@ const nextConfig = {
       },
     ];
   },
+  env: {
+    NEXT_PUBLIC_BACKEND_URL: 'http://localhost:8000',
+    NEXT_PUBLIC_API_URL: 'http://localhost:8000',
+    BACKEND_URL: 'http://localhost:8000',
+  },
   allowedDevOrigins: ['192.168.1.108'],
 };
 
