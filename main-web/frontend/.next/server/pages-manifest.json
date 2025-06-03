@@ -2,8 +2,7 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/api/admin/consent-data": "pages/api/admin/consent-data.js",
-  "/api/check-backend-connection": "pages/api/check-backend-connection.js",
   "/": "pages/index.js",
-  "/collected-dataset-customized": "pages/collected-dataset-customized.js"
+  "/api/check-backend-connection": "pages/api/check-backend-connection.js",
+  "/api/admin/consent-data": "pages/api/admin/consent-data.js"
 }
