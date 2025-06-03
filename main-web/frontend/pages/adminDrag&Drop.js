@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { GripVertical, Edit2, Save, X } from 'lucide-react';
 import styles from '../styles/Consent.module.css';
 
-export default function DragDropPriorityList() {
+export default function DragDropPriorityList({ onOrderChange }) {
   const [items, setItems] = useState([
     { id: 1, name: 'Show preview', priority: 1, description: 'High priority task', hasPriority: true },
     { id: 2, name: 'Set Calibrate', priority: 2, description: 'Medium priority task', hasPriority: true },
@@ -143,15 +143,19 @@ export default function DragDropPriorityList() {
       // Get the ordered items with their priorities
       const orderedItems = items
         .filter(item => item.hasPriority)
-        .sort((a, b) => a.priority - b.priority)
-        .map(item => ({
-          id: item.id,
-          name: item.name,
-          priority: item.priority
-        }));
+        .sort((a, b) => a.priority - b.priority);
 
-      // Here you would typically make an API call to save the order
-      // For now, we'll just show a success message
+      // Format the order string
+      const orderString = orderedItems
+        .map(item => `${item.name} (#${item.priority})`)
+        .join(' → ');
+
+      // Update the parent's state with the new order
+      if (onOrderChange) {
+        onOrderChange(orderString);
+      }
+
+      // Show success message
       setSaveStatus({
         show: true,
         message: 'Button order saved successfully!',
@@ -167,6 +171,7 @@ export default function DragDropPriorityList() {
         });
       }, 3000);
     } catch (error) {
+      console.error('Error saving button order:', error);
       setSaveStatus({
         show: true,
         message: 'Failed to save button order. Please try again.',

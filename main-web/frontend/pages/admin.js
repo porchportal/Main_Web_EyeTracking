@@ -329,6 +329,19 @@ export default function AdminPage({ initialSettings }) {
     }
   };
 
+  // Add this function to handle button order changes
+  const handleButtonOrderChange = (orderString) => {
+    if (selectedUserId) {
+      setTempSettings(prev => ({
+        ...prev,
+        [selectedUserId]: {
+          ...prev[selectedUserId],
+          buttons_order: orderString
+        }
+      }));
+    }
+  };
+
   const handleImageChange = async (event) => {
     if (event.target.files && event.target.files[0]) {
       const reader = new FileReader();
@@ -1080,7 +1093,7 @@ export default function AdminPage({ initialSettings }) {
             {/* Required Button Click Order Section */}
             <div className={styles.div2}>
               <h2>Required Button Click Order</h2>
-              <DragDropPriorityList />
+              <DragDropPriorityList onOrderChange={handleButtonOrderChange} />
             </div>
 
             {/* Set Calibrate Section */}
