@@ -41,8 +41,11 @@ async def get_admin_data(
         # If no data found, return default settings
         if data is None and type == 'settings':
             data = {
-                "times": 1,
-                "delay": 3,
+                "times_set_random": 1,
+                "delay_set_random": 3,
+                "times_set_calibrate": 1,
+                "run_every_of_random": 1,
+                "buttons_order": "",
                 "image_path": "/asfgrebvxcv",
                 "updateImage": "image.jpg",
                 "set_timeRandomImage": 1,

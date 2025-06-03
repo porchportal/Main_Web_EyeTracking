@@ -42,18 +42,6 @@
     "receivedAt": "2025-05-02T04:04:10.299Z"
   },
   {
-    "userId": "28cc331c-3fc6-41f9-be91-b6cdfe6bd7a4",
-    "status": true,
-    "timestamp": "2025-05-02T16:23:55.682Z",
-    "receivedAt": "2025-05-02T16:23:55.785Z"
-  },
-  {
-    "userId": "ac0870d1-5fbc-4874-aa83-db0b223682c3",
-    "status": true,
-    "timestamp": "2025-05-04T02:43:39.762Z",
-    "receivedAt": "2025-05-04T02:43:39.777Z"
-  },
-  {
     "userId": "12459815-5571-4885-ad36-e2e7e7839307",
     "status": true,
     "timestamp": "2025-05-05T02:18:40.408Z",
@@ -118,5 +106,17 @@
     "status": true,
     "timestamp": "2025-06-02T17:18:17.044Z",
     "receivedAt": "2025-06-02T17:18:17.050Z"
+  },
+  {
+    "userId": "e9b02de4-5659-41bb-8ad4-bfdbb121aa68",
+    "status": true,
+    "timestamp": "2025-06-03T07:46:42.679Z",
+    "receivedAt": "2025-06-03T07:46:42.693Z"
+  },
+  {
+    "userId": "049329ee-3184-44fc-a063-537bb8e8997e",
+    "status": true,
+    "timestamp": "2025-06-03T08:08:29.584Z",
+    "receivedAt": "2025-06-03T08:08:29.593Z"
   }
 ]
