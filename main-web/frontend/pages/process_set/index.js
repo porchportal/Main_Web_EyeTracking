@@ -94,8 +94,16 @@ export default function ProcessSet() {
         setIsProcessReady(result.needsProcessing);
         setProcessingStatus({
           captureCount: result.captureCount,
-          enhanceCount: result.enhanceCount
+          enhanceCount: result.enhanceCount,
+          filesToProcess: result.filesToProcess
         });
+        
+        // Show appropriate notification
+        if (result.needsProcessing) {
+          showNotification(`${result.filesToProcess} sets need processing`, 'info');
+        } else {
+          showNotification('All sets are processed', 'success');
+        }
       }
     } catch (error) {
       console.error('Error checking processing status:', error);
@@ -183,41 +191,22 @@ export default function ProcessSet() {
     showNotification('Processing started...', 'info');
     
     try {
-      // Get the last file number from enhance folder
-      const enhanceFiles = files.enhance || [];
-      const lastEnhanceNumber = enhanceFiles.length > 0 
-        ? Math.max(...enhanceFiles.map(file => {
-            const match = file.filename.match(/_(\d+)\./);
-            return match ? parseInt(match[1]) : 0;
-          }))
-        : 0;
-      
-      // Get all capture files that need processing
-      const captureFiles = files.capture || [];
-      const filesToProcess = captureFiles
-        .filter(file => {
-          const match = file.filename.match(/_(\d+)\./);
-          if (!match) return false;
-          const fileNumber = parseInt(match[1]);
-          return fileNumber > lastEnhanceNumber;
-        })
-        .sort((a, b) => {
-          const numA = parseInt(a.filename.match(/_(\d+)\./)[1]);
-          const numB = parseInt(b.filename.match(/_(\d+)\./)[1]);
-          return numA - numB;
-        });
-      
-      if (filesToProcess.length === 0) {
+      // Get the processing status
+      const result = await checkFilesNeedProcessing();
+      if (!result.success) {
+        throw new Error('Failed to get processing status');
+      }
+
+      if (!result.setsNeedingProcessing || result.setsNeedingProcessing.length === 0) {
         showNotification('No files need processing', 'info');
         setIsProcessing(false);
-        setProgressData(null);
         return;
       }
 
       // Initialize progress data
       setProgressData({
         currentSet: 0,
-        totalSets: filesToProcess.length,
+        totalSets: result.setsNeedingProcessing.length,
         processedSets: [],
         currentFile: '',
         progress: 0,
@@ -225,100 +214,57 @@ export default function ProcessSet() {
         message: 'Starting processing...'
       });
 
-      // Get set numbers to process
-      const set_numbers = filesToProcess.map(file => {
-        const match = file.filename.match(/_(\d+)\./);
-        return match ? parseInt(match[1]) : 0;
-      }).filter(num => num > 0);
+      // Send processing request to backend
+      const response = await fetch('/api/process-images', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          set_numbers: result.setsNeedingProcessing
+        }),
+      });
 
-      // Generate a unique user ID
-      const user_id = `user_${Date.now()}`;
+      if (!response.ok) {
+        throw new Error('Failed to start processing');
+      }
 
-      try {
-        // Send processing request to backend
-        const response = await fetch('/api/queue-processing', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            user_id,
-            set_numbers 
-          }),
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Processing failed');
+      }
+
+      // Update progress with results
+      const processedSets = data.results
+        .filter(r => r.status === 'success')
+        .map(r => r.setNumber);
+
+      setProgressData(prev => ({
+        ...prev,
+        processedSets,
+        progress: Math.round((processedSets.length / prev.totalSets) * 100),
+        status: 'completed',
+        message: `Processed ${data.processedCount} of ${data.totalSets} sets`
+      }));
+
+      // Show notifications for any errors
+      data.results
+        .filter(r => r.status === 'error')
+        .forEach(r => {
+          showNotification(r.message, 'error');
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to start processing');
-        }
-
-        // Start reading the stream
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || ''; // Keep the last incomplete line in the buffer
-
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            
-            try {
-              const data = JSON.parse(line);
-              console.log('Received processing update:', data);
-              
-              // Update progress data with the backend-provided progress
-              setProgressData(prev => {
-                if (!prev) return prev;
-                
-                const newProcessedSets = [...prev.processedSets];
-                if (data.status === 'processing' && !newProcessedSets.includes(data.currentSet)) {
-                  newProcessedSets.push(data.currentSet);
-                }
-                
-                return {
-                  ...prev,
-                  currentSet: data.currentSet || prev.currentSet,
-                  currentFile: data.currentFile || prev.currentFile,
-                  processedSets: newProcessedSets,
-                  progress: data.progress || Math.round((newProcessedSets.length / prev.totalSets) * 100),
-                  status: data.status || prev.status,
-                  message: data.message || prev.message
-                };
-              });
-
-              // Show notifications for important updates
-              if (data.status === 'warning') {
-                showNotification(data.message, 'warning');
-              } else if (data.status === 'error') {
-                showNotification(data.message, 'error');
-                setIsProcessing(false);
-                setProgressData(null);
-              } else if (data.status === 'completed') {
-                showNotification('Processing completed successfully', 'success');
-                setIsProcessing(false);
-                setProgressData(null);
-                // Refresh the files list after completion
-                await handleCheckFiles();
-              }
-            } catch (error) {
-              console.error('Error parsing update:', error);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error during processing:', error);
-        showNotification(error.message || 'Error during processing', 'error');
-        setIsProcessing(false);
-        setProgressData(null);
-      }
+      // Show completion notification
+      showNotification('Processing completed successfully', 'success');
+      
+      // Refresh the files list
+      await handleCheckFiles();
+      
     } catch (error) {
-      console.error('Error in processing loop:', error);
-      showNotification(`Error: ${error.message}`, 'error');
+      console.error('Error during processing:', error);
+      showNotification(error.message || 'Error during processing', 'error');
+    } finally {
       setIsProcessing(false);
       setProgressData(null);
     }

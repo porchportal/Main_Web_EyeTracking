@@ -21,7 +21,6 @@ export default async function handler(req, res) {
         fs.mkdirSync(capturePath, { recursive: true });
       }
       
-      // Create enhance directory if it doesn't exist
       if (!fs.existsSync(enhancePath)) {
         fs.mkdirSync(enhancePath, { recursive: true });
       }
@@ -32,11 +31,21 @@ export default async function handler(req, res) {
         const captureFiles = fs.existsSync(capturePath) 
           ? fs.readdirSync(capturePath)
               .filter(file => file.endsWith('.jpg') || file.endsWith('.csv'))
+              .sort((a, b) => {
+                const numA = parseInt(a.match(/_(\d+)\./)?.[1] || '0');
+                const numB = parseInt(b.match(/_(\d+)\./)?.[1] || '0');
+                return numA - numB;
+              })
           : [];
           
         const enhanceFiles = fs.existsSync(enhancePath)
           ? fs.readdirSync(enhancePath)
-              .filter(file => file.includes('_enhance_') && (file.endsWith('.jpg') || file.endsWith('.csv')))
+              .filter(file => (file.endsWith('.jpg') || file.endsWith('.csv')))
+              .sort((a, b) => {
+                const numA = parseInt(a.match(/_(\d+)\./)?.[1] || '0');
+                const numB = parseInt(b.match(/_(\d+)\./)?.[1] || '0');
+                return numA - numB;
+              })
           : [];
         
         return res.status(200).json({
@@ -44,7 +53,8 @@ export default async function handler(req, res) {
           files: {
             capture: captureFiles,
             enhance: enhanceFiles
-          }
+          },
+          message: `Found ${captureFiles.length} capture files and ${enhanceFiles.length} enhance files`
         });
       } 
       else if (operation === 'compare') {

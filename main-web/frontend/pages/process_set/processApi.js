@@ -104,9 +104,7 @@ export const checkBackendConnection = async () => {
 // Get list of files from both capture and enhance folders
 export const getFilesList = async () => {
   try {
-    // console.log('Fetching files list...');
-    const response = await fetchWithRetry('/api/file-api?operation=list');
-    // console.log('Raw files list response:', JSON.stringify(response, null, 2));
+    const response = await fetchWithRetry('/api/for-process-folder/file-api?operation=list');
     
     if (!response.success) {
       throw new Error(response.message || 'Failed to get files list');
@@ -118,24 +116,20 @@ export const getFilesList = async () => {
       enhance: []
     };
     
-    if (response.files && Array.isArray(response.files)) {
-      // console.log('Processing files array:', response.files);
-      // Files are already sorted by number from the backend
-      response.files.forEach(file => {
-        // console.log('Processing file:', file);
-        // Check if file is in capture or enhance directory
-        if (file.path.includes('eye_tracking_captures')) {
-          // console.log('Adding to capture:', file);
-          organizedFiles.capture.push(file);
-        } else if (file.path.includes('enhance')) {
-          // console.log('Adding to enhance:', file);
-          organizedFiles.enhance.push(file);
-        }
-      });
+    if (response.files && response.files.capture && response.files.enhance) {
+      organizedFiles.capture = response.files.capture.map(filename => ({
+        filename,
+        path: `/captures/eye_tracking_captures/${filename}`,
+        file_type: filename.split('.').pop(),
+        size: 0 // Size will be updated when file is accessed
+      }));
       
-      // console.log('Final organized files:', JSON.stringify(organizedFiles, null, 2));
-    } else {
-      // console.log('No files array in response or not an array:', response.files);
+      organizedFiles.enhance = response.files.enhance.map(filename => ({
+        filename,
+        path: `/captures/enhance/${filename}`,
+        file_type: filename.split('.').pop(),
+        size: 0 // Size will be updated when file is accessed
+      }));
     }
     
     return {
@@ -157,43 +151,19 @@ export const getFilesList = async () => {
 // Check file completeness (if webcam, screen, and parameter files exist for each set)
 export const checkFilesCompleteness = async () => {
   try {
-    const response = await fetch('/api/check-files');
+    const response = await fetch('/api/for-process-folder/file-api?operation=check-completeness');
     const data = await response.json();
     
     if (!data.success) {
       throw new Error(data.error || 'Failed to check files');
     }
 
-    // Only check files in eye_tracking_captures folder
-    const captureFiles = data.files.capture || [];
-    const fileNumbers = new Set();
-    
-    // Extract file numbers from capture files
-    captureFiles.forEach(file => {
-      const match = file.filename.match(/_(\d+)\./);
-      if (match) {
-        fileNumbers.add(parseInt(match[1]));
-      }
-    });
-
-    // Check for missing files in sequence
-    const missingFiles = [];
-    if (fileNumbers.size > 0) {
-      const minNumber = Math.min(...fileNumbers);
-      const maxNumber = Math.max(...fileNumbers);
-      
-      for (let i = minNumber; i <= maxNumber; i++) {
-        if (!fileNumbers.has(i)) {
-          missingFiles.push(i);
-        }
-      }
-    }
-
     return {
       success: true,
-      isComplete: missingFiles.length === 0,
-      missingFiles: missingFiles.length,
-      totalFiles: fileNumbers.size
+      isComplete: data.isComplete,
+      missingFiles: data.missingFiles,
+      totalFiles: data.totalSets,
+      incompleteSets: data.incompleteSets || []
     };
   } catch (error) {
     console.error('Error checking files completeness:', error);
@@ -239,31 +209,13 @@ export const previewFile = async (filename) => {
 // Check if files need processing
 export const checkFilesNeedProcessing = async () => {
   try {
-    const response = await fetchWithRetry('/api/file-api?operation=list');
+    const response = await fetchWithRetry('/api/for-process-folder/file-api?operation=compare');
     if (!response.success) {
       throw new Error(response.message || 'Failed to get files list');
     }
     
-    // Get unique set numbers from each folder
-    const captureSets = new Set();
-    const enhanceSets = new Set();
-    
-    if (response.files && Array.isArray(response.files)) {
-      response.files.forEach(file => {
-        const match = file.filename.match(/_(\d+)\./);
-        if (match) {
-          const setNumber = parseInt(match[1]);
-          if (file.path.includes('eye_tracking_captures')) {
-            captureSets.add(setNumber);
-          } else if (file.path.includes('enhance')) {
-            enhanceSets.add(setNumber);
-          }
-        }
-      });
-    }
-    
-    const captureCount = captureSets.size;
-    const enhanceCount = enhanceSets.size;
+    const captureCount = response.captureCount || 0;
+    const enhanceCount = response.enhanceCount || 0;
     const needsProcessing = captureCount > enhanceCount;
     const filesToProcess = captureCount - enhanceCount;
     
@@ -272,7 +224,8 @@ export const checkFilesNeedProcessing = async () => {
       needsProcessing,
       captureCount,
       enhanceCount,
-      filesToProcess
+      filesToProcess,
+      setsNeedingProcessing: response.setsNeedingProcessing || []
     };
   } catch (error) {
     console.error('Error checking files:', error);
@@ -282,7 +235,8 @@ export const checkFilesNeedProcessing = async () => {
       needsProcessing: false,
       captureCount: 0,
       enhanceCount: 0,
-      filesToProcess: 0
+      filesToProcess: 0,
+      setsNeedingProcessing: []
     };
   }
 };

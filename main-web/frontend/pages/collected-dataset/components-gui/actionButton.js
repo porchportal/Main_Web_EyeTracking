@@ -90,20 +90,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     handleSetCalibrate,
     handleClearAll
   }), []);
-  
-    // Make initializeCanvas available globally
-  // useEffect(() => {
-  //   // Skip during SSR
-  //   if (typeof window === 'undefined') return;
-    
-  //   // Make initializeCanvas available to other components through the window object
-  //   window.initializeCanvas = initializeCanvas;
-    
-  //   return () => {
-  //     // Clean up
-  //     delete window.initializeCanvas;
-  //   };
-  // }, []);
 
   useEffect(() => {
     // Make functions globally accessible as a fallback

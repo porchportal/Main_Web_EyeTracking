@@ -2,8 +2,9 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
+  "/process_set": "pages/process_set.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/api/admin/consent-data": "pages/api/admin/consent-data.js",
-  "/admin": "pages/admin.js",
-  "/collected-dataset-customized": "pages/collected-dataset-customized.js"
+  "/api/for-process-folder/file-api": "pages/api/for-process-folder/file-api.js",
+  "/api/process-images": "pages/api/process-images.js",
+  "/": "pages/index.js"
 }

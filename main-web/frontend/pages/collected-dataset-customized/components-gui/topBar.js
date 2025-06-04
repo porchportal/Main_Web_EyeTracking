@@ -75,6 +75,45 @@ const TopBar = ({
     }
   }, [updateSettings]);
 
+  const ensureCanvasAvailable = () => {
+    if (typeof window === 'undefined') return null;
+    
+    // Check for existing canvas
+    let canvas = document.querySelector('#tracking-canvas');
+    
+    if (!canvas) {
+      // Create canvas if it doesn't exist
+      canvas = document.createElement('canvas');
+      canvas.className = 'tracking-canvas';
+      canvas.id = 'tracking-canvas';
+      canvas.width = 800;
+      canvas.height = 400;
+      canvas.style.cssText = `
+        position: relative;
+        width: 100%;
+        height: 400px;
+        background-color: white;
+        border: 1px solid #ccc;
+        display: block;
+      `;
+      
+      // Initialize with white background
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Append to appropriate container
+      const container = document.querySelector('.canvas-container') || 
+                        document.querySelector('.main-content') ||
+                        document.body;
+      container.appendChild(canvas);
+    }
+    
+    // Store global reference
+    window.whiteScreenCanvas = canvas;
+    return canvas;
+  };
+
   // Debounced save settings function
   const debouncedSaveSettings = useCallback(
     debounce(async (userId, newSettings) => {
@@ -161,14 +200,16 @@ const TopBar = ({
     window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
     return () => window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
   }, [currentSettings, debouncedSaveSettings]);
-
-  // Handle settings change
-  const handleSettingsChange = useCallback(async (newSettings) => {
-    if (!currentUserId) return;
-    debouncedSaveSettings(currentUserId, newSettings);
-  }, [currentUserId, debouncedSaveSettings]);
-
+  
   const handleButtonClick = (actionType) => {
+    // Ensure canvas is available before triggering actions that need it
+    if (['setRandom', 'calibrate', 'randomDot', 'clearAll'].includes(actionType)) {
+      const canvas = ensureCanvasAvailable();
+      if (!canvas) {
+        console.warn(`Canvas not available for action: ${actionType}`);
+      }
+    }
+    
     if (onButtonClick) {
       onButtonClick(actionType);
     }
