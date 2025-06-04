@@ -3,8 +3,8 @@
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
   "/process_set": "pages/process_set.js",
+  "/": "pages/index.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/api/for-process-folder/file-api": "pages/api/for-process-folder/file-api.js",
-  "/api/process-images": "pages/api/process-images.js",
-  "/": "pages/index.js"
+  "/api/preview-api": "pages/api/preview-api.js",
+  "/api/for-process-folder/file-api": "pages/api/for-process-folder/file-api.js"
 }

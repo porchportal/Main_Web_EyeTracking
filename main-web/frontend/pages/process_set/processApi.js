@@ -177,31 +177,22 @@ export const checkFilesCompleteness = async () => {
 // Preview a specific file
 export const previewFile = async (filename) => {
   try {
-    // console.log('Fetching preview for file:', filename);
-    const response = await fetchWithRetry(`/api/preview-api?filename=${encodeURIComponent(filename)}`);
-    // console.log('Raw preview response:', response);
+    const data = await fetchWithRetry(`/api/preview-api?filename=${encodeURIComponent(filename)}`);
     
-    // Check if response has the expected format
-    if (!response || typeof response !== 'object') {
-      throw new Error('Invalid response format from preview API');
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to get preview');
     }
-    
-    if (!response.success) {
-      throw new Error(response.message || 'Failed to get preview');
-    }
-    
+
     return {
       success: true,
-      data: response.data,
-      type: response.type,
-      message: response.message
+      data: data.data,
+      type: data.type
     };
   } catch (error) {
-    console.error('Error previewing file:', error);
+    console.error('Preview API error:', error);
     return {
       success: false,
-      error: error.message,
-      message: 'Failed to get preview'
+      error: error.message
     };
   }
 };

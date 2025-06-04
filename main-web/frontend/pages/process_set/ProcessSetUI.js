@@ -66,19 +66,21 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType }) =>
   };
 
   if (!selectedFile) {
-    // console.log('No file selected');
     return (
       <div className={styles.previewPanel}>
-        <p>Select a file to preview</p>
+        <div className={styles.noPreview}>
+          <p>Select a file to preview</p>
+        </div>
       </div>
     );
   }
 
   if (!previewImage) {
-    // console.log('No preview data available');
     return (
       <div className={styles.previewPanel}>
-        <p>Loading preview...</p>
+        <div className={styles.noPreview}>
+          <p>Loading preview...</p>
+        </div>
       </div>
     );
   }
@@ -92,25 +94,23 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType }) =>
   return (
     <div className={styles.previewPanel}>
       <h3>Preview: {selectedFile}</h3>
-      {previewType === 'image' ? (
-        <div className={styles.imageContainer}>
-          <img
-            src={`data:image/jpeg;base64,${previewImage}`}
-            alt={selectedFile}
+      <div className={styles.previewContent}>
+        {previewType === 'image' ? (
+          <img 
+            src={previewImage} 
+            alt={selectedFile} 
             className={styles.previewImage}
-            style={{
-              width: imageSize.width > 0 ? `${imageSize.width}px` : 'auto',
-              height: imageSize.height > 0 ? `${imageSize.height}px` : 'auto',
-              objectFit: 'initial' // Don't scale the image
-            }}
-            onError={(e) => console.error('Error displaying image:', e)}
           />
-        </div>
-      ) : (
-        <div className={styles.csvPreview}>
-          <pre>{previewImage}</pre>
-        </div>
-      )}
+        ) : previewType === 'text' ? (
+          <pre className={styles.previewText}>
+            {previewImage}
+          </pre>
+        ) : (
+          <div className={styles.noPreview}>
+            <p>Unsupported file type</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
