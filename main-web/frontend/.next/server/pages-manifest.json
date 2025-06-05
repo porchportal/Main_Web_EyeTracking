@@ -2,9 +2,10 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/process_set": "pages/process_set.js",
   "/": "pages/index.js",
+  "/api/admin/consent-data": "pages/api/admin/consent-data.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/api/preview-api": "pages/api/preview-api.js",
-  "/api/for-process-folder/file-api": "pages/api/for-process-folder/file-api.js"
+  "/admin-login": "pages/admin-login.js",
+  "/preferences/consent-setup": "pages/preferences/consent-setup.js",
+  "/admin": "pages/admin.js"
 }
