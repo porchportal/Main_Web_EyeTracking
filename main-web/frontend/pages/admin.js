@@ -8,6 +8,7 @@ import { useAdminSettings } from '../pages/collected-dataset-customized/componen
 import fs from 'fs';
 import path from 'path';
 import DragDropPriorityList from './adminDrag&Drop';
+import AdminCanvaConfig from './adminCanvaConfig';
 
 const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8000';
 
@@ -66,6 +67,7 @@ export default function AdminPage({ initialSettings }) {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [showCanvaConfig, setShowCanvaConfig] = useState(false);
 
 
   // Initialize tempSettings with initial settings
@@ -789,6 +791,20 @@ export default function AdminPage({ initialSettings }) {
     setErrorMessage('');
   };
 
+  const handleImageSave = (imagePath) => {
+    if (selectedUserId) {
+      setTempSettings(prev => ({
+        ...prev,
+        [selectedUserId]: {
+          ...prev[selectedUserId],
+          image_path: imagePath,
+          updateImage: imagePath.split('/').pop()
+        }
+      }));
+      showNotification('Image saved successfully!');
+    }
+  };
+
   if (loading) {
     return (
       <div className={styles.preferencesContainer}>
@@ -1240,20 +1256,24 @@ export default function AdminPage({ initialSettings }) {
             <div className={styles.div4}>
               <h2>Image Background Settings</h2>
               <div className={styles.settingItem}>
-                <label>Upload Image:</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className={styles.fileInput}
-                  onChange={handleImageChange}
-                />
+                <button
+                  onClick={() => setShowCanvaConfig(true)}
+                  className={styles.uploadButton}
+                >
+                  Choose Image
+                </button>
+                {tempSettings[selectedUserId]?.image_path && (
+                  <div className={styles.currentImage}>
+                    <p>Current Image: {tempSettings[selectedUserId].updateImage}</p>
+                  </div>
+                )}
               </div>
               <div className={styles.settingItem}>
                 <button
-                  onClick={handleSaveImage}
+                  onClick={handleSaveSettings}
                   className={styles.saveButton}
                 >
-                  Save Image
+                  Save Settings
                 </button>
               </div>
             </div>
@@ -1278,6 +1298,15 @@ export default function AdminPage({ initialSettings }) {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Canva Config Modal */}
+        {showCanvaConfig && (
+          <AdminCanvaConfig
+            onImageSave={handleImageSave}
+            onClose={() => setShowCanvaConfig(false)}
+            userId={selectedUserId}
+          />
         )}
       </main>
     </div>

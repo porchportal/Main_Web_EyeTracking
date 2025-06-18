@@ -5,7 +5,5 @@
   "/": "pages/index.js",
   "/api/admin/consent-data": "pages/api/admin/consent-data.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/admin-login": "pages/admin-login.js",
-  "/preferences/consent-setup": "pages/preferences/consent-setup.js",
   "/admin": "pages/admin.js"
 }
