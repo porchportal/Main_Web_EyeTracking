@@ -6,8 +6,8 @@ import { useEffect, useState } from 'react';
 import { useConsent } from '../components/consent/ConsentContext';
 import { isProfileComplete } from '../utils/consentManager';
 
-// const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8000';
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
+// Use relative URLs for browser compatibility
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export default function HomePage() {
   const router = useRouter();
@@ -267,7 +267,7 @@ export default function HomePage() {
         // Fetch user data before navigation
         const fetchAndNavigate = async () => {
           try {
-            const response = await fetch(`${API_BASE_URL}/api/user-preferences/${userId}`, {
+            const response = await fetch(`/api/user-preferences/${userId}`, {
               headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',

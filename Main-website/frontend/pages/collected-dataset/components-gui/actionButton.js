@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import dynamic from 'next/dynamic';
-import { generateCalibrationPoints } from '../../../components/collected-dataset/Action/CalibratePoints';
+import { generateCalibrationPoints } from '../../../components/collected-dataset/Action/CalibratePoints.jsx';
 import { 
   showCapturePreview, 
   drawRedDot, 
@@ -752,7 +752,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
       // Generate calibration points based on the canvas size
-      const { generateCalibrationPoints } = await import('../../../components/collected-dataset/Action/CalibratePoints');
+      const { generateCalibrationPoints } = await import('../../../components/collected-dataset/Action/CalibratePoints.jsx');
       const points = generateCalibrationPoints(canvasWidth, canvasHeight);
       
       if (!points || points.length === 0) {

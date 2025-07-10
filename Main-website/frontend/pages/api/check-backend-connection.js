@@ -3,7 +3,7 @@ import fetch from 'node-fetch';
 import os from 'os';
 import subprocess from 'child_process';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const TIMEOUT_MS = 10000; // Increased timeout to 10 seconds
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = TIMEOUT_MS) {

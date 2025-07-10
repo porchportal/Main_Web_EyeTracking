@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { generateCalibrationPoints } from '../../../components/collected-dataset-customized/Action/CalibratePoints';
+import { generateCalibrationPoints } from '../../../components/collected-dataset-customized/Action/CalibratePoints.jsx';
 import { 
   showCapturePreview, 
   drawRedDot, 
   getRandomPosition,
   createCountdownElement,
   runCountdown
-} from '../../../components/collected-dataset-customized/Action/countSave';
+} from '../../../components/collected-dataset-customized/Action/countSave.jsx';
 import { captureImagesAtPoint } from '../../../components/collected-dataset-customized/Helper/savefile';
 import { useRouter } from 'next/router';
 import { useAdminSettings } from './adminSettings';
@@ -882,11 +882,17 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     if (isCapturing) return;
     
     try {
+      // Ensure canvas is initialized first
+      const canvas = getMainCanvas();
+      if (!canvas) {
+        throw new Error("Canvas not available");
+      }
+      
       // Import and use SetCalibrateAction
       const { default: SetCalibrateAction } = await import('../../../components/collected-dataset-customized/Action/SetCalibrateAction.jsx');
       
       const setCalibrateAction = new SetCalibrateAction({
-        canvasRef,
+        canvasRef: { current: canvas },
         toggleTopBar: (show) => {
           if (typeof onActionClick === 'function') {
             onActionClick('toggleTopBar', show);

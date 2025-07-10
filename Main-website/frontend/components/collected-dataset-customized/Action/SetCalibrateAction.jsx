@@ -2,8 +2,8 @@
 // Handles the calibration sequence functionality
 
 import React from 'react';
-import { generateCalibrationPoints } from './CalibratePoints';
-import { drawRedDot, runCountdown, showCapturePreview } from './countSave';
+import { generateCalibrationPoints } from './CalibratePoints.jsx';
+import { drawRedDot, runCountdown, showCapturePreview } from './countSave.jsx';
 import { captureImagesAtPoint } from '../Helper/savefile';
 
 class SetCalibrateAction {
@@ -20,18 +20,134 @@ class SetCalibrateAction {
     this.setCaptureCounter = config.setCaptureCounter;
     this.captureCounter = config.captureCounter;
     
-    // Get canvas manager from global scope
+    // Get canvas manager and utilities from global scope (from actionButton.js)
     this.canvasManager = typeof window !== 'undefined' ? window.canvasManager : null;
+    this.canvasUtils = typeof window !== 'undefined' ? window.canvasUtils : null;
   }
 
-  // Get or create canvas using the new CanvasManager
+  // Get or create canvas using the canvas management system from actionButton.js
   getCanvas() {
-    if (this.canvasManager) {
+    // First try to use canvasUtils from actionButton.js
+    if (this.canvasUtils && typeof this.canvasUtils.getCanvas === 'function') {
+      return this.canvasUtils.getCanvas();
+    }
+    
+    // Fallback to canvasManager
+    if (this.canvasManager && typeof this.canvasManager.getCanvas === 'function') {
       return this.canvasManager.getCanvas() || this.canvasManager.createCanvas();
     }
     
     // Fallback to canvasRef if canvasManager not available
     return this.canvasRef?.current || document.querySelector('#tracking-canvas');
+  }
+
+  // Enter fullscreen using the canvas management system
+  enterFullscreen() {
+    if (this.canvasUtils && typeof this.canvasUtils.enterFullscreen === 'function') {
+      return this.canvasUtils.enterFullscreen();
+    }
+    
+    if (this.canvasManager && typeof this.canvasManager.enterFullscreen === 'function') {
+      this.canvasManager.enterFullscreen();
+      return this.canvasManager.getCanvas();
+    }
+    
+    // Fallback: manually enter fullscreen
+    const canvas = this.getCanvas();
+    if (canvas) {
+      document.body.appendChild(canvas);
+      canvas.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 99999;
+        background-color: white;
+        border: none;
+        display: block;
+        opacity: 1;
+        pointer-events: auto;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      `;
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      
+      // Clear with white background
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+    return canvas;
+  }
+
+  // Exit fullscreen using the canvas management system
+  exitFullscreen() {
+    if (this.canvasUtils && typeof this.canvasUtils.exitFullscreen === 'function') {
+      return this.canvasUtils.exitFullscreen();
+    }
+    
+    if (this.canvasManager && typeof this.canvasManager.exitFullscreen === 'function') {
+      this.canvasManager.exitFullscreen();
+      return this.canvasManager.getCanvas();
+    }
+    
+    // Fallback: manually exit fullscreen
+    const canvas = this.getCanvas();
+    if (canvas) {
+      const container = document.querySelector('.canvas-container') || 
+                        document.querySelector('.main-content') ||
+                        document.body;
+      container.appendChild(canvas);
+      canvas.style.position = 'relative';
+      canvas.style.top = '';
+      canvas.style.left = '';
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+      canvas.style.zIndex = '';
+      canvas.style.backgroundColor = 'white';
+    }
+    return canvas;
+  }
+
+  // Clear canvas using the canvas management system
+  clearCanvas() {
+    if (this.canvasUtils && typeof this.canvasUtils.clear === 'function') {
+      this.canvasUtils.clear();
+      return;
+    }
+    
+    if (this.canvasManager && typeof this.canvasManager.clear === 'function') {
+      this.canvasManager.clear();
+      return;
+    }
+    
+    // Fallback: manually clear canvas
+    const canvas = this.getCanvas();
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+  }
+
+  // Draw dot using the canvas management system
+  drawDot(x, y, radius = 12) {
+    if (this.canvasUtils && typeof this.canvasUtils.drawDot === 'function') {
+      return this.canvasUtils.drawDot(x, y, radius);
+    }
+    
+    // Fallback: manually draw dot
+    const canvas = this.getCanvas();
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      drawRedDot(ctx, x, y, radius, false);
+      return true;
+    }
+    return false;
   }
 
   // Wait until canvas is fully ready
@@ -74,10 +190,8 @@ class SetCalibrateAction {
           throw new Error("Canvas not available");
         }
 
-        // Use canvas manager to enter fullscreen
-        if (this.canvasManager) {
-          this.canvasManager.enterFullscreen();
-        }
+        // Use canvas management system to enter fullscreen
+        this.enterFullscreen();
 
         // Generate calibration points based on canvas size
         const points = generateCalibrationPoints(canvas.width, canvas.height);
@@ -114,19 +228,16 @@ class SetCalibrateAction {
           statusIndicator.textContent = `Calibration: Point ${i + 1}/${points.length}`;
           this.setProcessStatus(`Processing calibration point ${i + 1}/${points.length}`);
           
-          // Clear canvas with white background
-          const ctx = canvas.getContext('2d');
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.fillStyle = 'white';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          // Clear canvas with white background using canvas management system
+          this.clearCanvas();
           
-          // Draw the calibration point with consistent size
+          // Draw the calibration point using canvas management system
           const radius = 12; // Standard size for consistency
-          drawRedDot(ctx, point.x, point.y, radius, false);
+          this.drawDot(point.x, point.y, radius);
           
           // Create redraw interval to ensure dot stays visible
           const redrawInterval = setInterval(() => {
-            drawRedDot(ctx, point.x, point.y, radius, false);
+            this.drawDot(point.x, point.y, radius);
           }, 200);
           
           // Remove any existing countdown elements
@@ -135,28 +246,28 @@ class SetCalibrateAction {
             if (el.parentNode) el.parentNode.removeChild(el);
           });
           
-          // Create custom countdown element
+          // Create custom countdown element positioned at the same location as the dot
           const countdownElement = document.createElement('div');
           countdownElement.className = 'dot-countdown';
           countdownElement.style.cssText = `
             position: fixed;
             left: ${point.x}px;
-            top: ${point.y - 60}px;
-            transform: translateX(-50%);
+            top: ${point.y}px;
+            transform: translate(-50%, -50%);
             color: red;
-            font-size: 36px;
+            font-size: 24px;
             font-weight: bold;
             text-shadow: 0 0 10px white, 0 0 20px white;
             z-index: 10000;
-            background-color: rgba(255, 255, 255, 0.8);
+            background-color: rgba(255, 255, 255, 0.9);
             border: 2px solid red;
             border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            width: 48px;
+            height: 48px;
             display: flex;
             justify-content: center;
             align-items: center;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
           `;
           document.body.appendChild(countdownElement);
           
@@ -167,27 +278,25 @@ class SetCalibrateAction {
               this.setProcessStatus(`Point ${i+1}/${points.length}: Countdown ${count}`);
               
               // Force redraw to ensure dot stays visible
-              drawRedDot(ctx, point.x, point.y, radius, false);
+              this.drawDot(point.x, point.y, radius);
               
               await new Promise(resolve => setTimeout(resolve, 800));
               
               // Redraw again halfway through the wait
-              drawRedDot(ctx, point.x, point.y, radius, false);
+              this.drawDot(point.x, point.y, radius);
             }
             
             // Show checkmark
             countdownElement.textContent = "✓";
-            drawRedDot(ctx, point.x, point.y, radius, false);
+            this.drawDot(point.x, point.y, radius);
             
-            // Remove countdown element after delay
-            setTimeout(() => {
-              if (countdownElement.parentNode) {
-                countdownElement.parentNode.removeChild(countdownElement);
-              }
-            }, 300);
+            // Remove countdown element immediately
+            if (countdownElement.parentNode) {
+              countdownElement.parentNode.removeChild(countdownElement);
+            }
             
             // Make sure dot is still visible
-            drawRedDot(ctx, point.x, point.y, radius, false);
+            this.drawDot(point.x, point.y, radius);
 
             // Capture images at this point
             console.log(`Capturing calibration point ${i+1}/${points.length} at (${point.x}, ${point.y})`);
@@ -203,6 +312,12 @@ class SetCalibrateAction {
             if (captureResult && (captureResult.screenImage || captureResult.success)) {
               successCount++;
             }
+
+            // Wait a moment before clearing to ensure capture is complete
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Clear the dot after capture using canvas management system
+            this.clearCanvas();
 
             // Wait between points
             await new Promise(resolve => setTimeout(resolve, 1200));
@@ -237,10 +352,8 @@ class SetCalibrateAction {
         console.error("Calibration error:", error);
         this.setProcessStatus(`Calibration error: ${error.message}`);
       } finally {
-        // Exit fullscreen and restore canvas
-        if (this.canvasManager) {
-          this.canvasManager.exitFullscreen();
-        }
+        // Exit fullscreen and restore canvas using canvas management system
+        this.exitFullscreen();
         
         this.setIsCapturing(false);
         

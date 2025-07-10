@@ -77,7 +77,7 @@ const fetchWithRetry = async (url, options = {}, retries = 2) => {
 };
 
 // API configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
 
 // Check if the backend is connected

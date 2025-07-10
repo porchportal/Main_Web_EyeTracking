@@ -846,7 +846,7 @@ export default function CollectedDatasetPage() {
           
           // Load all required modules first, then proceed with execution
           Promise.all([
-            import('../../components/collected-dataset/Action/CalibratePoints'),
+            import('../../components/collected-dataset/Action/CalibratePoints.jsx'),
             import('../../components/collected-dataset/Action/countSave'),
             import('../../components/collected-dataset/Helper/savefile')
           ]).then(async ([

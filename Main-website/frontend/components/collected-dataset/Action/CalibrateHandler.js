@@ -1,5 +1,5 @@
 // CalibrateHandler.js - Using the existing CaptureHandler class
-import { generateCalibrationPoints } from './CalibratePoints';
+import { generateCalibrationPoints } from './CalibratePoints.jsx';
 import CaptureHandler from './CaptureHandler';
 import { drawRedDot } from './DotCaptureUtil';
 
