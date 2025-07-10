@@ -1,1 +1,0 @@
-from .consent import router as consent_router

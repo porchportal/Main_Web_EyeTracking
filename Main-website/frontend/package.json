@@ -1,0 +1,33 @@
+{
+  "name": "main-web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.7",
+    "autoprefixer": "^10.4.14",
+    "form-data": "^4.0.0",
+    "formidable": "^3.5.4",
+    "js-cookie": "^3.0.5",
+    "lucide-react": "^0.511.0",
+    "next": "^15.3.1",
+    "node-fetch": "^2.7.0",
+    "postcss": "^8.4.27",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-zoom-pan-pinch": "^3.7.0",
+    "tailwindcss": "^3.3.3",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "15.2.3"
+  }
+}

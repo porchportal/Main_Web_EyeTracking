@@ -1,0 +1,368 @@
+.container {
+  min-height: 100vh;
+  padding: 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+.main {
+  padding: 5rem 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 1000px;
+}
+
+.footer {
+  width: 100%;
+  height: 100px;
+  border-top: 1px solid #eaeaea;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.footerLink {
+  color: #0070f3;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.footerLink:hover {
+  color: #0051b3;
+  text-decoration: underline;
+}
+
+.title {
+  margin: 0;
+  line-height: 1.15;
+  font-size: 2.5rem;
+  text-align: center;
+  margin-bottom: 2rem;
+  color: #333;
+}
+
+.description {
+  line-height: 1.5;
+  font-size: 1.5rem;
+  text-align: center;
+  margin: 1rem 0 2rem;
+}
+
+.uploaderContainer {
+  width: 100%;
+  max-width: 800px;
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  background: white;
+  margin-bottom: 2rem;
+}
+
+/* Button grid styles */
+.buttonGrid {
+  display: grid;
+  /* grid-template-columns: repeat(3, 1fr); */
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2rem;
+  width: 100%;
+  max-width: 1000px;
+  /* margin-top: 2rem; */
+  margin: 2rem 0; 
+  align-items: flex-start;
+}
+
+.menuButton {
+  background: linear-gradient(to bottom, rgba(173, 235, 254, 0.8), rgba(173, 235, 254, 0.4));
+  border: none;
+  border-radius: 20px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  height: 180px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+.buttonRow {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+.menuButton:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(to bottom, rgba(173, 235, 254, 1), rgba(173, 235, 254, 0.6));
+}
+
+.menuButton h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.backButton {
+  margin-top: 2rem;
+  padding: 0.75rem 1.5rem;
+  background-color: #e0e0e0;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.backButton:hover {
+  background-color: #d0d0d0;
+}
+.centerButtonContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  margin-top: 2rem;
+}
+
+.largerButton {
+  height: 60px;
+  width: 60%;
+  position: relative;
+  transition: background 0.3s ease;
+  /* Same blue gradient as other buttons by default */
+  background: linear-gradient(to bottom, rgba(173, 235, 254, 0.8), rgba(173, 235, 254, 0.4));
+}
+
+/* Default hover state (slightly brighter blue, same as other buttons) */
+.largerButton:hover {
+  background: linear-gradient(to bottom, rgba(173, 235, 254, 1), rgba(173, 235, 254, 0.6));
+}
+
+/* Ready state - only apply when hovered */
+.readyButton:hover {
+  background: linear-gradient(to bottom, rgba(100, 220, 120, 1), rgba(100, 220, 120, 0.6));
+}
+
+/* Not ready state - only apply when hovered */
+.notReadyButton:hover {
+  background: linear-gradient(to bottom, rgba(220, 100, 100, 1), rgba(220, 100, 100, 0.6));
+}
+
+.statusText {
+  margin: 5px 0 0 0;
+  font-size: 0.7rem;
+  font-weight: normal;
+}
+
+.statusToggleButton {
+  margin-top: 1rem;
+  padding: 0.5rem 1rem;
+  background-color: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.statusToggleButton:hover {
+  background-color: #e0e0e0;
+}
+
+/* @media (max-width: 768px) {
+  .largerButton {
+    width: 100%;
+    height: 170px;
+  }
+} */
+
+.statusDisplay {
+  margin-bottom: 1rem;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 1.1rem;
+  background-color: #f5f5f5;
+}
+
+.dummyControls {
+  display: flex;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.processingButton {
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.processingButton:first-child {
+  background-color: #a3e4a3;
+  color: #006400;
+}
+
+.processingButton:first-child:hover {
+  background-color: #8ad48a;
+}
+
+.processingButton:last-child {
+  background-color: #e4a3a3;
+  color: #640000;
+}
+
+.processingButton:last-child:hover {
+  background-color: #d48a8a;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .buttonGrid {
+    grid-template-columns: repeat(1, 1fr);
+    gap: 1.5rem;
+  }
+  
+  .menuButton {
+    height: 150px;
+  }
+  
+  .title {
+    font-size: 2.5rem;
+  }
+  
+  .main {
+    padding: 3rem 1rem;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .buttonGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 600px) {
+  .main {
+    padding: 2rem 0;
+  }
+  
+  .title {
+    font-size: 2rem;
+  }
+  
+  .description {
+    font-size: 1.2rem;
+  }
+  
+  .menuButton h2 {
+    font-size: 1.2rem;
+  }
+}
+
+.buttonContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.button {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.button:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+}
+
+.buttonEnabled {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  /* background-color: #28a745; */
+  background: linear-gradient(to bottom, rgba(173, 235, 254, 1), rgba(173, 235, 254, 0.6));
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.buttonEnabled:hover {
+  background-color: #218838;
+  transform: translateY(-2px);
+}
+
+.buttonDisabled {
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
+  /* background-color: #dc3545; */
+  background: linear-gradient(to bottom, rgba(220, 100, 100, 0.8), rgba(220, 100, 100, 0.4));
+  position: relative;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: not-allowed;
+  opacity: 0.9;
+  transition: all 0.3s ease;
+}
+
+.buttonDisabled:hover {
+  background-color: #c82333;
+}
+
+.buttonOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 20px;
+  pointer-events: none;
+}
+
+.overlayIcon {
+  font-size: 2em;
+  color: white;
+  font-weight: bold;
+}
+
+.buttonDisabled {
+  position: relative;
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.buttonEnabled {
+  position: relative;
+  opacity: 1;
+  cursor: pointer;
+}
+

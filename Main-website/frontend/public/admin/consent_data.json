@@ -1,0 +1,140 @@
+[
+  {
+    "userId": "4d8937de-5f66-47f3-babd-f9d99ea86992",
+    "status": true,
+    "timestamp": "2025-04-23T07:13:20.486Z",
+    "receivedAt": "2025-04-23T07:13:20.666Z"
+  },
+  {
+    "userId": "2dffd9ff-f369-4c70-bc86-6d4b2730de77",
+    "status": true,
+    "timestamp": "2025-04-23T08:28:02.099Z",
+    "receivedAt": "2025-04-23T08:27:58.659Z"
+  },
+  {
+    "userId": "d4654ab1-ccc0-4cc3-96e7-97abadf61791",
+    "status": true,
+    "timestamp": "2025-04-24T03:51:25.095Z",
+    "receivedAt": "2025-04-24T03:51:25.253Z"
+  },
+  {
+    "userId": "5a8c4878-4d91-4467-b063-671d3e127280",
+    "status": true,
+    "timestamp": "2025-04-28T14:12:16.172Z",
+    "receivedAt": "2025-04-28T14:12:16.234Z"
+  },
+  {
+    "userId": "d729b953-eb3f-446e-b6b9-ab618cbd4f02",
+    "status": true,
+    "timestamp": "2025-04-29T04:03:55.861Z",
+    "receivedAt": "2025-04-29T04:03:55.906Z"
+  },
+  {
+    "userId": "20511313-bec2-489d-88af-277e0ee35ba5",
+    "status": true,
+    "timestamp": "2025-04-29T04:24:43.875Z",
+    "receivedAt": "2025-04-29T04:24:43.945Z"
+  },
+  {
+    "userId": "9bb42cf1-e3be-478f-85e9-6edeebb3570f",
+    "status": true,
+    "timestamp": "2025-05-02T04:04:10.171Z",
+    "receivedAt": "2025-05-02T04:04:10.299Z"
+  },
+  {
+    "userId": "12459815-5571-4885-ad36-e2e7e7839307",
+    "status": true,
+    "timestamp": "2025-05-05T02:18:40.408Z",
+    "receivedAt": "2025-05-05T02:18:40.503Z"
+  },
+  {
+    "userId": "12459815-5571-4885-ad36-e2e7e7839307",
+    "status": true,
+    "timestamp": "2025-05-05T02:18:42.606Z",
+    "receivedAt": "2025-05-05T02:18:42.628Z"
+  },
+  {
+    "userId": "cff42779-dfe7-4a6e-87e1-c3466b70b412",
+    "status": true,
+    "timestamp": "2025-05-18T11:09:04.597Z",
+    "receivedAt": "2025-05-18T11:09:04.651Z"
+  },
+  {
+    "userId": "cff42779-dfe7-4a6e-87e1-c3466b70b412",
+    "status": true,
+    "timestamp": "2025-05-18T11:09:06.001Z",
+    "receivedAt": "2025-05-18T11:09:06.020Z"
+  },
+  {
+    "userId": "2190b35c-69d3-4023-9c2f-2944e184c872",
+    "status": true,
+    "timestamp": "2025-05-24T08:38:44.800Z",
+    "receivedAt": "2025-05-24T08:38:44.820Z"
+  },
+  {
+    "userId": "78d27556-d45b-4f59-b122-dc5a7cc70bb1",
+    "status": true,
+    "timestamp": "2025-05-24T09:27:08.373Z",
+    "receivedAt": "2025-05-24T09:27:08.384Z"
+  },
+  {
+    "userId": "f6242f03-51cd-42e8-8e62-24eb281b8179",
+    "status": true,
+    "timestamp": "2025-05-24T10:38:27.733Z",
+    "receivedAt": "2025-05-24T10:38:27.744Z"
+  },
+  {
+    "userId": "e6d52e6e-93d7-4213-af5c-565db21d2323",
+    "status": true,
+    "timestamp": "2025-05-24T18:11:15.875Z",
+    "receivedAt": "2025-05-24T18:11:15.899Z"
+  },
+  {
+    "userId": "c6d25be9-cc37-470f-b40d-f123bf546ea2",
+    "status": true,
+    "timestamp": "2025-05-25T15:20:10.806Z",
+    "receivedAt": "2025-05-25T15:20:10.831Z"
+  },
+  {
+    "userId": "7b9e27a2-ac13-4272-b3e6-9fdda1e29e21",
+    "status": true,
+    "timestamp": "2025-06-01T16:36:25.951Z",
+    "receivedAt": "2025-06-01T16:36:25.959Z"
+  },
+  {
+    "userId": "f084cf66-3b92-427d-8071-28f74288719c",
+    "status": true,
+    "timestamp": "2025-07-10T16:13:51.421Z",
+    "receivedAt": "2025-07-10T16:13:51.722Z"
+  },
+  {
+    "userId": "e9b02de4-5659-41bb-8ad4-bfdbb121aa68",
+    "status": true,
+    "timestamp": "2025-06-03T07:46:42.679Z",
+    "receivedAt": "2025-06-03T07:46:42.693Z"
+  },
+  {
+    "userId": "049329ee-3184-44fc-a063-537bb8e8997e",
+    "status": true,
+    "timestamp": "2025-06-03T08:08:29.584Z",
+    "receivedAt": "2025-06-03T08:08:29.593Z"
+  },
+  {
+    "userId": "f42a97dc-6db2-4d0d-850b-97758eab1135",
+    "status": true,
+    "timestamp": "2025-06-04T07:12:52.282Z",
+    "receivedAt": "2025-06-04T07:12:52.297Z"
+  },
+  {
+    "userId": "98da62d4-482a-4b5b-a6a4-081f8d1328fc",
+    "status": true,
+    "timestamp": "2025-06-18T03:39:05.677Z",
+    "receivedAt": "2025-06-18T03:39:05.689Z"
+  },
+  {
+    "userId": "691709b1-2002-4cb7-a6ac-18d1861ba4f7",
+    "status": true,
+    "timestamp": "2025-06-19T16:30:48.560Z",
+    "receivedAt": "2025-06-19T16:30:48.579Z"
+  }
+]

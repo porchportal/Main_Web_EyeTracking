@@ -1,0 +1,106 @@
+/* Control buttons styling */
+.control-buttons {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    z-index: 10;
+  }
+  
+  .notes-output {
+    margin-right: 10px;
+  }
+  
+  .notes-output textarea {
+    width: 250px;
+    height: 80px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: none;
+    font-size: 14px;
+    font-family: monospace;
+    background-color: #fff;
+  }
+  
+  .toggle-buttons {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 80px;
+  }
+  
+  .icon-btn {
+    background-color: #7CFFDA;
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+  }
+  
+  .icon-btn:hover {
+    background-color: #5EDFBB;
+  }
+  
+  .icon-btn-rounded {
+    border-radius: 50%;
+  }
+  
+  .icon-text {
+    font-size: 20px;
+  }
+  
+  /* Make sure DisplayResponse stays below the control buttons */
+  .metrics-display {
+    position: absolute;
+    right: 10px;
+    top: 100px !important; /* Override the default positioning */
+  }
+  
+  /* Responsive adjustments for small screens */
+  @media (max-width: 768px) {
+    .notes-output textarea {
+      width: 150px;
+      height: 60px;
+      font-size: 12px;
+    }
+    
+    .toggle-buttons {
+      height: 60px;
+    }
+    
+    .icon-btn {
+      width: 30px;
+      height: 30px;
+    }
+  }
+  
+  /* Extra small screens */
+  @media (max-width: 480px) {
+    .control-buttons {
+      flex-direction: column;
+      align-items: flex-end;
+    }
+    
+    .notes-output {
+      margin-right: 0;
+      margin-bottom: 5px;
+    }
+    
+    .notes-output textarea {
+      width: 120px;
+      height: 50px;
+    }
+    
+    .toggle-buttons {
+      flex-direction: row;
+      height: auto;
+      width: 120px;
+      justify-content: space-between;
+    }
+  }

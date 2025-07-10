@@ -1,0 +1,16 @@
+Parameter,Value
+dot_x,1471
+dot_y,242
+canvas_width,1714
+canvas_height,935
+window_width,1714
+window_height,935
+webcam_resolution_width,1280
+webcam_resolution_height,720
+timestamp,2025-05-02T04:08:40.611Z
+group_id,capture-1746158920492
+face_detected,True
+pitch,-0.2317053806851739
+yaw,0.09232740582459552
+roll,-0.00562063455400386
+processing_time,2025-05-02T11:42:23.620434
