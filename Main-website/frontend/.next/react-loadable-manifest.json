@@ -5,9 +5,23 @@
       "static/chunks/_pages-dir-browser_components_collected-dataset-customized_Action_CalibrateHandler_js.js"
     ]
   },
-  "pages/collected-dataset-customized/components-gui/actionButton.js -> ../../../components/collected-dataset-customized/Action/CalibratePoints": {
-    "id": "pages/collected-dataset-customized/components-gui/actionButton.js -> ../../../components/collected-dataset-customized/Action/CalibratePoints",
-    "files": []
+  "pages/collected-dataset-customized/components-gui/actionButton.js -> ../../../components/collected-dataset-customized/Action/RandomDotAction.jsx": {
+    "id": "pages/collected-dataset-customized/components-gui/actionButton.js -> ../../../components/collected-dataset-customized/Action/RandomDotAction.jsx",
+    "files": [
+      "static/chunks/_pages-dir-browser_components_collected-dataset-customized_Action_RandomDotAction_jsx.js"
+    ]
+  },
+  "pages/collected-dataset-customized/components-gui/actionButton.js -> ../../../components/collected-dataset-customized/Action/SetCalibrateAction.jsx": {
+    "id": "pages/collected-dataset-customized/components-gui/actionButton.js -> ../../../components/collected-dataset-customized/Action/SetCalibrateAction.jsx",
+    "files": [
+      "static/chunks/_pages-dir-browser_components_collected-dataset-customized_Action_SetCalibrateAction_jsx.js"
+    ]
+  },
+  "pages/collected-dataset-customized/components-gui/actionButton.js -> ../../../components/collected-dataset-customized/Action/SetRandomAction.jsx": {
+    "id": "pages/collected-dataset-customized/components-gui/actionButton.js -> ../../../components/collected-dataset-customized/Action/SetRandomAction.jsx",
+    "files": [
+      "static/chunks/_pages-dir-browser_components_collected-dataset-customized_Action_SetRandomAction_jsx.js"
+    ]
   },
   "pages/collected-dataset-customized/index.js -> ../../components/collected-dataset-customized/Action/CalibratePoints": {
     "id": "pages/collected-dataset-customized/index.js -> ../../components/collected-dataset-customized/Action/CalibratePoints",

@@ -1247,24 +1247,59 @@ export default function CollectedDatasetPage() {
   // Function to trigger camera access
   const triggerCameraAccess = (forceEnable) => {
     if (forceEnable) {
-      // Try to enable camera directly
-      if (window.videoProcessor) {
-        setShowCamera(true);
-        setShowCameraPlaceholder(false);
-        setCameraPermissionGranted(true);
-        
-        // Start video processing with current options
-        window.videoProcessor.startVideoProcessing({
-          showHeadPose,
-          showBoundingBox,
-          showMask,
-          showParameters,
-          showProcessedImage: true
+      // Wait a bit for VideoProcessor to be available
+      const waitForVideoProcessor = () => {
+        return new Promise((resolve) => {
+          const checkProcessor = () => {
+            if (window.videoProcessor && typeof window.videoProcessor.startVideoProcessing === 'function') {
+              resolve(true);
+            } else {
+              setTimeout(checkProcessor, 100);
+            }
+          };
+          checkProcessor();
         });
-        
-        return true;
-      }
-      return false;
+      };
+
+      // Try to enable camera directly
+      waitForVideoProcessor().then((processorAvailable) => {
+        if (processorAvailable) {
+          setShowCamera(true);
+          setShowCameraPlaceholder(false);
+          setCameraPermissionGranted(true);
+          
+          // Start video processing with current options
+          try {
+            window.videoProcessor.startVideoProcessing({
+              showHeadPose,
+              showBoundingBox,
+              showMask,
+              showParameters,
+              showProcessedImage: true
+            });
+            console.log('Video processing started successfully');
+            return true;
+          } catch (error) {
+            console.error('Error starting video processing:', error);
+            setShowCamera(false);
+            setShowCameraPlaceholder(false);
+            setCameraPermissionGranted(false);
+            return false;
+          }
+        } else {
+          console.warn('VideoProcessor not available after waiting');
+          // Fallback to showing camera permission popup
+          setShowPermissionPopup(true);
+          return false;
+        }
+      }).catch((error) => {
+        console.error('Error waiting for VideoProcessor:', error);
+        setShowPermissionPopup(true);
+        return false;
+      });
+      
+      // Return true immediately to indicate we're trying
+      return true;
     }
     
     // Just toggle current state if not forcing
@@ -1563,8 +1598,10 @@ export default function CollectedDatasetPage() {
         </div>
       ) : (
         <>
-          {/* Load the video processor component */}
-          {isHydrated && isClient && <VideoProcessorComponent />}
+                {/* Load the video processor component */}
+      {isHydrated && isClient && (
+        <VideoProcessorComponent />
+      )}
           
           {/* TopBar component with onButtonClick handler - conditionally rendered */}
           {showTopBar && (
