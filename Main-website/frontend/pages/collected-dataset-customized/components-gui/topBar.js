@@ -93,14 +93,14 @@ const TopBar = ({
         position: relative;
         width: 100%;
         height: 400px;
-        background-color: white;
+        background-color: yellow;
         border: 1px solid #ccc;
         display: block;
       `;
       
-      // Initialize with white background
+      // Initialize with yellow background
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'white';
+      ctx.fillStyle = 'yellow';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
       // Append to appropriate container

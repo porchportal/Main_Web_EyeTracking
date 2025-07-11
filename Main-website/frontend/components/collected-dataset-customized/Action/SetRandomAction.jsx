@@ -14,6 +14,8 @@ class SetRandomAction {
     this.toggleTopBar = config.toggleTopBar;
     this.captureCounter = config.captureCounter || 1;
     this.triggerCameraAccess = config.triggerCameraAccess;
+    this.setIsCapturing = config.setIsCapturing;
+    this.setProcessStatus = config.setProcessStatus;
     
     // Get canvas manager and utilities from global scope (from actionButton.js)
     this.canvasManager = typeof window !== 'undefined' ? window.canvasManager : null;
@@ -124,7 +126,7 @@ class SetRandomAction {
     if (canvas) {
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'white';
+      ctx.fillStyle = 'yellow';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
   }
@@ -185,6 +187,11 @@ class SetRandomAction {
       
       // Hide UI during capture process
       if (this.toggleTopBar) this.toggleTopBar(false);
+      
+      // Set capturing state if function exists
+      if (typeof this.setIsCapturing === 'function') {
+        this.setIsCapturing(true);
+      }
       
       this.onStatusUpdate?.({
         processStatus: `Starting ${times} random captures with ${delay}s delay...`,
@@ -305,6 +312,11 @@ class SetRandomAction {
         isCapturing: false
       });
       
+      // Set capturing state to false if function exists
+      if (typeof this.setIsCapturing === 'function') {
+        this.setIsCapturing(false);
+      }
+      
       // Clear the last dot using canvas management system
       this.clearCanvas();
       
@@ -323,6 +335,11 @@ class SetRandomAction {
         isCapturing: false,
         remainingCaptures: 0
       });
+      
+      // Set capturing state to false if function exists
+      if (typeof this.setIsCapturing === 'function') {
+        this.setIsCapturing(false);
+      }
       
       // Make sure to restore the UI
       if (this.toggleTopBar) this.toggleTopBar(true);

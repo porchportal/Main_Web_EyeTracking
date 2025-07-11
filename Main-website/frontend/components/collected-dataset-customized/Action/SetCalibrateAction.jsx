@@ -420,8 +420,14 @@ class SetCalibrateAction {
       window.toggleTopBar(false);
     }
     
-    this.setIsCapturing(true);
-    this.setProcessStatus('Starting calibration sequence...');
+    // Set capturing state if function exists
+    if (typeof this.setIsCapturing === 'function') {
+      this.setIsCapturing(true);
+    }
+    
+    if (typeof this.setProcessStatus === 'function') {
+      this.setProcessStatus('Starting calibration sequence...');
+    }
     
     // Update parent component if available
     if (this.onStatusUpdate) {
@@ -644,7 +650,10 @@ class SetCalibrateAction {
         // Restore hidden elements
         this.restoreHiddenElements();
         
-        this.setIsCapturing(false);
+        // Set capturing state to false if function exists
+        if (typeof this.setIsCapturing === 'function') {
+          this.setIsCapturing(false);
+        }
         
         // Show TopBar again after a delay
         setTimeout(() => {

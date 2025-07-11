@@ -64,8 +64,8 @@ class RandomDotAction {
         left: 0;
         width: 100vw;
         height: 100vh;
-        z-index: 99999;
-        background-color: white;
+        z-index: 10;
+        background-color: yellow;
         border: none;
         display: block;
         opacity: 1;
@@ -77,9 +77,9 @@ class RandomDotAction {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       
-      // Clear with white background
+      // Clear with yellow background
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'white';
+      ctx.fillStyle = 'yellow';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
     return canvas;
@@ -109,7 +109,7 @@ class RandomDotAction {
       canvas.style.width = '100%';
       canvas.style.height = '100%';
       canvas.style.zIndex = '';
-      canvas.style.backgroundColor = 'white';
+      canvas.style.backgroundColor = 'yellow';
     }
     return canvas;
   }
@@ -131,7 +131,7 @@ class RandomDotAction {
     if (canvas) {
       const ctx = canvas.getContext('2d');
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'white';
+      ctx.fillStyle = 'yellow';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
   }
@@ -154,6 +154,14 @@ class RandomDotAction {
 
   // Main function to handle random dot generation and capture
   handleRandomDot = async () => {
+    // Clean up any existing countdown elements first
+    const existingCountdowns = document.querySelectorAll('.dot-countdown, .backup-countdown, .test-countdown');
+    existingCountdowns.forEach(el => {
+      if (el.parentNode) {
+        el.parentNode.removeChild(el);
+      }
+    });
+    
     // Hide the TopBar before showing dot
     if (typeof this.toggleTopBar === 'function') {
       this.toggleTopBar(false);
@@ -161,8 +169,14 @@ class RandomDotAction {
       window.toggleTopBar(false);
     }
     
-    this.setIsCapturing(true);
-    this.setProcessStatus('Generating random dot...');
+    // Set capturing state if function exists
+    if (typeof this.setIsCapturing === 'function') {
+      this.setIsCapturing(true);
+    }
+    
+    if (typeof this.setProcessStatus === 'function') {
+      this.setProcessStatus('Generating random dot...');
+    }
     
     // Update parent component if available
     if (this.onStatusUpdate) {
@@ -182,11 +196,23 @@ class RandomDotAction {
         // Generate random position
         const position = getRandomPosition(canvas);
         
+        console.log('RandomDotAction: Generated position:', {
+          position,
+          canvasDimensions: { width: canvas.width, height: canvas.height },
+          canvasStyle: {
+            position: canvas.style.position,
+            width: canvas.style.width,
+            height: canvas.style.height
+          },
+          canvasRect: canvas.getBoundingClientRect()
+        });
+        
         // Draw the dot using canvas management system
         this.drawDot(position.x, position.y, 12);
         
         // Store current dot position
         this.setCurrentDot(position);
+        
         
         try {
           // Use the shared capture and preview process
@@ -207,23 +233,35 @@ class RandomDotAction {
           
           // Set capturing state to false after reasonable delay
           setTimeout(() => {
-            this.setIsCapturing(false);
+            if (typeof this.setIsCapturing === 'function') {
+              this.setIsCapturing(false);
+            }
           }, 2200); // Wait a bit longer than the preview duration
           
         } catch (error) {
           console.error("Error in capture and preview process:", error);
-          this.setProcessStatus('Error during capture process');
-          this.setIsCapturing(false);
+          if (typeof this.setProcessStatus === 'function') {
+            this.setProcessStatus('Error during capture process');
+          }
+          if (typeof this.setIsCapturing === 'function') {
+            this.setIsCapturing(false);
+          }
           
           // Clear error message after delay
           setTimeout(() => {
-            this.setProcessStatus('');
+            if (typeof this.setProcessStatus === 'function') {
+              this.setProcessStatus('');
+            }
           }, 3000);
         }
       } else {
         console.error("Canvas reference is null - cannot draw dot");
-        this.setProcessStatus('Error: Canvas not available');
-        this.setIsCapturing(false);
+        if (typeof this.setProcessStatus === 'function') {
+          this.setProcessStatus('Error: Canvas not available');
+        }
+        if (typeof this.setIsCapturing === 'function') {
+          this.setIsCapturing(false);
+        }
       }
     }, 200);
   };

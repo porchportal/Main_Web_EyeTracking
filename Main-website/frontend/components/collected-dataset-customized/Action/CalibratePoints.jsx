@@ -210,7 +210,7 @@ export const drawCalibrationPointLegacy = (ctx, x, y, radius = 12) => {
   
   // Clear the canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = 'white';
+  ctx.fillStyle = 'yellow';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
   // Draw the dot with a bright red color
@@ -233,6 +233,7 @@ export const drawCalibrationPointLegacy = (ctx, x, y, radius = 12) => {
   ctx.lineWidth = 2;
   ctx.stroke();
 
+  console.log(`Drew calibration point at (${x}, ${y}) with radius ${radius}`);
   return { x, y };
 };
 

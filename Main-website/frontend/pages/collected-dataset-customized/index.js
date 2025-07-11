@@ -188,6 +188,12 @@ class GlobalCanvasManager {
       targetContainer.appendChild(canvas);
     }
 
+    // Remove placeholder if it exists
+    const placeholder = document.querySelector('#canvas-placeholder');
+    if (placeholder && placeholder.parentNode) {
+      placeholder.parentNode.removeChild(placeholder);
+    }
+
     // Store global reference
     window.whiteScreenCanvas = canvas;
     window.globalCanvasManager = this;
@@ -316,7 +322,7 @@ class GlobalCanvasManager {
       left: 0 !important;
       width: 100vw !important;
       height: 100vh !important;
-      z-index: 99999 !important;
+      z-index: 10;
       background-color: yellow !important;
       border: none !important;
       display: block !important;
@@ -427,6 +433,8 @@ class GlobalCanvasManager {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = 'yellow';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    console.log('Canvas cleared with yellow background');
   }
 
   // Draw dot at position
@@ -510,6 +518,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const [currentUserId, setCurrentUserId] = useState('default');
   const [showSettings, setShowSettings] = useState(false);
   const [isPageActive, setIsPageActive] = useState(true);
+  const [captureCount, setCaptureCount] = useState(1);
   
   // Button action states
   const [randomTimes, setRandomTimes] = useState(1);
@@ -522,6 +531,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const [showCanvas, setShowCanvas] = useState(true);
   const [calibrationHandler, setCalibrationHandler] = useState(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
 
   // Refs
   const previewAreaRef = useRef(null);
@@ -884,8 +894,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     const canvas = canvasManager.initializeCanvas();
     console.log('Global canvas initialized:', canvas ? 'success' : 'failed');
     
-    // Sync all canvases after initialization
+    // Ensure canvas has yellow background
     if (canvas) {
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'yellow';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Sync all canvases after initialization
       setTimeout(() => {
         canvasManager.linkWithOtherCanvases(canvas);
       }, 100);
@@ -982,14 +997,20 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         handleSetCalibrate,
         handleClearAll
       };
+      
+      // Also make canvas manager globally accessible
+      window.globalCanvasManager = canvasManager;
+      window.canvasUtils = canvasUtils;
     }
     
     return () => {
       if (typeof window !== 'undefined') {
         delete window.actionButtonFunctions;
+        delete window.globalCanvasManager;
+        delete window.canvasUtils;
       }
     };
-  }, []);
+  }, [canvasManager, canvasUtils]);
 
   // Make toggleTopBar function available globally
   useEffect(() => {
@@ -1019,16 +1040,32 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       // Import and use RandomDotAction
       const { default: RandomDotAction } = await import('../../components/collected-dataset-customized/Action/RandomDotAction.jsx');
       
+      // Ensure canvas is available
+      const canvas = canvasManager.getCanvas();
+      if (!canvas) {
+        throw new Error("Canvas not available");
+      }
+      
       const randomDotAction = new RandomDotAction({
-        canvasRef,
+        canvasRef: { current: canvas },
         toggleTopBar: (show) => {
+          setShowTopBar(show);
           if (typeof onActionClick === 'function') {
             onActionClick('toggleTopBar', show);
           }
         },
-        setIsCapturing,
-        setProcessStatus,
-        setCurrentDot,
+        setIsCapturing: (capturing) => {
+          setIsCapturing(capturing);
+          console.log('RandomDotAction: isCapturing set to', capturing);
+        },
+        setProcessStatus: (status) => {
+          setProcessStatus(status);
+          console.log('RandomDotAction: processStatus set to', status);
+        },
+        setCurrentDot: (dot) => {
+          setCurrentDot(dot);
+          console.log('RandomDotAction: currentDot set to', dot);
+        },
         triggerCameraAccess,
         onStatusUpdate: (status) => {
           if (status.processStatus) setProcessStatus(status.processStatus);
@@ -1036,7 +1073,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         },
         saveImageToServer: true,
         setCaptureCounter,
-        captureCounter: captureCount
+        captureCounter: captureCounter
       });
       
       await randomDotAction.handleRandomDot();
@@ -1054,8 +1091,14 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       // Import and use SetRandomAction
       const { default: SetRandomAction } = await import('../../components/collected-dataset-customized/Action/SetRandomAction.jsx');
       
+      // Ensure canvas is available
+      const canvas = canvasManager.getCanvas();
+      if (!canvas) {
+        throw new Error("Canvas not available");
+      }
+      
       const setRandomAction = new SetRandomAction({
-        canvasRef,
+        canvasRef: { current: canvas },
         onStatusUpdate: (status) => {
           if (status.processStatus) setProcessStatus(status.processStatus);
           if (status.isCapturing !== undefined) setIsCapturing(status.isCapturing);
@@ -1063,12 +1106,21 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         },
         setCaptureCounter,
         toggleTopBar: (show) => {
+          setShowTopBar(show);
           if (typeof onActionClick === 'function') {
             onActionClick('toggleTopBar', show);
           }
         },
-        captureCounter: captureCount,
-        triggerCameraAccess
+        captureCounter: captureCounter,
+        triggerCameraAccess,
+        setIsCapturing: (capturing) => {
+          setIsCapturing(capturing);
+          console.log('SetRandomAction: isCapturing set to', capturing);
+        },
+        setProcessStatus: (status) => {
+          setProcessStatus(status);
+          console.log('SetRandomAction: processStatus set to', status);
+        }
       });
       
       await setRandomAction.handleAction();
@@ -1095,13 +1147,23 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       const setCalibrateAction = new SetCalibrateAction({
         canvasRef: { current: canvas },
         toggleTopBar: (show) => {
+          setShowTopBar(show);
           if (typeof onActionClick === 'function') {
             onActionClick('toggleTopBar', show);
           }
         },
-        setIsCapturing,
-        setProcessStatus,
-        setCurrentDot,
+        setIsCapturing: (capturing) => {
+          setIsCapturing(capturing);
+          console.log('SetCalibrateAction: isCapturing set to', capturing);
+        },
+        setProcessStatus: (status) => {
+          setProcessStatus(status);
+          console.log('SetCalibrateAction: processStatus set to', status);
+        },
+        setCurrentDot: (dot) => {
+          setCurrentDot(dot);
+          console.log('SetCalibrateAction: currentDot set to', dot);
+        },
         triggerCameraAccess,
         onStatusUpdate: (status) => {
           if (status.processStatus) setProcessStatus(status.processStatus);
@@ -1109,7 +1171,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         },
         saveImageToServer: true,
         setCaptureCounter,
-        captureCounter: captureCount
+        captureCounter: captureCounter
       });
       
       await setCalibrateAction.handleSetCalibrate();
@@ -1131,6 +1193,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     setCountdownValue(null);
     setShowCanvas(true);
     setCurrentDot(null);
+    
+    console.log('Clear All: Reset all states');
   };
 
   // Toggle functions
@@ -1249,11 +1313,32 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         setShowMetrics(!showMetrics);
         setProcessStatus(`Metrics ${!showMetrics ? 'shown' : 'hidden'}`);
         break;
+      case 'randomDot':
+        console.log('Random Dot button clicked');
+        handleRandomDot();
+        break;
+      case 'setRandom':
+        console.log('Set Random button clicked');
+        handleSetRandom();
+        break;
+      case 'calibrate':
+        console.log('Set Calibrate button clicked');
+        handleSetCalibrate();
+        break;
+      case 'clearAll':
+        console.log('Clear All button clicked');
+        handleClearAll();
+        break;
+      case 'toggleTopBar':
+        const show = args[0] !== undefined ? args[0] : !showTopBar;
+        setShowTopBar(show);
+        break;
       default:
+        console.log('Unknown action type:', actionType);
         // Silent handling for unknown actions
         break;
     }
-  }, [showCamera, showMetrics, handleToggleHeadPose, handleToggleBoundingBox, handleToggleMask, handleToggleParameters]);
+  }, [showCamera, showMetrics, showTopBar, handleToggleHeadPose, handleToggleBoundingBox, handleToggleMask, handleToggleParameters, handleRandomDot, handleSetRandom, handleSetCalibrate, handleClearAll]);
 
   // Camera permission handlers
   const handlePermissionAccepted = () => {
@@ -1337,7 +1422,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             left: 0;
             margin: 0;
             padding: 0;
-            z-index: 9999;
+            z-index: 4;
           }
         `}</style>
       </Head>
@@ -1355,7 +1440,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           textAlign: 'center',
           fontSize: '14px',
           fontWeight: 'bold',
-          zIndex: 1100
+          zIndex: 110
         }}>
           ⚠️ Backend disconnected. Hurry up, Make ONLINE please and Using mock mode
         </div>
@@ -1373,7 +1458,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           padding: '10px',
           textAlign: 'center',
           boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-          zIndex: 1010,
+          zIndex: 101,
           animation: 'fadeIn 0.3s ease-in-out'
         }}>
           <strong>⚠️ {warningMessage}</strong>
@@ -1393,7 +1478,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
               top: 0,
               left: 0,
               right: 0,
-              zIndex: 1000,
+              zIndex: 100,
               height: '120px'
             }}>
               <TopBar 
@@ -1404,8 +1489,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                 onOutputChange={(text) => setOutputText(text)}
                 onToggleTopBar={(show) => setShowTopBar(show)}
                 onToggleMetrics={() => setShowMetrics(!showMetrics)}
-                canvasRef={canvasRef}
+                canvasRef={{ current: canvasManager.getCanvas() }}
                 showMetrics={showMetrics}
+                isTopBarShown={showTopBar}
+                isCanvasVisible={showCanvas}
               />
             </div>
           )}
@@ -1514,20 +1601,19 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                     pointerEvents: 'auto'
                   }}
                 >
-                  <canvas 
-                    ref={canvasRef}
-                    className="tracking-canvas"
-                    style={{ 
-                      width: '100%', 
-                      height: '100%',
-                      display: 'block',
-                      maxWidth: '100%',
-                      maxHeight: '100%',
-                      objectFit: 'contain',
-                      backgroundColor: 'yellow',
-                      pointerEvents: 'auto'
-                    }}
-                  />
+                  {/* The canvas will be managed by the GlobalCanvasManager */}
+                  <div id="canvas-placeholder" style={{
+                    width: '100%',
+                    height: '100%',
+                    backgroundColor: 'yellow',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}>
+                    <p style={{ color: '#666', fontSize: '14px' }}>
+                      Canvas ready for eye tracking
+                    </p>
+                  </div>
                 </div>
               </>
             ) : null}

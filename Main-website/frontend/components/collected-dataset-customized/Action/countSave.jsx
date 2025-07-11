@@ -38,47 +38,6 @@ const getCanvas = () => {
   return document.querySelector('#tracking-canvas');
 };
 
-/**
- * Transform canvas coordinates to viewport coordinates when in fullscreen
- * @param {HTMLCanvasElement} canvas - Canvas element
- * @param {Object} point - {x, y} point coordinates
- * @returns {Object} Transformed point coordinates
- */
-const transformCoordinates = (canvas, point) => {
-  if (!canvas || !point) return point;
-  
-  // Check if canvas is in fullscreen mode
-  const isFullscreen = canvas.style.position === 'fixed' && 
-                      (canvas.style.width === '100vw' || canvas.style.width === '100%');
-  
-  if (isFullscreen) {
-    // Get the canvas's bounding rect to understand its position in the viewport
-    const canvasRect = canvas.getBoundingClientRect();
-    
-    // Calculate the scale factors
-    const scaleX = canvasRect.width / canvas.width;
-    const scaleY = canvasRect.height / canvas.height;
-    
-    // Transform the coordinates
-    const transformedPoint = {
-      x: point.x * scaleX + canvasRect.left,
-      y: point.y * scaleY + canvasRect.top,
-      label: point.label
-    };
-    
-    console.log('Coordinate transformation in countSave:', {
-      original: point,
-      transformed: transformedPoint,
-      canvasRect,
-      scale: { x: scaleX, y: scaleY }
-    });
-    
-    return transformedPoint;
-  }
-  
-  // If not fullscreen, return original coordinates
-  return point;
-};
 
 /**
  * Draw dot using the canvas management system
@@ -104,31 +63,6 @@ const drawDotWithCanvasManager = (x, y, radius = 12) => {
   return false;
 };
 
-/**
- * Clear canvas using the canvas management system
- */
-const clearCanvasWithManager = () => {
-  const { canvasUtils, canvasManager } = getCanvasUtils();
-  
-  if (canvasUtils && typeof canvasUtils.clear === 'function') {
-    canvasUtils.clear();
-    return;
-  }
-  
-  if (canvasManager && typeof canvasManager.clear === 'function') {
-    canvasManager.clear();
-    return;
-  }
-  
-  // Fallback: manually clear canvas
-  const canvas = getCanvas();
-  if (canvas) {
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }
-};
 
 /**
  * Creates and displays a countdown element above a dot position
@@ -142,42 +76,126 @@ export const createCountdownElement = (position, canvasRect) => {
     return null;
   }
 
-  const existingCountdowns = document.querySelectorAll('.calibrate-countdown, .forced-countdown, .center-countdown-backup');
-  existingCountdowns.forEach(el => el.remove());
+  // Remove any existing countdown elements
+  const existingCountdowns = document.querySelectorAll('.calibrate-countdown, .forced-countdown, .center-countdown-backup, .dot-countdown, .test-countdown');
+  existingCountdowns.forEach(el => {
+    console.log('Removing existing countdown element:', el);
+    if (el.parentNode) {
+      el.parentNode.removeChild(el);
+    }
+  });
 
   // Get canvas to check if we need coordinate transformation
   const canvas = getCanvas();
   let displayPosition = position;
   
   if (canvas) {
-    // Transform coordinates if canvas is in fullscreen mode
-    displayPosition = transformCoordinates(canvas, position);
+    // Check if canvas is in fullscreen mode
+    const isFullscreen = canvas.style.position === 'fixed' && 
+                        (canvas.style.width === '100vw' || canvas.style.width === '100%');
+    displayPosition = {
+      x: position.x,
+      y: position.y
+    };
+    // if (isFullscreen) {
+    //   // Canvas is in fullscreen mode, use direct coordinates
+    //   displayPosition = {
+    //     x: position.x,
+    //     y: position.y
+    //   };
+    // } else {
+    //   // Canvas is in normal mode, use canvas-relative coordinates
+    //   displayPosition = {
+    //     x: canvasRect.left + position.x,
+    //     y: canvasRect.top + position.y
+    //   };
+    // }
   }
 
+  console.log('[createCountdownElement] Creating countdown at position:', {
+    original: position,
+    display: displayPosition,
+    canvasRect: canvasRect,
+    canvasFullscreen: canvas ? (canvas.style.position === 'fixed' && canvas.style.width === '100vw') : false
+  });
+
+  // Create the main countdown element
   const countdownElement = document.createElement('div');
   countdownElement.className = 'dot-countdown';
   countdownElement.style.cssText = `
     position: fixed;
     left: ${displayPosition.x}px;
-    top: ${displayPosition.y - 60}px;
+    top: ${displayPosition.y - 80}px;
     transform: translateX(-50%);
     color: red;
-    font-size: 36px;
+    font-size: 64px;
     font-weight: bold;
-    text-shadow: 0 0 10px white, 0 0 20px white;
-    z-index: 9999;
-    background-color: rgba(255, 255, 255, 0.8);
-    border: 2px solid red;
+    text-shadow: 0 0 20px white, 0 0 30px white, 0 0 40px white;
+    z-index: 30;
+    background-color: rgba(255, 255, 255, 0.98);
+    border: 4px solid red;
     border-radius: 50%;
-    width: 50px;
-    height: 50px;
+    width: 100px;
+    height: 100px;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.7), 0 0 50px rgba(255, 0, 0, 0.5);
+    animation: countdownPulse 1s infinite;
+    pointer-events: none;
+    user-select: none;
   `;
+  
+  // Add CSS animation for pulse effect
+  if (!document.querySelector('#countdown-styles')) {
+    const style = document.createElement('style');
+    style.id = 'countdown-styles';
+    style.textContent = `
+      @keyframes countdownPulse {
+        0% { transform: translateX(-50%) scale(1); }
+        50% { transform: translateX(-50%) scale(1.1); }
+        100% { transform: translateX(-50%) scale(1); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
 
   document.body.appendChild(countdownElement);
+  
+  console.log('createCountdownElement created at:', {
+    originalPosition: position,
+    displayPosition,
+    canvasRect,
+    canvasInfo: canvas ? {
+      position: canvas.style.position,
+      width: canvas.style.width,
+      height: canvas.style.height,
+      rect: canvas.getBoundingClientRect()
+    } : null
+  });
+
+  // Add a temporary visual indicator to show where the countdown is positioned
+  const indicator = document.createElement('div');
+  indicator.style.cssText = `
+    position: fixed;
+    left: ${displayPosition.x}px;
+    top: ${displayPosition.y}px;
+    width: 10px;
+    height: 10px;
+    background-color: blue;
+    border-radius: 50%;
+    z-index: 20;
+    pointer-events: none;
+  `;
+  document.body.appendChild(indicator);
+  
+  // Remove indicator after 2 seconds
+  setTimeout(() => {
+    if (indicator.parentNode) {
+      indicator.parentNode.removeChild(indicator);
+    }
+  }, 2000);
+  
   return countdownElement;
 };
 
@@ -211,7 +229,7 @@ export const showCapturePreview = (screenImage, webcamImage, point) => {
     background-color: rgba(0, 0, 0, 0.85);
     padding: 20px;
     border-radius: 12px;
-    z-index: 999999;
+    z-index: 20;
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
   `;
   
@@ -372,11 +390,17 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
     return;
   }
 
+  // Get the backup countdown element
+  const backupCountdown = document.querySelector('.backup-countdown');
+
   // Use canvas management system to draw dot
   drawDotWithCanvasManager(position.x, position.y);
 
   let count = 3;
   countdownElement.textContent = count;
+  if (backupCountdown) {
+    backupCountdown.textContent = count;
+  }
 
   onStatusUpdate?.({
     processStatus: "Countdown",
@@ -396,6 +420,9 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
       if (count <= 0) {
         clearInterval(countdownInterval);
         countdownElement.textContent = "✓";
+        if (backupCountdown) {
+          backupCountdown.textContent = "✓";
+        }
 
         onStatusUpdate?.({
           countdownValue: "Capturing...",
@@ -404,9 +431,14 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
         });
 
         setTimeout(() => {
+          // Remove both countdown elements
           if (countdownElement.parentNode) {
             countdownElement.parentNode.removeChild(countdownElement);
           }
+          if (backupCountdown && backupCountdown.parentNode) {
+            backupCountdown.parentNode.removeChild(backupCountdown);
+          }
+          
           drawDotWithCanvasManager(position.x, position.y);
 
           // Clear the redrawInterval we defined above
@@ -422,6 +454,9 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
         }, 300);
       } else {
         countdownElement.textContent = count;
+        if (backupCountdown) {
+          backupCountdown.textContent = count;
+        }
 
         onStatusUpdate?.({
           processStatus: "Countdown",
@@ -472,6 +507,7 @@ export const drawRedDot = (ctx, x, y, radius = 12, clearCanvas = true) => {
   ctx.lineWidth = 2;
   ctx.stroke();
   
+  console.log(`Drew red dot at (${x}, ${y}) with radius ${radius}`);
   return { x, y };
 };
 
@@ -781,29 +817,69 @@ export const captureAndPreviewProcess = async (options) => {
       });
     }
 
+    // Remove any existing countdown elements first
+    const existingCountdowns = document.querySelectorAll('.calibrate-countdown, .dot-countdown, .forced-countdown, .center-countdown-backup');
+    existingCountdowns.forEach(el => {
+      console.log('captureAndPreviewProcess: Removing existing countdown:', el);
+      el.remove();
+    });
+    
     // Create a custom countdown element
     const canvasRect = canvas.getBoundingClientRect();
+    
+    // Transform coordinates for fullscreen display
+    let displayPosition = position;
+    displayPosition = {
+      x: position.x,
+      y: position.y
+    };
+    // if (canvas.style.position === 'fixed' && canvas.style.width === '100vw') {
+    //   // Canvas is in fullscreen mode, use direct coordinates
+    //   displayPosition = {
+    //     x: position.x,
+    //     y: position.y
+    //   };
+    // } else {
+    //   // Canvas is in normal mode, use canvas-relative coordinates
+    //   displayPosition = {
+    //     x: canvasRect.left + position.x,
+    //     y: canvasRect.top + position.y
+    //   };
+    // }
+    
+    console.log('captureAndPreviewProcess: Creating countdown at:', {
+      originalPosition: position,
+      displayPosition,
+      canvasRect,
+      canvasStyle: {
+        position: canvas.style.position,
+        width: canvas.style.width,
+        height: canvas.style.height
+      }
+    });
+    
     const countdownElement = document.createElement('div');
     countdownElement.className = 'calibrate-countdown';
     countdownElement.style.cssText = `
       position: fixed;
-      left: ${canvasRect.left + position.x}px;
-      top: ${canvasRect.top + position.y - 60}px;
+      left: ${displayPosition.x}px;
+      top: ${displayPosition.y - 60}px;
       transform: translateX(-50%);
       color: red;
-      font-size: 36px;
+      font-size: 48px;
       font-weight: bold;
-      text-shadow: 0 0 10px white, 0 0 20px white;
-      z-index: 9999;
-      background-color: rgba(255, 255, 255, 0.8);
-      border: 2px solid red;
+      text-shadow: 0 0 15px white, 0 0 25px white, 0 0 35px white;
+      z-index: 30;
+      background-color: rgba(255, 255, 255, 0.95);
+      border: 3px solid red;
       border-radius: 50%;
-      width: 50px;
-      height: 50px;
+      width: 80px;
+      height: 80px;
       display: flex;
       justify-content: center;
       align-items: center;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 0, 0, 0.3);
+      animation: pulse 1s infinite;
     `;
     document.body.appendChild(countdownElement);
 
@@ -815,6 +891,7 @@ export const captureAndPreviewProcess = async (options) => {
     // Manual countdown
     for (let count = 3; count > 0; count--) {
       countdownElement.textContent = count;
+      // backupCountdown.textContent = count;
       if (onStatusUpdate) {
         onStatusUpdate({
           processStatus: `Countdown: ${count}`,
@@ -829,6 +906,7 @@ export const captureAndPreviewProcess = async (options) => {
 
     // Change to checkmark
     countdownElement.textContent = "✓";
+    // backupCountdown.textContent = "✓";
     if (onStatusUpdate) {
       onStatusUpdate({
         processStatus: 'Capturing images...',
@@ -837,7 +915,7 @@ export const captureAndPreviewProcess = async (options) => {
       });
     }
 
-    // Remove countdown element and clear redrawInterval
+    // Remove countdown elements and clear redrawInterval
     setTimeout(() => {
       if (countdownElement.parentNode) {
         countdownElement.parentNode.removeChild(countdownElement);
