@@ -342,7 +342,7 @@
   width: 100%;
   height: 100%;
   border: none !important; /* Remove border that causes lines */
-  background-color: white;
+  background-color: yellow;
   overflow: hidden;
 }
 
@@ -350,6 +350,7 @@
   width: 100%;
   height: 100%;
   display: block; /* Removes inline spacing issues */
+  background-color: yellow;
 }
 
 /* Responsive adjustments */

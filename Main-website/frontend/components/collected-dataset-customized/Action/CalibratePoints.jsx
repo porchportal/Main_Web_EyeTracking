@@ -39,6 +39,48 @@ const getCanvas = () => {
 };
 
 /**
+ * Transform canvas coordinates to viewport coordinates when in fullscreen
+ * @param {HTMLCanvasElement} canvas - Canvas element
+ * @param {Object} point - {x, y} point coordinates
+ * @returns {Object} Transformed point coordinates
+ */
+const transformCoordinates = (canvas, point) => {
+  if (!canvas || !point) return point;
+  
+  // Check if canvas is in fullscreen mode
+  const isFullscreen = canvas.style.position === 'fixed' && 
+                      (canvas.style.width === '100vw' || canvas.style.width === '100%');
+  
+  if (isFullscreen) {
+    // Get the canvas's bounding rect to understand its position in the viewport
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    // Calculate the scale factors
+    const scaleX = canvasRect.width / canvas.width;
+    const scaleY = canvasRect.height / canvas.height;
+    
+    // Transform the coordinates
+    const transformedPoint = {
+      x: point.x * scaleX + canvasRect.left,
+      y: point.y * scaleY + canvasRect.top,
+      label: point.label
+    };
+    
+    console.log('Coordinate transformation in CalibratePoints:', {
+      original: point,
+      transformed: transformedPoint,
+      canvasRect,
+      scale: { x: scaleX, y: scaleY }
+    });
+    
+    return transformedPoint;
+  }
+  
+  // If not fullscreen, return original coordinates
+  return point;
+};
+
+/**
  * Draw dot using the canvas management system
  * @param {number} x - X coordinate
  * @param {number} y - Y coordinate

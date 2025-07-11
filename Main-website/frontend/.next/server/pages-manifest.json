@@ -2,13 +2,8 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/": "pages/index.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/process_set": "pages/process_set.js",
   "/collected-dataset-customized": "pages/collected-dataset-customized.js",
-  "/testing-model": "pages/testing-model.js",
-  "/api/preview-api": "pages/api/preview-api.js",
-  "/api/admin/consent-data": "pages/api/admin/consent-data.js",
-  "/api/for-process-folder/file-api": "pages/api/for-process-folder/file-api.js",
-  "/collected-dataset": "pages/collected-dataset.js"
+  "/": "pages/index.js",
+  "/api/admin/consent-data": "pages/api/admin/consent-data.js"
 }

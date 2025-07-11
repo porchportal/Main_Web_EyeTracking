@@ -342,7 +342,7 @@
   width: 100%;
   height: 100%;
   border: none !important; /* Remove border that causes lines */
-  background-color: white;
+  background-color: yellow;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -356,7 +356,7 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  background-color: white;
+  background-color: yellow;
   border: none;
 }
 
@@ -368,7 +368,7 @@
   width: 100%;
   height: 100%;
   border: none !important;
-  background-color: white;
+  background-color: yellow;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -382,7 +382,7 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  background-color: white;
+  background-color: yellow;
   border: none;
 }
 
@@ -412,7 +412,7 @@
   width: 100vw;
   height: 100vh;
   z-index: 99999;
-  background-color: white;
+  background-color: yellow;
   border: none;
   display: block;
   opacity: 1;

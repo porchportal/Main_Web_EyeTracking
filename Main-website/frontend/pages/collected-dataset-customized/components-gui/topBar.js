@@ -33,7 +33,8 @@ const TopBar = ({
   onToggleMetrics,
   canvasRef,
   isTopBarShown = true,
-  isCanvasVisible = true
+  isCanvasVisible = true,
+  showMetrics = true
 }) => {
   const router = useRouter();
   const [canvasStatus, setCanvasStatus] = useState(isCanvasVisible);
@@ -220,7 +221,15 @@ const TopBar = ({
   };
   
   const handleToggleMetrics = () => {
-    onToggleMetrics();
+    console.log('TopBar: handleToggleMetrics called');
+    // Use action handler if available, otherwise fallback to direct toggle
+    if (onButtonClick) {
+      console.log('TopBar: Using action handler for metrics');
+      onButtonClick('metrics');
+    } else {
+      console.log('TopBar: Using direct toggle for metrics');
+      onToggleMetrics();
+    }
   };
 
   const handleGoBack = () => {
@@ -371,18 +380,19 @@ const TopBar = ({
           <button 
             className="icon-btn alert-btn"
             onClick={handleToggleMetrics}
-            title="Toggle Metrics"
+            title={`${showMetrics ? 'Hide' : 'Show'} Metrics`}
             style={{
               padding: '5px 10px',
-              backgroundColor: '#ff9900',
+              backgroundColor: showMetrics ? '#00cc00' : '#ff9900',
               color: 'white',
               border: 'none',
               borderRadius: '4px',
               fontSize: '16px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
             }}
           >
-            <span className="icon-text">!</span>
+            <span className="icon-text">{showMetrics ? '✓' : '!'}</span>
           </button>
         </div>
       </div>

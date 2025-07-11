@@ -39,6 +39,48 @@ const getCanvas = () => {
 };
 
 /**
+ * Transform canvas coordinates to viewport coordinates when in fullscreen
+ * @param {HTMLCanvasElement} canvas - Canvas element
+ * @param {Object} point - {x, y} point coordinates
+ * @returns {Object} Transformed point coordinates
+ */
+const transformCoordinates = (canvas, point) => {
+  if (!canvas || !point) return point;
+  
+  // Check if canvas is in fullscreen mode
+  const isFullscreen = canvas.style.position === 'fixed' && 
+                      (canvas.style.width === '100vw' || canvas.style.width === '100%');
+  
+  if (isFullscreen) {
+    // Get the canvas's bounding rect to understand its position in the viewport
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    // Calculate the scale factors
+    const scaleX = canvasRect.width / canvas.width;
+    const scaleY = canvasRect.height / canvas.height;
+    
+    // Transform the coordinates
+    const transformedPoint = {
+      x: point.x * scaleX + canvasRect.left,
+      y: point.y * scaleY + canvasRect.top,
+      label: point.label
+    };
+    
+    console.log('Coordinate transformation in countSave:', {
+      original: point,
+      transformed: transformedPoint,
+      canvasRect,
+      scale: { x: scaleX, y: scaleY }
+    });
+    
+    return transformedPoint;
+  }
+  
+  // If not fullscreen, return original coordinates
+  return point;
+};
+
+/**
  * Draw dot using the canvas management system
  * @param {number} x - X coordinate
  * @param {number} y - Y coordinate
@@ -103,15 +145,21 @@ export const createCountdownElement = (position, canvasRect) => {
   const existingCountdowns = document.querySelectorAll('.calibrate-countdown, .forced-countdown, .center-countdown-backup');
   existingCountdowns.forEach(el => el.remove());
 
-  const absoluteX = canvasRect.left + position.x;
-  const absoluteY = canvasRect.top + position.y;
+  // Get canvas to check if we need coordinate transformation
+  const canvas = getCanvas();
+  let displayPosition = position;
+  
+  if (canvas) {
+    // Transform coordinates if canvas is in fullscreen mode
+    displayPosition = transformCoordinates(canvas, position);
+  }
 
   const countdownElement = document.createElement('div');
   countdownElement.className = 'dot-countdown';
   countdownElement.style.cssText = `
     position: fixed;
-    left: ${absoluteX}px;
-    top: ${absoluteY - 60}px;
+    left: ${displayPosition.x}px;
+    top: ${displayPosition.y - 60}px;
     transform: translateX(-50%);
     color: red;
     font-size: 36px;
@@ -400,7 +448,7 @@ export const drawRedDot = (ctx, x, y, radius = 12, clearCanvas = true) => {
   // Clear the canvas if requested (default behavior)
   if (clearCanvas) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'white';
+    ctx.fillStyle = 'yellow';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
   

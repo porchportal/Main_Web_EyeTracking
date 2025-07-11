@@ -6,6 +6,7 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
   
   // Update animation state when visibility changes
   useEffect(() => {
+    console.log('DisplayResponse: isVisible changed to', isVisible);
     setAnimationState(isVisible ? 'visible' : 'hidden');
   }, [isVisible]);
   
@@ -13,6 +14,8 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
   const formattedWidth = width || '---';
   const formattedHeight = height || '---';
   const formattedDistance = distance || '---';
+  
+  console.log('DisplayResponse: rendering with isVisible:', isVisible, 'animationState:', animationState);
   
   return (
     <div 

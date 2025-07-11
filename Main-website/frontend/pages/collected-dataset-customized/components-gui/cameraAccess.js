@@ -1,8 +1,10 @@
-// cameraAccess.js
+// Unified Camera Access Component
 import React, { useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { getHighestResolutionConstraints } from '../../../components/collected-dataset-customized/Helper/savefile';
 
-const CameraAccess = ({ 
+// Create the main camera component
+const CameraAccessComponent = ({ 
   isShowing, 
   onClose, 
   onCameraReady,
@@ -31,7 +33,6 @@ const CameraAccess = ({
   // WebSocket connection
   const connectWebSocket = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected');
       return;
     }
 
@@ -171,40 +172,6 @@ const CameraAccess = ({
     }
   };
 
-  // Draw processing results
-  // const drawResults = (results) => {
-  //   if (!canvasRef.current || !results) return;
-
-  //   const canvas = canvasRef.current;
-  //   const ctx = canvas.getContext('2d');
-
-  //   // Draw bounding box if available
-  //   if (results.bounding_box && showBoundingBox) {
-  //     const { x, y, width, height } = results.bounding_box;
-  //     ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
-  //     ctx.lineWidth = 2;
-  //     ctx.strokeRect(x, y, width, height);
-  //   }
-
-  //   // Draw head pose if available
-  //   if (results.head_pose && showHeadPose) {
-  //     const { pitch, yaw, roll } = results.head_pose;
-  //     // Draw head pose visualization
-  //     drawHeadPose(ctx, canvas, pitch, yaw, roll);
-  //   }
-
-  //   // Draw face mask if available
-  //   if (results.face_mask && showMask) {
-  //     const { points } = results.face_mask;
-  //     drawFaceMask(ctx, canvas, points);
-  //   }
-
-  //   // Draw parameters if enabled
-  //   if (showParameters) {
-  //     drawParameters(ctx, canvas, results);
-  //   }
-  // };
-
   // Start camera with highest resolution
   const startCamera = async () => {
     setErrorMessage('');
@@ -233,8 +200,6 @@ const CameraAccess = ({
         version: userAgent.match(/(chrome|firefox|safari|edge|opr)\/([0-9]+)/)
       };
 
-      console.log('Browser Info:', browserInfo);
-
       // 3. Initialize MediaDevices API
       if (!navigator.mediaDevices) {
         console.warn('MediaDevices API not available, initializing...');
@@ -253,8 +218,6 @@ const CameraAccess = ({
           ms: navigator.msGetUserMedia || navigator.mediaDevices.msGetUserMedia,
           legacy: navigator.getUserMedia
         };
-
-        console.log('Available implementations:', Object.keys(implementations).filter(key => implementations[key]));
 
         // Try to find a working implementation
         let getUserMedia = null;
@@ -506,14 +469,11 @@ const CameraAccess = ({
     const video = videoRef.current;
     
     const handleLoadedMetadata = () => {
-      console.log('Video metadata loaded');
       setIsVideoReady(true);
       
       // Get video dimensions
       const videoWidth = video.videoWidth || 640;
       const videoHeight = video.videoHeight || 480;
-      
-      console.log(`Video dimensions: ${videoWidth}x${videoHeight}`);
       
       // Setup canvas for processing
       if (canvasRef.current) {
@@ -807,5 +767,37 @@ const CameraAccess = ({
     </div>
   );
 };
+
+// Create the dynamic import wrapper with SSR disabled
+const CameraAccess = dynamic(
+  () => Promise.resolve(CameraAccessComponent),
+  { 
+    ssr: false, // Disable server-side rendering for camera component
+    loading: () => (
+      <div style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        transform: 'translate(-50%, -50%)',
+        width: '480px',
+        height: '360px',
+        background: '#f0f8ff',
+        border: '2px solid #0066cc',
+        borderRadius: '8px',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        textAlign: 'center',
+        zIndex: 999
+      }}>
+        <div style={{ fontSize: '48px', marginBottom: '15px' }}>📷</div>
+        <p style={{ fontSize: '16px', fontWeight: 'bold', color: '#0066cc' }}>
+          Loading camera...
+        </p>
+      </div>
+    )
+  }
+);
 
 export default CameraAccess;
