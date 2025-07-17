@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import styles from '../styles/AdminLogin.module.css';
 
 // Use the frontend environment variables
-const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8010';
 
 export default function AdminLogin() {
   const router = useRouter();

@@ -8,7 +8,7 @@ const nextConfig = {
     // Allow all hostnames in development
     host: '0.0.0.0',
     // Use port 3000 by default
-    port: 3000
+    port: 3010
   }
 };
 

@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     container_name: backend
     ports:
-      - "8000:8000"
+      - "8010:8010"
     volumes:
       - ./backend:/app
       - ./uploads:/app/uploads
@@ -25,7 +25,7 @@ services:
       dockerfile: Dockerfile
     container_name: frontend
     ports:
-      - "3000:3000"
+      - "3010:3010"
     volumes:
       - ./frontend:/app
       - /app/node_modules
@@ -43,10 +43,11 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
+      - ./mongod.conf:/etc/mongod.conf:ro
     environment:
       - MONGO_INITDB_DATABASE=eye_tracking
     healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
       interval: 10s
       timeout: 5s
       retries: 5

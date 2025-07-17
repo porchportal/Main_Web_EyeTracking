@@ -39,7 +39,7 @@ const CameraAccessComponent = ({
     setWsStatus('connecting');
     try {
       // Connect to FastAPI WebSocket endpoint
-      const ws = new WebSocket('ws://localhost:8000/ws/video');
+      const ws = new WebSocket('ws://localhost:8010/ws/video');
       wsRef.current = ws;
 
       // Set a connection timeout

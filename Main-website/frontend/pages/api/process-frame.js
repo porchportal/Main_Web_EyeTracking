@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   try {
     // First check backend connection
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
     const url = new URL(backendUrl);
     
     // Check if backend is available

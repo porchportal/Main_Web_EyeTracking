@@ -10,7 +10,7 @@ import path from 'path';
 import DragDropPriorityList from './adminDrag&Drop';
 import AdminCanvaConfig from './adminCanvaConfig';
 
-const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8010';
 
 export async function getServerSideProps() {
   // Define the path to the settings file
