@@ -68,6 +68,8 @@ export default function AdminPage({ initialSettings }) {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [showCanvaConfig, setShowCanvaConfig] = useState(false);
+  const [showAllConsentData, setShowAllConsentData] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
 
 
   // Initialize tempSettings with initial settings
@@ -75,23 +77,9 @@ export default function AdminPage({ initialSettings }) {
     setTempSettings(initialSettings);
   }, [initialSettings]);
 
-  // Add this effect to ensure global action button functions are set
+  // Add listener for settings updates
   useEffect(() => {
-    // Debug check to see if window.actionButtonFunctions is available
     if (typeof window !== 'undefined') {
-      const checkActionButtonFunctions = () => {
-        if (window.actionButtonFunctions) {
-          setDebugInfo('ActionButton functions available globally');
-        } else {
-          setDebugInfo('ActionButton functions NOT available globally');
-          // Try again in 1 second if not available
-          setTimeout(checkActionButtonFunctions, 1000);
-        }
-      };
-      
-      checkActionButtonFunctions();
-      
-      // Add listener for settings updates
       const handleSettingsUpdate = (event) => {
         if (event.detail && event.detail.type === 'captureSettingsUpdate') {
           setDebugInfo(`Received settings update event: ${JSON.stringify(event.detail)}`);
@@ -907,8 +895,16 @@ export default function AdminPage({ initialSettings }) {
                 </tr>
               </thead>
               <tbody>
-                {consentData.map((data, index) => (
-                  <tr key={index}>
+                {consentData
+                  .slice(0, showAllConsentData ? consentData.length : 5)
+                  .map((data, index) => (
+                  <tr 
+                    key={index}
+                    className={`${isAnimating ? (showAllConsentData ? styles.expanding : styles.collapsing) : ''}`}
+                    style={{
+                      animationDelay: `${index * 0.05}s`
+                    }}
+                  >
                     <td>{data.userId}</td>
                     <td>{data.status ? 'Accepted' : 'Declined'}</td>
                     <td>{getProfileStatus(data.userId)}</td>
@@ -936,6 +932,27 @@ export default function AdminPage({ initialSettings }) {
                 ))}
               </tbody>
             </table>
+            {consentData.length > 5 && (
+              <div className={styles.showMoreContainer}>
+                <button
+                  className={styles.showMoreButton}
+                  onClick={() => {
+                    if (!isAnimating) {
+                      setIsAnimating(true);
+                      setShowAllConsentData(!showAllConsentData);
+                      
+                      // Reset animation state after animation completes
+                      setTimeout(() => {
+                        setIsAnimating(false);
+                      }, 500);
+                    }
+                  }}
+                  disabled={isAnimating}
+                >
+                  {showAllConsentData ? 'Show Less' : 'Show More'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
   
@@ -983,7 +1000,7 @@ export default function AdminPage({ initialSettings }) {
         </div>
         
         {/* Settings Grid Container */}
-        {selectedUserId && (
+        {selectedUserId && selectedUserId !== 'default' && (
           <div className={styles.settingsGrid}>
             {/* Capture Settings Section */}
             <div className={styles.div1}>
@@ -1281,7 +1298,9 @@ export default function AdminPage({ initialSettings }) {
                 >
                   Choose Image
                 </button>
-                {tempSettings[selectedUserId]?.image_path && (
+                {tempSettings[selectedUserId]?.image_path && 
+                 tempSettings[selectedUserId].image_path !== "/asfgrebvxcv" && 
+                 tempSettings[selectedUserId].image_path !== "" && (
                   <div className={styles.currentImage}>
                     <p>Current Image: {tempSettings[selectedUserId].updateImage}</p>
                     <img 

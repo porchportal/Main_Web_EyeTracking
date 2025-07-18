@@ -198,6 +198,88 @@
 /* Admin consent table styles */
 .consentTable {
   width: 100%;
+}
+
+.showMoreContainer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 15px;
+  padding-right: 10px;
+}
+
+.showMoreButton {
+  background-color: white;
+  color: black;
+  border: 1px solid #ddd;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.showMoreButton:hover {
+  background-color: #f8f9fa;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.showMoreButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Animation for table rows */
+.consentTable tbody {
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.consentTable tbody tr {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 60px;
+  overflow: hidden;
+}
+
+.consentTable tbody tr.expanding {
+  animation: expandRow 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.consentTable tbody tr.collapsing {
+  animation: collapseRow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes expandRow {
+  from {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    max-height: 60px;
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes collapseRow {
+  from {
+    max-height: 60px;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+}
+
+.consentTable {
+  width: 100%;
   overflow-x: auto;
   margin-top: 20px;
 }

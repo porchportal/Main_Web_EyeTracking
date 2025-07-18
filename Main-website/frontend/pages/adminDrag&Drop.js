@@ -240,27 +240,12 @@ export default function DragDropPriorityList({ onOrderChange }) {
               </div>
               {/* Task Content */}
               <div className={styles.taskContent}>
-                {editingId === item.id ? (
-                  <div className={styles.editRow}>
-                    <input
-                      type="text"
-                      value={editValue}
-                      onChange={(e) => setEditValue(e.target.value)}
-                      className={styles.editInput}
-                      onKeyPress={(e) => e.key === 'Enter' && saveEdit()}
-                    />
-                    <button onClick={saveEdit} className={styles.saveEditBtn}><Save size={16} /></button>
-                    <button onClick={cancelEdit} className={styles.cancelEditBtn}><X size={16} /></button>
+                <div className={styles.taskInfoRow}>
+                  <div>
+                    <span className={styles.taskName}>{item.name}</span>
+                    <span className={styles.taskDesc}>{item.description}</span>
                   </div>
-                ) : (
-                  <div className={styles.taskInfoRow}>
-                    <div>
-                      <span className={styles.taskName}>{item.name}</span>
-                      <span className={styles.taskDesc}>{item.description}</span>
-                    </div>
-                    <button onClick={() => startEdit(item)} className={styles.editBtn}><Edit2 size={16} /></button>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           ))}

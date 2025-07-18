@@ -104,8 +104,8 @@
   {
     "userId": "f084cf66-3b92-427d-8071-28f74288719c",
     "status": true,
-    "timestamp": "2025-07-17T09:42:42.378Z",
-    "receivedAt": "2025-07-17T09:42:42.604Z"
+    "timestamp": "2025-07-18T08:33:20.384Z",
+    "receivedAt": "2025-07-18T08:31:18.254Z"
   },
   {
     "userId": "e9b02de4-5659-41bb-8ad4-bfdbb121aa68",
@@ -136,5 +136,11 @@
     "status": true,
     "timestamp": "2025-06-19T16:30:48.560Z",
     "receivedAt": "2025-06-19T16:30:48.579Z"
+  },
+  {
+    "userId": "678ad82c-da5a-4bf0-9d8e-e8207e83c7bf",
+    "status": true,
+    "timestamp": "2025-07-18T08:35:15.792Z",
+    "receivedAt": "2025-07-18T08:35:15.827Z"
   }
 ]
