@@ -102,14 +102,53 @@ export default async function handler(req, res) {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
     const apiKey = process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
 
+    // Get existing images to merge with new ones
+    let existingImages = {};
+    try {
+      const existingResponse = await fetch(`${backendUrl}/api/data-center/settings/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': apiKey
+        }
+      });
+      
+      if (existingResponse.ok) {
+        const existingData = await existingResponse.json();
+        existingImages = existingData.data?.image_pdf_canva || {};
+      }
+    } catch (error) {
+      console.log('Could not fetch existing images, starting fresh:', error.message);
+    }
+
+    // Generate unique keys for new images to avoid conflicts
+    const existingKeys = Object.keys(existingImages);
+    const newImagePaths = {};
+    
+    Object.entries(imagePaths).forEach(([key, path], index) => {
+      let newKey = key;
+      let counter = 1;
+      
+      // Find a unique key
+      while (existingKeys.includes(newKey)) {
+        newKey = `${key}_${counter}`;
+        counter++;
+      }
+      
+      newImagePaths[newKey] = path;
+    });
+
+    // Merge existing and new images
+    const mergedImagePaths = { ...existingImages, ...newImagePaths };
+
     // Prepare the data structure for the new MongoDB format
     const updateData = {
       userId: userId,
       type: 'settings',
       data: {
-        image_path: imagePaths['Image_path_1'] || Object.values(imagePaths)[0],
-        updateImage: Object.values(imagePaths)[0]?.split('/').pop() || 'image.jpg',
-        image_pdf_canva: imagePaths,
+        image_path: existingImages.image_path || newImagePaths['Image_path_1'] || Object.values(newImagePaths)[0],
+        updateImage: existingImages.updateImage || Object.values(newImagePaths)[0]?.split('/').pop() || 'image.jpg',
+        image_pdf_canva: mergedImagePaths,
         updated_at: new Date().toISOString()
       }
     };
@@ -137,7 +176,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({ 
       success: true,
-      imagePaths,
+      imagePaths: newImagePaths, // Return only the new images for frontend processing
       message: 'Images uploaded successfully',
       backendData
     });

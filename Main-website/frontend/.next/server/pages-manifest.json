@@ -4,6 +4,6 @@
   "/_document": "pages/_document.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
   "/api/admin/upload-image": "pages/api/admin/upload-image.js",
-  "/": "pages/index.js",
+  "/api/admin/consent-data": "pages/api/admin/consent-data.js",
   "/admin": "pages/admin.js"
 }

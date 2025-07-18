@@ -781,19 +781,58 @@ export default function AdminPage({ initialSettings }) {
 
   const handleImageSave = (imagePaths) => {
     if (selectedUserId) {
+      // Get existing images and settings
+      const existingImages = tempSettings[selectedUserId]?.image_pdf_canva || {};
+      const existingPrimaryPath = tempSettings[selectedUserId]?.image_path;
+      const existingUpdateImage = tempSettings[selectedUserId]?.updateImage;
+      
       // Handle both single imagePath (string) and imagePaths object
       let primaryImagePath;
       let updateImageName;
+      let mergedImagePaths;
       
       if (typeof imagePaths === 'string') {
         // Backward compatibility for single image path
         primaryImagePath = imagePaths;
         updateImageName = imagePaths.split('/').pop();
+        mergedImagePaths = { ...existingImages, 'Image_path_1': imagePaths };
       } else if (typeof imagePaths === 'object' && imagePaths !== null) {
         // Handle imagePaths object with multiple images
         const firstImagePath = imagePaths['Image_path_1'] || Object.values(imagePaths)[0];
-        primaryImagePath = firstImagePath;
-        updateImageName = firstImagePath ? firstImagePath.split('/').pop() : '';
+        
+        // Only update primary image if there's no existing primary image
+        if (!existingPrimaryPath || existingPrimaryPath === "/asfgrebvxcv" || existingPrimaryPath === "") {
+          primaryImagePath = firstImagePath;
+          updateImageName = firstImagePath ? firstImagePath.split('/').pop() : '';
+        } else {
+          // Keep existing primary image
+          primaryImagePath = existingPrimaryPath;
+          updateImageName = existingUpdateImage;
+        }
+        
+        // Merge new images with existing ones, ensuring unique keys
+        const existingKeys = Object.keys(existingImages);
+        const newImagePaths = { ...imagePaths };
+        
+        // Rename new image keys to avoid conflicts
+        Object.keys(newImagePaths).forEach((key, index) => {
+          let newKey = key;
+          let counter = 1;
+          
+          // Find a unique key
+          while (existingKeys.includes(newKey)) {
+            newKey = `${key}_${counter}`;
+            counter++;
+          }
+          
+          // Only rename if the key changed
+          if (newKey !== key) {
+            newImagePaths[newKey] = newImagePaths[key];
+            delete newImagePaths[key];
+          }
+        });
+        
+        mergedImagePaths = { ...existingImages, ...newImagePaths };
       } else {
         console.error('Invalid imagePaths format:', imagePaths);
         return;
@@ -805,10 +844,10 @@ export default function AdminPage({ initialSettings }) {
           ...prev[selectedUserId],
           image_path: primaryImagePath,
           updateImage: updateImageName,
-          image_pdf_canva: imagePaths // Store the full imagePaths object
+          image_pdf_canva: mergedImagePaths // Store the merged imagePaths object
         }
       }));
-      showNotification('Image saved successfully!');
+      showNotification('Images added successfully!');
     }
   };
 
@@ -1298,9 +1337,81 @@ export default function AdminPage({ initialSettings }) {
                 >
                   Choose Image
                 </button>
+                
+                {/* Show current images */}
+                {tempSettings[selectedUserId]?.image_pdf_canva && 
+                 typeof tempSettings[selectedUserId].image_pdf_canva === 'object' && 
+                 Object.keys(tempSettings[selectedUserId].image_pdf_canva).length > 0 && (
+                  <div className={styles.currentImages}>
+                    <p>Images ({Object.keys(tempSettings[selectedUserId].image_pdf_canva).length}):</p>
+                    
+                    {/* Show image previews grid */}
+                    {/* <div className={styles.imagePreviewGrid}>
+                      {Object.entries(tempSettings[selectedUserId].image_pdf_canva).map(([key, path], index) => (
+                        <div key={key} className={styles.imagePreviewItem}>
+                          <img 
+                            src={path} 
+                            alt={`Image ${index + 1}`} 
+                            className={styles.imagePreviewThumbnail}
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextSibling.style.display = 'block';
+                            }}
+                          />
+                          <p className={styles.imageError} style={{ display: 'none', color: '#dc3545', fontSize: '0.8rem' }}>
+                            Image not found
+                          </p>
+                          <p className={styles.imagePreviewName}>{key}</p>
+                        </div>
+                      ))}
+                    </div> */}
+                    
+                    {/* Show "Show All Images" button if more than 1 image */}
+                    {Object.keys(tempSettings[selectedUserId].image_pdf_canva).length > 1 && (
+                      <div className={styles.showAllImagesContainer}>
+                        <button
+                          onClick={() => {
+                            // Create a modal to show all images
+                            const allImages = tempSettings[selectedUserId].image_pdf_canva;
+                            const imageEntries = Object.entries(allImages);
+                            
+                            // Create modal content
+                            const modalContent = document.createElement('div');
+                            modalContent.className = styles.imageModal;
+                            modalContent.innerHTML = `
+                              <div class="${styles.imageModalContent}">
+                                <h3>All Images (${imageEntries.length})</h3>
+                                <div class="${styles.imageModalGrid}">
+                                  ${imageEntries.map(([key, path]) => `
+                                    <div class="${styles.imageModalItem}">
+                                      <img src="${path}" alt="${key}" class="${styles.imageModalPreview}" />
+                                      <p class="${styles.imageModalName}">${key}</p>
+                                    </div>
+                                  `).join('')}
+                                </div>
+                                <button class="${styles.imageModalClose}" onclick="this.parentElement.parentElement.remove()">Close</button>
+                              </div>
+                            `;
+                            
+                            // Add modal to page
+                            document.body.appendChild(modalContent);
+                          }}
+                          className={styles.showAllImagesButton}
+                        >
+                          Show All Images ({Object.keys(tempSettings[selectedUserId].image_pdf_canva).length})
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Fallback for single image (backward compatibility) */}
                 {tempSettings[selectedUserId]?.image_path && 
                  tempSettings[selectedUserId].image_path !== "/asfgrebvxcv" && 
-                 tempSettings[selectedUserId].image_path !== "" && (
+                 tempSettings[selectedUserId].image_path !== "" && 
+                 (!tempSettings[selectedUserId]?.image_pdf_canva || 
+                  typeof tempSettings[selectedUserId].image_pdf_canva !== 'object' || 
+                  Object.keys(tempSettings[selectedUserId].image_pdf_canva).length === 0) && (
                   <div className={styles.currentImage}>
                     <p>Current Image: {tempSettings[selectedUserId].updateImage}</p>
                     <img 
@@ -1356,6 +1467,7 @@ export default function AdminPage({ initialSettings }) {
             onImageSave={handleImageSave}
             onClose={() => setShowCanvaConfig(false)}
             userId={selectedUserId}
+            existingImages={tempSettings[selectedUserId]?.image_pdf_canva || {}}
           />
         )}
       </main>

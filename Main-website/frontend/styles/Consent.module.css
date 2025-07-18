@@ -1002,6 +1002,14 @@
   object-fit: contain;
 }
 
+/* Smaller image previews for the images container */
+.imagesPreviewGrid .imagePreview {
+  max-height: 60px;
+  width: 100%;
+  height: 60px;
+  object-fit: cover;
+}
+
 .dropZoneText {
   color: #666;
 }
@@ -1094,6 +1102,12 @@
   background: white;
 }
 
+/* Smaller preview items for the images container */
+.imagesPreviewGrid .previewItem {
+  padding: 0.25rem;
+  border-radius: 3px;
+}
+
 .previewItem img {
   width: 100%;
   height: 150px;
@@ -1120,6 +1134,15 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
+/* Smaller remove button for the images container */
+.imagesPreviewGrid .removeButton {
+  top: -4px;
+  right: -4px;
+  width: 18px;
+  height: 18px;
+  font-size: 12px;
+}
+
 .removeButton:hover {
   background: #cc0000;
 }
@@ -1131,4 +1154,263 @@
   color: #666;
   text-align: center;
   word-break: break-all;
+}
+
+/* Smaller file names for the images container */
+.imagesPreviewGrid .fileName {
+  margin-top: 0.25rem;
+  font-size: 0.6rem;
+  line-height: 1.1;
+}
+
+/* Multiple Images Styles */
+.currentImages {
+  margin-top: 10px;
+}
+
+.currentImages p {
+  margin-bottom: 10px;
+  font-weight: 500;
+  color: #333;
+}
+
+.showAllImagesContainer {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.showAllImagesButton {
+  background-color: #17a2b8;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.showAllImagesButton:hover {
+  background-color: #138496;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.showAllImagesButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Existing and New Image Badges */
+.existingImage {
+  border: 2px solid #28a745;
+  position: relative;
+}
+
+.newImage {
+  border: 2px solid #007bff;
+  position: relative;
+}
+
+.existingBadge {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  background-color: #28a745;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  z-index: 2;
+}
+
+.newBadge {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  background-color: #007bff;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  z-index: 2;
+}
+
+/* Smaller badges for the images container */
+.imagesPreviewGrid .existingBadge,
+.imagesPreviewGrid .newBadge {
+  top: -4px;
+  left: -4px;
+  padding: 1px 4px;
+  font-size: 0.6rem;
+  border-radius: 8px;
+}
+
+/* Image Modal Styles */
+.imageModal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.imageModalContent {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.imageModalContent h3 {
+  margin-bottom: 1rem;
+  text-align: center;
+  color: #333;
+}
+
+.imageModalGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.imageModalItem {
+  text-align: center;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #f8f9fa;
+}
+
+.imageModalPreview {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+}
+
+.imageModalName {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0;
+  word-break: break-all;
+}
+
+.imageModalClose {
+  background-color: #6c757d;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.2s;
+  display: block;
+  margin: 0 auto;
+}
+
+.imageModalClose:hover {
+  background-color: #5a6268;
+}
+
+.existingCount {
+  font-size: 0.8rem;
+  color: #666;
+  font-weight: normal;
+  margin-left: 0.5rem;
+}
+
+/* Image Preview Grid Styles */
+.imagePreviewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 0.5rem;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+.imagePreviewItem {
+  text-align: center;
+  padding: 0.25rem;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+  transition: transform 0.2s ease;
+}
+
+.imagePreviewItem:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.imagePreviewThumbnail {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+  margin-bottom: 0.25rem;
+}
+
+.imagePreviewName {
+  font-size: 0.7rem;
+  color: #666;
+  margin: 0;
+  word-break: break-all;
+  line-height: 1.2;
+}
+
+/* Images Container Styles */
+.imagesContainer {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.imagesContainerTitle {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.imageCount {
+  font-size: 0.8rem;
+  color: #666;
+  font-weight: normal;
+}
+
+.imagesPreviewGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: white;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
 }

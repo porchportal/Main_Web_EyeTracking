@@ -1,12 +1,20 @@
 import { useState, useRef } from 'react';
 import styles from '../styles/Consent.module.css';
 
-export default function AdminCanvaConfig({ onImageSave, onClose, userId }) {
+export default function AdminCanvaConfig({ onImageSave, onClose, userId, existingImages = {} }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [previewUrls, setPreviewUrls] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Convert existing images to preview format
+  const existingPreviews = Object.entries(existingImages).map(([key, path]) => ({
+    url: path,
+    name: path.split('/').pop() || key,
+    isExisting: true,
+    key: key
+  }));
 
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
@@ -170,7 +178,14 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId }) {
   return (
     <div className={styles.canvaConfigModal}>
       <div className={styles.canvaConfigContent}>
-        <h2>Image Upload Configuration</h2>
+        <h2>
+          {existingPreviews.length > 0 ? 'Add More Images' : 'Image Upload Configuration'}
+          {existingPreviews.length > 0 && (
+            <span className={styles.existingCount}>
+              ({existingPreviews.length} existing)
+            </span>
+          )}
+        </h2>
         
         <div 
           className={`${styles.dropZone} ${dragActive ? styles.dragActive : ''}`}
@@ -188,10 +203,36 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId }) {
             multiple
             style={{ display: 'none' }}
           />
-          {previewUrls.length > 0 ? (
-            <div className={styles.previewGrid}>
+          <div className={styles.dropZoneText}>
+            <p>Drag and drop images here or click to select</p>
+            <p className={styles.supportedFormats}>Supported formats: JPG, JPEG, PNG</p>
+          </div>
+        </div>
+
+        {/* Show images in a separate box below */}
+        {(previewUrls.length > 0 || existingPreviews.length > 0) && (
+          <div className={styles.imagesContainer}>
+            <h3 className={styles.imagesContainerTitle}>
+              {existingPreviews.length > 0 ? 'All Images' : 'Selected Images'}
+              {existingPreviews.length > 0 && (
+                <span className={styles.imageCount}>
+                  ({existingPreviews.length + previewUrls.length} total)
+                </span>
+              )}
+            </h3>
+            <div className={styles.imagesPreviewGrid}>
+              {/* Show existing images first */}
+              {existingPreviews.map((preview, index) => (
+                <div key={`existing-${preview.key}`} className={`${styles.previewItem} ${styles.existingImage}`}>
+                  <img src={preview.url} alt={`Existing ${preview.name}`} className={styles.imagePreview} />
+                  <div className={styles.existingBadge}>Existing</div>
+                  <span className={styles.fileName}>{preview.name}</span>
+                </div>
+              ))}
+              
+              {/* Show new images */}
               {previewUrls.map((preview, index) => (
-                <div key={index} className={styles.previewItem}>
+                <div key={`new-${index}`} className={`${styles.previewItem} ${styles.newImage}`}>
                   <img src={preview.url} alt={`Preview ${index + 1}`} className={styles.imagePreview} />
                   <button 
                     className={styles.removeButton}
@@ -202,17 +243,13 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId }) {
                   >
                     ×
                   </button>
+                  <div className={styles.newBadge}>New</div>
                   <span className={styles.fileName}>{preview.name}</span>
                 </div>
               ))}
             </div>
-          ) : (
-            <div className={styles.dropZoneText}>
-              <p>Drag and drop images here or click to select</p>
-              <p className={styles.supportedFormats}>Supported formats: JPG, JPEG, PNG</p>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
 
         <div className={styles.canvaConfigActions}>
           <button 
@@ -220,7 +257,7 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId }) {
             className={styles.saveButton}
             disabled={isUploading || selectedFiles.length === 0}
           >
-            {isUploading ? 'Uploading...' : 'Save Images'}
+            {isUploading ? 'Uploading...' : existingPreviews.length > 0 ? 'Add More Images' : 'Save Images'}
           </button>
           {selectedFiles.length > 0 && (
             <button 
@@ -228,7 +265,7 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId }) {
               className={styles.clearButton}
               disabled={isUploading}
             >
-              Clear All
+              Clear New
             </button>
           )}
           <button 
