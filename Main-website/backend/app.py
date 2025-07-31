@@ -7,7 +7,7 @@ import logging
 from typing import Optional, Dict, Any, List
 import asyncio
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pydantic import BaseModel
 import os
 from dotenv import load_dotenv
@@ -330,8 +330,13 @@ class AdminLogin(BaseModel):
     username: str
     password: str
 
+# Admin session storage (in production, use Redis or database)
+admin_sessions = {}
+
+from fastapi.responses import JSONResponse
+
 @app.post("/api/admin/auth")
-async def admin_auth(login: AdminLogin):
+async def admin_auth(login: AdminLogin, request: Request):
     try:
         logger.info(f"Received login attempt for username: {login.username}")
         
@@ -347,7 +352,36 @@ async def admin_auth(login: AdminLogin):
         
         if login.username == expected_username and login.password == expected_password:
             logger.info("Login successful")
-            return {"message": "Authentication successful"}
+            
+            # Generate session token
+            import secrets
+            session_token = secrets.token_urlsafe(32)
+            
+            # Store session (in production, use Redis or database)
+            admin_sessions[session_token] = {
+                "username": login.username,
+                "created_at": datetime.now().isoformat(),
+                "expires_at": (datetime.now() + timedelta(hours=1)).isoformat()
+            }
+            
+            # Create response with session data
+            response_data = {
+                "message": "Authentication successful",
+                "session": session_token
+            }
+            
+            # Create response and set httpOnly cookie
+            response = JSONResponse(content=response_data)
+            response.set_cookie(
+                key="admin_session",
+                value=session_token,
+                httponly=True,
+                secure=request.url.scheme == "https",
+                samesite="strict",
+                max_age=3600  # 1 hour
+            )
+            
+            return response
         else:
             logger.warning("Invalid credentials")
             raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -355,6 +389,58 @@ async def admin_auth(login: AdminLogin):
         raise
     except Exception as e:
         logger.error(f"Error during authentication: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/admin/verify-session")
+async def verify_admin_session(session_data: dict):
+    try:
+        session_token = session_data.get("session")
+        
+        if not session_token:
+            raise HTTPException(status_code=401, detail="No session token provided")
+        
+        session = admin_sessions.get(session_token)
+        
+        if not session:
+            raise HTTPException(status_code=401, detail="Invalid session")
+        
+        # Check if session is expired
+        from datetime import datetime
+        expires_at = datetime.fromisoformat(session["expires_at"])
+        
+        if datetime.now() > expires_at:
+            # Remove expired session
+            admin_sessions.pop(session_token, None)
+            raise HTTPException(status_code=401, detail="Session expired")
+        
+        return {"message": "Session valid", "username": session["username"]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error verifying session: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/admin/logout")
+async def admin_logout(session_data: dict, request: Request):
+    try:
+        session_token = session_data.get("session")
+        
+        if session_token:
+            # Remove session
+            admin_sessions.pop(session_token, None)
+        
+        # Create response and clear the cookie
+        response = JSONResponse(content={"message": "Logged out successfully"})
+        response.delete_cookie(
+            key="admin_session",
+            httponly=True,
+            secure=request.url.scheme == "https",
+            samesite="strict"
+        )
+        
+        return response
+    except Exception as e:
+        logger.error(f"Error during logout: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 class ProcessingRequest(BaseModel):

@@ -141,6 +141,12 @@ export default async function handler(req, res) {
     // Merge existing and new images
     const mergedImagePaths = { ...existingImages, ...newImagePaths };
 
+    // Convert to the new format: image_path_1, image_path_2, etc.
+    const newImageFormat = {};
+    Object.entries(mergedImagePaths).forEach(([key, path], index) => {
+      newImageFormat[`image_path_${index + 1}`] = path;
+    });
+
     // Prepare the data structure for the new MongoDB format
     const updateData = {
       userId: userId,
@@ -148,7 +154,7 @@ export default async function handler(req, res) {
       data: {
         image_path: existingImages.image_path || newImagePaths['Image_path_1'] || Object.values(newImagePaths)[0],
         updateImage: existingImages.updateImage || Object.values(newImagePaths)[0]?.split('/').pop() || 'image.jpg',
-        image_pdf_canva: mergedImagePaths,
+        image_pdf_canva: newImageFormat,
         updated_at: new Date().toISOString()
       }
     };

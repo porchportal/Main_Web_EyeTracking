@@ -222,7 +222,8 @@ export default function AdminPage({ initialSettings }) {
               position_zoom: data.position_zoom || [3, 4],
               state_isProcessOn: data.state_isProcessOn ?? true,
               currentlyPage: data.currentlyPage || "str",
-              freeState: data.freeState || 3
+              freeState: data.freeState || 3,
+              image_pdf_canva: data.image_pdf_canva || {}
             }
           }));
 
@@ -284,14 +285,49 @@ export default function AdminPage({ initialSettings }) {
         throw new Error('No settings found for selected user');
       }
 
-      // Save to database using the correct endpoint
-      const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
+      // Prepare the data structure for saving
+      const settingsToSave = { ...currentSettings };
+
+      // If there are images in image_pdf_canva, convert them to the new format
+      if (currentSettings.image_pdf_canva && typeof currentSettings.image_pdf_canva === 'object') {
+        const imagePaths = currentSettings.image_pdf_canva;
+        const imageCount = Object.keys(imagePaths).length;
+        
+        if (imageCount > 0) {
+          // Convert to the new format: image_path_1, image_path_2, etc.
+          const newImageFormat = {};
+          Object.entries(imagePaths).forEach(([key, path], index) => {
+            newImageFormat[`image_path_${index + 1}`] = path;
+          });
+          
+          // Update the settings with the new format
+          settingsToSave.image_pdf_canva = newImageFormat;
+          
+          // Set the primary image path to the first image if not already set
+          if (!settingsToSave.image_path || settingsToSave.image_path === "/asfgrebvxcv" || settingsToSave.image_path === "") {
+            const firstImagePath = Object.values(imagePaths)[0];
+            if (firstImagePath) {
+              settingsToSave.image_path = firstImagePath;
+              settingsToSave.updateImage = firstImagePath.split('/').pop();
+            }
+          }
+        }
+      }
+
+      // Save to database using the admin update endpoint
+      const updateData = {
+        userId: selectedUserId,
+        type: 'settings',
+        data: settingsToSave
+      };
+
+      const response = await fetch('/api/admin/update', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
         },
-        body: JSON.stringify(currentSettings)
+        body: JSON.stringify(updateData)
       });
 
       if (!response.ok) {
@@ -300,16 +336,19 @@ export default function AdminPage({ initialSettings }) {
 
       // Get the updated settings from the response
       const result = await response.json();
-      const savedSettings = result.data || currentSettings;
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to save settings');
+      }
       
       // Update local state with the saved settings
       setTempSettings(prev => ({
         ...prev,
-        [selectedUserId]: savedSettings
+        [selectedUserId]: settingsToSave
       }));
 
       // Update settings through the hook
-      updateSettings(savedSettings, selectedUserId);
+      updateSettings(settingsToSave, selectedUserId);
 
       // Show success notification
       showNotification('Settings saved successfully!', 'success');
@@ -697,7 +736,8 @@ export default function AdminPage({ initialSettings }) {
               position_zoom: userSettings.position_zoom || [3, 4],
               state_isProcessOn: userSettings.state_isProcessOn ?? true,
               currentlyPage: userSettings.currentlyPage || "str",
-              freeState: userSettings.freeState || 3
+              freeState: userSettings.freeState || 3,
+              image_pdf_canva: userSettings.image_pdf_canva || {}
             }
           }));
 
@@ -795,7 +835,7 @@ export default function AdminPage({ initialSettings }) {
         // Backward compatibility for single image path
         primaryImagePath = imagePaths;
         updateImageName = imagePaths.split('/').pop();
-        mergedImagePaths = { ...existingImages, 'Image_path_1': imagePaths };
+        mergedImagePaths = { ...existingImages, 'image_path_1': imagePaths };
       } else if (typeof imagePaths === 'object' && imagePaths !== null) {
         // Handle imagePaths object with multiple images
         const firstImagePath = imagePaths['Image_path_1'] || Object.values(imagePaths)[0];
@@ -810,29 +850,20 @@ export default function AdminPage({ initialSettings }) {
           updateImageName = existingUpdateImage;
         }
         
-        // Merge new images with existing ones, ensuring unique keys
-        const existingKeys = Object.keys(existingImages);
-        const newImagePaths = { ...imagePaths };
-        
-        // Rename new image keys to avoid conflicts
-        Object.keys(newImagePaths).forEach((key, index) => {
-          let newKey = key;
-          let counter = 1;
-          
-          // Find a unique key
-          while (existingKeys.includes(newKey)) {
-            newKey = `${key}_${counter}`;
-            counter++;
-          }
-          
-          // Only rename if the key changed
-          if (newKey !== key) {
-            newImagePaths[newKey] = newImagePaths[key];
-            delete newImagePaths[key];
-          }
+        // Convert to the new format: image_path_1, image_path_2, etc.
+        const newImageFormat = {};
+        Object.entries(imagePaths).forEach(([key, path], index) => {
+          newImageFormat[`image_path_${index + 1}`] = path;
         });
         
-        mergedImagePaths = { ...existingImages, ...newImagePaths };
+        // Merge with existing images in the new format
+        const existingImageCount = Object.keys(existingImages).length;
+        Object.entries(newImageFormat).forEach(([key, path], index) => {
+          const newKey = `image_path_${existingImageCount + index + 1}`;
+          existingImages[newKey] = path;
+        });
+        
+        mergedImagePaths = existingImages;
       } else {
         console.error('Invalid imagePaths format:', imagePaths);
         return;
@@ -1402,6 +1433,23 @@ export default function AdminPage({ initialSettings }) {
                         </button>
                       </div>
                     )}
+                    
+                    {/* Show image list in new format */}
+                    <div className={styles.imageList}>
+                      <p>Image Paths:</p>
+                      {Object.entries(tempSettings[selectedUserId].image_pdf_canva)
+                        .sort(([a], [b]) => {
+                          // Sort by image_path_1, image_path_2, etc.
+                          const aNum = parseInt(a.replace('image_path_', ''));
+                          const bNum = parseInt(b.replace('image_path_', ''));
+                          return aNum - bNum;
+                        })
+                        .map(([key, path]) => (
+                          <div key={key} className={styles.imagePathItem}>
+                            <strong>{key}:</strong> {path}
+                          </div>
+                        ))}
+                    </div>
                   </div>
                 )}
                 

@@ -29,7 +29,9 @@ export default function AdminLogin() {
       console.log('Login response:', { status: response.status, data });
 
       if (response.ok) {
-        // Successful login
+        // Successful login - server sets httpOnly cookie automatically
+        const loginData = await response.json();
+        
         router.push('/admin');
       } else {
         // Failed login

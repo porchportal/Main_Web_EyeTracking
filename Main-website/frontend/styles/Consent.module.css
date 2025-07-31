@@ -195,6 +195,43 @@
     margin-top: 60px;
 }
 
+/* Admin header styles */
+.adminHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.adminHeader h1 {
+  margin: 0;
+  color: #333;
+  font-size: 2rem;
+  font-weight: 600;
+}
+
+.logoutButton {
+  background-color: #dc3545;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.logoutButton:hover {
+  background-color: #c82333;
+}
+
+.logoutButton:active {
+  background-color: #bd2130;
+}
+
 /* Admin consent table styles */
 .consentTable {
   width: 100%;
