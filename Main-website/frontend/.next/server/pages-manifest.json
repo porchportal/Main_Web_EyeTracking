@@ -1,11 +1,1 @@
-{
-  "/_app": "pages/_app.js",
-  "/_error": "pages/_error.js",
-  "/_document": "pages/_document.js",
-  "/api/admin/consent-data": "pages/api/admin/consent-data.js",
-  "/": "pages/index.js",
-  "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/admin-login": "pages/admin-login.js",
-  "/api/admin/check-auth": "pages/api/admin/check-auth.js",
-  "/admin": "pages/admin.js"
-}
+{}
