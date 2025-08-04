@@ -4,11 +4,11 @@ const nextConfig = {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://backend:8000/api/:path*',
+        destination: 'http://auth_service:8108/api/:path*',
       },
       {
         source: '/health',
-        destination: 'http://backend:8000/health',
+        destination: 'http://auth_service:8108/health',
       },
     ];
   },
@@ -26,9 +26,9 @@ const nextConfig = {
     ];
   },
   env: {
-    NEXT_PUBLIC_BACKEND_URL: 'http://backend:8000',
-    NEXT_PUBLIC_API_URL: 'http://backend:8000',
-    BACKEND_URL: 'http://backend:8000',
+    NEXT_PUBLIC_BACKEND_URL: 'http://localhost:8108',
+    NEXT_PUBLIC_API_URL: 'http://localhost:8108',
+    BACKEND_URL: 'http://localhost:8108',
     NEXT_PUBLIC_API_KEY: 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV',
   },
   allowedDevOrigins: ['192.168.1.108'],

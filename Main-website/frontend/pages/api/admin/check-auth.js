@@ -14,8 +14,8 @@ export default async function handler(req, res) {
       return res.status(401).json({ message: 'No session found' });
     }
 
-    // Verify session with backend
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8010';
+    // Verify session with backend through nginx proxy
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8108';
     const response = await fetch(`${backendUrl}/api/admin/verify-session`, {
       method: 'POST',
       headers: {

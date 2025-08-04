@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import styles from '../styles/AdminLogin.module.css';
 
-// Use the frontend environment variables
-const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8010';
+// Use the frontend environment variables - ensure it points to auth service
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8108';
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -17,6 +17,7 @@ export default function AdminLogin() {
     
     try {
       console.log('Attempting login with:', { username, password });
+      console.log('Using API_BASE_URL:', API_BASE_URL);
       const response = await fetch(`${API_BASE_URL}/api/admin/auth`, {
         method: 'POST',
         headers: {
@@ -30,8 +31,6 @@ export default function AdminLogin() {
 
       if (response.ok) {
         // Successful login - server sets httpOnly cookie automatically
-        const loginData = await response.json();
-        
         router.push('/admin');
       } else {
         // Failed login

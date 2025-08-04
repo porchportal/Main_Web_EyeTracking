@@ -71,15 +71,15 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
       args:
         BUILDKIT_INLINE_CACHE: 1
     container_name: frontend_main
     ports:
       - "3010:3010"
     volumes:
-      - ./frontend:/app
+      - ./frontend:/app/frontend
       - /app/node_modules
     env_file:
       - ./frontend/.env.frontend

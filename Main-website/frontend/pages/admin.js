@@ -9,8 +9,9 @@ import fs from 'fs';
 import path from 'path';
 import DragDropPriorityList from './adminDrag&Drop';
 import AdminCanvaConfig from './adminCanvaConfig';
+import { useRouter } from 'next/router';
 
-const API_BASE_URL = process.env.BACKEND_URL || 'http://localhost:8010';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8108';
 
 export async function getServerSideProps() {
   // Define the path to the settings file
@@ -50,6 +51,7 @@ export async function getServerSideProps() {
 }
 
 export default function AdminPage({ initialSettings }) {
+  const router = useRouter();
   const [consentData, setConsentData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -70,197 +72,27 @@ export default function AdminPage({ initialSettings }) {
   const [showCanvaConfig, setShowCanvaConfig] = useState(false);
   const [showAllConsentData, setShowAllConsentData] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-
-  // Initialize tempSettings with initial settings
+  // Check authentication on page load
   useEffect(() => {
-    setTempSettings(initialSettings);
-  }, [initialSettings]);
-
-  // Add listener for settings updates
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const handleSettingsUpdate = (event) => {
-        if (event.detail && event.detail.type === 'captureSettingsUpdate') {
-          setDebugInfo(`Received settings update event: ${JSON.stringify(event.detail)}`);
-        }
-      };
-      
-      window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
-      
-      return () => {
-        window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
-      };
-    }
-  }, []);
-
-  // Polling for settings updates
-  useEffect(() => {
-    const fetchSettings = async () => {
-      if (!selectedUserId) return;
-      
+    const checkAuth = async () => {
       try {
-        const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-          }
-        });
-        
+        const response = await fetch('/api/admin/check-auth');
         if (!response.ok) {
-          throw new Error('Failed to fetch settings');
+          // Not authenticated, redirect to login
+          router.push('/admin-login');
+          return;
         }
-        
-        const result = await response.json();
-        const newSettings = result.data || {};
-        
-        // Only update if the settings have actually changed
-        if (JSON.stringify(newSettings) !== JSON.stringify(tempSettings[selectedUserId])) {
-          console.log('Settings updated from polling:', newSettings);
-          setTempSettings(prev => ({
-            ...prev,
-            [selectedUserId]: {
-              ...prev[selectedUserId],
-              ...newSettings
-            }
-          }));
-        }
+        setIsAuthenticated(true);
       } catch (error) {
-        console.error('Error fetching settings:', error);
+        console.error('Authentication check failed:', error);
+        router.push('/admin-login');
       }
     };
 
-    // Initial fetch
-    fetchSettings();
-
-    // Set up polling interval
-    pollingInterval.current = setInterval(fetchSettings, 3000);
-
-    return () => {
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-      }
-    };
-  }, [selectedUserId]);
-
-  useEffect(() => {
-    const fetchConsentData = async () => {
-      try {
-        const response = await fetch('/api/admin/consent-data');
-        if (!response.ok) {
-          throw new Error('Failed to fetch consent data');
-        }
-        const data = await response.json();
-        
-        // Filter out duplicates by keeping only the most recent entry for each userId
-        const uniqueData = data.reduce((acc, current) => {
-          const existingIndex = acc.findIndex(item => item.userId === current.userId);
-          
-          if (existingIndex === -1) {
-            // If user doesn't exist in accumulator, add them
-            acc.push(current);
-          } else {
-            // If user exists, keep the most recent entry
-            const existing = acc[existingIndex];
-            const existingDate = new Date(existing.receivedAt);
-            const currentDate = new Date(current.receivedAt);
-            
-            if (currentDate > existingDate) {
-              acc[existingIndex] = current;
-            }
-          }
-          return acc;
-        }, []);
-        
-        setConsentData(uniqueData);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchConsentData();
-  }, []);
-
-  // Add this effect to load initial settings when a user is selected
-  useEffect(() => {
-    const loadUserSettings = async () => {
-      if (!selectedUserId) return;
-      
-      try {
-        console.log('Loading settings for user:', selectedUserId);
-        const response = await fetch(`/api/admin/update?userId=${selectedUserId}&type=settings`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-          }
-        });
-        
-        if (response.ok) {
-          const result = await response.json();
-          const data = result.data || {};
-          console.log('Loaded settings for user:', selectedUserId, data);
-          
-          // Initialize tempSettings with the loaded data
-          setTempSettings(prev => ({
-            ...prev,
-            [selectedUserId]: {
-              times_set_random: data.times_set_random || 1,
-              delay_set_random: data.delay_set_random || 3,
-              times_set_calibrate: data.times_set_calibrate || 1,
-              run_every_of_random: data.run_every_of_random || 1,
-              buttons_order: data.buttons_order || "",
-              image_path: data.image_path || "/asfgrebvxcv",
-              updateImage: data.updateImage || "image.jpg",
-              set_timeRandomImage: data.set_timeRandomImage || 1,
-              every_set: data.every_set || 2,
-              zoom_percentage: data.zoom_percentage || 100,
-              position_zoom: data.position_zoom || [3, 4],
-              state_isProcessOn: data.state_isProcessOn ?? true,
-              currentlyPage: data.currentlyPage || "str",
-              freeState: data.freeState || 3,
-              image_pdf_canva: data.image_pdf_canva || {}
-            }
-          }));
-
-          // Update settings through the hook
-          updateSettings(data, selectedUserId);
-        } else {
-          console.log('No existing settings found for user:', selectedUserId);
-          // Initialize with default settings
-          const defaultSettings = {
-            times: 1,
-            delay: 3,
-            image_path: "/asfgrebvxcv",
-            updateImage: "image.jpg",
-            set_timeRandomImage: 1,
-            every_set: 2,
-            zoom_percentage: 100,
-            position_zoom: [3, 4],
-            state_isProcessOn: true,
-            currentlyPage: "str",
-            freeState: 3
-          };
-          
-          setTempSettings(prev => ({
-            ...prev,
-            [selectedUserId]: defaultSettings
-          }));
-          
-          // Update settings through the hook with default values
-          updateSettings(defaultSettings, selectedUserId);
-        }
-      } catch (error) {
-        console.error('Error loading user settings:', error);
-      }
-    };
-
-    loadUserSettings();
-  }, [selectedUserId]);
+    checkAuth();
+  }, [router]);
 
   // Add this effect to sync settings with adminSettings hook
   useEffect(() => {
@@ -881,6 +713,15 @@ export default function AdminPage({ initialSettings }) {
       showNotification('Images added successfully!');
     }
   };
+
+  // Move the loading state return here, after all hooks
+  if (!isAuthenticated) {
+    return (
+      <div className={styles.container}>
+        <div>Loading...</div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

@@ -2,7 +2,7 @@
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 import logging
 from typing import Optional, Dict, Any, List
 import asyncio
@@ -324,8 +324,6 @@ class AdminLogin(BaseModel):
 
 # Admin session storage (in production, use Redis or database)
 admin_sessions = {}
-
-from fastapi.responses import JSONResponse
 
 @app.post("/api/admin/auth")
 async def admin_auth(login: AdminLogin, request: Request):
