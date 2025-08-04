@@ -5,7 +5,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./backend/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./backend/config/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
       - auth_service
       - image_service
@@ -71,15 +71,15 @@ services:
 
   frontend:
     build:
-      context: .
-      dockerfile: frontend/Dockerfile
+      context: ./frontend
+      dockerfile: Dockerfile
       args:
         BUILDKIT_INLINE_CACHE: 1
     container_name: frontend_main
     ports:
       - "3010:3010"
     volumes:
-      - ./frontend:/app/frontend
+      - ./frontend:/app
       - /app/node_modules
     env_file:
       - ./frontend/.env.frontend
@@ -95,7 +95,7 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
-      - ./backend/mongod.conf:/etc/mongod.conf:ro
+      - ./backend/config/mongod.conf:/etc/mongod.conf:ro
     environment:
       - MONGO_INITDB_DATABASE=eye_tracking
     healthcheck:

@@ -15,7 +15,7 @@ export default async function handler(req, res) {
     }
 
     // Verify session with backend through nginx proxy
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8108';
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:80';
     const response = await fetch(`${backendUrl}/api/admin/verify-session`, {
       method: 'POST',
       headers: {

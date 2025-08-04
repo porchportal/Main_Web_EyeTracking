@@ -3,17 +3,14 @@ FROM node:23.11.0-alpine
 # Set working directory
 WORKDIR /app
 
-# Copy package manifests from root
+# Copy package manifests
 COPY package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy the frontend directory
-COPY frontend/ ./frontend/
-
-# Set working directory to frontend for the app
-WORKDIR /app/frontend
+# Copy the entire frontend app
+COPY . .
 
 # Expose the frontend port
 EXPOSE 3010

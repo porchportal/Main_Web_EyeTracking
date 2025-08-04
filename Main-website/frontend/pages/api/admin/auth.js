@@ -7,7 +7,7 @@ export default async function handler(req, res) {
 
   try {
     // Use the nginx proxy URL since that's what the frontend is configured to use
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8108';
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:80';
     const response = await fetch(`${backendUrl}/api/admin/auth`, {
       method: 'POST',
       headers: {

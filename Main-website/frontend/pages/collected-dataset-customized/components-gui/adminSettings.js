@@ -332,7 +332,7 @@ export const useAdminSettings = (ref) => {
       isUpdating.current = true;
       pendingUpdates.current.set(userId, true);
 
-      const response = await fetch(`/api/data-center/settings/${userId}`, {
+      const response = await fetch(`http://localhost:80/api/data-center/settings/${userId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -370,7 +370,7 @@ export const useAdminSettings = (ref) => {
     console.log('[updateImage] userId:', userId); // Debug log
     if (!userId || !base64Image) return;
     try {
-      const response = await fetch(`/api/data-center/image?user_id=${userId}`, {
+      const response = await fetch(`http://localhost:80/api/data-center/image?user_id=${userId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
