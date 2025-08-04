@@ -1,1 +1,8 @@
-{}
+{
+  "/_app": "pages/_app.js",
+  "/_document": "pages/_document.js",
+  "/_error": "pages/_error.js",
+  "/api/admin/consent-data": "pages/api/admin/consent-data.js",
+  "/": "pages/index.js",
+  "/api/check-backend-connection": "pages/api/check-backend-connection.js"
+}

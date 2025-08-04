@@ -13,7 +13,7 @@ const nextConfig = {
       return [
         {
           source: '/api/:path*',
-          destination: 'http://backend:8010/api/:path*',
+          destination: 'http://nginx:80/api/:path*',
         },
       ]
     }
