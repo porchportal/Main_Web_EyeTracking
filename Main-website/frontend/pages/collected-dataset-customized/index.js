@@ -6,7 +6,7 @@ import DisplayResponse from './components-gui/displayResponse';
 import { showCapturePreview, drawRedDot, getRandomPosition, createCountdownElement, runCountdown } from '../../components/collected-dataset-customized/Action/countSave.jsx';
 import { captureImagesAtPoint } from '../../components/collected-dataset-customized/Helper/savefile';
 import { generateCalibrationPoints } from '../../components/collected-dataset-customized/Action/CalibratePoints.jsx';
-import { useConsent } from '../../components/consent/ConsentContext';
+import { useConsent } from '../../components/consent_ui/ConsentContext';
 import { useRouter } from 'next/router';
 import { useAdminSettings } from './components-gui/adminSettings';
 

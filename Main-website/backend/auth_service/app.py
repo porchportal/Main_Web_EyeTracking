@@ -31,6 +31,7 @@ from routes import preview
 from routes.data_center_routes import router as data_center_router
 from routes.admin_updates import router as admin_updates_router
 from routes.consent import router as consent_router
+from routes.backup import router as backup_router
 
 # Import response models
 from model_preference.response import HealthResponse
@@ -316,6 +317,7 @@ async def update_user_preferences(user_id: str, preferences: UserProfileUpdate):
 
 app.include_router(data_center_router)
 app.include_router(admin_updates_router)
+app.include_router(backup_router)
 
 # Admin authentication route
 class AdminLogin(BaseModel):

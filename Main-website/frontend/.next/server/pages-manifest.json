@@ -2,9 +2,12 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/admin-login": "pages/admin-login.js",
+  "/admin_ui/admin": "pages/admin_ui/admin.js",
+  "/admin_ui/admin-login": "pages/admin_ui/admin-login.js",
   "/api/check-backend-connection": "pages/api/check-backend-connection.js",
-  "/admin": "pages/admin.js",
+  "/api/user-preferences/[userId]": "pages/api/user-preferences/[userId].js",
+  "/api/admin/check-auth": "pages/api/admin/check-auth.js",
+  "/": "pages/index.js",
   "/api/admin/consent-data": "pages/api/admin/consent-data.js",
-  "/api/user-preferences/[userId]": "pages/api/user-preferences/[userId].js"
+  "/api/admin/auth": "pages/api/admin/auth.js"
 }

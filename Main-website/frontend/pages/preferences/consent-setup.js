@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import styles from '../../styles/Consent.module.css';
-import { useConsent } from '../../components/consent/ConsentContext';
+import { useConsent } from '../../components/consent_ui/ConsentContext';
 import { getOrCreateUserId, updateUserConsent } from '../../utils/consentManager';
 
 export default function ConsentSetupPage() {

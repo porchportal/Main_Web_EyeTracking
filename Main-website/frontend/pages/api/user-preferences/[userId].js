@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       // Handle GET request - fetch user preferences
-      const response = await fetch(`${backendUrl}/user-preferences/${userId}`, {
+      const response = await fetch(`${backendUrl}/api/user-preferences/${userId}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -61,7 +61,7 @@ export default async function handler(req, res) {
       }
       
       // Update user preferences in backend
-      const response = await fetch(`${backendUrl}/user-preferences/${userId}`, {
+      const response = await fetch(`${backendUrl}/api/user-preferences/${userId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

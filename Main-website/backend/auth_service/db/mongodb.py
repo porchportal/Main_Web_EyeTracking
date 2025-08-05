@@ -15,6 +15,9 @@ load_dotenv(dotenv_path=env_path)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Import backup manager
+from .backup_manager import backup_manager
+
 class MongoDB:
     _client = None
     _db = None
@@ -37,6 +40,9 @@ class MongoDB:
             # Verify connection
             await cls._client.admin.command('ping')
             logger.info("Successfully connected to MongoDB")
+            
+            # Initialize backup manager
+            await backup_manager.initialize(cls._client, os.getenv("MONGODB_DB_NAME"))
             
             # Reset connection attempts on success
             cls._connection_attempts = 0

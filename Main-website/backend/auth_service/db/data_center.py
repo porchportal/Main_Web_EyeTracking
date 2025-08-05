@@ -15,6 +15,9 @@ load_dotenv(dotenv_path=env_path)
 
 logger = logging.getLogger(__name__)
 
+# Import backup manager
+from .backup_manager import backup_manager
+
 class DataCenter:
     _client = None
     _db = None
@@ -142,6 +145,9 @@ class DataCenter:
             if result.modified_count == 0 and not result.upserted_id:
                 logger.warning(f"No changes made for key {key}")
             
+            # Trigger backup after update
+            await backup_manager.backup_on_operation('update', 'data_center', {'key': key, 'value': value})
+            
             return result
         except Exception as e:
             logger.error(f"Error updating value for key {key}: {str(e)}")
@@ -230,6 +236,10 @@ class DataCenter:
 
             result = await cls._collection.delete_one({'key': key})
             logger.info(f"Deleted value for key {key}: {result.deleted_count} documents deleted")
+            
+            # Trigger backup after delete
+            await backup_manager.backup_on_operation('delete', 'data_center', {'key': key})
+            
             return result
         except Exception as e:
             logger.error(f"Error deleting value for key {key}: {str(e)}")

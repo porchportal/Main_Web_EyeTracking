@@ -24,7 +24,7 @@ export default async function handler(req, res) {
     }
     
     // Get all user preferences from backend
-    const response = await fetch(`${backendUrl}/user-preferences/${userId}`, {
+            const response = await fetch(`${backendUrl}/api/user-preferences/${userId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
