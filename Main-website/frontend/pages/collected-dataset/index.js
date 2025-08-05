@@ -7,7 +7,7 @@ import DisplayResponse from './components-gui/displayResponse';
 import { ActionButtonGroup } from './components-gui/actionButton';
 // import StatusIndicator from './components-gui/StatusIndicator';
 import { showCapturePreview, captureImagesAtPoint, drawRedDot, getRandomPosition, runCountdown } from '../../components/collected-dataset/Action/countSave';
-import { useConsent } from '../../components/consent/ConsentContext';
+import { useConsent } from '../../components/consent_ui/ConsentContext';
 
 // Dynamically load the video processor component (not the hook directly)
 const VideoProcessorComponent = dynamic(

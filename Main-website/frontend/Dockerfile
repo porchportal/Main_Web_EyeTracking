@@ -9,7 +9,7 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-# Copy the rest of the app
+# Copy the entire frontend app
 COPY . .
 
 # Expose the frontend port

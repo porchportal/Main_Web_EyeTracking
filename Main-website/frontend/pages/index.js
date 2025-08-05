@@ -3,7 +3,7 @@ import { useRouter } from 'next/router';
 import styles from '../styles/Home.module.css';
 import { useProcessStatus, useBackendConnection } from '../utils/stateManager';
 import { useEffect, useState } from 'react';
-import { useConsent } from '../components/consent/ConsentContext';
+import { useConsent } from '../components/consent_ui/ConsentContext';
 import { isProfileComplete } from '../utils/consentManager';
 
 // Use relative URLs for browser compatibility
@@ -384,12 +384,12 @@ export default function HomePage() {
           </button>
         </div>
 
-        {mounted && userId && (
+        {/* {mounted && userId && (
           <div className={styles.userInfo}>
             <p>User ID: {userId}</p>
             <p>Consent Status: {consentStatus === null ? 'Not set' : consentStatus ? 'Accepted' : 'Declined'}</p>
           </div>
-        )}
+        )} */}
       </main>
 
       <footer className={styles.footer}>

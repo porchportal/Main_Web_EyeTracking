@@ -1,9 +1,9 @@
 // frontend/components/layout/Layout.js
 import Head from 'next/head';
-import ConsentBanner from '../consent/ConsentBanner';
-import UserProfileSidebar from '../UserProfileSidebar';
+import ConsentBanner from '../consent_ui/ConsentBanner';
+import UserProfileSidebar from '../profile/UserProfileSidebar';
 import styles from '../../styles/Consent.module.css';
-import { useConsent } from '../consent/ConsentContext';
+import { useConsent } from '../consent_ui/ConsentContext';
 
 export default function Layout({ children, title = 'Eye Tracking App' }) {
   const { showBanner } = useConsent();
