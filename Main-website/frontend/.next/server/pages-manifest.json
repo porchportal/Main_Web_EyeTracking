@@ -2,10 +2,9 @@
   "/_app": "pages/_app.js",
   "/_error": "pages/_error.js",
   "/_document": "pages/_document.js",
-  "/api/check-backend-connection": "pages/api/check-backend-connection.js",
   "/": "pages/index.js",
+  "/admin_ui/admin": "pages/admin_ui/admin.js",
+  "/admin_ui/admin-login": "pages/admin_ui/admin-login.js",
   "/api/data-center/settings/[userId]": "pages/api/data-center/settings/[userId].js",
-  "/testing-image": "pages/testing-image.js",
-  "/process_set": "pages/process_set.js",
-  "/api/user-preferences/[userId]": "pages/api/user-preferences/[userId].js"
+  "/api/check-backend-connection": "pages/api/check-backend-connection.js"
 }

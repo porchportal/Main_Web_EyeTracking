@@ -25,7 +25,7 @@ export async function getServerSideProps() {
     }
   };
 
-  try {
+  try {w
     // Check if settings file exists
     if (fs.existsSync(settingsPath)) {
       const settingsData = fs.readFileSync(settingsPath, 'utf8');
@@ -73,6 +73,8 @@ export default function AdminPage({ initialSettings }) {
   const [showAllConsentData, setShowAllConsentData] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [publicAccessEnabled, setPublicAccessEnabled] = useState(false);
+  const [backendChangeEnabled, setBackendChangeEnabled] = useState(false);
 
   // Check authentication on page load
   useEffect(() => {
@@ -583,6 +585,23 @@ export default function AdminPage({ initialSettings }) {
   const handleDeleteCancel = () => {
     setShowDeleteConfirm(false);
     setDeleteTarget(null);
+  };
+
+  // Toggle functions for system controls
+  const handlePublicAccessToggle = () => {
+    setPublicAccessEnabled(prev => !prev);
+    showNotification(
+      `Public access ${!publicAccessEnabled ? 'enabled' : 'disabled'}`,
+      'success'
+    );
+  };
+
+  const handleBackendChangeToggle = () => {
+    setBackendChangeEnabled(prev => !prev);
+    showNotification(
+      `Backend change ${!backendChangeEnabled ? 'enabled' : 'disabled'}`,
+      'success'
+    );
   };
 
   // Update the user selection handler
@@ -1413,6 +1432,101 @@ export default function AdminPage({ initialSettings }) {
             existingImages={tempSettings[selectedUserId]?.image_pdf_canva || {}}
           />
         )}
+
+        {/* Bottom Control Section */}
+        <div className={styles.bottomControlSection}>
+          {/* First Box - Public Toggle and Backend Controls */}
+          <div className={styles.controlBox}>
+            <h2>System Controls</h2>
+            <div className={styles.controlButtons}>
+              <div className={styles.controlButtonGroup}>
+                <button 
+                  className={`${styles.toggleButton} ${publicAccessEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
+                  onClick={handlePublicAccessToggle}
+                >
+                  <span className={styles.buttonIcon}>🌐</span>
+                  <div className={styles.buttonContent}>
+                    <span className={styles.buttonTitle}>
+                      {publicAccessEnabled ? 'Disable' : 'Enable'} Public Access
+                    </span>
+                    <span className={styles.buttonDescription}>
+                      {publicAccessEnabled 
+                        ? 'Public access is currently enabled' 
+                        : 'Allow people to collect dataset without admin approval'
+                      }
+                    </span>
+                  </div>
+                  <span className={styles.toggleIndicator}>
+                    {publicAccessEnabled ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+                
+                <button 
+                  className={`${styles.toggleButton} ${backendChangeEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
+                  onClick={handleBackendChangeToggle}
+                >
+                  <span className={styles.buttonIcon}>⚙️</span>
+                  <div className={styles.buttonContent}>
+                    <span className={styles.buttonTitle}>
+                      {backendChangeEnabled ? 'Disable' : 'Enable'} Backend Change
+                    </span>
+                    <span className={styles.buttonDescription}>
+                      {backendChangeEnabled 
+                        ? 'Backend changes are currently enabled' 
+                        : 'Allow dynamic backend configuration changes'
+                      }
+                    </span>
+                  </div>
+                  <span className={styles.toggleIndicator}>
+                    {backendChangeEnabled ? 'ON' : 'OFF'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Second Box - Download Dataset */}
+          <div className={styles.controlBox}>
+            <h2>Data Management</h2>
+            <div className={styles.downloadSection}>
+              <div className={styles.downloadInfo}>
+                <span className={styles.downloadIcon}>📊</span>
+                <div className={styles.downloadContent}>
+                  <span className={styles.downloadTitle}>Download Dataset</span>
+                  <span className={styles.downloadDescription}>
+                    Export all collected eye tracking data and user profiles
+                  </span>
+                </div>
+              </div>
+              <div className={styles.downloadButtons}>
+                <button 
+                  className={styles.downloadButton}
+                  onClick={() => {
+                    showNotification('Downloading dataset...');
+                  }}
+                >
+                  📥 Download All Data
+                </button>
+                <button 
+                  className={styles.downloadButton}
+                  onClick={() => {
+                    showNotification('Downloading user profiles...');
+                  }}
+                >
+                  👥 Download User Profiles
+                </button>
+                <button 
+                  className={styles.downloadButton}
+                  onClick={() => {
+                    showNotification('Downloading consent data...');
+                  }}
+                >
+                  📋 Download Consent Data
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </main>
     </div>
   );
