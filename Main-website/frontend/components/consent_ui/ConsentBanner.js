@@ -90,7 +90,13 @@ export default function ConsentBanner() {
   };
 
   const handleLearnMore = () => {
-    router.push('/privacy-policy');
+    try {
+      router.push('/privacy-policy');
+    } catch (error) {
+      console.error('Navigation error:', error);
+      // Fallback to window.location if router fails
+      window.location.href = '/privacy-policy';
+    }
   };
 
   return (

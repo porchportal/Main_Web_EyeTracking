@@ -96,6 +96,7 @@
   justify-content: center;
   align-items: center;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  position: relative;
 }
 .buttonRow {
   display: flex;
@@ -300,38 +301,37 @@
 }
 
 .buttonEnabled {
-  padding: 1rem 2rem;
-  font-size: 1.1rem;
-  /* background-color: #28a745; */
-  background: linear-gradient(to bottom, rgba(173, 235, 254, 1), rgba(173, 235, 254, 0.6));
-  color: white;
-  border: none;
-  border-radius: 4px;
+  /* Override menuButton background when enabled */
+  background: linear-gradient(to bottom, rgba(173, 235, 254, 1), rgba(173, 235, 254, 0.6)) !important;
   cursor: pointer;
-  transition: all 0.3s ease;
+  opacity: 1;
 }
 
 .buttonEnabled:hover {
-  background-color: #218838;
-  transform: translateY(-2px);
+  background: linear-gradient(to bottom, rgba(173, 235, 254, 1), rgba(173, 235, 254, 0.8)) !important;
+  transform: translateY(-5px);
 }
 
 .buttonDisabled {
-  padding: 1rem 2rem;
-  font-size: 1.1rem;
-  /* background-color: #dc3545; */
-  background: linear-gradient(to bottom, rgba(220, 100, 100, 0.8), rgba(220, 100, 100, 0.4));
-  position: relative;
-  color: white;
-  border: none;
-  border-radius: 4px;
+  /* Override menuButton background when disabled */
+  background: linear-gradient(to bottom, rgba(220, 100, 100, 0.8), rgba(220, 100, 100, 0.4)) !important;
   cursor: not-allowed;
-  opacity: 0.9;
-  transition: all 0.3s ease;
+  opacity: 0.7;
 }
 
 .buttonDisabled:hover {
-  background-color: #c82333;
+  background: linear-gradient(to bottom, rgba(220, 100, 100, 1), rgba(220, 100, 100, 0.6)) !important;
+  transform: none;
+}
+
+/* Handle disabled button state */
+.menuButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.menuButton:disabled:hover {
+  transform: none;
 }
 
 .buttonOverlay {
@@ -344,8 +344,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 20px;
+  border-radius: inherit;
   pointer-events: none;
+  z-index: 10;
 }
 
 .overlayIcon {
@@ -354,15 +355,5 @@
   font-weight: bold;
 }
 
-.buttonDisabled {
-  position: relative;
-  opacity: 0.7;
-  cursor: not-allowed;
-}
 
-.buttonEnabled {
-  position: relative;
-  opacity: 1;
-  cursor: pointer;
-}
 

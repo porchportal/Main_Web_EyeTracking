@@ -255,8 +255,9 @@ export default function HomePage() {
       return;
     }
 
-    // Check consent status
-    if (consentStatus === null) {
+    // Check consent status only for buttons that require it
+    const buttonsRequiringConsent = ['collected-dataset-custom', 'collected-dataset'];
+    if (buttonsRequiringConsent.includes(destination) && consentStatus === null) {
       console.log('Consent not set, showing banner');
       return;
     }
@@ -305,7 +306,7 @@ export default function HomePage() {
         break;
 
       case 'testing-model':
-        router.push('/testing-model');
+        router.push('/testing-image');
         break;
 
       case 'realtime-model':
@@ -323,10 +324,19 @@ export default function HomePage() {
 
   // Get button class based on consent status and admin override
   const getButtonClass = (destination) => {
-    const isEnabled = buttonStates[userId] || false;
-    console.log('Button state check:', { destination, userId, isEnabled });
+    if (destination === 'collected-dataset-custom') {
+      const isEnabled = buttonStates[userId] || false;
+      console.log('Button state check:', { destination, userId, isEnabled });
+      return isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
+    }
     
-    return isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
+    if (destination === 'collected-dataset') {
+      const isEnabled = consentStatus !== null;
+      console.log('Collected dataset button state check:', { destination, consentStatus, isEnabled });
+      return isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
+    }
+    
+    return styles.buttonEnabled; // Default for other buttons
   };
 
   const getProcessButtonClass = () => {
@@ -342,6 +352,7 @@ export default function HomePage() {
 
   // Add button overlay component
   const ButtonOverlay = ({ enabled }) => {
+    // Only show overlay when button is disabled (enabled = false)
     if (enabled) return null;
     return (
       <div className={styles.buttonOverlay}>
@@ -365,15 +376,20 @@ export default function HomePage() {
             <h2>Realtime Model</h2>
           </button>
           <button 
-            className={getButtonClass('collected-dataset-custom')} 
+            className={`${styles.menuButton} ${getButtonClass('collected-dataset-custom')}`} 
             onClick={() => handleButtonClick('collected-dataset-custom')}
-            style={{ height: '180px' }}
+            disabled={!buttonStates[userId]}
           >
             <h2>Collected Dataset with customization</h2>
             <ButtonOverlay enabled={buttonStates[userId] || false} />
           </button>
-          <button className={styles.menuButton} onClick={() => handleButtonClick('collected-dataset')}>
+          <button 
+            className={`${styles.menuButton} ${getButtonClass('collected-dataset')}`} 
+            onClick={() => handleButtonClick('collected-dataset')}
+            disabled={consentStatus === null}
+          >
             <h2>Collected Dataset</h2>
+            <ButtonOverlay enabled={consentStatus !== null} />
           </button>
         </div>
 
