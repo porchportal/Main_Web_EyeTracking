@@ -74,9 +74,18 @@ export default function AdminLogin() {
             />
           </div>
           {error && <div className={styles.error}>{error}</div>}
-          <button type="submit" className={styles.loginButton}>
-            Login
-          </button>
+          <div className={styles.buttonContainer}>
+            <button 
+              type="button" 
+              className={styles.backButton}
+              onClick={() => router.push('/')}
+            >
+              Back
+            </button>
+            <button type="submit" className={styles.loginButton}>
+              Login
+            </button>
+          </div>
         </form>
       </div>
     </div>

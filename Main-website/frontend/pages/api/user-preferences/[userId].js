@@ -3,8 +3,8 @@ import fetch from 'node-fetch';
 
 export default async function handler(req, res) {
   // Get the backend URL and API key from environment variables
-  const backendUrl = process.env.BACKEND_URL || 'http://localhost:8010';
-  const apiKey = process.env.API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+  const backendUrl = process.env.AUTH_SERVICE_URL || process.env.BACKEND_URL || 'http://auth_service:8108';
+  const apiKey = process.env.NEXT_PUBLIC_API_KEY || process.env.API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
 
   try {
     const { userId } = req.query;
@@ -42,8 +42,8 @@ export default async function handler(req, res) {
         data: data.data
       });
 
-    } else if (req.method === 'POST') {
-      // Handle POST request - update user preferences
+    } else if (req.method === 'POST' || req.method === 'PUT') {
+      // Handle POST/PUT request - update user preferences
       const { ...preferences } = req.body;
       
       // Prepare data for backend API
@@ -58,6 +58,22 @@ export default async function handler(req, res) {
       // If consent status is included, add it
       if (preferences.consentStatus !== undefined) {
         updateData.consent_status = preferences.consentStatus;
+      }
+      
+      // Handle cookie acceptance
+      if (preferences.cookie !== undefined) {
+        updateData.cookie = preferences.cookie;
+      }
+      
+      // Handle individual profile fields (username, sex, age)
+      if (preferences.username !== undefined) {
+        updateData.username = preferences.username;
+      }
+      if (preferences.sex !== undefined) {
+        updateData.sex = preferences.sex;
+      }
+      if (preferences.age !== undefined) {
+        updateData.age = preferences.age;
       }
       
       // Update user preferences in backend

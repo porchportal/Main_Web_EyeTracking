@@ -19,8 +19,7 @@ export default function ConsentBanner() {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            // 'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV',
-            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY 
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
           }
         });
 
@@ -56,7 +55,7 @@ export default function ConsentBanner() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY 
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
         },
         body: JSON.stringify({
           cookie: true

@@ -25,7 +25,7 @@ export async function getServerSideProps() {
     }
   };
 
-  try {w
+  try {
     // Check if settings file exists
     if (fs.existsSync(settingsPath)) {
       const settingsData = fs.readFileSync(settingsPath, 'utf8');
@@ -75,6 +75,10 @@ export default function AdminPage({ initialSettings }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [publicAccessEnabled, setPublicAccessEnabled] = useState(false);
   const [backendChangeEnabled, setBackendChangeEnabled] = useState(false);
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [settingsAnimating, setSettingsAnimating] = useState(false);
+  const [systemControlsVisible, setSystemControlsVisible] = useState(false);
+  const [systemControlsAnimating, setSystemControlsAnimating] = useState(false);
 
   // Check authentication on page load
   useEffect(() => {
@@ -129,8 +133,6 @@ export default function AdminPage({ initialSettings }) {
           }
         });
 
-        console.log('Consent data response status:', response.status);
-        
         if (!response.ok) {
           const errorText = await response.text();
           console.error('Consent data response error:', errorText);
@@ -604,6 +606,27 @@ export default function AdminPage({ initialSettings }) {
     );
   };
 
+  // Add effect to handle animations for all sections
+  useEffect(() => {
+    if (selectedUserId && selectedUserId !== 'default') {
+      // Show sections with animation
+      setSettingsAnimating(true);
+      setSystemControlsAnimating(true);
+      setSettingsVisible(true);
+      setSystemControlsVisible(true);
+    } else {
+      // Hide sections with animation
+      setSettingsAnimating(true);
+      setSystemControlsAnimating(true);
+      setTimeout(() => {
+        setSettingsVisible(false);
+        setSystemControlsVisible(false);
+        setSettingsAnimating(false);
+        setSystemControlsAnimating(false);
+      }, 300); // Match the exit animation duration
+    }
+  }, [selectedUserId]);
+
   // Update the user selection handler
   const handleUserSelect = async (e) => {
     const newUserId = e.target.value;
@@ -984,11 +1007,11 @@ export default function AdminPage({ initialSettings }) {
         </div>
         
         {/* Settings Grid Container */}
-        {selectedUserId && selectedUserId !== 'default' && (
-          <div className={styles.settingsGrid}>
-            {/* Capture Settings Section */}
-            <div className={styles.div1}>
-              <h2>Capture Settings on Set Random Action</h2>
+        {settingsVisible && (
+                      <div className={`${styles.settingsGrid} ${settingsAnimating ? (selectedUserId && selectedUserId !== 'default' ? styles.settingsEnter : styles.settingsExit) : ''}`}>
+              {/* Capture Settings Section */}
+              <div className={styles.div1} style={{ marginLeft: '1rem' }}>
+                <h2>Capture Settings on Set Random Action</h2>
               <div className={styles.settingsSubScroll}>
                 <div className={styles.settingItem}>
                   <label>Time(s):</label>
@@ -1127,13 +1150,13 @@ export default function AdminPage({ initialSettings }) {
             </div>
 
             {/* Required Button Click Order Section */}
-            <div className={styles.div2}>
+            <div className={styles.div2} style={{ marginLeft: '1rem' }}>
               <h2>Required Button Click Order</h2>
               <DragDropPriorityList onOrderChange={handleButtonOrderChange} />
             </div>
 
             {/* Set Calibrate Section */}
-            <div className={styles.div3}>
+            <div className={styles.div3} style={{ marginLeft: '1rem' }}>
               <h2>Set Calibrate</h2>
               <div className={styles.settingsSubScroll}>
                 <div className={styles.settingItem}>
@@ -1273,7 +1296,7 @@ export default function AdminPage({ initialSettings }) {
             </div>
 
             {/* Image Settings Section */}
-            <div className={styles.div4}>
+            <div className={styles.div4} style={{ marginLeft: '1rem' }}>
               <h2>Image Background Settings</h2>
               <div className={styles.settingItem}>
                 <button
@@ -1402,7 +1425,7 @@ export default function AdminPage({ initialSettings }) {
             </div>
 
             {/* Zoom Control Section */}
-            <div className={styles.div5}>
+            <div className={styles.div5} style={{ marginLeft: '1rem' }}>
               <h2>Zoom Control Respond</h2>
               <div className={styles.settingItem}>
                 <label>Zoom Level:</label>
@@ -1435,82 +1458,75 @@ export default function AdminPage({ initialSettings }) {
 
         {/* Bottom Control Section */}
         <div className={styles.bottomControlSection}>
-          {/* First Box - Public Toggle and Backend Controls */}
-          <div className={styles.controlBox}>
-            <h2>System Controls</h2>
-            <div className={styles.controlButtons}>
-              <div className={styles.controlButtonGroup}>
-                <button 
-                  className={`${styles.toggleButton} ${publicAccessEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
-                  onClick={handlePublicAccessToggle}
-                >
-                  <span className={styles.buttonIcon}>🌐</span>
-                  <div className={styles.buttonContent}>
-                    <span className={styles.buttonTitle}>
-                      {publicAccessEnabled ? 'Disable' : 'Enable'} Public Access
+          {/* First Box - Public Toggle and Backend Controls - Only show when user is selected */}
+          {systemControlsVisible && (
+            <div className={`${styles.controlBox} ${systemControlsAnimating ? (selectedUserId && selectedUserId !== 'default' ? styles.systemControlsEnter : styles.systemControlsExit) : ''}`}>
+              <h2>System Controls</h2>
+              <div className={styles.controlButtons}>
+                <div className={styles.controlButtonGroup}>
+                  <button 
+                    className={`${styles.toggleButton} ${publicAccessEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
+                    onClick={handlePublicAccessToggle}
+                  >
+                    <span className={styles.buttonIcon}>🌐</span>
+                    <div className={styles.buttonContent}>
+                      <span className={styles.buttonTitle}>
+                        {publicAccessEnabled ? 'Disable' : 'Enable'} Public Access
+                      </span>
+                      <span className={styles.buttonDescription}>
+                        {publicAccessEnabled 
+                          ? 'Public access is currently enabled' 
+                          : 'Allow people to collect dataset without admin approval'
+                        }
+                      </span>
+                    </div>
+                    <span className={styles.toggleIndicator}>
+                      {publicAccessEnabled ? 'ON' : 'OFF'}
                     </span>
-                    <span className={styles.buttonDescription}>
-                      {publicAccessEnabled 
-                        ? 'Public access is currently enabled' 
-                        : 'Allow people to collect dataset without admin approval'
-                      }
+                  </button>
+                  
+                  <button 
+                    className={`${styles.toggleButton} ${backendChangeEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
+                    onClick={handleBackendChangeToggle}
+                  >
+                    <span className={styles.buttonIcon}>⚙️</span>
+                    <div className={styles.buttonContent}>
+                      <span className={styles.buttonTitle}>
+                        {backendChangeEnabled ? 'Disable' : 'Enable'} Backend Change
+                      </span>
+                      <span className={styles.buttonDescription}>
+                        {backendChangeEnabled 
+                          ? 'Backend changes are currently enabled' 
+                          : 'Allow dynamic backend configuration changes'
+                        }
+                      </span>
+                    </div>
+                    <span className={styles.toggleIndicator}>
+                      {backendChangeEnabled ? 'ON' : 'OFF'}
                     </span>
-                  </div>
-                  <span className={styles.toggleIndicator}>
-                    {publicAccessEnabled ? 'ON' : 'OFF'}
-                  </span>
-                </button>
-                
-                <button 
-                  className={`${styles.toggleButton} ${backendChangeEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
-                  onClick={handleBackendChangeToggle}
-                >
-                  <span className={styles.buttonIcon}>⚙️</span>
-                  <div className={styles.buttonContent}>
-                    <span className={styles.buttonTitle}>
-                      {backendChangeEnabled ? 'Disable' : 'Enable'} Backend Change
-                    </span>
-                    <span className={styles.buttonDescription}>
-                      {backendChangeEnabled 
-                        ? 'Backend changes are currently enabled' 
-                        : 'Allow dynamic backend configuration changes'
-                      }
-                    </span>
-                  </div>
-                  <span className={styles.toggleIndicator}>
-                    {backendChangeEnabled ? 'ON' : 'OFF'}
-                  </span>
-                </button>
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Second Box - Download Dataset */}
           <div className={styles.controlBox}>
-            <h2>Data Management</h2>
+            <h2>Download Dataset</h2>
             <div className={styles.downloadSection}>
-              <div className={styles.downloadInfo}>
-                <span className={styles.downloadIcon}>📊</span>
-                <div className={styles.downloadContent}>
-                  <span className={styles.downloadTitle}>Download Dataset</span>
-                  <span className={styles.downloadDescription}>
-                    Export all collected eye tracking data and user profiles
-                  </span>
-                </div>
-              </div>
               <div className={styles.downloadButtons}>
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    showNotification('Downloading dataset...');
+                    showNotification('Downloading All Dataset...');
                   }}
                 >
-                  📥 Download All Data
+                  📥 Download All Dataset
                 </button>
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    showNotification('Downloading user profiles...');
+                    showNotification('Downloading User Profiles...');
                   }}
                 >
                   👥 Download User Profiles
@@ -1518,12 +1534,42 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    showNotification('Downloading consent data...');
+                    showNotification('Downloading Raw Dataset...');
                   }}
                 >
-                  📋 Download Consent Data
+                  📋 Download Raw Dataset
+                </button>
+                <button 
+                  className={styles.downloadButton}
+                  onClick={() => {
+                    showNotification('Downloading Enhance Dataset...');
+                  }}
+                >
+                  📋 Download Enhance Dataset
+                </button>
+                <button 
+                  className={styles.downloadButton}
+                  onClick={() => {
+                    showNotification('Downloading Label Parameters...');
+                  }}
+                >
+                  📋 Download Label Parameters
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* Go Home Page Button */}
+          <div className={styles.downloadSection} style={{ marginBottom: '4rem' }}>
+            <div className={styles.downloadButtons}>
+              <button 
+                className={styles.downloadButton}
+                onClick={() => {
+                  window.location.href = '/';
+                }}
+              >
+                🏠 Go Home Page
+              </button>
             </div>
           </div>
         </div>

@@ -11,21 +11,32 @@ export default function DragDropPriorityList({ onOrderChange }) {
   ]);
   
   const [draggedItem, setDraggedItem] = useState(null);
+  const [draggedOverItem, setDraggedOverItem] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [saveStatus, setSaveStatus] = useState({ show: false, message: '', type: '' });
+  const [isReordering, setIsReordering] = useState(false);
 
   // Handle drag start
   const handleDragStart = (e, item) => {
     setDraggedItem(item);
     e.dataTransfer.effectAllowed = 'move';
-    e.target.style.opacity = '0.5';
+    e.target.style.opacity = '0.6';
+    e.target.style.transform = 'scale(1.05)';
+    e.target.style.transition = 'all 0.2s ease';
+    e.target.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.3)';
+    e.target.style.zIndex = '1000';
   };
 
   // Handle drag end
   const handleDragEnd = (e) => {
     e.target.style.opacity = '1';
+    e.target.style.transform = 'scale(1)';
+    e.target.style.transition = 'all 0.3s ease';
+    e.target.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+    e.target.style.zIndex = 'auto';
     setDraggedItem(null);
+    setDraggedOverItem(null);
   };
 
   // Handle drag over
@@ -34,29 +45,57 @@ export default function DragDropPriorityList({ onOrderChange }) {
     e.dataTransfer.dropEffect = 'move';
   };
 
+  // Handle drag enter
+  const handleDragEnter = (e, item) => {
+    e.preventDefault();
+    if (draggedItem && draggedItem.id !== item.id) {
+      setDraggedOverItem(item);
+    }
+  };
+
+  // Handle drag leave
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    // Only clear if we're leaving the entire item, not just a child element
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDraggedOverItem(null);
+    }
+  };
+
   // Handle drop
   const handleDrop = (e, targetItem) => {
     e.preventDefault();
     
     if (!draggedItem || draggedItem.id === targetItem.id) return;
 
-    const newItems = [...items];
-    const draggedIndex = newItems.findIndex(item => item.id === draggedItem.id);
-    const targetIndex = newItems.findIndex(item => item.id === targetItem.id);
+    setIsReordering(true);
+    setDraggedOverItem(null);
 
-    // Remove dragged item
-    const [removed] = newItems.splice(draggedIndex, 1);
-    
-    // Insert at new position
-    newItems.splice(targetIndex, 0, removed);
+    // Add a slight delay for smooth animation
+    setTimeout(() => {
+      const newItems = [...items];
+      const draggedIndex = newItems.findIndex(item => item.id === draggedItem.id);
+      const targetIndex = newItems.findIndex(item => item.id === targetItem.id);
 
-    // Update priorities only for items that have priority enabled
-    const itemsWithPriority = newItems.filter(item => item.hasPriority);
-    itemsWithPriority.forEach((item, index) => {
-      item.priority = index + 1;
-    });
+      // Remove dragged item
+      const [removed] = newItems.splice(draggedIndex, 1);
+      
+      // Insert at new position
+      newItems.splice(targetIndex, 0, removed);
 
-    setItems(newItems);
+      // Update priorities only for items that have priority enabled
+      const itemsWithPriority = newItems.filter(item => item.hasPriority);
+      itemsWithPriority.forEach((item, index) => {
+        item.priority = index + 1;
+      });
+
+      setItems(newItems);
+      
+      // Reset reordering state after animation
+      setTimeout(() => {
+        setIsReordering(false);
+      }, 300);
+    }, 100);
   };
 
   // Manual priority change
@@ -106,6 +145,17 @@ export default function DragDropPriorityList({ onOrderChange }) {
     }
     
     setItems(newItems);
+    
+    // Add pulse animation for priority changes
+    setTimeout(() => {
+      const element = document.querySelector(`[data-item-id="${id}"]`);
+      if (element) {
+        element.style.animation = 'priorityPulse 0.6s ease';
+        setTimeout(() => {
+          element.style.animation = '';
+        }, 600);
+      }
+    }, 50);
   };
 
   // Edit functionality
@@ -204,12 +254,21 @@ export default function DragDropPriorityList({ onOrderChange }) {
           .map((item) => (
             <div
               key={item.id}
+              data-item-id={item.id}
               draggable
               onDragStart={(e) => handleDragStart(e, item)}
               onDragEnd={handleDragEnd}
               onDragOver={handleDragOver}
+              onDragEnter={(e) => handleDragEnter(e, item)}
+              onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, item)}
-              className={styles.taskCard}
+              className={`${styles.taskCard} ${
+                draggedItem && draggedItem.id === item.id ? styles.taskCardDragging : ''
+              } ${
+                draggedOverItem && draggedOverItem.id === item.id ? styles.taskCardDropTarget : ''
+              } ${
+                isReordering ? styles.taskCardReordering : ''
+              }`}
             >
               {/* Checkbox */}
               <input

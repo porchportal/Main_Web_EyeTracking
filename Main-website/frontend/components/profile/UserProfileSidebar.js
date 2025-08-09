@@ -13,7 +13,7 @@ export default function UserProfileSidebar() {
     username: '',
     sex: '',
     age: '',
-    image_background: '',
+    nightMode: false,
     preferences: {}
   });
   // const [statusMessage, setStatusMessageLocal] = useState('');
@@ -47,7 +47,7 @@ export default function UserProfileSidebar() {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
-            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
           }
         });
 
@@ -64,7 +64,7 @@ export default function UserProfileSidebar() {
             username: data.data.username || '',
             sex: data.data.sex || '',
             age: data.data.age || '',
-            image_background: data.data.image_background || ''
+            nightMode: data.data.nightMode || false
           }));
         }
       } catch (error) {
@@ -107,7 +107,8 @@ export default function UserProfileSidebar() {
       const profileData = {
         username: profile.username || null,
         sex: profile.sex || null,
-        age: profile.age || null
+        age: profile.age || null,
+        nightMode: profile.nightMode || false
       };
 
       // Save to backend
@@ -115,8 +116,7 @@ export default function UserProfileSidebar() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          // 'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
         },
         body: JSON.stringify(profileData)
       });
@@ -298,15 +298,26 @@ export default function UserProfileSidebar() {
             </div>
 
             <div className={styles.formGroup}>
-              <label htmlFor="image_background">Background Image URL</label>
-              <input
-                type="text"
-                id="image_background"
-                name="image_background"
-                value={profile.image_background}
-                onChange={handleInputChange}
-                placeholder="Enter image URL"
-              />
+              <label htmlFor="nightMode">Night Mode</label>
+              <div className={styles.toggleContainer}>
+                <input
+                  type="checkbox"
+                  id="nightMode"
+                  name="nightMode"
+                  checked={profile.nightMode}
+                  onChange={(e) => setProfile(prev => ({
+                    ...prev,
+                    nightMode: e.target.checked
+                  }))}
+                  className={styles.toggleInput}
+                />
+                <label htmlFor="nightMode" className={styles.toggleLabel}>
+                  <span className={styles.toggleSlider}></span>
+                </label>
+                <span className={styles.toggleText}>
+                  {profile.nightMode ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
             </div>
 
             <button 

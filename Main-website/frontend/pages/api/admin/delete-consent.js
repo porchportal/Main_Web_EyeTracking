@@ -26,27 +26,31 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Delete from admin consent file
-    const adminDir = path.join(process.cwd(), 'public', 'admin');
-    const consentFile = path.join(adminDir, 'consent_data.json');
+    // Get auth service URL
+    const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://auth_service:8108';
 
-    if (fs.existsSync(consentFile)) {
-      const fileContent = fs.readFileSync(consentFile, 'utf8');
-      let existingData = JSON.parse(fileContent);
-      
-      // Filter out the user to be deleted
-      const updatedData = existingData.filter(data => data.userId !== userId);
-      
-      // Save the updated data
-      fs.writeFileSync(consentFile, JSON.stringify(updatedData, null, 2));
+    // Delete from admin consent file via auth service
+    const response = await fetch(`${authServiceUrl}/consent/admin/consent-data/${userId}`, {
+      method: 'DELETE',
+      headers: {
+        'X-API-Key': expectedApiKey,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`Auth service responded with status: ${response.status}`);
     }
 
-    // Delete from individual consent file
+    console.log(`Deleted consent data for user ${userId} via auth service`);
+
+    // Delete from individual consent file (keep this local as it's in frontend public folder)
     const consentDir = path.join(process.cwd(), 'public', 'consent');
     const userConsentFile = path.join(consentDir, `consent_${userId}.json`);
 
     if (fs.existsSync(userConsentFile)) {
       fs.unlinkSync(userConsentFile);
+      console.log(`Deleted individual consent file for user ${userId}`);
     }
 
     return res.status(200).json({ success: true });
