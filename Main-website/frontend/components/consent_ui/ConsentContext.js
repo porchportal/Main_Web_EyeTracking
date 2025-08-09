@@ -60,9 +60,11 @@ export function ConsentProvider({ children }) {
         console.log('Initial consent data:', consentData);
         
         if (!consentData || consentData.consentStatus === null) {
+          // Generate userId even if no consent is set yet
+          const userId = getOrCreateUserId();
           setConsentState({
             loading: false,
-            userId: null,
+            userId: userId,
             consentStatus: null,
             consentUpdatedAt: null,
             consentDetails: null,
@@ -81,9 +83,11 @@ export function ConsentProvider({ children }) {
         });
       } catch (error) {
         console.error('Error initializing consent:', error);
+        // Generate userId even on error to prevent null state
+        const userId = getOrCreateUserId();
         setConsentState({
           loading: false,
-          userId: null,
+          userId: userId,
           consentStatus: null,
           consentUpdatedAt: null,
           consentDetails: null,

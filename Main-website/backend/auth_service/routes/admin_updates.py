@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import Dict, Any, Optional
 import logging
 from auth import verify_api_key
-from db.data_center import data_center_service
+from db.data_centralization import data_center_service
 
 # Set up router
 router = APIRouter(

@@ -2,7 +2,7 @@
 import { useRouter } from 'next/router';
 import styles from '../styles/Home.module.css';
 import { useProcessStatus, useBackendConnection } from '../utils/stateManager';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useConsent } from '../components/consent_ui/ConsentContext';
 import { isProfileComplete } from '../utils/consentManager';
 
@@ -13,7 +13,7 @@ export default function HomePage() {
   const router = useRouter();
   const { isProcessReady, toggleProcessStatus } = useProcessStatus();
   const { isConnected, authValid, checkConnection } = useBackendConnection();
-  const { consentStatus, userId } = useConsent();
+  const { consentStatus, userId, loading } = useConsent();
   const [isAdminOverride, setIsAdminOverride] = useState(false);
   const [buttonStates, setButtonStates] = useState({});
   const [mounted, setMounted] = useState(false);
@@ -145,10 +145,10 @@ export default function HomePage() {
 
   // Fetch user data when userId changes
   useEffect(() => {
-    if (userId) {
+    if (userId && retryCount === 0) {
       fetchUserData();
     }
-  }, [userId]);
+  }, [userId]); // Only depend on userId to avoid circular dependency
 
   // Reset retry count when userId changes
   useEffect(() => {
@@ -237,8 +237,8 @@ export default function HomePage() {
     return () => window.removeEventListener('adminOverride', handleAdminOverride);
   }, []);
 
-  // Add this function before handleButtonClick
-  const isButtonDisabled = (destination) => {
+  // Memoize button disabled check for better performance
+  const isButtonDisabled = useCallback((destination) => {
     // Special case for collected-dataset-custom
     if (destination === 'collected-dataset-custom') {
       return !buttonStates[userId];
@@ -246,7 +246,7 @@ export default function HomePage() {
     
     // Default case for other buttons
     return false;
-  };
+  }, [buttonStates, userId]);
 
   const handleButtonClick = (destination) => {
     // Check if button is disabled
@@ -322,24 +322,31 @@ export default function HomePage() {
     }
   };
 
-  // Get button class based on consent status and admin override
-  const getButtonClass = (destination) => {
+  // Memoize button class for better performance and stability
+  const getButtonClass = useCallback((destination) => {
     if (destination === 'collected-dataset-custom') {
       const isEnabled = buttonStates[userId] || false;
-      console.log('Button state check:', { destination, userId, isEnabled });
+      // Only log when we have proper state (not during initial load)
+      if (mounted && userId) {
+        console.log('Button state check:', { destination, userId, isEnabled });
+      }
       return isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
     }
     
     if (destination === 'collected-dataset') {
       const isEnabled = consentStatus !== null;
-      console.log('Collected dataset button state check:', { destination, consentStatus, isEnabled });
+      // Only log when consent context has loaded (not during initial load)
+      if (mounted && !loading) {
+        console.log('Collected dataset button state check:', { destination, consentStatus, isEnabled });
+      }
       return isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
     }
     
     return styles.buttonEnabled; // Default for other buttons
-  };
+  }, [buttonStates, userId, consentStatus, mounted, loading, styles.buttonEnabled, styles.buttonDisabled]);
 
-  const getProcessButtonClass = () => {
+  // Memoize process button class to prevent unnecessary re-renders
+  const getProcessButtonClass = useMemo(() => {
     if (!mounted) return `${styles.menuButton} ${styles.largerButton}`;
 
     const readyClass =
@@ -348,7 +355,7 @@ export default function HomePage() {
         : styles.notReadyButton;
 
     return `${styles.menuButton} ${styles.largerButton} ${readyClass}`;
-  };
+  }, [mounted, isProcessReady, isConnected, authValid, styles.menuButton, styles.largerButton, styles.readyButton, styles.notReadyButton]);
 
   // Add button overlay component
   const ButtonOverlay = ({ enabled }) => {
@@ -395,7 +402,7 @@ export default function HomePage() {
 
         {/* Third row: Process Folder Button */}
         <div className={styles.centerButtonContainer}>
-          <button className={getProcessButtonClass()} onClick={() => handleButtonClick('process-set')}>
+          <button className={getProcessButtonClass} onClick={() => handleButtonClick('process-set')}>
             <h2>Process Image Folder</h2>
           </button>
         </div>

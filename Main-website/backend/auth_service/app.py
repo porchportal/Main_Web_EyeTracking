@@ -21,7 +21,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import database connection
 from db.mongodb import db, MongoDB
-from db.data_center import DataCenter
+from db.data_centralization import DataCenter
 
 # Import routers
 from routes import preferences

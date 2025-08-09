@@ -1,12 +1,6 @@
 {
-  "times": 1,
-  "delay": 3,
-  "a27bfbbd-fb82-4fd7-a6a7-e8c7837fd9d5": {
-    "times": 3,
-    "delay": 3
-  },
-  "d4654ab1-ccc0-4cc3-96e7-97abadf61791": {
-    "times": 3,
+  "default": {
+    "times": 1,
     "delay": 3
   }
 }

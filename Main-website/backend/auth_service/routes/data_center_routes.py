@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from db.data_center import data_center_service
+from db.data_centralization import data_center_service
 import json
 from typing import List, Dict, Any
 from datetime import datetime
