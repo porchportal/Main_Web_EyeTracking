@@ -1,0 +1,77 @@
+[
+  {
+    "_id": {
+      "$oid": "689981a9e49058c4b11ce6c3"
+    },
+    "key": "profile_f084cf66-3b92-427d-8071-28f74288719c",
+    "created_at": {
+      "$date": "2025-08-11T05:37:45.532Z"
+    },
+    "data_type": "json",
+    "updated_at": {
+      "$date": "2025-08-11T05:37:45.532Z"
+    },
+    "value": {
+      "username": "dtrydt",
+      "sex": "",
+      "age": "567",
+      "night_mode": true
+    }
+  },
+  {
+    "_id": {
+      "$oid": "689981a9e49058c4b11ce6c4"
+    },
+    "key": "settings_f084cf66-3b92-427d-8071-28f74288719c",
+    "created_at": {
+      "$date": "2025-08-11T05:37:45.532Z"
+    },
+    "data_type": "json",
+    "updated_at": {
+      "$date": "2025-08-11T05:37:45.532Z"
+    },
+    "value": {
+      "times_set_random": 1,
+      "delay_set_random": 3,
+      "run_every_of_random": 1,
+      "set_timeRandomImage": 1,
+      "times_set_calibrate": 1,
+      "every_set": 0,
+      "zoom_percentage": 100,
+      "position_zoom": [0, 0],
+      "currentlyPage": "home",
+      "state_isProcessOn": false,
+      "freeState": 0,
+      "buttons_order": "",
+      "order_click": "",
+      "image_background_paths": [],
+      "public_data_access": false,
+      "enable_background_change": false
+    }
+  },
+  {
+    "_id": {
+      "$oid": "689981a9e49058c4b11ce6c5"
+    },
+    "key": "user_data_f084cf66-3b92-427d-8071-28f74288719c",
+    "created_at": {
+      "$date": "2025-08-11T05:37:45.532Z"
+    },
+    "data_type": "user_consent",
+    "updated_at": {
+      "$date": "2025-08-11T05:37:45.532Z"
+    },
+    "value": {
+      "user_id": "f084cf66-3b92-427d-8071-28f74288719c",
+      "consent_accepted": true,
+      "consent_timestamp": "2025-08-11T05:37:45.532Z",
+      "profile": {
+        "username": "dtrydt",
+        "sex": "",
+        "age": "567",
+        "night_mode": true
+      },
+      "updated_at": "2025-08-11T05:37:45.532Z"
+    }
+  }
+]

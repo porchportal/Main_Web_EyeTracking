@@ -1,0 +1,57 @@
+[
+  {
+    "_id": {
+      "$oid": "6899645ca38cd1d7c3534373"
+    },
+    "key": "settings_user456",
+    "value": {
+      "times_set_random": 3,
+      "delay_set_random": 5,
+      "run_every_of_random": 2,
+      "set_timeRandomImage": 1,
+      "times_set_calibrate": 5,
+      "every_set": 1,
+      "zoom_percentage": 150,
+      "position_zoom": [
+        50,
+        100
+      ],
+      "currentlyPage": "home",
+      "state_isProcessOn": true,
+      "freeState": 1,
+      "buttons_order": "random,calibrate,process",
+      "order_click": "random",
+      "image_background_paths": [
+        "/backgrounds/default.jpg"
+      ],
+      "public_data_access": false,
+      "enable_background_change": false
+    },
+    "data_type": "json",
+    "created_at": {
+      "$date": "2025-08-11T03:32:44.859Z"
+    },
+    "updated_at": {
+      "$date": "2025-08-11T03:32:44.859Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6899645ca38cd1d7c3534374"
+    },
+    "key": "profile_user456",
+    "value": {
+      "username": "testuser",
+      "sex": "male",
+      "age": "25",
+      "night_mode": true
+    },
+    "data_type": "json",
+    "created_at": {
+      "$date": "2025-08-11T03:32:44.859Z"
+    },
+    "updated_at": {
+      "$date": "2025-08-11T03:32:44.859Z"
+    }
+  }
+]

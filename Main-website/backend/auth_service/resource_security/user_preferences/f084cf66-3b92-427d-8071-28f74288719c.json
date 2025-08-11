@@ -1,0 +1,27 @@
+[
+  {
+    "_id": {
+      "$oid": "960de7cc712b4ba1bc4d93f7a7b948c2"
+    },
+    "key": "user_data_f084cf66-3b92-427d-8071-28f74288719c",
+    "created_at": {
+      "$date": "2025-08-11T15:58:25.657676"
+    },
+    "data_type": "user_consent",
+    "updated_at": {
+      "$date": "2025-08-11T15:58:25.657894"
+    },
+    "value": {
+      "user_id": "f084cf66-3b92-427d-8071-28f74288719c",
+      "consent_accepted": true,
+      "consent_timestamp": "2025-08-11T15:58:25.657906",
+      "profile": {
+        "username": "user_f084cf66",
+        "sex": "female",
+        "age": "25",
+        "night_mode": true
+      },
+      "updated_at": "2025-08-11T15:58:25.657915"
+    }
+  }
+]

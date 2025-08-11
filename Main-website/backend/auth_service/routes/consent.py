@@ -12,6 +12,7 @@ from model_preference.preferences import ConsentUpdate, UserPreferencesUpdate
 from model_preference.response import DataResponse, ErrorResponse
 from db.services.user_preferences_service import UserPreferencesService as PreferencesService
 from db.data_centralization import DataCenter, UserProfile, UserSettings, User
+from db.mongodb import db
 
 # Set up router
 router = APIRouter(
@@ -76,10 +77,12 @@ def write_consent_data(data: List[Dict[str, Any]]):
 async def get_user_consent(user_id: str = Path(..., description="User ID")):
     """Get user consent status by user ID"""
     try:
-        # Use the existing preferences service to get user data
-        preferences = await PreferencesService.get_preferences(user_id)
+        from db.services.user_preferences_service import UserPreferencesService
         
-        if not preferences:
+        # Get user data from user_preferences collection
+        user_data = await UserPreferencesService.get_user_data_from_preferences(user_id)
+        
+        if not user_data:
             # Return empty data with null consent status if user not found
             return DataResponse(
                 success=True,
@@ -96,8 +99,8 @@ async def get_user_consent(user_id: str = Path(..., description="User ID")):
             success=True,
             data={
                 "user_id": user_id,
-                "consent_status": preferences.get("consent_status"),
-                "consent_updated_at": preferences.get("consent_updated_at")
+                "consent_status": user_data.get("consent_accepted"),
+                "consent_updated_at": user_data.get("consent_timestamp")
             }
         )
         
@@ -115,8 +118,46 @@ async def update_user_consent(
 ):
     """Update user consent status"""
     try:
-        # Use the existing consent update method from PreferencesService
-        updated = await PreferencesService.update_consent(user_id, update)
+        from db.services.user_preferences_service import UserPreferencesService
+        
+        # Get existing user data
+        existing_data = await UserPreferencesService.get_user_data_from_preferences(user_id)
+        
+        if existing_data:
+            # Update existing data
+            existing_data["consent_accepted"] = update.consent_status
+            existing_data["consent_timestamp"] = (update.timestamp or datetime.utcnow()).isoformat()
+            existing_data["updated_at"] = datetime.utcnow()
+            
+            # Save updated data
+            key = f"user_data_{user_id}"
+            document = {
+                "key": key,
+                "value": existing_data,
+                "data_type": "user_consent",
+                "updated_at": datetime.utcnow()
+            }
+            
+            collection = db.get_db()["user_preferences"]
+            result = await collection.update_one(
+                {"key": key},
+                {"$set": document},
+                upsert=True
+            )
+            
+            updated = result.acknowledged
+        else:
+            # Create new user data with consent
+            user_profile = UserProfile(
+                username="",
+                sex="",
+                age="",
+                night_mode=False
+            )
+            
+            updated = await UserPreferencesService.save_user_data_to_preferences(
+                user_id, user_profile, consent_accepted=update.consent_status
+            )
         
         return DataResponse(
             success=True,
@@ -138,8 +179,10 @@ async def update_user_consent(
 async def delete_user_consent(user_id: str = Path(..., description="User ID")):
     """Delete user consent data"""
     try:
-        # Use the existing preferences service to delete user data
-        deleted = await PreferencesService.delete_preferences(user_id)
+        from db.services.user_preferences_service import UserPreferencesService
+        
+        # Delete user data from user_preferences collection
+        deleted = await UserPreferencesService.delete_user_from_preferences(user_id)
         
         if not deleted:
             return DataResponse(
@@ -164,13 +207,14 @@ async def delete_user_consent(user_id: str = Path(..., description="User ID")):
 
 @router.post("/initialize-user", response_model=DataResponse)
 async def initialize_user_data(request: ConsentInitializationRequest):
-    """Initialize user data using DataCenter when consent is accepted"""
+    """Initialize user data using both services when consent is accepted"""
     try:
+        from db.services.user_preferences_service import UserPreferencesService
+        from db.services.data_centralization_service import DataCentralizationService
+        from db.data_centralization import UserSettings
+        
         user_id = request.user_id
         email = request.email
-        
-        # Initialize DataCenter
-        await DataCenter.initialize()
         
         # Create user profile using DataCenter models
         user_profile = UserProfile(
@@ -180,41 +224,34 @@ async def initialize_user_data(request: ConsentInitializationRequest):
             night_mode=False
         )
         
-        # Create user settings using DataCenter models
+        # Create default user settings
         user_settings = UserSettings(
-            times_set_random=1,
-            delay_set_random=3,
-            run_every_of_random=1,
+            times_set_random=3,
+            delay_set_random=5,
+            run_every_of_random=2,
             set_timeRandomImage=1,
-            times_set_calibrate=1,
-            every_set=0,
+            times_set_calibrate=5,
+            every_set=1,
             zoom_percentage=150,
-            position_zoom=[0, 0],
+            position_zoom=[50, 100],
             currentlyPage="home",
-            state_isProcessOn=False,
-            freeState=0,
-            buttons_order="",
-            order_click="",
-            image_background_paths=["/backgrounds/one.jpg"],
+            state_isProcessOn=True,
+            freeState=1,
+            buttons_order="random,calibrate,process",
+            order_click="random",
+            image_background_paths=["/backgrounds/default.jpg"],
             public_data_access=False,
             enable_background_change=False
         )
         
-        # Create complete user object
-        user = User(profile=user_profile, settings=user_settings)
+        # Save user profile to user_preferences collection
+        profile_save_result = await UserPreferencesService.save_user_data_to_preferences(user_id, user_profile, consent_accepted=True)
         
-        # Save user to DataCenter
-        save_result = await DataCenter.save_user(user_id, user)
+        # Save user settings to data_centralization collection
+        settings_save_result = await DataCentralizationService.save_user_settings_with_model(user_id, user_settings)
         
-        if not save_result:
-            raise Exception("Failed to save user data to DataCenter")
-        
-        # Also save to user_preferences collection for consent tracking
-        await PreferencesService.initialize_collection()
-        
-        # Create consent record in user_preferences
-        consent_update = ConsentUpdate(consent_status=True)
-        await PreferencesService.update_consent(user_id, consent_update)
+        if not profile_save_result or not settings_save_result:
+            raise Exception("Failed to save user data")
         
         logger.info(f"Successfully initialized user data for {user_id}")
         
@@ -225,7 +262,8 @@ async def initialize_user_data(request: ConsentInitializationRequest):
                 "user_id": user_id,
                 "consent_accepted": True,
                 "timestamp": datetime.utcnow(),
-                "data_center_saved": save_result
+                "user_preferences_saved": profile_save_result,
+                "data_centralization_saved": settings_save_result
             }
         )
         
@@ -240,18 +278,13 @@ async def initialize_user_data(request: ConsentInitializationRequest):
 async def check_user_initialization(user_id: str):
     """Check if user data has been initialized"""
     try:
-        # Initialize DataCenter
-        await DataCenter.initialize()
+        from db.services.user_preferences_service import UserPreferencesService
         
-        # Check if user exists in DataCenter
-        user_data = await DataCenter.get_user(user_id)
-        
-        # Also check user_preferences for consent status
-        await PreferencesService.initialize_collection()
-        user_preferences = await PreferencesService.get_preferences(user_id)
+        # Check if user exists in user_preferences collection
+        user_data = await UserPreferencesService.get_user_data_from_preferences(user_id)
         
         is_initialized = user_data is not None
-        has_consent = user_preferences is not None
+        has_consent = user_data is not None and user_data.get("consent_accepted", False)
         
         return DataResponse(
             success=True,
@@ -259,8 +292,8 @@ async def check_user_initialization(user_id: str):
                 "user_id": user_id,
                 "is_initialized": is_initialized,
                 "has_consent_data": has_consent,
-                "user_data": user_data.model_dump() if user_data else None,
-                "consent_data": user_preferences if user_preferences else None
+                "user_data": user_data if user_data else None,
+                "consent_data": user_data if user_data else None
             }
         )
         
@@ -273,21 +306,11 @@ async def check_user_initialization(user_id: str):
 
 @router.put("/update-user-profile/{user_id}", response_model=DataResponse)
 async def update_user_profile(user_id: str, profile_update: UserProfileUpdate):
-    """Update user profile using DataCenter"""
+    """Update user profile and settings using both services"""
     try:
-        # Initialize DataCenter
-        await DataCenter.initialize()
-        
-        # Get existing user data
-        existing_user = await DataCenter.get_user(user_id)
-        
-        if not existing_user:
-            # If no user exists, create them first
-            await initialize_user_data(ConsentInitializationRequest(
-                user_id=user_id,
-                email="test@example.com"
-            ))
-            existing_user = await DataCenter.get_user(user_id)
+        from db.services.user_preferences_service import UserPreferencesService
+        from db.services.data_centralization_service import DataCentralizationService
+        from db.data_centralization import UserSettings
         
         # Update the profile
         updated_profile = UserProfile(
@@ -297,26 +320,44 @@ async def update_user_profile(user_id: str, profile_update: UserProfileUpdate):
             night_mode=profile_update.night_mode
         )
         
-        # Create updated user object
-        updated_user = User(
-            profile=updated_profile,
-            settings=existing_user.settings
+        # Create default user settings
+        user_settings = UserSettings(
+            times_set_random=3,
+            delay_set_random=5,
+            run_every_of_random=2,
+            set_timeRandomImage=1,
+            times_set_calibrate=5,
+            every_set=1,
+            zoom_percentage=150,
+            position_zoom=[50, 100],
+            currentlyPage="home",
+            state_isProcessOn=True,
+            freeState=1,
+            buttons_order="random,calibrate,process",
+            order_click="random",
+            image_background_paths=["/backgrounds/default.jpg"],
+            public_data_access=False,
+            enable_background_change=False
         )
         
-        # Save updated user
-        save_result = await DataCenter.save_user(user_id, updated_user)
+        # Save profile to user_preferences collection
+        profile_save_result = await UserPreferencesService.update_user_profile_in_preferences(user_id, updated_profile)
         
-        if not save_result:
-            raise Exception("Failed to update user profile")
+        # Save settings to data_centralization collection
+        settings_save_result = await DataCentralizationService.save_user_settings_with_model(user_id, user_settings)
         
-        logger.info(f"Successfully updated user profile for {user_id}")
+        if not profile_save_result or not settings_save_result:
+            raise Exception("Failed to update user data")
+        
+        logger.info(f"Successfully updated user profile and settings for {user_id}")
         
         return DataResponse(
             success=True,
-            message="User profile updated successfully",
+            message="User profile and settings updated successfully",
             data={
                 "user_id": user_id,
-                "profile": updated_profile.model_dump()
+                "profile": updated_profile.model_dump(),
+                "settings": user_settings.model_dump()
             }
         )
         

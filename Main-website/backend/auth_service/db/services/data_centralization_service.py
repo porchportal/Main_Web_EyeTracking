@@ -1,6 +1,9 @@
 # backend/services/data_centralization_service.py
 from typing import Optional, Dict, Any, List
 import logging
+import json
+import os
+from pathlib import Path
 from datetime import datetime
 from bson import ObjectId
 from pymongo.errors import PyMongoError
@@ -9,9 +12,131 @@ from db.mongodb import db
 
 logger = logging.getLogger(__name__)
 
+# Define paths for JSON files
+RESOURCE_SECURITY_DIR = Path(__file__).parent.parent.parent / "resource_security"
+DATA_CENTRALIZATION_DIR = RESOURCE_SECURITY_DIR / "data_centralization"
+
 class DataCentralizationService:
-    """Service for managing data centralization in MongoDB"""
+    """Service for managing data centralization in MongoDB and JSON files"""
     collection_name = "data_centralization"
+
+    @classmethod
+    def _ensure_user_json_file_exists(cls, user_id: str):
+        """Ensure the user-specific JSON file and directory exist"""
+        DATA_CENTRALIZATION_DIR.mkdir(exist_ok=True)
+        user_file = DATA_CENTRALIZATION_DIR / f"{user_id}.json"
+        if not user_file.exists():
+            user_file.write_text("[]")
+
+    @classmethod
+    def _get_user_json_file_path(cls, user_id: str) -> Path:
+        """Get the path to user-specific JSON file"""
+        return DATA_CENTRALIZATION_DIR / f"{user_id}.json"
+
+    @classmethod
+    def _read_user_json_data(cls, user_id: str) -> List[Dict[str, Any]]:
+        """Read data from user-specific JSON file"""
+        cls._ensure_user_json_file_exists(user_id)
+        user_file = cls._get_user_json_file_path(user_id)
+        try:
+            with open(user_file, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            return []
+
+    @classmethod
+    def _write_user_json_data(cls, user_id: str, data: List[Dict[str, Any]]):
+        """Write data to user-specific JSON file"""
+        cls._ensure_user_json_file_exists(user_id)
+        user_file = cls._get_user_json_file_path(user_id)
+        with open(user_file, 'w') as f:
+            json.dump(data, f, indent=2)
+
+    @classmethod
+    def _save_to_json(cls, key: str, value: Any, data_type: str = "json"):
+        """Save data to user-specific JSON file in MongoDB format"""
+        try:
+            # Extract user_id from key (e.g., "profile_user123" -> "user123")
+            if key.startswith("profile_"):
+                user_id = key.replace("profile_", "")
+            elif key.startswith("settings_"):
+                user_id = key.replace("settings_", "")
+            elif key.startswith("user_data_"):
+                user_id = key.replace("user_data_", "")
+            else:
+                user_id = "general"  # For other keys
+            
+            # Check if file already exists to avoid duplicates
+            user_file = cls._get_user_json_file_path(user_id)
+            if user_file.exists():
+                logger.info(f"User JSON file already exists for {user_id}, updating instead of creating")
+            
+            # Read existing data
+            json_data = cls._read_user_json_data(user_id)
+            
+            # Find existing entry
+            existing_index = next(
+                (i for i, item in enumerate(json_data) if item.get("key") == key),
+                -1
+            )
+            
+            # Prepare MongoDB format document
+            mongo_doc = {
+                "_id": {"$oid": str(ObjectId())},
+                "key": key,
+                "created_at": {"$date": datetime.utcnow().isoformat()},
+                "data_type": data_type,
+                "updated_at": {"$date": datetime.utcnow().isoformat()},
+                "value": value
+            }
+            
+            if existing_index != -1:
+                # Update existing entry
+                json_data[existing_index] = mongo_doc
+            else:
+                # Add new entry
+                json_data.append(mongo_doc)
+            
+            cls._write_user_json_data(user_id, json_data)
+            logger.info(f"Saved data to JSON file for key {key} (user: {user_id})")
+            
+        except Exception as e:
+            logger.error(f"Error saving to JSON file for key {key}: {e}")
+
+    @classmethod
+    def _delete_from_json(cls, key: str):
+        """Delete data from user-specific JSON file"""
+        try:
+            # Extract user_id from key
+            if key.startswith("profile_"):
+                user_id = key.replace("profile_", "")
+            elif key.startswith("settings_"):
+                user_id = key.replace("settings_", "")
+            elif key.startswith("user_data_"):
+                user_id = key.replace("user_data_", "")
+            else:
+                user_id = "general"
+            
+            user_file = cls._get_user_json_file_path(user_id)
+            if user_file.exists():
+                # Read existing data
+                json_data = cls._read_user_json_data(user_id)
+                
+                # Remove entry with matching key
+                json_data = [item for item in json_data if item.get("key") != key]
+                
+                # If no more data, delete the file
+                if not json_data:
+                    user_file.unlink()
+                    logger.info(f"Deleted user JSON file for user {user_id} (no more data)")
+                else:
+                    cls._write_user_json_data(user_id, json_data)
+                    logger.info(f"Deleted data from JSON file for key {key} (user: {user_id})")
+            else:
+                logger.info(f"User JSON file does not exist for user {user_id}")
+            
+        except Exception as e:
+            logger.error(f"Error deleting from JSON file for key {key}: {e}")
 
     @classmethod
     async def get_value(cls, key: str) -> Optional[Any]:
@@ -57,7 +182,10 @@ class DataCentralizationService:
                 upsert=True
             )
             
-            logger.info(f"Updated key '{key}' in data_centralization collection")
+            # Also save to JSON file
+            cls._save_to_json(key, value, data_type)
+            
+            logger.info(f"Updated key '{key}' in data_centralization collection and JSON")
             return result.acknowledged
             
         except PyMongoError as e:
@@ -76,7 +204,10 @@ class DataCentralizationService:
             # Delete document by key
             result = await collection.delete_one({"key": key})
             
-            logger.info(f"Deleted key '{key}' from data_centralization collection")
+            # Also delete from JSON file
+            cls._delete_from_json(key)
+            
+            logger.info(f"Deleted key '{key}' from data_centralization collection and JSON")
             return result.acknowledged
             
         except PyMongoError as e:
@@ -441,7 +572,7 @@ class DataCentralizationService:
                 data_type="user_consent"
             )
             
-            logger.info(f"Saved user profile to data_centralization for user {user_id}")
+            logger.info(f"Saved user profile to data_centralization and JSON for user {user_id}")
             return result
             
         except Exception as e:

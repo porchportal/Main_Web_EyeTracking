@@ -1,0 +1,52 @@
+[
+  {
+    "_id": {
+      "$oid": "689981a9e49058c4b11ce6c1"
+    },
+    "key": "user_data_f084cf66-3b92-427d-8071-28f74288719c",
+    "created_at": {
+      "$date": "2025-08-11T05:37:45.532Z"
+    },
+    "data_type": "user_consent",
+    "updated_at": {
+      "$date": "2025-08-11T05:37:45.532Z"
+    },
+    "value": {
+      "user_id": "f084cf66-3b92-427d-8071-28f74288719c",
+      "consent_accepted": true,
+      "consent_timestamp": "2025-08-11T05:37:45.532Z",
+      "profile": {
+        "username": "dtrydt",
+        "sex": "",
+        "age": "567",
+        "night_mode": true
+      },
+      "updated_at": "2025-08-11T05:37:45.532Z"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "689981a9e49058c4b11ce6c2"
+    },
+    "key": "user_data_example-user-123",
+    "created_at": {
+      "$date": "2025-08-11T06:00:00.000Z"
+    },
+    "data_type": "user_consent",
+    "updated_at": {
+      "$date": "2025-08-11T06:00:00.000Z"
+    },
+    "value": {
+      "user_id": "example-user-123",
+      "consent_accepted": true,
+      "consent_timestamp": "2025-08-11T06:00:00.000Z",
+      "profile": {
+        "username": "john_doe",
+        "sex": "male",
+        "age": "25",
+        "night_mode": false
+      },
+      "updated_at": "2025-08-11T06:00:00.000Z"
+    }
+  }
+]

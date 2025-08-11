@@ -1,0 +1,55 @@
+[
+  {
+    "_id": {
+      "$oid": "044ff5a7656a4ff7b1645cbec9ff0485"
+    },
+    "key": "profile_example-user-123",
+    "created_at": {
+      "$date": "2025-08-11T15:58:25.658759"
+    },
+    "data_type": "json",
+    "updated_at": {
+      "$date": "2025-08-11T15:58:25.658761"
+    },
+    "value": {
+      "username": "user_example-",
+      "sex": "male",
+      "age": "25",
+      "night_mode": true
+    }
+  },
+  {
+    "_id": {
+      "$oid": "187837a455b94f41a029a37e9af45fe2"
+    },
+    "key": "settings_example-user-123",
+    "created_at": {
+      "$date": "2025-08-11T15:58:25.658767"
+    },
+    "data_type": "json",
+    "updated_at": {
+      "$date": "2025-08-11T15:58:25.658769"
+    },
+    "value": {
+      "times_set_random": 1,
+      "delay_set_random": 3,
+      "run_every_of_random": 1,
+      "set_timeRandomImage": 1,
+      "times_set_calibrate": 1,
+      "every_set": 0,
+      "zoom_percentage": 100,
+      "position_zoom": [
+        0,
+        0
+      ],
+      "currentlyPage": "home",
+      "state_isProcessOn": false,
+      "freeState": 0,
+      "buttons_order": "",
+      "order_click": "",
+      "image_background_paths": [],
+      "public_data_access": false,
+      "enable_background_change": false
+    }
+  }
+]

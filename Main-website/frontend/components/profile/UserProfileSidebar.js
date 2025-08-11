@@ -4,6 +4,7 @@ import styles from '../../styles/UserProfile.module.css';
 import { useConsent } from '../consent_ui/ConsentContext';
 import { useBackendConnection } from '../../utils/stateManager';
 import { getOrCreateUserId } from '../../utils/consentManager';
+import UINotification from './ui_noti';
 
 export default function UserProfileSidebar() {
   const router = useRouter();
@@ -17,6 +18,11 @@ export default function UserProfileSidebar() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [localUserId, setLocalUserId] = useState(null);
+  const [notification, setNotification] = useState({
+    isVisible: false,
+    message: '',
+    type: 'success'
+  });
 
   // Get consent and backend status
   const { userId, consentStatus } = useConsent();
@@ -186,14 +192,30 @@ export default function UserProfileSidebar() {
         window.dispatchEvent(event);
       }
 
-      // Show success message
-      alert('Profile saved successfully!');
+      // Show success notification
+      setNotification({
+        isVisible: true,
+        message: 'Profile saved successfully!',
+        type: 'success'
+      });
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert(error.message || 'Failed to save profile. Please try again.');
+      setNotification({
+        isVisible: true,
+        message: error.message || 'Failed to save profile. Please try again.',
+        type: 'error'
+      });
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle notification close
+  const handleNotificationClose = () => {
+    setNotification(prev => ({
+      ...prev,
+      isVisible: false
+    }));
   };
 
   // Don't render anything if consent is not accepted
@@ -202,7 +224,15 @@ export default function UserProfileSidebar() {
   }
 
   return (
-    <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 100 }}>
+    <>
+      <UINotification
+        message={notification.message}
+        type={notification.type}
+        isVisible={notification.isVisible}
+        onClose={handleNotificationClose}
+        duration={4000}
+      />
+      <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 100 }}>
       <button 
         className={styles.toggleButton}
         onClick={() => setIsOpen(!isOpen)}
@@ -362,5 +392,6 @@ export default function UserProfileSidebar() {
         )}
       </div>
     </div>
+    </>
   );
 } 

@@ -1,6 +1,9 @@
 # backend/services/user_preferences_service.py
 from typing import Optional, Dict, Any, List
 import logging
+import json
+import os
+from pathlib import Path
 from datetime import datetime
 from bson import ObjectId
 from pymongo.errors import DuplicateKeyError, PyMongoError
@@ -25,9 +28,85 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Define paths for JSON files
+RESOURCE_SECURITY_DIR = Path(__file__).parent.parent.parent / "resource_security"
+USER_PREFERENCES_DIR = RESOURCE_SECURITY_DIR / "user_preferences"
+
 class UserPreferencesService:
-    """Service for managing user preferences in MongoDB"""
+    """Service for managing user preferences in MongoDB and JSON files"""
     collection_name = "user_preferences"
+
+    @classmethod
+    def _ensure_user_json_file_exists(cls, user_id: str):
+        """Ensure the user-specific JSON file and directory exist"""
+        USER_PREFERENCES_DIR.mkdir(exist_ok=True)
+        user_file = USER_PREFERENCES_DIR / f"{user_id}.json"
+        if not user_file.exists():
+            user_file.write_text("[]")
+
+    @classmethod
+    def _get_user_json_file_path(cls, user_id: str) -> Path:
+        """Get the path to user-specific JSON file"""
+        return USER_PREFERENCES_DIR / f"{user_id}.json"
+
+    @classmethod
+    def _read_user_json_data(cls, user_id: str) -> List[Dict[str, Any]]:
+        """Read data from user-specific JSON file"""
+        cls._ensure_user_json_file_exists(user_id)
+        user_file = cls._get_user_json_file_path(user_id)
+        try:
+            with open(user_file, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            return []
+
+    @classmethod
+    def _write_user_json_data(cls, user_id: str, data: List[Dict[str, Any]]):
+        """Write data to user-specific JSON file"""
+        cls._ensure_user_json_file_exists(user_id)
+        user_file = cls._get_user_json_file_path(user_id)
+        with open(user_file, 'w') as f:
+            json.dump(data, f, indent=2)
+
+    @classmethod
+    def _save_to_json(cls, user_id: str, data: Dict[str, Any]):
+        """Save user data to user-specific JSON file in MongoDB format"""
+        try:
+            # Check if file already exists to avoid duplicates
+            user_file = cls._get_user_json_file_path(user_id)
+            if user_file.exists():
+                logger.info(f"User JSON file already exists for {user_id}, updating instead of creating")
+            
+            # Prepare MongoDB format document
+            mongo_doc = {
+                "_id": {"$oid": str(ObjectId())},
+                "key": f"user_data_{user_id}",
+                "created_at": {"$date": datetime.utcnow().isoformat()},
+                "data_type": "user_consent",
+                "updated_at": {"$date": datetime.utcnow().isoformat()},
+                "value": data
+            }
+            
+            # Save to user-specific file
+            cls._write_user_json_data(user_id, [mongo_doc])
+            logger.info(f"Saved user data to JSON file for user {user_id}")
+            
+        except Exception as e:
+            logger.error(f"Error saving to JSON file for user {user_id}: {e}")
+
+    @classmethod
+    def _delete_from_json(cls, user_id: str):
+        """Delete user data from JSON file"""
+        try:
+            user_file = cls._get_user_json_file_path(user_id)
+            if user_file.exists():
+                user_file.unlink()
+                logger.info(f"Deleted user JSON file for user {user_id}")
+            else:
+                logger.info(f"User JSON file does not exist for user {user_id}")
+            
+        except Exception as e:
+            logger.error(f"Error deleting JSON file for user {user_id}: {e}")
 
     @classmethod
     async def get_user_preferences(cls, user_id: str) -> Optional[Dict[str, Any]]:
@@ -533,7 +612,10 @@ class UserPreferencesService:
                 upsert=True
             )
             
-            logger.info(f"Saved user data to user_preferences for user {user_id}")
+            # Also save to JSON file
+            cls._save_to_json(user_id, value_data)
+            
+            logger.info(f"Saved user data to user_preferences and JSON for user {user_id}")
             return result.acknowledged
             
         except Exception as e:
@@ -602,7 +684,10 @@ class UserPreferencesService:
                 upsert=True
             )
             
-            logger.info(f"Updated user profile in user_preferences for user {user_id}")
+            # Also save to JSON file
+            cls._save_to_json(user_id, existing_data)
+            
+            logger.info(f"Updated user profile in user_preferences and JSON for user {user_id}")
             return result.acknowledged
             
         except Exception as e:
@@ -653,7 +738,10 @@ class UserPreferencesService:
             key = f"user_data_{user_id}"
             result = await collection.delete_one({"key": key})
             
-            logger.info(f"Deleted user from user_preferences collection for user {user_id}")
+            # Also delete from JSON file
+            cls._delete_from_json(user_id)
+            
+            logger.info(f"Deleted user from user_preferences collection and JSON for user {user_id}")
             return result.deleted_count > 0
             
         except Exception as e:
