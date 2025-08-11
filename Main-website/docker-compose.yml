@@ -24,12 +24,7 @@ services:
       - PORT=8010
     networks:
       - app-network
-    # deploy:
-    #   resources:
-    #     limits:
-    #       memory: 2G  # Increased memory
-    #     reservations:
-    #       memory: 1G
+
 
   video_service:
     build: 
@@ -42,12 +37,7 @@ services:
       - PORT=8011
     networks:
       - app-network
-    # deploy:
-    #   resources:
-    #     limits:
-    #       memory: 2G  # Increased memory
-    #     reservations:
-    #       memory: 1G
+
 
   auth_service:
     build: 
@@ -62,12 +52,6 @@ services:
       - mongodb
     networks:
       - app-network
-    # deploy:
-    #   resources:
-    #     limits:
-    #       memory: 1G  # Increased memory
-    #     reservations:
-    #       memory: 512M
 
   frontend:
     build:
