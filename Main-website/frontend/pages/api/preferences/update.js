@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   const apiKey = process.env.API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
 
   try {
-    const { userId, ...preferences } = req.body;
+    const { userId, username, sex, age, night_mode, ...otherPreferences } = req.body;
     
     if (!userId) {
       return res.status(400).json({
@@ -23,28 +23,22 @@ export default async function handler(req, res) {
       });
     }
     
-    // Prepare data for backend API
-    const updateData = {
-      preferences: preferences.preferences || {},
-      theme: preferences.theme,
-      language: preferences.language,
-      notification_settings: preferences.notificationSettings,
-      image_processing_settings: preferences.imageProcessingSettings
+    // Prepare profile data for the new endpoint
+    const profileData = {
+      username: username || "",
+      sex: sex || "",
+      age: age || "",
+      night_mode: night_mode || false
     };
     
-    // If consent status is included, add it
-    if (preferences.consentStatus !== undefined) {
-      updateData.consent_status = preferences.consentStatus;
-    }
-    
-    // Update user preferences in backend
-            const response = await fetch(`${backendUrl}/api/user-preferences/${userId}`, {
+    // Update user profile using the new consent endpoint
+    const response = await fetch(`${backendUrl}/consent/update-user-profile/${userId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': apiKey
       },
-      body: JSON.stringify(updateData)
+      body: JSON.stringify(profileData)
     });
     
     // Parse response
@@ -53,14 +47,14 @@ export default async function handler(req, res) {
     if (!response.ok) {
       return res.status(response.status).json({
         success: false,
-        message: data.message || 'Failed to update user preferences',
+        message: data.message || 'Failed to update user profile',
         error: data.detail || data.error || 'Unknown error'
       });
     }
     
     return res.status(200).json({
       success: true,
-      message: 'User preferences updated successfully',
+      message: 'User profile updated successfully',
       data: data.data
     });
     

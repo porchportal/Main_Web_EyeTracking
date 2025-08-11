@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import styles from '../../styles/UserProfile.module.css';
-// import { getUserProfile, updateUserProfile } from '../utils/consentManager';
 import { useConsent } from '../consent_ui/ConsentContext';
 import { useBackendConnection } from '../../utils/stateManager';
 import { getOrCreateUserId } from '../../utils/consentManager';
@@ -16,7 +15,6 @@ export default function UserProfileSidebar() {
     nightMode: false,
     preferences: {}
   });
-  // const [statusMessage, setStatusMessageLocal] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [localUserId, setLocalUserId] = useState(null);
 
@@ -43,7 +41,9 @@ export default function UserProfileSidebar() {
       
       try {
         setIsLoading(true);
-        const response = await fetch(`/api/user-preferences/${currentUserId}`, {
+        
+        // First check if user is initialized using the new consent endpoint
+        const checkResponse = await fetch(`/api/consent-init/check-user/${currentUserId}`, {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
@@ -51,24 +51,54 @@ export default function UserProfileSidebar() {
           }
         });
 
-        if (!response.ok) {
-          throw new Error('Failed to load profile');
-        }
+        if (checkResponse.ok) {
+          const checkData = await checkResponse.json();
+          console.log('User initialization check:', checkData);
 
-        const data = await response.json();
-        console.log('Loaded profile data:', data);
-
-        if (data.data) {
+          if (checkData.success && checkData.data && checkData.data.user_data) {
+            // User is initialized, load profile data
+            const userData = checkData.data.user_data;
+            
+            if (userData.profile) {
+              setProfile(prev => ({
+                ...prev,
+                username: userData.profile.username || '',
+                sex: userData.profile.sex || '',
+                age: userData.profile.age || '',
+                nightMode: userData.profile.night_mode || false
+              }));
+            }
+          } else {
+            // User not initialized, create default profile
+            setProfile(prev => ({
+              ...prev,
+              username: '',
+              sex: '',
+              age: '',
+              nightMode: false
+            }));
+          }
+        } else {
+          console.warn('Failed to check user initialization status');
+          // Set default profile on error
           setProfile(prev => ({
             ...prev,
-            username: data.data.username || '',
-            sex: data.data.sex || '',
-            age: data.data.age || '',
-            nightMode: data.data.nightMode || false
+            username: '',
+            sex: '',
+            age: '',
+            nightMode: false
           }));
         }
       } catch (error) {
         console.error('Error loading profile:', error);
+        // Set default profile on error
+        setProfile(prev => ({
+          ...prev,
+          username: '',
+          sex: '',
+          age: '',
+          nightMode: false
+        }));
       } finally {
         setIsLoading(false);
       }
@@ -103,16 +133,19 @@ export default function UserProfileSidebar() {
         router.push('/admin_ui/admin-login');
         return;
       }
-      // Prepare profile data
+
+      setIsLoading(true);
+
+      // Prepare profile data in the new DataCenter format
       const profileData = {
-        username: profile.username || null,
-        sex: profile.sex || null,
-        age: profile.age || null,
-        nightMode: profile.nightMode || false
+        username: profile.username || "",
+        sex: profile.sex || "",
+        age: profile.age || "",
+        night_mode: profile.nightMode || false
       };
 
-      // Save to backend
-      const response = await fetch(`/api/user-preferences/${localUserId}`, {
+      // Save profile using the new consent endpoint
+      const response = await fetch(`/api/consent-init/update-user-profile/${localUserId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -132,7 +165,10 @@ export default function UserProfileSidebar() {
       // Update local state
       setProfile(prev => ({
         ...prev,
-        ...profileData
+        username: profileData.username,
+        sex: profileData.sex,
+        age: profileData.age,
+        nightMode: profileData.night_mode
       }));
 
       // Dispatch admin update event
@@ -155,15 +191,10 @@ export default function UserProfileSidebar() {
     } catch (error) {
       console.error('Error saving profile:', error);
       alert(error.message || 'Failed to save profile. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
-
-  // const updateStatusMessage = (message) => {
-  //   if (setStatusMessage) {
-  //     setStatusMessage(message);
-  //   }
-  //   setStatusMessageLocal(message);
-  // };
 
   // Don't render anything if consent is not accepted
   if (!consentStatus) {

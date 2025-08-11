@@ -219,6 +219,7 @@ async def get_user_preferences(user_id: str):
                     "username": None,
                     "sex": None,
                     "age": None,
+                    "night_mode": False,
                     "image_background": None,
                     "cookie": None
                 }
@@ -227,8 +228,20 @@ async def get_user_preferences(user_id: str):
         # Remove MongoDB _id field
         user_data.pop("_id", None)
         
+        # Extract profile data from preferences field
+        preferences = user_data.get("preferences", {})
+        profile_data = {
+            "user_id": user_id,
+            "username": preferences.get("username"),
+            "sex": preferences.get("sex"),
+            "age": preferences.get("age"),
+            "night_mode": preferences.get("night_mode", False),
+            "image_background": user_data.get("image_background"),
+            "cookie": user_data.get("cookie")
+        }
+        
         return {
-            "data": user_data
+            "data": profile_data
         }
     except HTTPException:
         raise
@@ -246,6 +259,7 @@ class UserProfileUpdate(BaseModel):
     username: Optional[str] = None
     sex: Optional[str] = None
     age: Optional[str] = None
+    night_mode: Optional[bool] = None
     cookie: Optional[bool] = None
 
 @app.put("/api/user-preferences/{user_id}")
@@ -259,11 +273,23 @@ async def update_user_preferences(user_id: str, preferences: UserProfileUpdate):
         
         # 1. Save to user_preferences collection
         collection = db['user_preferences']
-        update_data = {
-            "user_id": user_id,
+        
+        # Get existing user data to preserve other fields
+        existing_data = await collection.find_one({"user_id": user_id})
+        existing_preferences = existing_data.get("preferences", {}) if existing_data else {}
+        
+        # Update preferences with new profile data
+        updated_preferences = {
+            **existing_preferences,
             "username": preferences.username,
             "sex": preferences.sex,
             "age": preferences.age,
+            "night_mode": preferences.night_mode
+        }
+        
+        update_data = {
+            "user_id": user_id,
+            "preferences": updated_preferences,
             "cookie": preferences.cookie,
             "updated_at": datetime.utcnow()
         }

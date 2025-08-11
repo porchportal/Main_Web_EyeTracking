@@ -51,6 +51,10 @@ export default function ConsentBanner() {
       // Get user ID
       const userId = getOrCreateUserId();
       
+      // User data will be initialized automatically when they first save their profile
+      // No need to pre-initialize since we're using the new DataCenter approach
+      console.log('User consent accepted, user data will be initialized on first profile save');
+      
       // Update user preferences with cookie acceptance
       const response = await fetch(`/api/user-preferences/${userId}`, {
         method: 'PUT',

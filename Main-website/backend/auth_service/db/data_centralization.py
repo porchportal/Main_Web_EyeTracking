@@ -265,6 +265,48 @@ class DataCenterService:
         except Exception as e:
             logger.error(f"Error saving user {user_id}: {e}")
             return False
+
+    async def save_user_profile_to_preferences(self, user_id: str, profile: UserProfile, consent_accepted: bool = True) -> bool:
+        """Save user profile to user_preferences collection in the specified format."""
+        try:
+            from db.services.user_preferences_service import UserPreferencesService
+            
+            # Use the UserPreferencesService to save in the correct format
+            result = await UserPreferencesService.save_user_data_to_preferences(user_id, profile, consent_accepted)
+            
+            logger.info(f"Saved user profile to user_preferences for user {user_id}")
+            return result
+        except Exception as e:
+            logger.error(f"Error saving user profile to preferences for {user_id}: {e}")
+            return False
+
+    async def save_user_settings_to_centralization(self, user_id: str, user_settings) -> bool:
+        """Save user settings to data_centralization collection using UserSettings model."""
+        try:
+            from db.services.data_centralization_service import DataCentralizationService
+            
+            # Use the DataCentralizationService to save settings
+            result = await DataCentralizationService.save_user_settings_with_model(user_id, user_settings)
+            
+            logger.info(f"Saved user settings to data_centralization for user {user_id}")
+            return result
+        except Exception as e:
+            logger.error(f"Error saving user settings to centralization for {user_id}: {e}")
+            return False
+
+    async def get_user_settings_from_centralization(self, user_id: str):
+        """Get user settings from data_centralization collection using UserSettings model."""
+        try:
+            from db.services.data_centralization_service import DataCentralizationService
+            
+            # Use the DataCentralizationService to get settings
+            settings = await DataCentralizationService.get_user_settings_with_model(user_id)
+            
+            logger.info(f"Retrieved user settings from data_centralization for user {user_id}")
+            return settings
+        except Exception as e:
+            logger.error(f"Error getting user settings from centralization for {user_id}: {e}")
+            return None
     
     async def get_user(self, user_id: str) -> Optional[User]:
         """Get a complete User object from the database."""
@@ -362,3 +404,15 @@ class DataCenter:
     @staticmethod
     async def delete_user(user_id: str) -> bool:
         return await data_center_service.delete_user(user_id)
+    
+    @staticmethod
+    async def save_user_profile_to_preferences(user_id: str, profile: UserProfile, consent_accepted: bool = True) -> bool:
+        return await data_center_service.save_user_profile_to_preferences(user_id, profile, consent_accepted)
+    
+    @staticmethod
+    async def save_user_settings_to_centralization(user_id: str, user_settings) -> bool:
+        return await data_center_service.save_user_settings_to_centralization(user_id, user_settings)
+    
+    @staticmethod
+    async def get_user_settings_from_centralization(user_id: str):
+        return await data_center_service.get_user_settings_from_centralization(user_id)

@@ -107,6 +107,25 @@ export function ConsentProvider({ children }) {
       const updatedConsent = await updateUserConsent(status, { userId });
       console.log('Updated consent data:', updatedConsent);
       
+      // If consent is being accepted, check if user data is initialized
+      if (status === true) {
+        try {
+          const checkResponse = await fetch(`/api/consent-init/check-user/${userId}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY 
+            }
+          });
+          
+          if (checkResponse.ok) {
+            const checkData = await checkResponse.json();
+            console.log('User initialization status:', checkData);
+          }
+        } catch (error) {
+          console.warn('Could not check user initialization status:', error);
+        }
+      }
+      
       setConsentState(prev => ({
         ...prev,
         userId: updatedConsent.userId,

@@ -6,11 +6,12 @@ import json
 import os
 from pathlib import Path as PathLib
 from pydantic import BaseModel
-
-from model_preference.preferences import ConsentUpdate
-from model_preference.response import DataResponse, ErrorResponse
-from db.services.preferences import PreferencesService
 from datetime import datetime
+
+from model_preference.preferences import ConsentUpdate, UserPreferencesUpdate
+from model_preference.response import DataResponse, ErrorResponse
+from db.services.user_preferences_service import UserPreferencesService as PreferencesService
+from db.data_centralization import DataCenter, UserProfile, UserSettings, User
 
 # Set up router
 router = APIRouter(
@@ -34,6 +35,16 @@ class ConsentDataModel(BaseModel):
     timestamp: str
     receivedAt: Optional[str] = None
 
+class ConsentInitializationRequest(BaseModel):
+    user_id: str
+    email: str = "test@example.com"  # Default email as per requirement
+
+class UserProfileUpdate(BaseModel):
+    username: str = ""
+    sex: str = ""
+    age: str = ""
+    night_mode: bool = False
+
 def ensure_consent_file_exists():
     """Ensure the consent data file and directory exist"""
     RESOURCE_SECURITY_DIR.mkdir(exist_ok=True)
@@ -54,6 +65,12 @@ def write_consent_data(data: List[Dict[str, Any]]):
     ensure_consent_file_exists()
     with open(CONSENT_DATA_FILE, 'w') as f:
         json.dump(data, f, indent=2)
+
+
+
+# ============================================================================
+# CONSENT STATUS MANAGEMENT ENDPOINTS
+# ============================================================================
 
 @router.get("/{user_id}", response_model=DataResponse)
 async def get_user_consent(user_id: str = Path(..., description="User ID")):
@@ -141,7 +158,179 @@ async def delete_user_consent(user_id: str = Path(..., description="User ID")):
             detail=f"Failed to delete user consent: {str(e)}"
         )
 
-# Admin endpoints for consent data management
+# ============================================================================
+# USER INITIALIZATION ENDPOINTS (from consent_initialization.py)
+# ============================================================================
+
+@router.post("/initialize-user", response_model=DataResponse)
+async def initialize_user_data(request: ConsentInitializationRequest):
+    """Initialize user data using DataCenter when consent is accepted"""
+    try:
+        user_id = request.user_id
+        email = request.email
+        
+        # Initialize DataCenter
+        await DataCenter.initialize()
+        
+        # Create user profile using DataCenter models
+        user_profile = UserProfile(
+            username="",
+            sex="",
+            age="",
+            night_mode=False
+        )
+        
+        # Create user settings using DataCenter models
+        user_settings = UserSettings(
+            times_set_random=1,
+            delay_set_random=3,
+            run_every_of_random=1,
+            set_timeRandomImage=1,
+            times_set_calibrate=1,
+            every_set=0,
+            zoom_percentage=150,
+            position_zoom=[0, 0],
+            currentlyPage="home",
+            state_isProcessOn=False,
+            freeState=0,
+            buttons_order="",
+            order_click="",
+            image_background_paths=["/backgrounds/one.jpg"],
+            public_data_access=False,
+            enable_background_change=False
+        )
+        
+        # Create complete user object
+        user = User(profile=user_profile, settings=user_settings)
+        
+        # Save user to DataCenter
+        save_result = await DataCenter.save_user(user_id, user)
+        
+        if not save_result:
+            raise Exception("Failed to save user data to DataCenter")
+        
+        # Also save to user_preferences collection for consent tracking
+        await PreferencesService.initialize_collection()
+        
+        # Create consent record in user_preferences
+        consent_update = ConsentUpdate(consent_status=True)
+        await PreferencesService.update_consent(user_id, consent_update)
+        
+        logger.info(f"Successfully initialized user data for {user_id}")
+        
+        return DataResponse(
+            success=True,
+            message="User data initialized successfully",
+            data={
+                "user_id": user_id,
+                "consent_accepted": True,
+                "timestamp": datetime.utcnow(),
+                "data_center_saved": save_result
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error initializing user data for {request.user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to initialize user data: {str(e)}"
+        )
+
+@router.get("/check-user/{user_id}", response_model=DataResponse)
+async def check_user_initialization(user_id: str):
+    """Check if user data has been initialized"""
+    try:
+        # Initialize DataCenter
+        await DataCenter.initialize()
+        
+        # Check if user exists in DataCenter
+        user_data = await DataCenter.get_user(user_id)
+        
+        # Also check user_preferences for consent status
+        await PreferencesService.initialize_collection()
+        user_preferences = await PreferencesService.get_preferences(user_id)
+        
+        is_initialized = user_data is not None
+        has_consent = user_preferences is not None
+        
+        return DataResponse(
+            success=True,
+            data={
+                "user_id": user_id,
+                "is_initialized": is_initialized,
+                "has_consent_data": has_consent,
+                "user_data": user_data.model_dump() if user_data else None,
+                "consent_data": user_preferences if user_preferences else None
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error checking user initialization for {user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to check user initialization: {str(e)}"
+        )
+
+@router.put("/update-user-profile/{user_id}", response_model=DataResponse)
+async def update_user_profile(user_id: str, profile_update: UserProfileUpdate):
+    """Update user profile using DataCenter"""
+    try:
+        # Initialize DataCenter
+        await DataCenter.initialize()
+        
+        # Get existing user data
+        existing_user = await DataCenter.get_user(user_id)
+        
+        if not existing_user:
+            # If no user exists, create them first
+            await initialize_user_data(ConsentInitializationRequest(
+                user_id=user_id,
+                email="test@example.com"
+            ))
+            existing_user = await DataCenter.get_user(user_id)
+        
+        # Update the profile
+        updated_profile = UserProfile(
+            username=profile_update.username,
+            sex=profile_update.sex,
+            age=profile_update.age,
+            night_mode=profile_update.night_mode
+        )
+        
+        # Create updated user object
+        updated_user = User(
+            profile=updated_profile,
+            settings=existing_user.settings
+        )
+        
+        # Save updated user
+        save_result = await DataCenter.save_user(user_id, updated_user)
+        
+        if not save_result:
+            raise Exception("Failed to update user profile")
+        
+        logger.info(f"Successfully updated user profile for {user_id}")
+        
+        return DataResponse(
+            success=True,
+            message="User profile updated successfully",
+            data={
+                "user_id": user_id,
+                "profile": updated_profile.model_dump()
+            }
+        )
+        
+    except Exception as e:
+        logger.error(f"Error updating user profile for {user_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update user profile: {str(e)}"
+        )
+
+# ============================================================================
+# ADMIN ENDPOINTS FOR CONSENT DATA MANAGEMENT
+# ============================================================================
+
 @router.get("/admin/consent-data")
 async def get_admin_consent_data():
     """Get all consent data for admin interface"""

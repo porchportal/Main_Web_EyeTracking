@@ -5,7 +5,7 @@ import logging
 
 from model_preference.preferences import UserPreferences, UserPreferencesUpdate, ConsentUpdate
 from model_preference.response import DataResponse, ErrorResponse
-from db.services.preferences import PreferencesService
+from db.services.user_preferences_service import UserPreferencesService as PreferencesService
 from auth import verify_api_key
 
 # Set up router

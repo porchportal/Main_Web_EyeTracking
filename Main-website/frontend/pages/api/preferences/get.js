@@ -23,8 +23,8 @@ export default async function handler(req, res) {
       });
     }
     
-    // Get all user preferences from backend
-            const response = await fetch(`${backendUrl}/api/user-preferences/${userId}`, {
+    // Get user data using new consent endpoint
+    const response = await fetch(`${backendUrl}/consent/check-user/${userId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -38,15 +38,43 @@ export default async function handler(req, res) {
     if (!response.ok) {
       return res.status(response.status).json({
         success: false,
-        message: data.message || 'Failed to fetch user preferences',
+        message: data.message || 'Failed to fetch user data',
         error: data.detail || data.error || 'Unknown error'
       });
     }
     
-    return res.status(200).json({
-      success: true,
-      data: data.data
-    });
+    // Transform the response to match expected format
+    if (data.success && data.data) {
+      const userData = data.data.user_data;
+      if (userData && userData.profile) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            username: userData.profile.username || "",
+            sex: userData.profile.sex || "",
+            age: userData.profile.age || "",
+            night_mode: userData.profile.night_mode || false,
+            email: "test@example.com", // Default email
+            settings: userData.settings || {}
+          }
+        });
+      } else {
+        // User not initialized, return empty data
+        return res.status(200).json({
+          success: true,
+          data: {
+            username: "",
+            sex: "",
+            age: "",
+            night_mode: false,
+            email: "test@example.com",
+            settings: {}
+          }
+        });
+      }
+    }
+    
+    return res.status(200).json(data);
     
   } catch (error) {
     console.error('Error fetching user preferences:', error);
