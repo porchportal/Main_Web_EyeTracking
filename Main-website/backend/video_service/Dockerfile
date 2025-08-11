@@ -44,6 +44,9 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements first
 COPY video_service/requirements.txt .
 
+# Install PyTorch with CPU support for local development (use CUDA for production)
+RUN pip install --no-cache-dir torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cpu
+
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 

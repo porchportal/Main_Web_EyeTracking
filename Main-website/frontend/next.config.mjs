@@ -6,28 +6,38 @@ const nextConfig = {
   // Improve webpack configuration for hot reload
   webpack: (config, { dev, isServer }) => {
     if (dev && !isServer) {
-      // Improve hot reload reliability
+      // Optimize for Docker development environment
       config.watchOptions = {
-        poll: 1000,
-        aggregateTimeout: 300,
+        poll: 3000,
+        aggregateTimeout: 1000,
+        ignored: ['**/node_modules', '**/.git', '**/.next', '**/dist'],
       };
       
-      // Handle webpack hot update errors more gracefully
+      // Improve hot module replacement
       config.optimization = {
         ...config.optimization,
         moduleIds: 'named',
+        chunkIds: 'named',
+      };
+      
+      // Better handling of hot updates with correct hash naming
+      config.output = {
+        ...config.output,
+        hotUpdateChunkFilename: '.hot/[id].[fullhash].hot-update.js',
+        hotUpdateMainFilename: '.hot/[fullhash].hot-update.json',
       };
     }
     
     return config;
   },
   
-  // Experimental features for better development experience
+  // Remove experimental features that cause issues
   experimental: {
-    // Improve Fast Refresh behavior
-    optimizeCss: false,
-    optimisticClientCache: false,
+    // Remove problematic optimisticClientCache
   },
+  
+  // Add proper configuration for Docker development
+  output: 'standalone',
 };
 
 export default nextConfig;

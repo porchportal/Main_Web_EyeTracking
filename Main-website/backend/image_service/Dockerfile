@@ -37,11 +37,18 @@ RUN apt-get update && apt-get install -y \
     libtiff-dev \
     libatlas-base-dev \
     gfortran \
+    gcc \
+    g++ \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install dependencies
 COPY image_service/requirements.txt .
+
+# Install PyTorch with CPU support for local development (use CUDA for production)
+RUN pip install --no-cache-dir torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cpu
+
+# Install remaining requirements
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the image_service directory
