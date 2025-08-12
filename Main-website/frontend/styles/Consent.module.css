@@ -80,6 +80,24 @@
   box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
 }
 
+/* Current Order Display */
+.currentOrderDisplay {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: #495057;
+}
+
+.currentOrderDisplay strong {
+  color: #212529;
+  margin-right: 0.5rem;
+}
+
+
+
 .bannerContainer {
     position: fixed;
     top: 0;

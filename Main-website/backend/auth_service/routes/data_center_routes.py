@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from db.data_centralization import data_center_service
+from db.data_centralization import data_center_service, UserSettings
 import json
 from typing import List, Dict, Any
 from datetime import datetime
@@ -29,8 +29,13 @@ async def get_settings(user_id: str):
     try:
         settings = await data_center_service.get_value(f"settings_{user_id}")
         if settings:
-            return settings
-        return {"times": 1, "delay": 3}  # Default settings
+            # Use UserSettings model to validate and provide defaults
+            user_settings = UserSettings(**settings)
+            return user_settings.model_dump()
+        
+        # Return default settings from the model
+        default_settings = UserSettings()
+        return default_settings.model_dump()
     except Exception as e:
         logger.error(f"Error getting settings: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -39,12 +44,18 @@ async def get_settings(user_id: str):
 async def update_settings(user_id: str, settings: Dict[str, Any]):
     """Update settings for a specific user"""
     try:
+        # Use UserSettings model to validate and merge with defaults
+        user_settings = UserSettings(**settings)
+        validated_settings = user_settings.model_dump()
+        
         await data_center_service.update_value(
             f"settings_{user_id}",
-            settings,
+            validated_settings,
             "json"
         )
-        return {"success": True, "message": "Settings updated successfully"}
+        
+        logger.info(f"Updated settings for user {user_id}: {validated_settings}")
+        return {"success": True, "message": "Settings updated successfully", "data": validated_settings}
     except Exception as e:
         logger.error(f"Error updating settings: {e}")
         raise HTTPException(status_code=500, detail=str(e))

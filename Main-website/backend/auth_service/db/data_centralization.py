@@ -27,12 +27,14 @@ class UserSettings(BaseModel):
     # --- randomizer ---
     times_set_random: conint(ge=0) = 1
     delay_set_random: conint(ge=0) = 3
-    run_every_of_random: conint(ge=0) = 1
+    
+    # --- process image background ---
+    every_set: conint(ge=0) = 0
     set_timeRandomImage: conint(ge=0) = 1
 
     # --- calibrate ---
     times_set_calibrate: conint(ge=0) = 1
-    every_set: conint(ge=0) = 0
+    run_every_of_random: conint(ge=0) = 1
 
     # --- ui ---
     zoom_percentage: conint(ge=10, le=400) = 100
@@ -43,7 +45,7 @@ class UserSettings(BaseModel):
     state_isProcessOn: bool = False
     freeState: conint(ge=0) = 0
     buttons_order: str = ""
-    order_click: str = ""
+    # order_click: str = ""
 
     # --- assets (multiple paths) ---
     image_background_paths: List[str] = Field(default_factory=list)

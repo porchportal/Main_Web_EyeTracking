@@ -163,56 +163,22 @@ export default function AdminPage({ initialSettings }) {
         throw new Error('No settings found for selected user');
       }
 
-      // Prepare the data structure for saving
+      // Send the current settings to the data center (backend will handle defaults)
       const settingsToSave = { ...currentSettings };
 
-      // If there are images in image_pdf_canva, convert them to the new format
-      if (currentSettings.image_pdf_canva && typeof currentSettings.image_pdf_canva === 'object') {
-        const imagePaths = currentSettings.image_pdf_canva;
-        const imageCount = Object.keys(imagePaths).length;
-        
-        if (imageCount > 0) {
-          // Convert to the new format: image_path_1, image_path_2, etc.
-          const newImageFormat = {};
-          Object.entries(imagePaths).forEach(([key, path], index) => {
-            newImageFormat[`image_path_${index + 1}`] = path;
-          });
-          
-          // Update the settings with the new format
-          settingsToSave.image_pdf_canva = newImageFormat;
-          
-          // Set the primary image path to the first image if not already set
-          if (!settingsToSave.image_path || settingsToSave.image_path === "/asfgrebvxcv" || settingsToSave.image_path === "") {
-            const firstImagePath = Object.values(imagePaths)[0];
-            if (firstImagePath) {
-              settingsToSave.image_path = firstImagePath;
-              settingsToSave.updateImage = firstImagePath.split('/').pop();
-            }
-          }
-        }
-      }
-
-      // Save to database using the admin update endpoint
-      const updateData = {
-        userId: selectedUserId,
-        type: 'settings',
-        data: settingsToSave
-      };
-
-      const response = await fetch('/api/admin/update', {
+      // Save to data center using the new API endpoint
+      const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
         },
-        body: JSON.stringify(updateData)
+        body: JSON.stringify(settingsToSave)
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save settings');
+        throw new Error('Failed to save settings to data center');
       }
 
-      // Get the updated settings from the response
       const result = await response.json();
       
       if (!result.success) {
@@ -229,7 +195,7 @@ export default function AdminPage({ initialSettings }) {
       updateSettings(settingsToSave, selectedUserId);
 
       // Show success notification
-      showNotification('Settings saved successfully!', 'success');
+      showNotification('Settings saved successfully to data center!', 'success');
     } catch (error) {
       console.error('Error saving settings:', error);
       showNotification('Failed to save settings. Please try again.', 'error');
@@ -237,8 +203,9 @@ export default function AdminPage({ initialSettings }) {
   };
 
   // Add this function to handle button order changes
-  const handleButtonOrderChange = (orderString) => {
+  const handleButtonOrderChange = async (orderString) => {
     if (selectedUserId) {
+      // Update local state immediately
       setTempSettings(prev => ({
         ...prev,
         [selectedUserId]: {
@@ -246,6 +213,32 @@ export default function AdminPage({ initialSettings }) {
           buttons_order: orderString
         }
       }));
+
+      // Also save to data center
+      try {
+        const currentSettings = tempSettings[selectedUserId] || {};
+        const updatedSettings = {
+          ...currentSettings,
+          buttons_order: orderString
+        };
+
+        const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatedSettings)
+        });
+
+        if (response.ok) {
+          showNotification('Button order saved to data center!', 'success');
+        } else {
+          showNotification('Failed to save button order to data center', 'error');
+        }
+      } catch (error) {
+        console.error('Error saving button order:', error);
+        showNotification('Failed to save button order', 'error');
+      }
     }
   };
 
@@ -578,20 +571,96 @@ export default function AdminPage({ initialSettings }) {
   };
 
   // Toggle functions for system controls
-  const handlePublicAccessToggle = () => {
-    setPublicAccessEnabled(prev => !prev);
-    showNotification(
-      `Public access ${!publicAccessEnabled ? 'enabled' : 'disabled'}`,
-      'success'
-    );
+  const handlePublicAccessToggle = async () => {
+    if (!selectedUserId || selectedUserId === 'default') {
+      showNotification('Please select a user ID before changing system controls!', 'error');
+      return;
+    }
+
+    try {
+      const newValue = !publicAccessEnabled;
+      const currentSettings = tempSettings[selectedUserId] || {};
+      const updatedSettings = {
+        ...currentSettings,
+        public_data_access: newValue
+      };
+
+      // Update local state immediately
+      setPublicAccessEnabled(newValue);
+      setTempSettings(prev => ({
+        ...prev,
+        [selectedUserId]: updatedSettings
+      }));
+
+      // Save to data center
+      const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedSettings)
+      });
+
+      if (response.ok) {
+        showNotification(
+          `Public access ${newValue ? 'enabled' : 'disabled'} and saved to data center!`,
+          'success'
+        );
+      } else {
+        // Revert on failure
+        setPublicAccessEnabled(!newValue);
+        showNotification('Failed to save public access setting', 'error');
+      }
+    } catch (error) {
+      console.error('Error toggling public access:', error);
+      showNotification('Failed to update public access setting', 'error');
+    }
   };
 
-  const handleBackendChangeToggle = () => {
-    setBackendChangeEnabled(prev => !prev);
-    showNotification(
-      `Backend change ${!backendChangeEnabled ? 'enabled' : 'disabled'}`,
-      'success'
-    );
+  const handleBackendChangeToggle = async () => {
+    if (!selectedUserId || selectedUserId === 'default') {
+      showNotification('Please select a user ID before changing system controls!', 'error');
+      return;
+    }
+
+    try {
+      const newValue = !backendChangeEnabled;
+      const currentSettings = tempSettings[selectedUserId] || {};
+      const updatedSettings = {
+        ...currentSettings,
+        enable_background_change: newValue
+      };
+
+      // Update local state immediately
+      setBackendChangeEnabled(newValue);
+      setTempSettings(prev => ({
+        ...prev,
+        [selectedUserId]: updatedSettings
+      }));
+
+      // Save to data center
+      const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedSettings)
+      });
+
+      if (response.ok) {
+        showNotification(
+          `Backend change ${newValue ? 'enabled' : 'disabled'} and saved to data center!`,
+          'success'
+        );
+      } else {
+        // Revert on failure
+        setBackendChangeEnabled(!newValue);
+        showNotification('Failed to save backend change setting', 'error');
+      }
+    } catch (error) {
+      console.error('Error toggling backend change:', error);
+      showNotification('Failed to update backend change setting', 'error');
+    }
   };
 
 
@@ -624,74 +693,48 @@ export default function AdminPage({ initialSettings }) {
     
     if (newUserId) {
       try {
-        // Fetch settings from MongoDB
+        // Fetch settings from data center
         const response = await fetch(`/api/data-center/settings/${newUserId}`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
           }
         });
 
         if (response.ok) {
-          const data = await response.json();
-          const userSettings = data.data || {};
+          const result = await response.json();
+          const userSettings = result.data || {};
           
-          // Update tempSettings with MongoDB data
+          // Update tempSettings with data center data (backend already provides defaults)
           setTempSettings(prev => ({
             ...prev,
-            [newUserId]: {
-              times_set_random: userSettings.times_set_random || 1,
-              delay_set_random: userSettings.delay_set_random || 3,
-              times_set_calibrate: userSettings.times_set_calibrate || 1,
-              run_every_of_random: userSettings.run_every_of_random || 1,
-              buttons_order: userSettings.buttons_order || "",
-              image_path: userSettings.image_path || "/asfgrebvxcv",
-              updateImage: userSettings.updateImage || "image.jpg",
-              set_timeRandomImage: userSettings.set_timeRandomImage || 1,
-              every_set: userSettings.every_set || 2,
-              zoom_percentage: userSettings.zoom_percentage || 100,
-              position_zoom: userSettings.position_zoom || [3, 4],
-              state_isProcessOn: userSettings.state_isProcessOn ?? true,
-              currentlyPage: userSettings.currentlyPage || "str",
-              freeState: userSettings.freeState || 3,
-              image_pdf_canva: userSettings.image_pdf_canva || {}
-            }
+            [newUserId]: userSettings
           }));
 
           // Update settings through the hook
           updateSettings(userSettings, newUserId);
           
-          setSuccessMessage('Settings loaded successfully!');
+          // Update system control states
+          setPublicAccessEnabled(userSettings.public_data_access || false);
+          setBackendChangeEnabled(userSettings.enable_background_change || false);
+          
+          setSuccessMessage('Settings loaded successfully from data center!');
           setTimeout(() => setSuccessMessage(''), 3000);
         } else {
-          // If no settings found, initialize with defaults
-          const defaultSettings = {
-            times_set_random: 1,
-            delay_set_random: 3,
-            times_set_calibrate: 1,
-            run_every_of_random: 1,
-            buttons_order: "",
-            image_path: "/asfgrebvxcv",
-            updateImage: "image.jpg",
-            set_timeRandomImage: 1,
-            every_set: 2,
-            zoom_percentage: 100,
-            position_zoom: [3, 4],
-            state_isProcessOn: true,
-            currentlyPage: "str",
-            freeState: 3
-          };
-          
+          // If no settings found, backend will provide defaults
           setTempSettings(prev => ({
             ...prev,
-            [newUserId]: defaultSettings
+            [newUserId]: {}
           }));
           
-          // Update settings through the hook with default values
-          updateSettings(defaultSettings, newUserId);
+          // Update settings through the hook (will be populated when user interacts)
+          updateSettings({}, newUserId);
           
-          setSuccessMessage('Using default settings for new user');
+          // Initialize system controls to false for new users
+          setPublicAccessEnabled(false);
+          setBackendChangeEnabled(false);
+          
+          setSuccessMessage('New user - settings will be created when you save');
           setTimeout(() => setSuccessMessage(''), 3000);
         }
       } catch (error) {
@@ -699,31 +742,18 @@ export default function AdminPage({ initialSettings }) {
         setErrorMessage('Failed to load user settings. Using defaults.');
         setTimeout(() => setErrorMessage(''), 3000);
         
-        // Initialize with defaults on error
-        const defaultSettings = {
-          times_set_random: 1,
-          delay_set_random: 3,
-          times_set_calibrate: 1,
-          run_every_of_random: 1,
-          buttons_order: "",
-          image_path: "/asfgrebvxcv",
-          updateImage: "image.jpg",
-          set_timeRandomImage: 1,
-          every_set: 2,
-          zoom_percentage: 100,
-          position_zoom: [3, 4],
-          state_isProcessOn: true,
-          currentlyPage: "str",
-          freeState: 3
-        };
-        
+        // Initialize with empty object on error (backend will provide defaults)
         setTempSettings(prev => ({
           ...prev,
-          [newUserId]: defaultSettings
+          [newUserId]: {}
         }));
         
-        // Update settings through the hook with default values
-        updateSettings(defaultSettings, newUserId);
+        // Update settings through the hook (will be populated when user interacts)
+        updateSettings({}, newUserId);
+        
+        // Initialize system controls to false on error
+        setPublicAccessEnabled(false);
+        setBackendChangeEnabled(false);
       }
     } else {
       // Clear settings when no user is selected
@@ -1138,10 +1168,18 @@ export default function AdminPage({ initialSettings }) {
             </div>
 
             {/* Required Button Click Order Section */}
-            <div className={styles.div2} style={{ marginLeft: '1rem' }}>
-              <h2>Required Button Click Order</h2>
-              <DragDropPriorityList onOrderChange={handleButtonOrderChange} />
-            </div>
+                          <div className={styles.div2} style={{ marginLeft: '1rem' }}>
+                <h2>Required Button Click Order</h2>
+                {tempSettings[selectedUserId]?.buttons_order && (
+                  <div className={styles.currentOrderDisplay}>
+                    <strong>Current Order:</strong> {tempSettings[selectedUserId].buttons_order}
+                  </div>
+                )}
+                <DragDropPriorityList 
+                  onOrderChange={handleButtonOrderChange}
+                  initialOrder={tempSettings[selectedUserId]?.buttons_order || ""}
+                />
+              </div>
 
             {/* Set Calibrate Section */}
             <div className={styles.div3} style={{ marginLeft: '1rem' }}>
@@ -1495,6 +1533,8 @@ export default function AdminPage({ initialSettings }) {
                   </button>
                 </div>
               </div>
+              
+
             </div>
           )}
 

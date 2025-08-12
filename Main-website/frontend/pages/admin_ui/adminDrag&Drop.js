@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GripVertical, Edit2, Save, X } from 'lucide-react';
 import styles from '../../styles/Consent.module.css';
 
-export default function DragDropPriorityList({ onOrderChange }) {
+export default function DragDropPriorityList({ onOrderChange, initialOrder = "" }) {
   const [items, setItems] = useState([
     { id: 1, name: 'Show preview', priority: 1, description: 'High priority task', hasPriority: true },
     { id: 2, name: 'Set Calibrate', priority: 2, description: 'Medium priority task', hasPriority: true },
@@ -16,6 +16,44 @@ export default function DragDropPriorityList({ onOrderChange }) {
   const [editValue, setEditValue] = useState('');
   const [saveStatus, setSaveStatus] = useState({ show: false, message: '', type: '' });
   const [isReordering, setIsReordering] = useState(false);
+
+  // Parse initial order string and update items
+  useEffect(() => {
+    if (initialOrder && initialOrder.trim() !== "") {
+      try {
+        // Parse the order string like "Show preview (#1) → Set Calibrate (#2) → Random Dot (#3)"
+        const orderParts = initialOrder.split(' → ');
+        const newItems = [...items];
+        
+        // Reset all priorities
+        newItems.forEach(item => {
+          item.hasPriority = false;
+          item.priority = null;
+        });
+        
+        // Set priorities based on the order string
+        orderParts.forEach((part, index) => {
+          // Extract the name from "Name (#number)" format
+          const match = part.match(/^(.+?)\s*\(#(\d+)\)$/);
+          if (match) {
+            const name = match[1].trim();
+            const priority = parseInt(match[2]);
+            
+            // Find the item with this name
+            const itemIndex = newItems.findIndex(item => item.name === name);
+            if (itemIndex !== -1) {
+              newItems[itemIndex].hasPriority = true;
+              newItems[itemIndex].priority = priority;
+            }
+          }
+        });
+        
+        setItems(newItems);
+      } catch (error) {
+        console.error('Error parsing initial order:', error);
+      }
+    }
+  }, [initialOrder]);
 
   // Handle drag start
   const handleDragStart = (e, item) => {
