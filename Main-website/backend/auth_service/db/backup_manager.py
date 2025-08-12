@@ -90,7 +90,7 @@ class BackupManager:
     async def perform_backup(self):
         """Perform complete database backup"""
         try:
-            if not self._client or not self._db:
+            if self._client is None or self._db is None:
                 logger.warning("Backup manager not initialized, skipping backup")
                 return
             
@@ -212,7 +212,7 @@ class BackupManager:
             with open(backup_file, 'r', encoding='utf-8') as f:
                 backup_data = json.load(f)
             
-            if not self._db:
+            if self._db is None:
                 logger.error("Database not connected for restore")
                 return False
             

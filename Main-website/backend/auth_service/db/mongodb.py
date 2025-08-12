@@ -82,7 +82,7 @@ class MongoDB:
     @classmethod
     def get_db(cls):
         if cls._db is None:
-            raise Exception("Database not connected. Please call connect() first.")
+            return None
         return cls._db
 
 # Initialize db instance for import elsewhere

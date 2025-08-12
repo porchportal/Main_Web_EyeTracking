@@ -82,30 +82,60 @@ export default function AdminPage({ initialSettings }) {
 
   // Check authentication on page load
   useEffect(() => {
-    const checkAuth = async () => {
+    const checkAuthAndLoadData = async () => {
       try {
-        console.log('Checking authentication...');
-        const response = await fetch('/api/admin/check-auth');
-        console.log('Auth response status:', response.status);
+        console.log('Checking authentication and loading data...');
+        setLoading(true);
         
-        if (!response.ok) {
+        // Check authentication first
+        const authResponse = await fetch('/api/admin/auth');
+        console.log('Auth response status:', authResponse.status);
+        
+        if (!authResponse.ok) {
           console.log('Not authenticated, redirecting to login...');
-          // Not authenticated, redirect to login
-          router.push('/admin_ui/admin-login');
+          router.replace('/admin_ui/admin-login');
           return;
         }
-        console.log('Authentication successful');
+        
+        console.log('Authentication successful, loading consent data...');
         setIsAuthenticated(true);
+        
+        // Load consent data immediately after authentication
+        try {
+          const consentResponse = await fetch('/api/admin/consent-data', {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+            }
+          });
+
+          if (!consentResponse.ok) {
+            const errorText = await consentResponse.text();
+            console.error('Consent data response error:', errorText);
+            throw new Error(`Failed to load consent data: ${consentResponse.status} ${consentResponse.statusText}`);
+          }
+
+          const data = await consentResponse.json();
+          console.log('Consent data loaded:', data);
+          setConsentData(Array.isArray(data) ? data : []);
+        } catch (error) {
+          console.error('Error loading consent data:', error);
+          setError(error.message);
+        } finally {
+          setLoading(false);
+        }
+        
       } catch (error) {
         console.error('Authentication check failed:', error);
         // For debugging, let's temporarily bypass authentication
         console.log('Bypassing authentication for debugging...');
         setIsAuthenticated(true);
+        setLoading(false);
         // router.push('/admin-login');
       }
     };
 
-    checkAuth();
+    checkAuthAndLoadData();
   }, [router]);
 
   // Add this effect to sync settings with adminSettings hook
@@ -118,49 +148,7 @@ export default function AdminPage({ initialSettings }) {
     }
   }, [settings, selectedUserId]);
 
-  // Load consent data
-  useEffect(() => {
-    const loadConsentData = async () => {
-      try {
-        console.log('Loading consent data...');
-        setLoading(true);
-        setError(null);
-        
-        const response = await fetch('/api/admin/consent-data', {
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
-          }
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('Consent data response error:', errorText);
-          throw new Error(`Failed to load consent data: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log('Consent data loaded:', data);
-        setConsentData(Array.isArray(data) ? data : []);
-        setLoading(false);
-      } catch (error) {
-        console.error('Error loading consent data:', error);
-        setError(error.message);
-        setLoading(false);
-      }
-    };
-
-    // Only load consent data if authenticated
-    if (isAuthenticated) {
-      console.log('User is authenticated, loading consent data...');
-      loadConsentData();
-    } else {
-      console.log('User not authenticated yet, skipping consent data load');
-      // For debugging, let's also try to load consent data even if not authenticated
-      console.log('Debugging: Loading consent data anyway...');
-      loadConsentData();
-    }
-  }, [isAuthenticated]);
+  // Removed separate consent data loading effect - now combined with authentication check
 
   const handleSaveSettings = async () => {
     if (!selectedUserId || selectedUserId === 'default') {
@@ -606,6 +594,8 @@ export default function AdminPage({ initialSettings }) {
     );
   };
 
+
+
   // Add effect to handle animations for all sections
   useEffect(() => {
     if (selectedUserId && selectedUserId !== 'default') {
@@ -811,18 +801,14 @@ export default function AdminPage({ initialSettings }) {
   };
 
   // Move the loading state return here, after all hooks
-  if (!isAuthenticated) {
+  if (!isAuthenticated || loading) {
     return (
       <div className={styles.container}>
-        <div>Loading...</div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className={styles.preferencesContainer}>
-        <h1>Loading consent data...</h1>
+        <div className={styles.loadingContainer}>
+          <h1>Loading Admin Dashboard...</h1>
+          <div className={styles.loadingSpinner}></div>
+          <p>Please wait while we authenticate and load your data...</p>
+        </div>
       </div>
     );
   }
@@ -843,7 +829,9 @@ export default function AdminPage({ initialSettings }) {
       </Head>
   
       <main className={styles.main}>
-        <h1>Admin Dashboard</h1>
+        <div className={styles.headerContainer}>
+          <h1>Admin Dashboard</h1>
+        </div>
         
         {/* Notification */}
         {notification.show && (
@@ -1564,11 +1552,20 @@ export default function AdminPage({ initialSettings }) {
             <div className={styles.downloadButtons}>
               <button 
                 className={styles.downloadButton}
-                onClick={() => {
-                  window.location.href = '/';
+                onClick={async () => {
+                  try {
+                    // Clear admin session before going home
+                    await fetch('/api/admin/auth', { method: 'DELETE' });
+                    // Navigate to home page
+                    window.location.href = '/';
+                  } catch (error) {
+                    console.error('Error during logout:', error);
+                    // Still navigate even if logout fails
+                    window.location.href = '/';
+                  }
                 }}
               >
-                🏠 Go Home Page
+                🏠 Go Home Page (Logout)
               </button>
             </div>
           </div>

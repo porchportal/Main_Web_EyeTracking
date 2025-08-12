@@ -2,17 +2,18 @@ import { useState } from 'react';
 import { useRouter } from 'next/router';
 import styles from '../../styles/AdminLogin.module.css';
 
-
-
 export default function AdminLogin() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError('');
     
     try {
       console.log('Attempting login with:', { username, password });
@@ -29,7 +30,8 @@ export default function AdminLogin() {
 
       if (response.ok) {
         // Successful login - server sets httpOnly cookie automatically
-        router.push('/admin_ui/admin');
+        // Use replace instead of push for faster navigation
+        router.replace('/admin_ui/admin');
       } else {
         // Failed login
         setAttempts(prev => prev + 1);
@@ -45,6 +47,8 @@ export default function AdminLogin() {
     } catch (err) {
       console.error('Login error:', err);
       setError('An error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -61,6 +65,7 @@ export default function AdminLogin() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
+              disabled={isLoading}
             />
           </div>
           <div className={styles.formGroup}>
@@ -71,6 +76,7 @@ export default function AdminLogin() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
+              disabled={isLoading}
             />
           </div>
           {error && <div className={styles.error}>{error}</div>}
@@ -79,11 +85,16 @@ export default function AdminLogin() {
               type="button" 
               className={styles.backButton}
               onClick={() => router.push('/')}
+              disabled={isLoading}
             >
               Back
             </button>
-            <button type="submit" className={styles.loginButton}>
-              Login
+            <button 
+              type="submit" 
+              className={styles.loginButton}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Logging in...' : 'Login'}
             </button>
           </div>
         </form>

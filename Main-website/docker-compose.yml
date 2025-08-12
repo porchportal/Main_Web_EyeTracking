@@ -70,10 +70,6 @@ services:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
       - WATCHPACK_POLLING=true
-      - CHOKIDAR_USEPOLLING=true
-      - CHOKIDAR_INTERVAL=3000
-      - FAST_REFRESH=true
-      - NEXT_WEBPACK_USEPOLLING=true
     env_file:
       - ./frontend/.env.frontend
     depends_on:
