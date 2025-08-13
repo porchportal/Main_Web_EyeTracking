@@ -29,6 +29,7 @@ const CameraAccessComponent = ({
   const isProcessing = useRef(false);
   const [wsStatus, setWsStatus] = useState('disconnected');
   const [isLinked, setIsLinked] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   
   // WebSocket connection
   const connectWebSocket = () => {
@@ -177,6 +178,13 @@ const CameraAccessComponent = ({
   const startCamera = async () => {
     setErrorMessage('');
     setIsVideoReady(false);
+    setIsStarting(true);
+
+    // Clear any existing processing intervals
+    if (processingInterval.current) {
+      clearInterval(processingInterval.current);
+      processingInterval.current = null;
+    }
 
     try {
       // 1. Enhanced Browser Environment Check
@@ -345,15 +353,61 @@ const CameraAccessComponent = ({
       console.log('Camera access granted successfully!');
       setStream(mediaStream);
 
-      // 11. Setup Video Element
+      // 11. Setup Video Element with improved error handling
       if (videoRef.current) {
-        videoRef.current.playsInline = true;
-        videoRef.current.muted = true;
-        videoRef.current.autoplay = true;
-        videoRef.current.srcObject = mediaStream;
+        const video = videoRef.current;
+        
+        // Reset video element
+        video.pause();
+        video.currentTime = 0;
+        video.srcObject = null;
+        
+        // Set video properties
+        video.playsInline = true;
+        video.muted = true;
+        video.autoplay = false; // Don't autoplay, we'll handle it manually
+        
+        // Set the stream
+        video.srcObject = mediaStream;
+        
+        // Wait for video to be ready
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Video loading timeout'));
+          }, 10000); // 10 second timeout
+          
+          const handleCanPlay = () => {
+            clearTimeout(timeout);
+            video.removeEventListener('canplay', handleCanPlay);
+            video.removeEventListener('error', handleError);
+            resolve();
+          };
+          
+          const handleError = (error) => {
+            clearTimeout(timeout);
+            video.removeEventListener('canplay', handleCanPlay);
+            video.removeEventListener('error', handleError);
+            reject(new Error(`Video error: ${error.message}`));
+          };
+          
+          video.addEventListener('canplay', handleCanPlay);
+          video.addEventListener('error', handleError);
+          
+          // If video is already ready, resolve immediately
+          if (video.readyState >= 2) {
+            handleCanPlay();
+          }
+        });
 
+        // Try to play the video with improved autoplay handling
         try {
-          await videoRef.current.play();
+          // Set video properties for better autoplay success
+          video.muted = true;
+          video.playsInline = true;
+          video.autoplay = false;
+          
+          // Try to play immediately
+          await video.play();
           console.log('Video playing successfully!');
           setIsVideoReady(true);
           
@@ -361,8 +415,22 @@ const CameraAccessComponent = ({
             processingInterval.current = setInterval(captureAndProcessFrame, 33);
           }
         } catch (playError) {
-          console.error('Error playing video:', playError);
-          throw new Error('Unable to start video stream: ' + playError.message);
+          console.error('Video play failed:', playError);
+          
+          // Handle specific play errors
+          if (playError.name === 'AbortError') {
+            console.warn('Video play was aborted, this is normal during component unmount');
+            return; // Don't throw error for abort
+                     } else if (playError.name === 'NotAllowedError') {
+             // For autoplay blocked, just set video as ready and let it play when user interacts
+             console.log('Autoplay blocked, setting video as ready');
+             setIsVideoReady(true);
+             console.log('Video ready but waiting for user interaction');
+           } else {
+            // For other errors, just set video as ready
+            console.warn('Video play error, but setting as ready:', playError.message);
+            setIsVideoReady(true);
+          }
         }
       }
     } catch (error) {
@@ -383,44 +451,82 @@ const CameraAccessComponent = ({
         errorMessage += 'Camera access requires HTTPS or localhost. Please use HTTPS or run the application on localhost.';
       } else if (error.message.includes('permanently denied')) {
         errorMessage += 'Camera access has been permanently denied. Please update your browser settings.';
+      } else if (error.message.includes('Video loading timeout')) {
+        errorMessage += 'Video took too long to load. Please try again.';
       } else {
         errorMessage += error.message || 'Unknown error';
       }
       
       setErrorMessage(errorMessage);
+    } finally {
+      setIsStarting(false);
     }
   };
 
   const stopCamera = () => {
-    // Stop all tracks in the stream
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
+    console.log('Stopping camera...');
     
-    // Clear video source
-    if (videoRef.current) {
-      videoRef.current.srcObject = null;
-    }
-    
-    // Clear processing interval
+    // Clear processing interval first
     if (processingInterval.current) {
       clearInterval(processingInterval.current);
       processingInterval.current = null;
     }
     
+    // Stop all tracks in the stream
+    if (stream) {
+      console.log('Stopping stream tracks...');
+      stream.getTracks().forEach(track => {
+        track.stop();
+        console.log(`Stopped track: ${track.kind}`);
+      });
+      setStream(null);
+    }
+    
+    // Clear video source and reset video element
+    if (videoRef.current) {
+      const video = videoRef.current;
+      try {
+        video.pause();
+        video.currentTime = 0;
+        video.srcObject = null;
+        video.load(); // Reset the video element
+        console.log('Video element reset successfully');
+      } catch (error) {
+        console.warn('Error resetting video element:', error);
+      }
+    }
+    
+    // Clear canvas
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d');
+      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+    }
+    
     setIsVideoReady(false);
+    setErrorMessage('');
+    setIsStarting(false);
+    console.log('Camera stopped successfully');
   };
 
   // Start camera on component mount if isShowing is true
   useEffect(() => {
-    if (isShowing) {
-      startCamera();
-    } else {
-      stopCamera();
-    }
+    let isMounted = true;
+    
+    const handleCameraLifecycle = async () => {
+      if (isShowing && isMounted) {
+        console.log('Starting camera...');
+        await startCamera();
+      } else if (!isShowing && isMounted) {
+        console.log('Stopping camera...');
+        stopCamera();
+      }
+    };
+    
+    handleCameraLifecycle();
     
     return () => {
+      isMounted = false;
+      console.log('Component unmounting, cleaning up camera...');
       stopCamera();
     };
   }, [isShowing]);
@@ -684,12 +790,33 @@ const CameraAccessComponent = ({
           height: '100%',
           objectFit: 'cover',
           transform: 'scaleX(-1)',
-          opacity: 1,
-          zIndex: 1
+          opacity: isVideoReady ? 1 : 0.5,
+          zIndex: 1,
+          transition: 'opacity 0.3s ease'
         }}
         playsInline
         muted
-        autoPlay
+        autoPlay={false}
+        onLoadedMetadata={() => {
+          console.log('Video metadata loaded');
+        }}
+        onCanPlay={() => {
+          console.log('Video can play');
+          // Try to play when video is ready
+          if (videoRef.current && !isVideoReady) {
+            videoRef.current.play().catch(error => {
+              console.log('Auto-play on canplay failed:', error);
+            });
+          }
+        }}
+        onPlay={() => {
+          console.log('Video started playing');
+          setIsVideoReady(true);
+        }}
+        onError={(e) => {
+          console.error('Video error:', e);
+          setErrorMessage('Video playback error occurred');
+        }}
       />
       <canvas
         ref={canvasRef}
@@ -751,20 +878,59 @@ const CameraAccessComponent = ({
         </button>
       </div>
 
-      {wsStatus === 'error' && (
+      {/* Loading indicator */}
+      {isStarting && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          padding: '20px',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          color: 'white',
+          borderRadius: '8px',
+          zIndex: 4,
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '24px', marginBottom: '10px' }}>📷</div>
+          <div>Starting camera...</div>
+        </div>
+      )}
+
+      {/* Error messages */}
+      {(errorMessage || wsStatus === 'error') && (
         <div style={{
           position: 'absolute',
           top: '50px',
           right: '10px',
           padding: '8px 12px',
-          backgroundColor: 'rgba(255, 0, 0, 0.7)',
+          backgroundColor: 'rgba(255, 0, 0, 0.8)',
           color: 'white',
           borderRadius: '4px',
-          zIndex: 3
+          zIndex: 3,
+          maxWidth: '300px',
+          fontSize: '12px'
         }}>
-          Connection Error: {errorMessage}
+          {wsStatus === 'error' ? `Connection Error: ${errorMessage}` : errorMessage}
         </div>
       )}
+
+
+
+      {/* Status indicator */}
+      <div style={{
+        position: 'absolute',
+        bottom: '10px',
+        left: '10px',
+        padding: '4px 8px',
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        color: 'white',
+        borderRadius: '4px',
+        fontSize: '10px',
+        zIndex: 3
+      }}>
+        {isVideoReady ? 'Camera Ready' : isStarting ? 'Starting...' : 'Camera Off'}
+      </div>
     </div>
   );
 };

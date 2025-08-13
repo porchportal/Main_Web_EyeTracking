@@ -148,13 +148,13 @@ class DataCenterService:
                 return False
             
             # Update in data_centralization collection in eye_tracking database
-            update_data = {
-                "key": key,
-                "value": value,
-                "data_type": data_type,
-                "updated_at": datetime.utcnow(),
-                "created_at": datetime.utcnow()  # Will only be set on insert
-            }
+            # update_data = {
+            #     "key": key,
+            #     "value": value,
+            #     "data_type": data_type,
+            #     "updated_at": datetime.utcnow(),
+            #     "created_at": datetime.utcnow()  # Will only be set on insert
+            # }
             
             result = await db.data_centralization.update_one(
                 {"key": key},

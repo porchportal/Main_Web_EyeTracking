@@ -21,7 +21,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import database connection
 from db.mongodb import db, MongoDB
-from db.data_centralization import DataCenter
+from db.data_centralization import DataCenter, UserSettings
 
 # Import routers
 from routes import preferences
@@ -32,6 +32,7 @@ from routes.data_center_routes import router as data_center_router
 from routes.admin_updates import router as admin_updates_router
 from routes.consent import router as consent_router
 from routes.backup import router as backup_router
+from routes.user_captures import router as user_captures_router
 
 # Import response models
 from model_preference.response import HealthResponse
@@ -300,29 +301,18 @@ async def update_user_preferences(user_id: str, preferences: UserProfileUpdate):
             upsert=True
         )
         
-        # 2. Save to data_center collection with default values
-        settings_data = {
-            "times": 1,
-            "delay": 3,
-            "image_path": "/asfgrebvxcv",
-            "updateImage": "image.jpg",
-            "set_timeRandomImage": 1,
-            "every_set": 2,
-            "zoom_percentage": 100,
-            "position_zoom": [3, 4],
-            "state_isProcessOn": True,
-            "currentlyPage": "str",
-            "freeState": 3
-        }
-        
+        # 2. Save to data_center collection using UserSettings model
         try:
             # Initialize DataCenter if needed
             await DataCenter.initialize()
             
+            # Create default UserSettings instance
+            default_settings = UserSettings()
+            
             # Save settings to data_center
             data_center_result = await DataCenter.update_value(
                 f"settings_{user_id}",
-                settings_data,
+                default_settings.model_dump(),
                 "json"
             )
             
@@ -344,6 +334,7 @@ async def update_user_preferences(user_id: str, preferences: UserProfileUpdate):
 app.include_router(data_center_router)
 app.include_router(admin_updates_router)
 app.include_router(backup_router)
+app.include_router(user_captures_router)
 
 # Admin authentication route
 class AdminLogin(BaseModel):
@@ -531,41 +522,19 @@ async def get_user_settings(user_id: str):
         
         settings = await DataCenter.get_value(f"settings_{user_id}")
         if not settings:
-            # Return default settings if none exist
-            settings = {
-                "times": 1,
-                "delay": 3,
-                "image_path": "/asfgrebvxcv",
-                "updateImage": "image.jpg",
-                "set_timeRandomImage": 1,
-                "every_set": 2,
-                "zoom_percentage": 100,
-                "position_zoom": [3, 4],
-                "state_isProcessOn": True,
-                "currentlyPage": "str",
-                "freeState": 3
-            }
+            # Return default settings using UserSettings model
+            default_settings = UserSettings()
+            settings = default_settings.model_dump()
         
         return {"data": settings}
     except Exception as e:
         logger.error(f"Error getting user settings: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-class SettingsUpdate(BaseModel):
-    times: Optional[int] = None
-    delay: Optional[int] = None
-    image_path: Optional[str] = None
-    updateImage: Optional[str] = None
-    set_timeRandomImage: Optional[int] = None
-    every_set: Optional[int] = None
-    zoom_percentage: Optional[int] = None
-    position_zoom: Optional[List[int]] = None
-    state_isProcessOn: Optional[bool] = None
-    currentlyPage: Optional[str] = None
-    freeState: Optional[int] = None
+# Use UserSettings from data_centralization.py instead of duplicating the model
 
 @app.post("/api/data-center/settings/{user_id}")
-async def update_user_settings(user_id: str, settings: SettingsUpdate):
+async def update_user_settings(user_id: str, settings: dict):
     """Update user settings in data center"""
     try:
         if not await DataCenter.initialize():
@@ -574,8 +543,16 @@ async def update_user_settings(user_id: str, settings: SettingsUpdate):
         # Get current settings
         current_settings = await DataCenter.get_value(f"settings_{user_id}") or {}
         
-        # Update only the provided fields
-        updated_settings = {**current_settings, **settings.dict(exclude_unset=True)}
+        # Validate and merge settings using UserSettings model
+        try:
+            # Create UserSettings instance with current settings
+            user_settings = UserSettings(**current_settings)
+            # Update with new settings
+            updated_user_settings = user_settings.model_copy(update=settings)
+            updated_settings = updated_user_settings.model_dump()
+        except Exception as validation_error:
+            logger.error(f"Settings validation error: {validation_error}")
+            raise HTTPException(status_code=400, detail=f"Invalid settings: {str(validation_error)}")
         
         result = await DataCenter.update_value(
             f"settings_{user_id}",
@@ -584,6 +561,8 @@ async def update_user_settings(user_id: str, settings: SettingsUpdate):
         )
         
         return {"status": "success", "message": "Settings updated successfully", "data": updated_settings}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error updating user settings: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -647,22 +626,10 @@ async def get_admin_update(userId: str, type: str):
             # Get complete user data including settings and image&pdf_canva
             user_data = await DataCenter.get_user_complete_data(userId)
             
-            # If no settings exist, provide default settings
+            # If no settings exist, provide default settings using UserSettings model
             if not user_data["settings"]:
-                user_data["settings"] = {
-                    "times_set_calibrate": 1,
-                    "run_every_of_random": 1,
-                    "buttons_order": "",
-                    "image_path": "/asfgrebvxcv",
-                    "updateImage": "image.jpg",
-                    "set_timeRandomImage": 1,
-                    "every_set": 2,
-                    "zoom_percentage": 100,
-                    "position_zoom": [2],
-                    "state_isProcessOn": True,
-                    "currentlyPage": "str",
-                    "freeState": 3
-                }
+                default_settings = UserSettings()
+                user_data["settings"] = default_settings.model_dump()
             
             return {
                 "status": "success", 
@@ -690,27 +657,25 @@ async def admin_update(request: AdminUpdateRequest):
             # Get current settings first
             current_settings = await DataCenter.get_value(f"settings_{user_id}")
             
-            # Prepare the new settings structure
+            # Prepare the new settings structure using UserSettings model
             if current_settings:
                 # Update existing settings with new data
-                updated_settings = {**current_settings, **request.data}
+                try:
+                    user_settings = UserSettings(**current_settings)
+                    updated_user_settings = user_settings.model_copy(update=request.data)
+                    updated_settings = updated_user_settings.model_dump()
+                except Exception as validation_error:
+                    logger.error(f"Settings validation error: {validation_error}")
+                    raise HTTPException(status_code=400, detail=f"Invalid settings: {str(validation_error)}")
             else:
-                # Create new settings with default values
-                updated_settings = {
-                    "times_set_calibrate": 1,
-                    "run_every_of_random": 1,
-                    "buttons_order": "",
-                    "image_path": request.data.get("image_path", "/asfgrebvxcv"),
-                    "updateImage": request.data.get("updateImage", "image.jpg"),
-                    "set_timeRandomImage": 1,
-                    "every_set": 2,
-                    "zoom_percentage": 100,
-                    "position_zoom": [2],
-                    "state_isProcessOn": True,
-                    "currentlyPage": "str",
-                    "freeState": 3,
-                    **request.data  # Override with any provided data
-                }
+                # Create new settings with default values and provided data
+                try:
+                    default_settings = UserSettings()
+                    updated_user_settings = default_settings.model_copy(update=request.data)
+                    updated_settings = updated_user_settings.model_dump()
+                except Exception as validation_error:
+                    logger.error(f"Settings validation error: {validation_error}")
+                    raise HTTPException(status_code=400, detail=f"Invalid settings: {str(validation_error)}")
             
             # Extract image_pdf_canva data if present
             image_canva_data = None

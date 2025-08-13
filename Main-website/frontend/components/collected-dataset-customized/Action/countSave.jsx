@@ -2,6 +2,7 @@
 // Shared functionality for countdown and image capture processes
 import React from 'react';
 import { captureImagesAtPoint } from '../Helper/savefile';
+import { captureImagesAtUserPoint } from '../Helper/user_savefile';
 
 /**
  * Get canvas management utilities from global scope (from actionButton.js)
@@ -603,8 +604,8 @@ export const captureImages = async (options) => {
         await videoElement.play();
       }
       
-      // Call the captureImagesAtPoint with all necessary parameters
-      const result = await captureImagesAtPoint({
+      // Call the captureImagesAtUserPoint with all necessary parameters
+      const result = await captureImagesAtUserPoint({
         point: position,
         captureCount: captureCounter,
         canvasRef, 
@@ -926,8 +927,8 @@ export const captureAndPreviewProcess = async (options) => {
       }
     }, 300);
 
-    // Use captureImagesAtPoint from savefile.js
-    const captureResult = await captureImagesAtPoint({
+    // Use captureImagesAtUserPoint from user_savefile.js
+    const captureResult = await captureImagesAtUserPoint({
       point: position,
       captureCount: captureCounter,
       canvasRef,

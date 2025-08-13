@@ -286,14 +286,15 @@ export const useAdminSettings = (ref) => {
   useEffect(() => {
     const handleSettingsUpdate = (event) => {
       if (event.detail && event.detail.type === 'captureSettings') {
-        const { userId, times, delay } = event.detail;
-        console.log('[handleSettingsUpdate] userId:', userId, 'currentUserId:', currentUserId); // Debug log
+        const { userId, times_set_random, delay_set_random } = event.detail;
+        console.log('[handleSettingsUpdate] userId:', userId, 'currentUserId:', currentUserId, 'times_set_random:', times_set_random, 'delay_set_random:', delay_set_random); // Debug log
         if (userId === currentUserId) {
           const newSettings = {
             ...currentSettings,
-            times: times !== undefined ? Number(times) : currentSettings.times,
-            delay: delay !== undefined ? Number(delay) : currentSettings.delay
+            times_set_random: times_set_random !== undefined ? Number(times_set_random) : currentSettings.times_set_random,
+            delay_set_random: delay_set_random !== undefined ? Number(delay_set_random) : currentSettings.delay_set_random
           };
+          console.log('[handleSettingsUpdate] Updated settings:', newSettings);
           setCurrentSettings(newSettings);
           setSettings(prev => ({ ...prev, [userId]: newSettings }));
           updateSettings(newSettings, userId);

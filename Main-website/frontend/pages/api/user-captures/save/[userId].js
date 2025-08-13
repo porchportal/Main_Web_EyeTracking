@@ -1,0 +1,50 @@
+// pages/api/user-captures/save/[userId].js
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ message: 'Method not allowed' });
+  }
+
+  try {
+    const { userId } = req.query;
+    const { imageData, filename, type, captureGroup } = req.body;
+
+    if (!imageData || !filename || !type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required fields: imageData, filename, or type'
+      });
+    }
+
+    // Get backend URL from environment or use default
+    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8108';
+    
+    // Forward the request to the backend
+    const response = await fetch(`${backendUrl}/api/user-captures/save/${userId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': process.env.BACKEND_API_KEY || 'your-backend-api-key'
+      },
+      body: JSON.stringify({
+        imageData,
+        filename,
+        type,
+        captureGroup
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return res.status(response.status).json(result);
+    }
+
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error in user-captures save proxy:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+}

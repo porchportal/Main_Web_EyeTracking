@@ -520,6 +520,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const [isPageActive, setIsPageActive] = useState(true);
   const [captureCount, setCaptureCount] = useState(1);
   
+  // Camera state management
+  const [isCameraActivated, setIsCameraActivated] = useState(false);
+  const [showCameraNotification, setShowCameraNotification] = useState(false);
+  const [cameraNotificationMessage, setCameraNotificationMessage] = useState('');
+  
   // Button action states
   const [randomTimes, setRandomTimes] = useState(1);
   const [delaySeconds, setDelaySeconds] = useState(3);
@@ -542,6 +547,194 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   // Add cache for settings
   const settingsCache = useRef(new Map());
   const lastSettingsUpdate = useRef(new Map());
+  
+  // Camera state management functions
+  const checkCameraActivation = useCallback(() => {
+    if (typeof window === 'undefined') return false;
+    
+    const cameraActivated = localStorage.getItem('cameraActivated');
+    const cameraActivationTime = localStorage.getItem('cameraActivationTime');
+    
+    if (cameraActivated === 'true' && cameraActivationTime) {
+      const activationTime = parseInt(cameraActivationTime);
+      const currentTime = Date.now();
+      const timeDiff = currentTime - activationTime;
+      
+      // Check if activation is still valid (24 hours)
+      if (timeDiff < 24 * 60 * 60 * 1000) {
+        return true;
+      } else {
+        // Clear expired activation
+        localStorage.removeItem('cameraActivated');
+        localStorage.removeItem('cameraActivationTime');
+        return false;
+      }
+    }
+    return false;
+  }, []);
+
+  const setCameraActivation = useCallback((activated) => {
+    if (typeof window === 'undefined') return;
+    
+    if (activated) {
+      localStorage.setItem('cameraActivated', 'true');
+      localStorage.setItem('cameraActivationTime', Date.now().toString());
+      setIsCameraActivated(true);
+      setShowCameraNotification(false);
+      setCameraNotificationMessage('');
+    } else {
+      localStorage.removeItem('cameraActivated');
+      localStorage.removeItem('cameraActivationTime');
+      setIsCameraActivated(false);
+    }
+  }, []);
+
+  const restoreCameraState = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    
+    const cameraActivated = checkCameraActivation();
+    if (cameraActivated) {
+      // Restore camera state from localStorage
+      setIsCameraActivated(true);
+      // Don't automatically start camera on page load for security/privacy
+      // User needs to manually click "Show Preview" to start camera
+      setIsCameraActive(false);
+      setShowCamera(false);
+    } else {
+      setIsCameraActivated(false);
+      setIsCameraActive(false);
+      setShowCamera(false);
+    }
+  }, [checkCameraActivation]);
+
+  const showCameraRequiredNotification = useCallback((actionName) => {
+    setCameraNotificationMessage(`Please activate camera first by clicking "Show Preview" button to use ${actionName} functionality.`);
+    setShowCameraNotification(true);
+    
+    // Auto-hide notification after 5 seconds
+    setTimeout(() => {
+      setShowCameraNotification(false);
+      setCameraNotificationMessage('');
+    }, 5000);
+  }, []);
+
+  // Function to clear camera activation (for admin purposes)
+  const clearCameraActivation = useCallback(() => {
+    setCameraActivation(false);
+    setIsCameraActive(false);
+    setShowCamera(false);
+    setProcessStatus('Camera activation cleared');
+  }, [setCameraActivation]);
+
+  // Function to fetch settings directly from MongoDB
+  const fetchSettingsFromMongoDB = useCallback(async (userId) => {
+    if (!userId) return null;
+    
+    try {
+      console.log(`[fetchSettingsFromMongoDB] Fetching settings for user: ${userId}`);
+      
+      const response = await fetch(`/api/data-center/settings/${userId}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch settings: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      const userSettings = result.data || {};
+      
+      console.log(`[fetchSettingsFromMongoDB] Retrieved settings for user ${userId}:`, userSettings);
+      
+      // Extract the specific fields we need
+      const timesSetRandom = Number(userSettings.times_set_random) || 1;
+      const delaySetRandom = Number(userSettings.delay_set_random) || 3;
+      
+      // Update local state
+      setRandomTimes(timesSetRandom);
+      setDelaySeconds(delaySetRandom);
+      
+      // Update settings cache
+      settingsCache.current.set(userId, userSettings);
+      lastSettingsUpdate.current.set(userId, Date.now());
+      
+      // Update the settings in the admin settings hook
+      if (settings && typeof updateSettings === 'function') {
+        await updateSettings(userSettings, userId);
+      }
+      
+      return userSettings;
+    } catch (error) {
+      console.error(`[fetchSettingsFromMongoDB] Error fetching settings for user ${userId}:`, error);
+      return null;
+    }
+  }, [settings, updateSettings]);
+  
+  // Function to save settings to MongoDB
+  const saveSettingsToMongoDB = useCallback(async (userId, newSettings) => {
+    if (!userId) return false;
+    
+    try {
+      console.log(`[saveSettingsToMongoDB] Saving settings for user: ${userId}`, newSettings);
+      
+      const response = await fetch(`/api/data-center/settings/${userId}`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+        },
+        body: JSON.stringify(newSettings)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to save settings: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log(`[saveSettingsToMongoDB] Settings saved successfully for user ${userId}:`, result);
+      
+      // Update local cache
+      settingsCache.current.set(userId, newSettings);
+      lastSettingsUpdate.current.set(userId, Date.now());
+      
+      return true;
+    } catch (error) {
+      console.error(`[saveSettingsToMongoDB] Error saving settings for user ${userId}:`, error);
+      return false;
+    }
+  }, []);
+  
+  // Debug function to test MongoDB integration
+  const debugMongoDBIntegration = useCallback(async () => {
+    if (!currentUserId) {
+      console.log('[Debug] No current user ID available');
+      return;
+    }
+    
+    console.log(`[Debug] Testing MongoDB integration for user: ${currentUserId}`);
+    console.log(`[Debug] Current local state - randomTimes: ${randomTimes}, delaySeconds: ${delaySeconds}`);
+    
+    // Test fetching settings
+    const fetchedSettings = await fetchSettingsFromMongoDB(currentUserId);
+    console.log('[Debug] Fetched settings from MongoDB:', fetchedSettings);
+    
+    // Test saving settings
+    const testSettings = {
+      times_set_random: randomTimes + 1,
+      delay_set_random: delaySeconds + 1
+    };
+    const saveResult = await saveSettingsToMongoDB(currentUserId, testSettings);
+    console.log('[Debug] Save test result:', saveResult);
+    
+    // Fetch again to verify
+    const verifySettings = await fetchSettingsFromMongoDB(currentUserId);
+    console.log('[Debug] Verification fetch:', verifySettings);
+  }, [currentUserId, randomTimes, delaySeconds, fetchSettingsFromMongoDB, saveSettingsToMongoDB]);
 
   // Global canvas manager instance - initialize only once
   const canvasManager = useMemo(() => {
@@ -649,9 +842,16 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     };
   }, [canvasUtils, canvasManager]);
 
-  // Set hydrated state after mount
+  // Set hydrated state after mount and fetch initial settings
   useEffect(() => {
     setIsHydrated(true);
+    
+    // Check camera activation status from localStorage
+    const cameraActivated = checkCameraActivation();
+    setIsCameraActivated(cameraActivated);
+    
+    // Restore camera state from localStorage
+    restoreCameraState();
     
     // Reset any existing canvas to prevent size accumulation
     if (typeof window !== 'undefined') {
@@ -663,6 +863,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         existingCanvas.style.height = '100%';
         existingCanvas.style.backgroundColor = 'yellow';
       }
+    }
+    
+    // Fetch initial settings if we have a current user ID
+    if (currentUserId && currentUserId !== 'default') {
+      console.log(`[Initial Mount] Fetching settings for user: ${currentUserId}`);
+      fetchSettingsFromMongoDB(currentUserId);
     }
     
     // Cleanup function to reset page state when navigating away
@@ -677,7 +883,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         document.documentElement.style.overflow = '';
       }
     };
-  }, []);
+  }, [currentUserId, fetchSettingsFromMongoDB, checkCameraActivation, restoreCameraState]);
 
   // Handle page visibility changes
   useEffect(() => {
@@ -930,32 +1136,72 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     };
   }, [canvasManager, isPageActive]);
 
-  // Optimize settings updates
+  // Optimize settings updates - properly handle MongoDB data
   useEffect(() => {
     if (settings && currentUserId && settings[currentUserId]) {
       const userSettings = settings[currentUserId];
       const cachedSettings = settingsCache.current.get(currentUserId);
       
       if (!isEqual(cachedSettings, userSettings)) {
-        setRandomTimes(Number(userSettings.times_set_random) || 1);
-        setDelaySeconds(Number(userSettings.delay_set_random) || 3);
+        // Extract times_set_random and delay_set_random from MongoDB data
+        const timesSetRandom = Number(userSettings.times_set_random) || 1;
+        const delaySetRandom = Number(userSettings.delay_set_random) || 3;
+        
+        console.log(`[Settings Update] User ${currentUserId}: times_set_random=${timesSetRandom}, delay_set_random=${delaySetRandom}`);
+        
+        setRandomTimes(timesSetRandom);
+        setDelaySeconds(delaySetRandom);
         settingsCache.current.set(currentUserId, userSettings);
         lastSettingsUpdate.current.set(currentUserId, Date.now());
+        
+        // Dispatch event to notify other components
+        const event = new CustomEvent('settingsLoaded', {
+          detail: {
+            userId: currentUserId,
+            times_set_random: timesSetRandom,
+            delay_set_random: delaySetRandom,
+            settings: userSettings
+          }
+        });
+        window.dispatchEvent(event);
       }
     }
   }, [settings, currentUserId]);
 
-  // Listen for user ID changes
+  // Listen for user ID changes - properly handle MongoDB data
   useEffect(() => {
     const handleUserIdChange = (event) => {
       if (event.detail && event.detail.type === 'userIdChange') {
         const newUserId = event.detail.userId;
+        console.log(`[User ID Change] Switching to user: ${newUserId}`);
         setCurrentUserId(newUserId);
-        // Update settings for new user
+        
+        // Fetch settings directly from MongoDB for the new user
+        fetchSettingsFromMongoDB(newUserId);
+        
+        // Also check if we have cached settings
         if (settings && settings[newUserId]) {
           const userSettings = settings[newUserId];
-          setRandomTimes(Number(userSettings.times_set_random) || 1);
-          setDelaySeconds(Number(userSettings.delay_set_random) || 3);
+          const timesSetRandom = Number(userSettings.times_set_random) || 1;
+          const delaySetRandom = Number(userSettings.delay_set_random) || 3;
+          
+          console.log(`[User ID Change] User ${newUserId}: times_set_random=${timesSetRandom}, delay_set_random=${delaySetRandom}`);
+          
+          setRandomTimes(timesSetRandom);
+          setDelaySeconds(delaySetRandom);
+          
+          // Dispatch event to notify other components
+          const event = new CustomEvent('userSettingsLoaded', {
+            detail: {
+              userId: newUserId,
+              times_set_random: timesSetRandom,
+              delay_set_random: delaySetRandom,
+              settings: userSettings
+            }
+          });
+          window.dispatchEvent(event);
+        } else {
+          console.log(`[User ID Change] No cached settings found for user: ${newUserId}, fetching from MongoDB`);
         }
       }
     };
@@ -963,21 +1209,35 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     return () => {
       window.removeEventListener('userIdChange', handleUserIdChange);
     };
-  }, [settings]);
+  }, [settings, fetchSettingsFromMongoDB]);
 
-  // Listen for settings updates
+  // Listen for settings updates - properly handle MongoDB field names
   useEffect(() => {
     const handleSettingsUpdate = (event) => {
       if (event.detail && event.detail.type === 'captureSettings') {
         const { userId, times_set_random, delay_set_random } = event.detail;
         if (userId === currentUserId) {
+          console.log(`[Settings Update Event] User ${userId}: times_set_random=${times_set_random}, delay_set_random=${delay_set_random}`);
+          
           if (times_set_random !== undefined) {
             const newTimes = Number(times_set_random) || 1;
             setRandomTimes(newTimes);
+            console.log(`[Settings Update] Updated times_set_random to: ${newTimes}`);
           }
           if (delay_set_random !== undefined) {
             const newDelay = Number(delay_set_random) || 3;
             setDelaySeconds(newDelay);
+            console.log(`[Settings Update] Updated delay_set_random to: ${newDelay}`);
+          }
+          
+          // Update the settings cache
+          if (settings && settings[currentUserId]) {
+            const updatedSettings = {
+              ...settings[currentUserId],
+              times_set_random: times_set_random !== undefined ? Number(times_set_random) : settings[currentUserId].times_set_random,
+              delay_set_random: delay_set_random !== undefined ? Number(delay_set_random) : settings[currentUserId].delay_set_random
+            };
+            settingsCache.current.set(currentUserId, updatedSettings);
           }
         }
       }
@@ -985,6 +1245,27 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
     return () => {
       window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
+    };
+  }, [currentUserId, settings]);
+  
+  // Listen for TopBar settings loaded event
+  useEffect(() => {
+    const handleTopBarSettingsLoaded = (event) => {
+      if (event.detail && event.detail.userId === currentUserId) {
+        const { times_set_random, delay_set_random } = event.detail;
+        console.log(`[TopBar Settings Loaded] User ${currentUserId}: times_set_random=${times_set_random}, delay_set_random=${delay_set_random}`);
+        
+        if (times_set_random !== undefined) {
+          setRandomTimes(Number(times_set_random) || 1);
+        }
+        if (delay_set_random !== undefined) {
+          setDelaySeconds(Number(delay_set_random) || 3);
+        }
+      }
+    };
+    window.addEventListener('topBarSettingsLoaded', handleTopBarSettingsLoaded);
+    return () => {
+      window.removeEventListener('topBarSettingsLoaded', handleTopBarSettingsLoaded);
     };
   }, [currentUserId]);
 
@@ -1001,6 +1282,27 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       // Also make canvas manager globally accessible
       window.globalCanvasManager = canvasManager;
       window.canvasUtils = canvasUtils;
+      
+      // Make MongoDB settings functions globally accessible
+      window.mongoDBSettings = {
+        fetchSettings: fetchSettingsFromMongoDB,
+        saveSettings: saveSettingsToMongoDB,
+        debug: debugMongoDBIntegration,
+        getCurrentSettings: () => ({
+          times_set_random: randomTimes,
+          delay_set_random: delaySeconds,
+          currentUserId: currentUserId
+        })
+      };
+      
+      // Make camera state management globally accessible
+      window.cameraStateManager = {
+        isActivated: () => isCameraActivated,
+        checkActivation: checkCameraActivation,
+        setActivation: setCameraActivation,
+        showNotification: showCameraRequiredNotification,
+        clearActivation: clearCameraActivation
+      };
     }
     
     return () => {
@@ -1008,9 +1310,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         delete window.actionButtonFunctions;
         delete window.globalCanvasManager;
         delete window.canvasUtils;
+        delete window.mongoDBSettings;
+        delete window.cameraStateManager;
       }
     };
-  }, [canvasManager, canvasUtils]);
+  }, [canvasManager, canvasUtils, fetchSettingsFromMongoDB, saveSettingsToMongoDB, debugMongoDBIntegration, randomTimes, delaySeconds, currentUserId, isCameraActivated, checkCameraActivation, setCameraActivation, showCameraRequiredNotification, clearCameraActivation]);
 
   // Make toggleTopBar function available globally
   useEffect(() => {
@@ -1035,6 +1339,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   // Action handlers
   const handleRandomDot = async () => {
     if (isCapturing) return;
+
+    // Check if camera is activated - show notification and return early if not
+    if (!isCameraActivated) {
+      showCameraRequiredNotification('Random Dot');
+      return;
+    }
 
     try {
       // Import and use RandomDotAction
@@ -1087,6 +1397,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const handleSetRandom = async () => {
     if (isCapturing) return;
     
+    // Check if camera is activated - show notification and return early if not
+    if (!isCameraActivated) {
+      showCameraRequiredNotification('Set Random');
+      return;
+    }
+    
     try {
       // Import and use SetRandomAction
       const { default: SetRandomAction } = await import('../../components/collected-dataset-customized/Action/SetRandomAction.jsx');
@@ -1133,6 +1449,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
   const handleSetCalibrate = async () => {
     if (isCapturing) return;
+    
+    // Check if camera is activated - show notification and return early if not
+    if (!isCameraActivated) {
+      showCameraRequiredNotification('Set Calibrate');
+      return;
+    }
     
     try {
       // Ensure canvas is initialized first
@@ -1264,8 +1586,24 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
   const handleToggleCamera = useCallback(() => {
     const newCameraState = !isCameraActive;
+    console.log(`[Camera Toggle] Switching camera from ${isCameraActive} to ${newCameraState}`);
+    
     setIsCameraActive(newCameraState);
     setShowCamera(newCameraState); // Link the camera display state with the active state
+    
+    if (newCameraState) {
+      setProcessStatus('Starting camera preview...');
+      // Set camera activation when camera is started
+      setCameraActivation(true);
+      // Add a small delay to ensure the component is ready
+      setTimeout(() => {
+        setProcessStatus('Camera preview active');
+      }, 500);
+    } else {
+      setProcessStatus('Camera preview stopped');
+      // Don't deactivate camera state when stopping preview
+      // This allows buttons to continue working
+    }
     
     if (onActionClick) {
       onActionClick('preview', newCameraState);
@@ -1285,16 +1623,27 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         }
       }, 100);
     }
-  }, [isCameraActive, showCamera, onActionClick, showHeadPose, showBoundingBox, showMask, showParameters]);
+  }, [isCameraActive, showCamera, onActionClick, showHeadPose, showBoundingBox, showMask, showParameters, setCameraActivation]);
 
   // Add a proper action handler for camera preview
   const handleActionClick = useCallback((actionType, ...args) => {
     switch (actionType) {
       case 'preview':
         const shouldShow = args[0] !== undefined ? args[0] : !showCamera;
+        console.log(`[Action Handler] Preview action: shouldShow=${shouldShow}, current showCamera=${showCamera}`);
         setShowCamera(shouldShow);
         setIsCameraActive(shouldShow);
-        setProcessStatus(shouldShow ? 'Camera preview started' : 'Camera preview stopped');
+        
+        if (shouldShow) {
+          setProcessStatus('Camera preview started');
+          // Set camera activation when camera is started
+          setCameraActivation(true);
+          // Clear any existing warnings when camera is activated
+          setShowWarning(false);
+          setWarningMessage('');
+        } else {
+          setProcessStatus('Camera preview stopped');
+        }
         break;
       case 'headPose':
         handleToggleHeadPose();
@@ -1338,7 +1687,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         // Silent handling for unknown actions
         break;
     }
-  }, [showCamera, showMetrics, showTopBar, handleToggleHeadPose, handleToggleBoundingBox, handleToggleMask, handleToggleParameters, handleRandomDot, handleSetRandom, handleSetCalibrate, handleClearAll]);
+  }, [showCamera, showMetrics, showTopBar, handleToggleHeadPose, handleToggleBoundingBox, handleToggleMask, handleToggleParameters, handleRandomDot, handleSetRandom, handleSetCalibrate, handleClearAll, setCameraActivation]);
 
   // Camera permission handlers
   const handlePermissionAccepted = () => {
@@ -1358,6 +1707,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     setShowCamera(false);
     setIsCameraActive(false);
     setProcessStatus('Camera preview stopped');
+    // Don't clear camera activation when closing camera
+    // This allows buttons to continue working
   }, []);
 
   // Handle camera ready
@@ -1465,6 +1816,27 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         </div>
       )}
 
+      {/* Camera activation notification */}
+      {isHydrated && showCameraNotification && (
+        <div className="camera-notification-banner" style={{
+          position: 'fixed',
+          top: showTopBar ? (backendStatus === 'disconnected' ? '32px' : '60px') : '0',
+          left: '0',
+          width: '100%',
+          backgroundColor: '#ff6b6b',
+          color: 'white',
+          padding: '12px',
+          textAlign: 'center',
+          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+          zIndex: 102,
+          animation: 'fadeIn 0.3s ease-in-out',
+          fontSize: '14px',
+          fontWeight: '500'
+        }}>
+          <strong>📷 {cameraNotificationMessage}</strong>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="loading-container">
           <p>Loading user settings...</p>
@@ -1493,6 +1865,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                 showMetrics={showMetrics}
                 isTopBarShown={showTopBar}
                 isCanvasVisible={showCanvas}
+                isCameraActive={isCameraActive}
+                isCameraActivated={isCameraActivated}
               />
             </div>
           )}
@@ -1531,6 +1905,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             style={{ 
               height: showTopBar ? 'calc(100vh - 120px)' : '100vh',
               marginTop: backendStatus === 'disconnected' ? '32px' : '0',
+              paddingTop: showCameraNotification ? '44px' : '0',
               position: 'absolute',
               top: 0,
               left: 0,

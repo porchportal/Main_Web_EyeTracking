@@ -34,7 +34,9 @@ const TopBar = ({
   canvasRef,
   isTopBarShown = true,
   isCanvasVisible = true,
-  showMetrics = true
+  showMetrics = true,
+  isCameraActive = false,
+  isCameraActivated = false
 }) => {
   const router = useRouter();
   const [canvasStatus, setCanvasStatus] = useState(isCanvasVisible);
@@ -50,6 +52,8 @@ const TopBar = ({
     
     try {
       isUpdatingRef.current = true;
+      console.log(`[TopBar] Fetching settings for user: ${userId}`);
+      
       const response = await fetch(`/api/data-center/settings/${userId}`, {
         headers: {
           'Accept': 'application/json',
@@ -62,12 +66,27 @@ const TopBar = ({
         throw new Error('Failed to fetch settings');
       }
 
-      const userSettings = await response.json();
-      if (userSettings && (userSettings.times_set_random || userSettings.delay_set_random)) {
+      const result = await response.json();
+      const userSettings = result.data || {};
+      
+      console.log(`[TopBar] Retrieved settings for user ${userId}:`, userSettings);
+      
+      if (userSettings && (userSettings.times_set_random !== undefined || userSettings.delay_set_random !== undefined)) {
         setCurrentSettings(userSettings);
         if (updateSettings) {
           await updateSettings(userSettings, userId);
         }
+        
+        // Dispatch event to notify other components
+        const event = new CustomEvent('topBarSettingsLoaded', {
+          detail: {
+            userId: userId,
+            times_set_random: userSettings.times_set_random,
+            delay_set_random: userSettings.delay_set_random,
+            settings: userSettings
+          }
+        });
+        window.dispatchEvent(event);
       }
     } catch (error) {
       console.error('TopBar - Error fetching settings:', error);
@@ -203,6 +222,22 @@ const TopBar = ({
   }, [currentSettings, debouncedSaveSettings]);
   
   const handleButtonClick = (actionType) => {
+    // Check camera activation for action buttons that require camera
+    if (['setRandom', 'calibrate', 'randomDot'].includes(actionType)) {
+      if (!isCameraActivated) {
+        // Show notification through global camera state manager
+        if (typeof window !== 'undefined' && window.cameraStateManager) {
+          const actionNames = {
+            'setRandom': 'Set Random',
+            'calibrate': 'Set Calibrate', 
+            'randomDot': 'Random Dot'
+          };
+          window.cameraStateManager.showNotification(actionNames[actionType]);
+        }
+        return;
+      }
+    }
+    
     // Ensure canvas is available before triggering actions that need it
     if (['setRandom', 'calibrate', 'randomDot', 'clearAll'].includes(actionType)) {
       const canvas = ensureCanvasAvailable();
@@ -277,24 +312,27 @@ const TopBar = ({
               <button 
                 className="btn"
                 onClick={() => handleButtonClick('setRandom')}
+                title="Start random sequence"
               >
                 Set Random
               </button>
               <button 
                 className="btn"
                 onClick={() => handleButtonClick('calibrate')}
+                title="Start calibration sequence"
               >
                 Set Calibrate
               </button>
             </div>
             
             <div className="button-row" style={{ marginRight: '80px' }}>
-              <button 
-                className="btn"
-                onClick={() => handleButtonClick('randomDot')}
-              >
-                Random Dot
-              </button>
+                              <button 
+                  className="btn"
+                  onClick={() => handleButtonClick('randomDot')}
+                  title="Start random dot sequence"
+                >
+                  Random Dot
+                </button>
               <button 
                 className="btn"
                 onClick={() => handleButtonClick('clearAll')}
@@ -355,6 +393,14 @@ const TopBar = ({
             {statusMessage}
             <br />
             {outputText || "Processing output will appear here..."}
+            <br />
+            <span style={{ 
+              fontSize: '12px', 
+              color: isCameraActivated ? '#00cc00' : '#ff9900',
+              fontWeight: 'bold'
+            }}>
+              📷 Camera: {isCameraActivated ? (isCameraActive ? 'Active' : 'Activated (Click Preview to Start)') : 'Not Activated'}
+            </span>
           </div>
         </div>
         
@@ -389,11 +435,36 @@ const TopBar = ({
               borderRadius: '4px',
               fontSize: '16px',
               cursor: 'pointer',
-              transition: 'all 0.2s ease'
+              transition: 'all 0.2s ease',
+              marginRight: '5px'
             }}
           >
             <span className="icon-text">{showMetrics ? '✓' : '!'}</span>
           </button>
+          
+          {isCameraActivated && (
+            <button 
+              className="icon-btn clear-camera-btn"
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.cameraStateManager) {
+                  window.cameraStateManager.setActivation(false);
+                }
+              }}
+              title="Clear Camera Activation"
+              style={{
+                padding: '5px 10px',
+                backgroundColor: '#ff4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '16px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <span className="icon-text">🗑️</span>
+            </button>
+          )}
         </div>
       </div>
       
