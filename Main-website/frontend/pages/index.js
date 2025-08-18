@@ -13,7 +13,7 @@ export default function HomePage() {
   const router = useRouter();
   const { isProcessReady, toggleProcessStatus } = useProcessStatus();
   const { isConnected, authValid, checkConnection } = useBackendConnection();
-  const { consentStatus, userId, loading } = useConsent();
+  const { consentStatus, userId, loading, consentChecked, recheckConsent } = useConsent();
   const [isAdminOverride, setIsAdminOverride] = useState(false);
   const [buttonStates, setButtonStates] = useState({});
   const [mounted, setMounted] = useState(false);
@@ -237,6 +237,15 @@ export default function HomePage() {
     return () => window.removeEventListener('adminOverride', handleAdminOverride);
   }, []);
 
+  // Enhanced consent checking effect
+  useEffect(() => {
+    // Recheck consent when component mounts and consent hasn't been checked yet
+    if (mounted && !consentChecked && !loading) {
+      console.log('Rechecking consent status on mount');
+      recheckConsent();
+    }
+  }, [mounted, consentChecked, loading, recheckConsent]);
+
   // Memoize button disabled check for better performance
   const isButtonDisabled = useCallback((destination) => {
     // Special case for collected-dataset-custom
@@ -259,6 +268,8 @@ export default function HomePage() {
     const buttonsRequiringConsent = ['collected-dataset-custom', 'collected-dataset'];
     if (buttonsRequiringConsent.includes(destination) && consentStatus === null) {
       console.log('Consent not set, showing banner');
+      // Trigger consent recheck before showing banner
+      recheckConsent();
       return;
     }
 

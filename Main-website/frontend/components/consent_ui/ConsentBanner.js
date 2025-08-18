@@ -6,41 +6,17 @@ import { useConsent } from './ConsentContext';
 import { getOrCreateUserId } from '../../utils/consentManager';
 
 export default function ConsentBanner() {
-  const { showBanner, updateConsent } = useConsent();
+  const { showBanner, updateConsent, consentChecked, loading: contextLoading } = useConsent();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const [cookieStatus, setCookieStatus] = useState(null);
 
-  useEffect(() => {
-    const checkCookieStatus = async () => {
-      try {
-        const userId = getOrCreateUserId();
-        const response = await fetch(`/api/user-preferences/${userId}`, {
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            // 'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV',
-            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY 
-          }
-        });
+  // Don't render anything until consent has been checked
+  if (!consentChecked || contextLoading) {
+    return null;
+  }
 
-        if (response.ok) {
-          const data = await response.json();
-          setCookieStatus(data.data?.cookie ?? false);
-        } else {
-          setCookieStatus(false);
-        }
-      } catch (error) {
-        console.error('Error checking cookie status:', error);
-        setCookieStatus(false);
-      }
-    };
-
-    checkCookieStatus();
-  }, []);
-
-  // If banner shouldn't be shown or cookie is already accepted, return null
-  if (!showBanner || cookieStatus === true) return null;
+  // If banner shouldn't be shown, return null
+  if (!showBanner) return null;
 
   const handleAccept = async () => {
     setLoading(true);
@@ -71,7 +47,6 @@ export default function ConsentBanner() {
         throw new Error('Failed to save cookie preferences');
       }
       
-      setCookieStatus(true);
       // Redirect to consent setup page
       router.push('/preferences/consent-setup');
     } catch (error) {
@@ -85,7 +60,6 @@ export default function ConsentBanner() {
     setLoading(true);
     try {
       await updateConsent(false);
-      setCookieStatus(false);
     } catch (error) {
       console.error('Error handling cookie decline:', error);
     } finally {
