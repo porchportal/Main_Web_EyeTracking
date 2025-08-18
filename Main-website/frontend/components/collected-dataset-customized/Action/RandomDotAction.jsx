@@ -22,7 +22,7 @@ class RandomDotAction {
     this.captureCounter = options.captureCounter;
   }
 
-  // Get canvas using the global canvas manager
+  // Get canvas using the global canvas manager from index.js
   getCanvas() {
     if (typeof window !== 'undefined' && window.globalCanvasManager) {
       return window.globalCanvasManager.getCanvas();
@@ -90,9 +90,16 @@ class RandomDotAction {
     
     // 🔥 HIDE THE TOPBAR BEFORE SHOWING DOT 🔥
     console.log('RandomDotAction: Hiding TopBar before showing dot...');
-    if (typeof this.toggleTopBar === 'function') {
+    
+    // Use the same TopBar control pattern as index.js
+    if (typeof window !== 'undefined' && window.toggleTopBar) {
+      console.log('RandomDotAction: Using global window.toggleTopBar(false)...');
+      window.toggleTopBar(false);
+      console.log('RandomDotAction: TopBar hidden via global window.toggleTopBar');
+    } else if (typeof this.toggleTopBar === 'function') {
+      console.log('RandomDotAction: Using passed toggleTopBar(false)...');
       this.toggleTopBar(false);
-      console.log('RandomDotAction: TopBar hidden via toggleTopBar function');
+      console.log('RandomDotAction: TopBar hidden via passed toggleTopBar function');
     } else {
       console.warn('RandomDotAction: No toggleTopBar function available to hide TopBar');
     }
@@ -156,7 +163,12 @@ class RandomDotAction {
             captureFolder: 'eye_tracking_captures'
           });
           
-          // Clear the dot after capture using canvas management system
+          // 🔥 EXIT FULLSCREEN MODE FIRST, THEN CLEAR CANVAS 🔥
+          console.log('RandomDotAction: Exiting fullscreen mode after capture completion...');
+          this.exitFullscreen();
+          console.log('RandomDotAction: Fullscreen mode exited successfully');
+          
+          // Clear the dot after exiting fullscreen using canvas management system
           this.clearCanvas();
           
           // Set capturing state to false immediately
@@ -180,10 +192,22 @@ class RandomDotAction {
           
           // 🔥 ENSURE TOPBAR IS RESTORED ON ERROR 🔥
           console.log('RandomDotAction: Error case TopBar restoration...');
-          if (typeof this.toggleTopBar === 'function') {
+          
+          // Use the same TopBar control pattern as index.js
+          if (typeof window !== 'undefined' && window.toggleTopBar) {
+            console.log('RandomDotAction: Error case - Using global window.toggleTopBar(true)...');
+            window.toggleTopBar(true);
+            console.log('RandomDotAction: Error case - TopBar restored via global window.toggleTopBar');
+          } else if (typeof this.toggleTopBar === 'function') {
+            console.log('RandomDotAction: Error case - Using passed toggleTopBar(true)...');
             this.toggleTopBar(true);
-            console.log('RandomDotAction: TopBar restored via toggleTopBar function (error case)');
+            console.log('RandomDotAction: Error case - TopBar restored via passed toggleTopBar function');
           }
+          
+          // 🔥 EXIT FULLSCREEN MODE ON ERROR AS WELL 🔥
+          console.log('RandomDotAction: Error case - Exiting fullscreen mode...');
+          this.exitFullscreen();
+          console.log('RandomDotAction: Error case - Fullscreen mode exited successfully');
         }
       } else {
         console.error("Canvas reference is null - cannot draw dot");

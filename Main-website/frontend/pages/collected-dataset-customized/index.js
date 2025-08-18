@@ -373,7 +373,7 @@ class GlobalCanvasManager {
     // Move canvas back to container
     container.appendChild(canvas);
 
-    // Restore original styles
+    // Restore original styles - FIXED: Don't use fullscreen-like styles
     canvas.style.position = 'relative';
     canvas.style.top = '';
     canvas.style.left = '';
@@ -381,9 +381,20 @@ class GlobalCanvasManager {
     canvas.style.height = '100%';
     canvas.style.zIndex = '';
     canvas.style.backgroundColor = 'yellow';
+    canvas.style.display = 'block';
+    canvas.style.margin = '';
+    canvas.style.padding = '';
+    canvas.style.overflow = 'hidden';
 
-    // Update size to match container
-    this.updateCanvasSize(canvas, container);
+    // Update size to match container - FIXED: Don't use viewport units
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      const containerWidth = rect.width || container.clientWidth || 800;
+      const containerHeight = rect.height || container.clientHeight || 600;
+      
+      canvas.width = containerWidth;
+      canvas.height = containerHeight;
+    }
 
     // Clear with yellow background
     const ctx = canvas.getContext('2d');
@@ -1222,12 +1233,27 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     // Only initialize canvas if page is active
     if (!isPageActive) return;
     
-    // Remove any existing canvases first to prevent duplicates
+    // Remove any duplicate canvases first to prevent duplicates, but keep the main tracking canvas
     if (typeof window !== 'undefined') {
       const existingCanvases = document.querySelectorAll('canvas');
+      let mainCanvasFound = false;
+      
       existingCanvases.forEach(canvas => {
-        if (canvas.parentNode) {
-          canvas.parentNode.removeChild(canvas);
+        if (canvas.id === 'tracking-canvas') {
+          if (mainCanvasFound) {
+            // This is a duplicate main canvas, remove it
+            if (canvas.parentNode) {
+              canvas.parentNode.removeChild(canvas);
+            }
+          } else {
+            // This is the first main canvas, keep it
+            mainCanvasFound = true;
+          }
+        } else {
+          // This is not a tracking canvas, remove it
+          if (canvas.parentNode) {
+            canvas.parentNode.removeChild(canvas);
+          }
         }
       });
     }
@@ -1941,7 +1967,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       {isHydrated && showCameraNotification && (
         <div className="camera-notification-banner" style={{
           position: 'fixed',
-          top: showTopBar ? (backendStatus === 'disconnected' ? '32px' : '60px') : '0',
+          top: showTopBar ? (backendStatus === 'disconnected' ? '60px' : '90px') : '30px',
           left: '0',
           width: '100%',
           backgroundColor: '#ff6b6b',

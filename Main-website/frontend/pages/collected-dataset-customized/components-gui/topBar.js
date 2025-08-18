@@ -94,39 +94,19 @@ const TopBar = ({
     }
   }, [updateSettings]);
 
-  const ensureCanvasAvailable = () => {
-    if (typeof window === 'undefined') return null;
+  // Get canvas function - use existing canvas from global manager
+  const getCanvas = () => {
+    // Use the global canvas manager from index.js if available
+    if (typeof window !== 'undefined' && window.globalCanvasManager) {
+      return window.globalCanvasManager.getCanvas();
+    }
     
-    // Check for existing canvas
+    // Fallback: check for existing canvas
     let canvas = document.querySelector('#tracking-canvas');
     
     if (!canvas) {
-      // Create canvas if it doesn't exist
-      canvas = document.createElement('canvas');
-      canvas.className = 'tracking-canvas';
-      canvas.id = 'tracking-canvas';
-      canvas.width = 800;
-      canvas.height = 400;
-      canvas.style.cssText = `
-        position: relative;
-        width: 100%;
-        height: 400px;
-        background-color: yellow;
-        border: 1px solid #ccc;
-        display: block;
-        z-index: 1;
-      `;
-      
-      // Initialize with yellow background
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'yellow';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Append to appropriate container
-      const container = document.querySelector('.canvas-container') || 
-                        document.querySelector('.main-content') ||
-                        document.body;
-      container.appendChild(canvas);
+      console.warn('No canvas found and no global canvas manager available');
+      return null;
     }
     
     // Store global reference
@@ -240,7 +220,7 @@ const TopBar = ({
     
     // Ensure canvas is available before triggering actions that need it
     if (['setRandom', 'calibrate', 'randomDot', 'clearAll'].includes(actionType)) {
-      const canvas = ensureCanvasAvailable();
+      const canvas = getCanvas();
       if (!canvas) {
         console.warn(`Canvas not available for action: ${actionType}`);
       }

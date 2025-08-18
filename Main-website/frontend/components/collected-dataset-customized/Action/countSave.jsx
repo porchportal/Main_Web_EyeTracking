@@ -934,16 +934,23 @@ export const captureAndPreviewProcess = async (options) => {
     setTimeout(() => {
       console.log('🔍 captureAndPreviewProcess: About to restore TopBar directly...');
       
-      // Method 1: Try to call the global TopBar toggle function directly
+      // 🔥 EXIT FULLSCREEN MODE FIRST 🔥
+      if (typeof window !== 'undefined' && window.globalCanvasManager) {
+        console.log('🔍 captureAndPreviewProcess: Exiting fullscreen mode via global canvas manager...');
+        window.globalCanvasManager.exitFullscreen();
+        console.log('🔍 captureAndPreviewProcess: Fullscreen mode exited successfully');
+      }
+      
+      // Use the same TopBar control pattern as index.js
       if (typeof window !== 'undefined' && window.toggleTopBar) {
-        console.log('🔍 captureAndPreviewProcess: Calling global window.toggleTopBar(true)...');
+        console.log('🔍 captureAndPreviewProcess: Using global window.toggleTopBar(true)...');
         window.toggleTopBar(true);
         console.log('🔍 captureAndPreviewProcess: Global TopBar toggle called successfully');
       }
       
       // Method 2: Try to call the passed toggleTopBar function
       else if (typeof toggleTopBar === 'function') {
-        console.log('🔍 captureAndPreviewProcess: Calling passed toggleTopBar(true)...');
+        console.log('🔍 captureAndPreviewProcess: Using passed toggleTopBar(true)...');
         toggleTopBar(true);
         console.log('🔍 captureAndPreviewProcess: Passed toggleTopBar(true) called successfully');
       }
@@ -994,16 +1001,23 @@ export const captureAndPreviewProcess = async (options) => {
     // 🔥 ENSURE TOPBAR IS SHOWN EVEN ON ERROR 🔥
     console.log('🔍 captureAndPreviewProcess: Error case - About to restore TopBar directly...');
     
-    // Method 1: Try to call the global TopBar toggle function directly
+    // 🔥 EXIT FULLSCREEN MODE ON ERROR AS WELL 🔥
+    if (typeof window !== 'undefined' && window.globalCanvasManager) {
+      console.log('🔍 captureAndPreviewProcess: Error case - Exiting fullscreen mode via global canvas manager...');
+      window.globalCanvasManager.exitFullscreen();
+      console.log('🔍 captureAndPreviewProcess: Error case - Fullscreen mode exited successfully');
+    }
+    
+    // Use the same TopBar control pattern as index.js
     if (typeof window !== 'undefined' && window.toggleTopBar) {
-      console.log('🔍 captureAndPreviewProcess: Error case - Calling global window.toggleTopBar(true)...');
+      console.log('🔍 captureAndPreviewProcess: Error case - Using global window.toggleTopBar(true)...');
       window.toggleTopBar(true);
       console.log('🔍 captureAndPreviewProcess: Error case - Global TopBar toggle called successfully');
     }
     
     // Method 2: Try to call the passed toggleTopBar function
     else if (typeof toggleTopBar === 'function') {
-      console.log('🔍 captureAndPreviewProcess: Error case - Calling passed toggleTopBar(true)...');
+      console.log('🔍 captureAndPreviewProcess: Error case - Using passed toggleTopBar(true)...');
       toggleTopBar(true);
       console.log('🔍 captureAndPreviewProcess: Error case - Passed toggleTopBar(true) called successfully');
     }
