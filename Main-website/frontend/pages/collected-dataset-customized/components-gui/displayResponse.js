@@ -6,7 +6,7 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
   
   // Update animation state when visibility changes
   useEffect(() => {
-    console.log('DisplayResponse: isVisible changed to', isVisible);
+    console.log('🔍 DisplayResponse: isVisible changed to', isVisible);
     setAnimationState(isVisible ? 'visible' : 'hidden');
   }, [isVisible]);
   
@@ -15,15 +15,15 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
   const formattedHeight = height || '---';
   const formattedDistance = distance || '---';
   
-  console.log('DisplayResponse: rendering with isVisible:', isVisible, 'animationState:', animationState);
+  console.log('🔍 DisplayResponse: rendering with isVisible:', isVisible, 'animationState:', animationState);
   
   return (
     <div 
       className={`metrics-display ${animationState}`}
       style={{
-        position: 'absolute',
+        position: 'fixed',
         right: '20px',
-        top: '80px',
+        top: '140px',
         backgroundColor: 'rgba(0, 102, 204, 0.8)',
         color: 'white',
         padding: '10px 15px',
@@ -37,7 +37,8 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
           ? 'translateX(0)' 
           : 'translateX(50px)',
         pointerEvents: animationState === 'visible' ? 'auto' : 'none',
-        zIndex: 100
+        zIndex: 20,
+        display: animationState === 'hidden' ? 'none' : 'block'
       }}
     >
       <div 

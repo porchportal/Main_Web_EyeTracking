@@ -3,11 +3,11 @@
   display: flex;
   background-color: white;
   padding: 10px 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: none;
   align-items: flex-start;
   box-shadow: 0 0 50px 10px rgba(120, 242, 255, 0.5);
   position: relative;
-  z-index: 10;
+  z-index: 14;
 }
 
 /* Left section - Logo and Time/Delay controls */
@@ -220,7 +220,7 @@
   box-shadow: 0 0 50px 10px rgba(120, 242, 255, 0.5);
   color: #333;
   font-size: 14px;
-  z-index: 5;
+  z-index: 20;
 }
 
 .metrics-display p {

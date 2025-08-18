@@ -355,8 +355,6 @@ class CaptureHandler {
         setTimeout(() => {
           if (typeof this.toggleTopBar === 'function') {
             this.toggleTopBar(true);
-          } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-            window.toggleTopBar(true);
           }
         }, 2200); // Wait longer than the preview duration
         
@@ -379,8 +377,6 @@ class CaptureHandler {
         setTimeout(() => {
           if (typeof this.toggleTopBar === 'function') {
             this.toggleTopBar(true);
-          } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-            window.toggleTopBar(true);
           }
         }, 1500);
         

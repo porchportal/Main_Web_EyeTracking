@@ -115,6 +115,7 @@ const TopBar = ({
         background-color: yellow;
         border: 1px solid #ccc;
         display: block;
+        z-index: 1;
       `;
       
       // Initialize with yellow background
@@ -252,17 +253,20 @@ const TopBar = ({
   };
 
   const handleToggleTopBar = () => {
+    console.log('🔍 TopBar: handleToggleTopBar called, current isTopBarShown:', isTopBarShown);
+    console.log('🔍 TopBar: onToggleTopBar function type:', typeof onToggleTopBar);
     onToggleTopBar(!isTopBarShown);
+    console.log('🔍 TopBar: onToggleTopBar called with:', !isTopBarShown);
   };
   
   const handleToggleMetrics = () => {
-    console.log('TopBar: handleToggleMetrics called');
+    console.log('🔍 TopBar: handleToggleMetrics called, current showMetrics:', showMetrics);
     // Use action handler if available, otherwise fallback to direct toggle
     if (onButtonClick) {
-      console.log('TopBar: Using action handler for metrics');
+      console.log('🔍 TopBar: Using action handler for metrics');
       onButtonClick('metrics');
     } else {
-      console.log('TopBar: Using direct toggle for metrics');
+      console.log('🔍 TopBar: Using direct toggle for metrics');
       onToggleMetrics();
     }
   };
@@ -273,8 +277,21 @@ const TopBar = ({
 
   const statusMessage = `TopBar ${isTopBarShown ? 'shown' : 'hidden'}, Canvas: ${canvasStatus ? 'Visible' : 'Hidden'}`;
 
+  console.log('🔍 TopBar: Rendering with props:', {
+    isTopBarShown,
+    showMetrics,
+    isCameraActivated,
+    isCameraActive,
+    onToggleTopBar: typeof onToggleTopBar
+  });
+
+  // Debug showMetrics prop changes
+  useEffect(() => {
+    console.log('🔍 TopBar: showMetrics prop changed to:', showMetrics);
+  }, [showMetrics]);
+
   return (
-    <div className="topbar">
+    <div className="topbar" style={{ zIndex: 12, position: 'relative' }}>
       <div className="topbar-left">
         <div className="logo">
           <h1 className="logo-text">Logo</h1>
@@ -399,7 +416,7 @@ const TopBar = ({
               color: isCameraActivated ? '#00cc00' : '#ff9900',
               fontWeight: 'bold'
             }}>
-              📷 Camera: {isCameraActivated ? (isCameraActive ? 'Active' : 'Activated (Click Preview to Start)') : 'Not Activated'}
+              📷 Camera: {isCameraActivated ? (isCameraActive ? 'Active' : 'Activated (Click Preview to Start)') : 'Not Activated (Deactivates on Refresh)'}
             </span>
           </div>
         </div>
@@ -442,29 +459,7 @@ const TopBar = ({
             <span className="icon-text">{showMetrics ? '✓' : '!'}</span>
           </button>
           
-          {isCameraActivated && (
-            <button 
-              className="icon-btn clear-camera-btn"
-              onClick={() => {
-                if (typeof window !== 'undefined' && window.cameraStateManager) {
-                  window.cameraStateManager.setActivation(false);
-                }
-              }}
-              title="Clear Camera Activation"
-              style={{
-                padding: '5px 10px',
-                backgroundColor: '#ff4444',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                fontSize: '16px',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              <span className="icon-text">🗑️</span>
-            </button>
-          )}
+
         </div>
       </div>
       

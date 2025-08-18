@@ -1,132 +1,221 @@
 # User-Specific Capture System
 
+This document describes the user-specific capture system that saves eye tracking data to individual user folders in the backend.
+
 ## Overview
-This system has been modified to save capture files in user-specific folders within the `resource_security/public/captures/` directory. Each user gets their own folder named with their user ID, ensuring data isolation and organization.
+
+The system has been modified to save capture files (screen images, webcam images, and parameter data) to user-specific folders in the backend, organized by user ID. This ensures data privacy and proper organization of capture files.
+
+## Architecture
+
+### Frontend Components
+
+1. **user_savefile.js** - User-specific capture functions
+   - `captureImagesAtUserPoint()` - Main capture function
+   - `saveImageToUserServer()` - Save images to user folder
+   - `saveCSVToUserServer()` - Save CSV data to user folder
+   - `getUserCaptureStatus()` - Get user capture status
+   - `clearUserCaptures()` - Clear all user captures
+
+2. **countSave.jsx** - Updated to use user-specific capture
+   - `captureImages()` - Uses user-specific capture
+   - `calibrationCapture()` - Uses user-specific capture
+   - `captureAndPreviewProcess()` - Uses user-specific capture
+
+3. **cameraAccess.js** - Enhanced camera handling
+   - Exposes video element globally for capture functions
+   - Proper video stream management
+   - WebSocket connection for real-time processing
+
+### Backend API
+
+1. **user_captures.py** - User capture management
+   - `/api/user-captures/save/{user_id}` - Save capture files
+   - `/api/user-captures/status/{user_id}` - Get capture status
+   - `/api/user-captures/clear/{user_id}` - Clear user captures
+
+2. **Frontend API Proxies**
+   - `/api/user-captures/save/[userId].js` - Proxy to backend
+   - `/api/user-captures/status/[userId].js` - Proxy to backend
+   - `/api/user-captures/clear/[userId].js` - Proxy to backend
 
 ## File Structure
 
-### New Path Structure
 ```
-Main-website/backend/auth_service/resource_security/public/captures/
-├── user_1234567890_abc123def/          # User-specific folder
+backend/auth_service/resource_security/public/captures/
+├── user_1234567890/
 │   ├── screen_001.jpg
 │   ├── webcam_001.jpg
 │   ├── parameter_001.csv
 │   ├── screen_002.jpg
 │   ├── webcam_002.jpg
 │   └── parameter_002.csv
-├── user_9876543210_xyz789ghi/          # Another user's folder
+├── user_9876543210/
 │   ├── screen_001.jpg
 │   ├── webcam_001.jpg
 │   └── parameter_001.csv
-└── eye_tracking_captures/              # Legacy folder (still exists)
-    └── ... (old captures)
+└── ...
 ```
 
-## Components
+## How It Works
 
-### 1. Backend Route (`routes/user_captures.py`)
-- **POST** `/api/user-captures/save/{user_id}` - Save capture files for a specific user
-- **GET** `/api/user-captures/status/{user_id}` - Get capture status for a user
-- **DELETE** `/api/user-captures/clear/{user_id}` - Clear all captures for a user
+### 1. User ID Generation
+- Uses `getOrCreateUserId()` from consentManager
+- Generates unique user ID if none exists
+- Ensures consistent user identification
 
-### 2. Frontend Helper (`Helper/user_savefile.js`)
-- `captureImagesAtUserPoint()` - Main capture function with user-specific storage
-- `saveImageToUserServer()` - Save images to user folder
-- `saveCSVToUserServer()` - Save CSV data to user folder
-- `getUserCaptureStatus()` - Get user's capture status
-- `clearUserCaptures()` - Clear user's captures
-- Uses `getOrCreateUserId()` from `consentManager.js` for user ID management
+### 2. Capture Process
+1. User initiates capture (random dot or calibration)
+2. System generates unique capture group ID
+3. Captures screen image from canvas
+4. Captures webcam image with proper orientation
+5. Creates parameter CSV with metadata
+6. Saves all files with same group ID for consistent numbering
 
-### 3. Next.js API Routes
-- `/api/user-captures/save/[userId].js` - Proxy to backend save endpoint
-- `/api/user-captures/status/[userId].js` - Proxy to backend status endpoint
-- `/api/user-captures/clear/[userId].js` - Proxy to backend clear endpoint
+### 3. File Saving
+- Files are saved to user-specific folders
+- Consistent numbering within each capture group
+- Proper file naming: `{type}_{number}.{extension}`
+- Backend handles file organization and numbering
 
-### 4. Updated Components
-- `countSave.jsx` - Now uses user-specific capture functions
+### 4. Camera Integration
+- `cameraAccess.js` exposes video element globally
+- `countSave.jsx` uses existing video stream
+- Proper image orientation handling (removes mirroring)
+- High-resolution capture with preview generation
 
-## User ID Generation
+## Configuration
 
-The system automatically generates user IDs if none exist:
+### Environment Variables
 
-1. **First Priority**: Uses existing user ID from state manager
-2. **Fallback**: Generates a unique ID using timestamp and random string
-   - Format: `user_{timestamp}_{randomString}`
-   - Example: `user_1691947200000_abc123def`
-
-## API Usage
-
-### Save Capture
-```javascript
-const result = await captureImagesAtUserPoint({
-  point: { x: 100, y: 200 },
-  captureCount: 1,
-  canvasRef: canvasRef,
-  setCaptureCount: setCounter,
-  showCapturePreview: showPreview
-});
+**Frontend (.env.local or next.config.mjs):**
+```bash
+BACKEND_URL=http://localhost:8108
+NEXT_PUBLIC_API_KEY=A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV
+NEXT_PUBLIC_WS_URL=ws://localhost:8108
 ```
 
-### Get Status
-```javascript
-const status = await getUserCaptureStatus();
-// Returns: { user_id, total_captures, last_capture, directory_exists }
+**Backend (.env.backend):**
+```bash
+API_KEY=A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV
 ```
 
-### Clear Captures
-```javascript
-const result = await clearUserCaptures();
-// Removes all files and folder for the current user
+### Port Configuration
+
+- **Auth Service**: Port 8108 (main backend)
+- **Image Service**: Port 8010 (image processing)
+- **Video Service**: Port 8011 (video processing)
+- **Frontend**: Port 3010 (Next.js app)
+
+## Usage
+
+### Starting the System
+
+1. **Start Backend Services:**
+```bash
+cd Main-website
+docker-compose up -d
 ```
 
-## File Naming Convention
+2. **Start Frontend (Development):**
+```bash
+cd Main-website/frontend
+npm run dev
+```
 
-Files are automatically numbered within each user's folder:
-- `screen_001.jpg`, `screen_002.jpg`, etc.
-- `webcam_001.jpg`, `webcam_002.jpg`, etc.
-- `parameter_001.csv`, `parameter_002.csv`, etc.
+### Using the Capture System
 
-## Environment Variables
+1. **Open the application** at `http://localhost:3010`
+2. **Navigate to** the customized dataset collection page
+3. **Start camera** using the camera access component
+4. **Begin capture** - files will be saved to user-specific folders
+5. **Check captures** in the backend folder structure
 
-### Backend
-- `BACKEND_API_KEY` - API key for authentication
+### API Endpoints
 
-### Frontend
-- `NEXT_PUBLIC_API_KEY` - API key for frontend requests
-- `BACKEND_URL` - Backend service URL (default: http://localhost:8108)
+**Save Capture:**
+```bash
+POST /api/user-captures/save/{user_id}
+Content-Type: application/json
+X-API-Key: A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV
 
-## Migration from Old System
+{
+  "imageData": "data:image/jpeg;base64,...",
+  "filename": "screen_001.jpg",
+  "type": "screen",
+  "captureGroup": "capture-1234567890-user123"
+}
+```
 
-The old system still exists in `eye_tracking_captures/` folder. New captures will be saved in user-specific folders, while old captures remain accessible.
+**Get Status:**
+```bash
+GET /api/user-captures/status/{user_id}
+X-API-Key: A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV
+```
 
-## Security Features
+**Clear Captures:**
+```bash
+DELETE /api/user-captures/clear/{user_id}
+X-API-Key: A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV
+```
 
-1. **User Isolation**: Each user's data is stored in separate folders
-2. **API Key Authentication**: All endpoints require valid API keys
-3. **Input Validation**: All inputs are validated before processing
-4. **Error Handling**: Comprehensive error handling and logging
+## Features
 
-## Benefits
+### ✅ Implemented
+- User-specific folder organization
+- Consistent file numbering within capture groups
+- Proper camera image capture with orientation correction
+- High-resolution image capture
+- Preview generation for captured images
+- API key authentication
+- Error handling and logging
+- WebSocket integration for real-time processing
 
-1. **Data Organization**: Each user's captures are clearly separated
-2. **Scalability**: Easy to manage and backup individual user data
-3. **Privacy**: User data is isolated from other users
-4. **Maintenance**: Easy to clear or manage individual user data
-5. **Backup**: Can backup individual user folders independently
+### 🔄 Enhanced
+- Camera access component with global video element exposure
+- Countdown and capture process integration
+- Calibration and random dot capture support
+- File grouping for consistent numbering
+- Backend API integration
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **User ID Not Found**: System will generate a new user ID automatically
-2. **Permission Errors**: Ensure the captures directory has write permissions
-3. **API Key Issues**: Verify environment variables are set correctly
-4. **Backend Connection**: Check if backend service is running on correct port
+1. **Camera not working:**
+   - Check if camera permissions are granted
+   - Ensure HTTPS or localhost for camera access
+   - Verify camera is not in use by other applications
 
-### Logs
+2. **Files not saving:**
+   - Check backend service is running on port 8108
+   - Verify API key is correct
+   - Check user ID generation
 
-Check the following logs for debugging:
-- Backend: `auth_service` logs
-- Frontend: Browser console logs
-- API: Next.js API route logs
+3. **WebSocket connection issues:**
+   - Ensure backend is running
+   - Check WebSocket URL configuration
+   - Verify CORS settings
+
+### Debug Information
+
+The system includes comprehensive logging:
+- Console logs for capture process
+- Backend logs for file operations
+- Error handling with detailed messages
+- API response logging
+
+## Security
+
+- API key authentication for all endpoints
+- User-specific data isolation
+- Secure file storage in backend
+- CORS configuration for cross-origin requests
+- Input validation and sanitization
+
+## Performance
+
+- Efficient image capture and processing
+- Optimized file saving with grouping
+- Minimal memory usage with proper cleanup
+- Fast API responses with proper error handling

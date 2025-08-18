@@ -150,9 +150,7 @@ class GlobalCanvasManager {
       canvas = document.createElement('canvas');
       canvas.className = 'tracking-canvas';
       canvas.id = 'tracking-canvas';
-      console.log('Created new main canvas');
-    } else {
-      console.log('Found existing main canvas');
+
     }
     
     this.canvas = canvas;
@@ -162,7 +160,6 @@ class GlobalCanvasManager {
   // Initialize the main canvas
   initializeCanvas(container = null) {
     if (this.isInitialized) {
-      console.log('Canvas already initialized');
       return this.getCanvas();
     }
     
@@ -182,16 +179,13 @@ class GlobalCanvasManager {
     const ctx = canvas.getContext('2d');
     ctx.fillStyle = 'yellow';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Also set CSS background color for consistency
+    canvas.style.backgroundColor = 'yellow';
 
     // Add to container if not already there
     if (!canvas.parentNode) {
       targetContainer.appendChild(canvas);
-    }
-
-    // Remove placeholder if it exists
-    const placeholder = document.querySelector('#canvas-placeholder');
-    if (placeholder && placeholder.parentNode) {
-      placeholder.parentNode.removeChild(placeholder);
     }
 
     // Store global reference
@@ -202,7 +196,6 @@ class GlobalCanvasManager {
     this.setupResponsiveCanvas(canvas, targetContainer);
 
     this.isInitialized = true;
-    console.log(`Main canvas initialized: ${canvas.width}x${canvas.height}`);
     return canvas;
   }
 
@@ -228,6 +221,7 @@ class GlobalCanvasManager {
     canvas.style.height = '100%';
     canvas.style.display = 'block';
     canvas.style.backgroundColor = 'yellow';
+    canvas.style.zIndex = '1';
     
     // Link with other canvases if they exist
     this.linkWithOtherCanvases(canvas);
@@ -322,7 +316,7 @@ class GlobalCanvasManager {
       left: 0 !important;
       width: 100vw !important;
       height: 100vh !important;
-      z-index: 10;
+      z-index: 15;
       background-color: yellow !important;
       border: none !important;
       display: block !important;
@@ -347,7 +341,6 @@ class GlobalCanvasManager {
     this.hideUIElements();
 
     this.isFullscreen = true;
-    console.log('Main canvas entered fullscreen mode');
     return canvas;
   }
 
@@ -388,7 +381,6 @@ class GlobalCanvasManager {
     this.originalState = null;
     this.isFullscreen = false;
 
-    console.log('Main canvas exited fullscreen mode');
     return canvas;
   }
 
@@ -421,7 +413,20 @@ class GlobalCanvasManager {
     hiddenElements.forEach(el => {
       el.style.display = '';
       el.removeAttribute('data-hidden-by-canvas');
+      
+              // Ensure TopBar has proper z-index
+        if (el.classList.contains('topbar')) {
+          el.style.zIndex = '12';
+          el.style.position = 'relative';
+        }
     });
+    
+            // Also ensure any other UI elements have proper z-index
+        const topbar = document.querySelector('.topbar');
+        if (topbar) {
+          topbar.style.zIndex = '12';
+          topbar.style.position = 'relative';
+        }
   }
 
   // Clear canvas content
@@ -433,8 +438,6 @@ class GlobalCanvasManager {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = 'yellow';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    console.log('Canvas cleared with yellow background');
   }
 
   // Draw dot at position
@@ -552,24 +555,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const checkCameraActivation = useCallback(() => {
     if (typeof window === 'undefined') return false;
     
-    const cameraActivated = localStorage.getItem('cameraActivated');
-    const cameraActivationTime = localStorage.getItem('cameraActivationTime');
-    
-    if (cameraActivated === 'true' && cameraActivationTime) {
-      const activationTime = parseInt(cameraActivationTime);
-      const currentTime = Date.now();
-      const timeDiff = currentTime - activationTime;
-      
-      // Check if activation is still valid (24 hours)
-      if (timeDiff < 24 * 60 * 60 * 1000) {
-        return true;
-      } else {
-        // Clear expired activation
-        localStorage.removeItem('cameraActivated');
-        localStorage.removeItem('cameraActivationTime');
-        return false;
-      }
-    }
+    // Always return false on page refresh/load to deactivate camera
+    // Clear any existing camera activation data
+    localStorage.removeItem('cameraActivated');
+    localStorage.removeItem('cameraActivationTime');
     return false;
   }, []);
 
@@ -577,12 +566,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     if (typeof window === 'undefined') return;
     
     if (activated) {
-      localStorage.setItem('cameraActivated', 'true');
-      localStorage.setItem('cameraActivationTime', Date.now().toString());
+      // Don't persist camera activation to localStorage
+      // This ensures camera deactivates on page refresh
       setIsCameraActivated(true);
       setShowCameraNotification(false);
       setCameraNotificationMessage('');
     } else {
+      // Clear any existing activation data
       localStorage.removeItem('cameraActivated');
       localStorage.removeItem('cameraActivationTime');
       setIsCameraActivated(false);
@@ -592,20 +582,15 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const restoreCameraState = useCallback(() => {
     if (typeof window === 'undefined') return;
     
-    const cameraActivated = checkCameraActivation();
-    if (cameraActivated) {
-      // Restore camera state from localStorage
-      setIsCameraActivated(true);
-      // Don't automatically start camera on page load for security/privacy
-      // User needs to manually click "Show Preview" to start camera
-      setIsCameraActive(false);
-      setShowCamera(false);
-    } else {
-      setIsCameraActivated(false);
-      setIsCameraActive(false);
-      setShowCamera(false);
-    }
-  }, [checkCameraActivation]);
+    // Always deactivate camera on page load/refresh
+    setIsCameraActivated(false);
+    setIsCameraActive(false);
+    setShowCamera(false);
+    
+    // Clear any existing camera activation data
+    localStorage.removeItem('cameraActivated');
+    localStorage.removeItem('cameraActivationTime');
+  }, []);
 
   const showCameraRequiredNotification = useCallback((actionName) => {
     setCameraNotificationMessage(`Please activate camera first by clicking "Show Preview" button to use ${actionName} functionality.`);
@@ -624,6 +609,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     setIsCameraActive(false);
     setShowCamera(false);
     setProcessStatus('Camera activation cleared');
+    // Clear any existing activation data
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('cameraActivated');
+      localStorage.removeItem('cameraActivationTime');
+    }
   }, [setCameraActivation]);
 
   // Function to fetch settings directly from MongoDB
@@ -631,8 +621,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     if (!userId) return null;
     
     try {
-      console.log(`[fetchSettingsFromMongoDB] Fetching settings for user: ${userId}`);
-      
       const response = await fetch(`/api/data-center/settings/${userId}`, {
         headers: {
           'Accept': 'application/json',
@@ -647,8 +635,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       
       const result = await response.json();
       const userSettings = result.data || {};
-      
-      console.log(`[fetchSettingsFromMongoDB] Retrieved settings for user ${userId}:`, userSettings);
       
       // Extract the specific fields we need
       const timesSetRandom = Number(userSettings.times_set_random) || 1;
@@ -679,8 +665,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     if (!userId) return false;
     
     try {
-      console.log(`[saveSettingsToMongoDB] Saving settings for user: ${userId}`, newSettings);
-      
       const response = await fetch(`/api/data-center/settings/${userId}`, {
         method: 'POST',
         headers: {
@@ -696,7 +680,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       }
       
       const result = await response.json();
-      console.log(`[saveSettingsToMongoDB] Settings saved successfully for user ${userId}:`, result);
       
       // Update local cache
       settingsCache.current.set(userId, newSettings);
@@ -712,16 +695,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   // Debug function to test MongoDB integration
   const debugMongoDBIntegration = useCallback(async () => {
     if (!currentUserId) {
-      console.log('[Debug] No current user ID available');
       return;
     }
     
-    console.log(`[Debug] Testing MongoDB integration for user: ${currentUserId}`);
-    console.log(`[Debug] Current local state - randomTimes: ${randomTimes}, delaySeconds: ${delaySeconds}`);
-    
     // Test fetching settings
     const fetchedSettings = await fetchSettingsFromMongoDB(currentUserId);
-    console.log('[Debug] Fetched settings from MongoDB:', fetchedSettings);
     
     // Test saving settings
     const testSettings = {
@@ -729,11 +707,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       delay_set_random: delaySeconds + 1
     };
     const saveResult = await saveSettingsToMongoDB(currentUserId, testSettings);
-    console.log('[Debug] Save test result:', saveResult);
     
     // Fetch again to verify
     const verifySettings = await fetchSettingsFromMongoDB(currentUserId);
-    console.log('[Debug] Verification fetch:', verifySettings);
   }, [currentUserId, randomTimes, delaySeconds, fetchSettingsFromMongoDB, saveSettingsToMongoDB]);
 
   // Global canvas manager instance - initialize only once
@@ -846,11 +822,18 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   useEffect(() => {
     setIsHydrated(true);
     
-    // Check camera activation status from localStorage
-    const cameraActivated = checkCameraActivation();
-    setIsCameraActivated(cameraActivated);
+    // Always deactivate camera on page load/refresh
+    setIsCameraActivated(false);
+    setIsCameraActive(false);
+    setShowCamera(false);
     
-    // Restore camera state from localStorage
+    // Clear any existing camera activation data
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('cameraActivated');
+      localStorage.removeItem('cameraActivationTime');
+    }
+    
+    // Restore camera state (which will deactivate camera)
     restoreCameraState();
     
     // Reset any existing canvas to prevent size accumulation
@@ -867,7 +850,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     
     // Fetch initial settings if we have a current user ID
     if (currentUserId && currentUserId !== 'default') {
-      console.log(`[Initial Mount] Fetching settings for user: ${currentUserId}`);
       fetchSettingsFromMongoDB(currentUserId);
     }
     
@@ -904,6 +886,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       setIsPageActive(false);
       // Cleanup when page is about to unload
       cleanupPageStyles();
+      // Clear camera activation data on page unload
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('cameraActivated');
+        localStorage.removeItem('cameraActivationTime');
+      }
     };
 
     const cleanupPageStyles = () => {
@@ -962,6 +949,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       
       // Cleanup when navigation starts
       if (typeof window !== 'undefined') {
+        // Clear camera activation data when navigating away
+        localStorage.removeItem('cameraActivated');
+        localStorage.removeItem('cameraActivationTime');
+        
         // Remove canvas completely from DOM
         const canvas = document.querySelector('#tracking-canvas');
         if (canvas && canvas.parentNode) {
@@ -1098,7 +1089,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     
     // Initialize the global canvas manager
     const canvas = canvasManager.initializeCanvas();
-    console.log('Global canvas initialized:', canvas ? 'success' : 'failed');
     
     // Ensure canvas has yellow background
     if (canvas) {
@@ -1132,7 +1122,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           delete window.canvasUtils;
         }
       }
-      console.log('MainComponent cleanup - canvas removed');
     };
   }, [canvasManager, isPageActive]);
 
@@ -1146,8 +1135,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         // Extract times_set_random and delay_set_random from MongoDB data
         const timesSetRandom = Number(userSettings.times_set_random) || 1;
         const delaySetRandom = Number(userSettings.delay_set_random) || 3;
-        
-        console.log(`[Settings Update] User ${currentUserId}: times_set_random=${timesSetRandom}, delay_set_random=${delaySetRandom}`);
         
         setRandomTimes(timesSetRandom);
         setDelaySeconds(delaySetRandom);
@@ -1173,7 +1160,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     const handleUserIdChange = (event) => {
       if (event.detail && event.detail.type === 'userIdChange') {
         const newUserId = event.detail.userId;
-        console.log(`[User ID Change] Switching to user: ${newUserId}`);
         setCurrentUserId(newUserId);
         
         // Fetch settings directly from MongoDB for the new user
@@ -1184,8 +1170,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           const userSettings = settings[newUserId];
           const timesSetRandom = Number(userSettings.times_set_random) || 1;
           const delaySetRandom = Number(userSettings.delay_set_random) || 3;
-          
-          console.log(`[User ID Change] User ${newUserId}: times_set_random=${timesSetRandom}, delay_set_random=${delaySetRandom}`);
           
           setRandomTimes(timesSetRandom);
           setDelaySeconds(delaySetRandom);
@@ -1200,8 +1184,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             }
           });
           window.dispatchEvent(event);
-        } else {
-          console.log(`[User ID Change] No cached settings found for user: ${newUserId}, fetching from MongoDB`);
         }
       }
     };
@@ -1217,17 +1199,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       if (event.detail && event.detail.type === 'captureSettings') {
         const { userId, times_set_random, delay_set_random } = event.detail;
         if (userId === currentUserId) {
-          console.log(`[Settings Update Event] User ${userId}: times_set_random=${times_set_random}, delay_set_random=${delay_set_random}`);
-          
           if (times_set_random !== undefined) {
             const newTimes = Number(times_set_random) || 1;
             setRandomTimes(newTimes);
-            console.log(`[Settings Update] Updated times_set_random to: ${newTimes}`);
           }
           if (delay_set_random !== undefined) {
             const newDelay = Number(delay_set_random) || 3;
             setDelaySeconds(newDelay);
-            console.log(`[Settings Update] Updated delay_set_random to: ${newDelay}`);
           }
           
           // Update the settings cache
@@ -1320,11 +1298,41 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.toggleTopBar = (show) => {
+        console.log('🔍 Global toggleTopBar called with:', show, 'Current showTopBar state:', showTopBar);
         setShowTopBar(show);
-        
-        // Also hide metrics when hiding the top bar
+        console.log('🔍 Global TopBar state set to:', show);
+        // Also control metrics visibility
         if (!show) {
           setShowMetrics(false);
+          console.log('🔍 Global Metrics hidden');
+        } else {
+          setShowMetrics(true);
+          console.log('🔍 Global Metrics shown');
+          // Show UI elements if they were hidden by canvas fullscreen
+          if (typeof window !== 'undefined' && window.globalCanvasManager) {
+            window.globalCanvasManager.showUIElements();
+            console.log('🔍 Global UI elements restored after canvas fullscreen');
+            
+            // Debug canvas state
+            const canvas = window.globalCanvasManager.getCanvas();
+            if (canvas) {
+              console.log('🔍 Global Canvas state after TopBar restore:', {
+                position: canvas.style.position,
+                width: canvas.style.width,
+                height: canvas.style.height,
+                zIndex: canvas.style.zIndex,
+                isFullscreen: window.globalCanvasManager.isInFullscreen(),
+                rect: canvas.getBoundingClientRect()
+              });
+              
+              // Exit fullscreen mode if canvas is still in fullscreen
+              if (window.globalCanvasManager.isInFullscreen()) {
+                console.log('🔍 Global Canvas is still in fullscreen, exiting...');
+                window.globalCanvasManager.exitFullscreen();
+                console.log('🔍 Global Canvas fullscreen exited');
+              }
+            }
+          }
         }
       };
     }
@@ -1334,7 +1342,17 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         delete window.toggleTopBar;
       }
     };
-  }, []);
+  }, [showTopBar, setShowTopBar, setShowMetrics]);
+
+  // Debug TopBar state changes
+  useEffect(() => {
+    console.log('🔍 MainComponent: showTopBar state changed to:', showTopBar);
+  }, [showTopBar]);
+
+  // Debug showMetrics state changes
+  useEffect(() => {
+    console.log('🔍 MainComponent: showMetrics state changed to:', showMetrics);
+  }, [showMetrics]);
 
   // Action handlers
   const handleRandomDot = async () => {
@@ -1359,9 +1377,21 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       const randomDotAction = new RandomDotAction({
         canvasRef: { current: canvas },
         toggleTopBar: (show) => {
+          console.log('🔍 RandomDotAction: toggleTopBar called with:', show, 'Current showTopBar state:', showTopBar);
           setShowTopBar(show);
-          if (typeof onActionClick === 'function') {
-            onActionClick('toggleTopBar', show);
+          console.log('🔍 RandomDotAction: TopBar state set to:', show);
+          // Also control metrics visibility
+          if (!show) {
+            setShowMetrics(false);
+            console.log('🔍 RandomDotAction: Metrics hidden');
+          } else {
+            setShowMetrics(true);
+            console.log('🔍 RandomDotAction: Metrics shown');
+            // Show UI elements if they were hidden by canvas fullscreen
+            if (typeof window !== 'undefined' && window.globalCanvasManager) {
+              window.globalCanvasManager.showUIElements();
+              console.log('🔍 RandomDotAction: UI elements restored after canvas fullscreen');
+            }
           }
         },
         setIsCapturing: (capturing) => {
@@ -1422,9 +1452,21 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         },
         setCaptureCounter,
         toggleTopBar: (show) => {
+          console.log('🔍 SetRandomAction: toggleTopBar called with:', show, 'Current showTopBar state:', showTopBar);
           setShowTopBar(show);
-          if (typeof onActionClick === 'function') {
-            onActionClick('toggleTopBar', show);
+          console.log('🔍 SetRandomAction: TopBar state set to:', show);
+          // Also control metrics visibility
+          if (!show) {
+            setShowMetrics(false);
+            console.log('🔍 SetRandomAction: Metrics hidden');
+          } else {
+            setShowMetrics(true);
+            console.log('🔍 SetRandomAction: Metrics shown');
+            // Show UI elements if they were hidden by canvas fullscreen
+            if (typeof window !== 'undefined' && window.globalCanvasManager) {
+              window.globalCanvasManager.showUIElements();
+              console.log('🔍 SetRandomAction: UI elements restored after canvas fullscreen');
+            }
           }
         },
         captureCounter: captureCounter,
@@ -1469,9 +1511,21 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       const setCalibrateAction = new SetCalibrateAction({
         canvasRef: { current: canvas },
         toggleTopBar: (show) => {
+          console.log('🔍 SetCalibrateAction: toggleTopBar called with:', show, 'Current showTopBar state:', showTopBar);
           setShowTopBar(show);
-          if (typeof onActionClick === 'function') {
-            onActionClick('toggleTopBar', show);
+          console.log('🔍 SetCalibrateAction: TopBar state set to:', show);
+          // Also control metrics visibility
+          if (!show) {
+            setShowMetrics(false);
+            console.log('🔍 SetCalibrateAction: Metrics hidden');
+          } else {
+            setShowMetrics(true);
+            console.log('🔍 SetCalibrateAction: Metrics shown');
+            // Show UI elements if they were hidden by canvas fullscreen
+            if (typeof window !== 'undefined' && window.globalCanvasManager) {
+              window.globalCanvasManager.showUIElements();
+              console.log('🔍 SetCalibrateAction: UI elements restored after canvas fullscreen');
+            }
           }
         },
         setIsCapturing: (capturing) => {
@@ -1658,9 +1712,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         handleToggleParameters();
         break;
       case 'metrics':
-        console.log('Metrics toggle clicked, current state:', showMetrics);
-        setShowMetrics(!showMetrics);
-        setProcessStatus(`Metrics ${!showMetrics ? 'shown' : 'hidden'}`);
+        console.log('🔍 Metrics toggle clicked, current state:', showMetrics);
+        const newMetricsState = !showMetrics;
+        setShowMetrics(newMetricsState);
+        setProcessStatus(`Metrics ${newMetricsState ? 'shown' : 'hidden'}`);
+        console.log('🔍 Metrics state set to:', newMetricsState);
         break;
       case 'randomDot':
         console.log('Random Dot button clicked');
@@ -1773,7 +1829,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             left: 0;
             margin: 0;
             padding: 0;
-            z-index: 4;
+            z-index: 1;
           }
         `}</style>
       </Head>
@@ -1809,7 +1865,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           padding: '10px',
           textAlign: 'center',
           boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-          zIndex: 101,
+          zIndex: 11,
           animation: 'fadeIn 0.3s ease-in-out'
         }}>
           <strong>⚠️ {warningMessage}</strong>
@@ -1850,8 +1906,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
               top: 0,
               left: 0,
               right: 0,
-              zIndex: 100,
-              height: '120px'
+              zIndex: 12,
+              height: '120px',
+              backgroundColor: 'rgba(255, 255, 255, 0.95)',
+              borderBottom: 'none'
             }}>
               <TopBar 
                 key={`topbar-${showTopBar}-${showMetrics}`}
@@ -1859,7 +1917,44 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                 onCameraAccess={() => setShowPermissionPopup(true)}
                 outputText={statusMessage || outputText}
                 onOutputChange={(text) => setOutputText(text)}
-                onToggleTopBar={(show) => setShowTopBar(show)}
+                onToggleTopBar={(show) => {
+                  console.log('🔍 TopBar toggle called with:', show, 'Current showTopBar state:', showTopBar);
+                  setShowTopBar(show);
+                  console.log('🔍 TopBar state set to:', show);
+                  // Also control metrics visibility
+                  if (!show) {
+                    setShowMetrics(false);
+                    console.log('🔍 Metrics hidden');
+                  } else {
+                    setShowMetrics(true);
+                    console.log('🔍 Metrics shown');
+                    // Show UI elements if they were hidden by canvas fullscreen
+                    if (typeof window !== 'undefined' && window.globalCanvasManager) {
+                      window.globalCanvasManager.showUIElements();
+                      console.log('🔍 UI elements restored after canvas fullscreen');
+                      
+                      // Debug canvas state
+                      const canvas = window.globalCanvasManager.getCanvas();
+                      if (canvas) {
+                        console.log('🔍 Canvas state after TopBar restore:', {
+                          position: canvas.style.position,
+                          width: canvas.style.width,
+                          height: canvas.style.height,
+                          zIndex: canvas.style.zIndex,
+                          isFullscreen: window.globalCanvasManager.isInFullscreen(),
+                          rect: canvas.getBoundingClientRect()
+                        });
+                        
+                        // Exit fullscreen mode if canvas is still in fullscreen
+                        if (window.globalCanvasManager.isInFullscreen()) {
+                          console.log('🔍 Canvas is still in fullscreen, exiting...');
+                          window.globalCanvasManager.exitFullscreen();
+                          console.log('🔍 Canvas fullscreen exited');
+                        }
+                      }
+                    }
+                  }
+                }}
                 onToggleMetrics={() => setShowMetrics(!showMetrics)}
                 canvasRef={{ current: canvasManager.getCanvas() }}
                 showMetrics={showMetrics}
@@ -1871,6 +1966,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             </div>
           )}
           
+
+
           {/* Show restore button when TopBar is hidden */}
           {!showTopBar && (
             <div className="restore-button-container" style={{
@@ -1957,52 +2054,28 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                   )}
                 </div>
                 
-                {/* Canvas for eye tracking dots */}
+                {/* Canvas container - managed by GlobalCanvasManager */}
                 <div 
                   className="canvas-container" 
                   style={{ 
                     position: 'absolute', 
                     top: 0,
                     left: 0,
-                    width: '100%', 
-                    height: '100%',
-                    backgroundColor: 'yellow',
+                    width: '100vw', 
+                    height: '100vh',
                     overflow: 'hidden',
                     border: 'none',
-                    zIndex: 10,
+                    zIndex: 1,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     pointerEvents: 'auto'
                   }}
                 >
-                  {/* The canvas will be managed by the GlobalCanvasManager */}
-                  <div id="canvas-placeholder" style={{
-                    width: '100%',
-                    height: '100%',
-                    backgroundColor: 'yellow',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <p style={{ color: '#666', fontSize: '14px' }}>
-                      Canvas ready for eye tracking
-                    </p>
-                  </div>
+                  {/* The canvas will be dynamically created and managed by GlobalCanvasManager */}
                 </div>
               </>
             ) : null}
-                  
-            {/* Metrics info */}
-            {isHydrated && showMetrics && (
-              <DisplayResponse 
-                width={metrics.width} 
-                height={metrics.height} 
-                distance={metrics.distance}
-                isVisible={showMetrics}
-              />
-            )}
-            {console.log('Rendering DisplayResponse, showMetrics:', showMetrics, 'isHydrated:', isHydrated)}
             
             {/* Camera component */}
             {isHydrated && typeof window !== 'undefined' && showCamera && (
@@ -2090,6 +2163,18 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
               </div>
             )}
           </div>
+          
+          {/* Metrics info - moved outside preview area to avoid stacking context issues */}
+          {isHydrated && (
+            <DisplayResponse 
+              key={`metrics-${showMetrics}`}
+              width={metrics.width} 
+              height={metrics.height} 
+              distance={metrics.distance}
+              isVisible={showMetrics}
+            />
+          )}
+          {console.log('🔍 Rendering DisplayResponse, showMetrics:', showMetrics, 'isHydrated:', isHydrated)}
         </>
       )}
     </div>

@@ -15,11 +15,11 @@
   display: flex;
   background-color: white;
   padding: 10px 20px;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: none;
   align-items: flex-start;
   box-shadow: 0 0 50px 10px rgba(120, 242, 255, 0.5);
   position: relative;
-  z-index: 10;
+  z-index: 12;
 }
 .topbar-hidden .preview-area {
   height: 100vh;
@@ -138,7 +138,7 @@
 .topbar-right {
   display: flex;
   margin-left: auto;
-  z-index: 20;
+  z-index: 13;
 }
 
 /* Output container (previously notes) */
@@ -282,7 +282,7 @@
   box-shadow: 0 0 50px 10px rgba(120, 242, 255, 0.5);
   color: #333;
   font-size: 14px;
-  z-index: 15;
+  z-index: 20;
   min-width: 150px;
 }
 
@@ -347,6 +347,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1;
 }
 
 .tracking-canvas {
@@ -358,6 +359,7 @@
   object-fit: contain;
   background-color: yellow;
   border: none;
+  z-index: 1;
 }
 
 /* Responsive Canvas Styles */
@@ -411,7 +413,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 99999;
+  z-index: 15;
   background-color: yellow;
   border: none;
   display: block;

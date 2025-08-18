@@ -16,7 +16,7 @@ ENV TORCHVISION_IMAGE_BACKEND=torch
 
 # Install system dependencies for OpenCV, PyTorch, and other requirements
 RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxrender1 \
@@ -36,7 +36,7 @@ RUN apt-get update && apt-get install -y \
     libxvidcore-dev \
     libx264-dev \
     libgtk-3-dev \
-    libatlas-base-dev \
+    libopenblas-dev \
     gfortran \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

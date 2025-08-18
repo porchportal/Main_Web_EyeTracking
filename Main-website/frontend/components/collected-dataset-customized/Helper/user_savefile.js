@@ -39,7 +39,7 @@ export const saveImageToUserServer = async (imageData, filename, type, captureGr
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
       },
       body: JSON.stringify({ 
         imageData, 
@@ -83,7 +83,7 @@ export const saveCSVToUserServer = async (csvData, filename, captureGroup = null
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
       },
       body: JSON.stringify({ 
         imageData: dataUrl, 
@@ -119,7 +119,7 @@ export const getUserCaptureStatus = async () => {
     const response = await fetch(`/api/user-captures/status/${userId}`, {
       method: 'GET',
       headers: {
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
       }
     });
     
@@ -149,7 +149,7 @@ export const clearUserCaptures = async () => {
     const response = await fetch(`/api/user-captures/clear/${userId}`, {
       method: 'DELETE',
       headers: {
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key'
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
       }
     });
     
@@ -207,6 +207,14 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
     let webcamImagePreview = null;
     const videoElement = window.videoElement || document.querySelector('video');
     
+    console.log('Video element for capture:', {
+      found: !!videoElement,
+      videoWidth: videoElement?.videoWidth,
+      videoHeight: videoElement?.videoHeight,
+      readyState: videoElement?.readyState,
+      srcObject: !!videoElement?.srcObject
+    });
+    
     if (videoElement) {
       try {
         // Create a temporary canvas to capture webcam
@@ -221,19 +229,40 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         webcamWidth = tempCanvas.width;
         webcamHeight = tempCanvas.height;
         
-        // Draw video frame to canvas
+        // Draw video frame to canvas - remove horizontal mirroring for capture
+        // The video element has scaleX(-1) for display, but we want the original orientation for capture
+        tempCtx.save();
+        tempCtx.scale(-1, 1); // Mirror horizontally to counteract the display mirroring
+        tempCtx.translate(-tempCanvas.width, 0); // Move to correct position after scaling
         tempCtx.drawImage(videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
+        tempCtx.restore();
         
         // Get high-resolution image
         webcamImage = tempCanvas.toDataURL('image/jpeg', 0.95);
+        console.log('Webcam image captured successfully:', {
+          width: tempCanvas.width,
+          height: tempCanvas.height,
+          imageLength: webcamImage.length
+        });
         
         // Create lower resolution version for preview
         const previewCanvas = document.createElement('canvas');
         const previewCtx = previewCanvas.getContext('2d');
         previewCanvas.width = 320;
         previewCanvas.height = 240;
+        // Also fix the preview image orientation
+        previewCtx.save();
+        previewCtx.scale(-1, 1);
+        previewCtx.translate(-previewCanvas.width, 0);
         previewCtx.drawImage(videoElement, 0, 0, previewCanvas.width, previewCanvas.height);
+        previewCtx.restore();
         webcamImagePreview = previewCanvas.toDataURL('image/jpeg', 0.8);
+        
+        console.log('Preview image created:', {
+          width: previewCanvas.width,
+          height: previewCanvas.height,
+          imageLength: webcamImagePreview.length
+        });
         
         // Clean up temporary canvas
         tempCanvas.remove();
@@ -254,7 +283,12 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
           webcamWidth = tempCanvas.width;
           webcamHeight = tempCanvas.height;
           
+          // Also fix the fallback capture orientation
+          tempCtx.save();
+          tempCtx.scale(-1, 1);
+          tempCtx.translate(-tempCanvas.width, 0);
           tempCtx.drawImage(tempVideo, 0, 0, tempCanvas.width, tempCanvas.height);
+          tempCtx.restore();
           webcamImage = tempCanvas.toDataURL('image/jpeg', 0.95);
           
           tempVideo.pause();
@@ -317,7 +351,7 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
     }
     
     // 5. Return results
-    return {
+    const result = {
       success: true,
       captureId: captureGroupId,
       captureNumber: captureNumber,
@@ -330,6 +364,16 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         webcam: webcamResult
       }
     };
+    
+    console.log('Capture completed successfully:', {
+      captureId: captureGroupId,
+      captureNumber: captureNumber,
+      hasScreenImage: !!screenImage,
+      hasWebcamImage: !!webcamImage,
+      userId: userId
+    });
+    
+    return result;
     
   } catch (error) {
     console.error('❌ Error in captureImagesAtUserPoint:', error);

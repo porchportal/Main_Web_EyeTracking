@@ -15,7 +15,7 @@ ENV TORCHVISION_IMAGE_BACKEND=torch
 
 # Install system dependencies for OpenCV and OpenGL
 RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxrender1 \
@@ -24,7 +24,6 @@ RUN apt-get update && apt-get install -y \
     libglu1-mesa-dev \
     freeglut3-dev \
     mesa-common-dev \
-    libglib2.0-0 \
     libgtk-3-0 \
     libavcodec-dev \
     libavformat-dev \
@@ -35,7 +34,7 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     libpng-dev \
     libtiff-dev \
-    libatlas-base-dev \
+    libopenblas-dev \
     gfortran \
     gcc \
     g++ \

@@ -5,53 +5,26 @@ import { captureImagesAtPoint } from '../Helper/savefile';
 import { captureImagesAtUserPoint } from '../Helper/user_savefile';
 
 /**
- * Get canvas management utilities from global scope (from actionButton.js)
- * @returns {Object} Canvas utilities object
- */
-const getCanvasUtils = () => {
-  if (typeof window !== 'undefined') {
-    return {
-      canvasUtils: window.canvasUtils,
-      canvasManager: window.canvasManager
-    };
-  }
-  return { canvasUtils: null, canvasManager: null };
-};
-
-/**
- * Get or create canvas using the canvas management system from actionButton.js
+ * Get canvas using the global canvas manager from index.js
  * @returns {HTMLCanvasElement} Canvas element
  */
 const getCanvas = () => {
-  const { canvasUtils, canvasManager } = getCanvasUtils();
-  
-  // First try to use canvasUtils from actionButton.js
-  if (canvasUtils && typeof canvasUtils.getCanvas === 'function') {
-    return canvasUtils.getCanvas();
+  if (typeof window !== 'undefined' && window.globalCanvasManager) {
+    return window.globalCanvasManager.getCanvas();
   }
-  
-  // Fallback to canvasManager
-  if (canvasManager && typeof canvasManager.getCanvas === 'function') {
-    return canvasManager.getCanvas() || canvasManager.createCanvas();
-  }
-  
-  // Fallback to direct query
   return document.querySelector('#tracking-canvas');
 };
 
-
 /**
- * Draw dot using the canvas management system
+ * Draw dot using the global canvas manager
  * @param {number} x - X coordinate
  * @param {number} y - Y coordinate
  * @param {number} radius - Dot radius
  * @returns {boolean} Success status
  */
 const drawDotWithCanvasManager = (x, y, radius = 12) => {
-  const { canvasUtils } = getCanvasUtils();
-  
-  if (canvasUtils && typeof canvasUtils.drawDot === 'function') {
-    return canvasUtils.drawDot(x, y, radius);
+  if (typeof window !== 'undefined' && window.globalCanvasManager) {
+    return window.globalCanvasManager.drawDot(x, y, radius);
   }
   
   // Fallback: manually draw dot
@@ -587,21 +560,33 @@ export const captureImages = async (options) => {
     }
   
     try {
-      // Get highest resolution constraints
-      const constraints = await getHighestResolutionConstraints();
-      console.log('Using camera constraints:', constraints);
-      
-      // Get a new stream with the highest resolution
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      const videoTrack = stream.getVideoTracks()[0];
-      const settings = videoTrack.getSettings();
-      console.log('Actual camera settings:', settings);
-      
-      // Update video element with new stream
+      // Use the existing video element from cameraAccess.js if available
       const videoElement = window.videoElement || document.querySelector('video');
-      if (videoElement) {
-        videoElement.srcObject = stream;
-        await videoElement.play();
+      
+      if (videoElement && videoElement.srcObject) {
+        console.log('Using existing video stream from cameraAccess.js');
+        const videoTrack = videoElement.srcObject.getVideoTracks()[0];
+        if (videoTrack) {
+          const settings = videoTrack.getSettings();
+          console.log('Current camera settings:', settings);
+        }
+      } else {
+        console.log('No existing video stream found, getting new stream...');
+        // Get highest resolution constraints
+        const constraints = await getHighestResolutionConstraints();
+        console.log('Using camera constraints:', constraints);
+        
+        // Get a new stream with the highest resolution
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        const videoTrack = stream.getVideoTracks()[0];
+        const settings = videoTrack.getSettings();
+        console.log('Actual camera settings:', settings);
+        
+        // Update video element with new stream
+        if (videoElement) {
+          videoElement.srcObject = stream;
+          await videoElement.play();
+        }
       }
       
       // Call the captureImagesAtUserPoint with all necessary parameters
@@ -615,18 +600,13 @@ export const captureImages = async (options) => {
   
       console.log('Capture successful with ID:', result.captureId);
       
-      // Clean up the stream
-      stream.getTracks().forEach(track => track.stop());
-      
       return {
         screenImage: result?.screenImage || '',
         webcamImage: result?.webcamImage || '',
         success: true,
         captureId: result?.captureId,
-        resolution: {
-          width: settings.width,
-          height: settings.height
-        }
+        userId: result?.userId,
+        captureNumber: result?.captureNumber
       };
     } catch (err) {
       console.error('[captureImages] Unexpected error:', err);
@@ -732,28 +712,13 @@ export const calibrationCapture = async (options) => {
         }
       }, 300);
   
-      // Use captureAndPreviewProcess instead of directly calling captureImagesAtPoint
-      const captureResult = await captureAndPreviewProcess({
+      // Use user-specific capture function
+      const captureResult = await captureImagesAtUserPoint({
+        point: point,
+        captureCount: captureCounter,
         canvasRef,
-        position: point,
-        captureCounter,
-        setCaptureCounter,
-        setProcessStatus: (status) => {
-          if (typeof status === 'string') {
-            setProcessStatus?.(status);
-          } else if (status && typeof status === 'object') {
-            setProcessStatus?.(status.processStatus || '');
-          }
-        },
-        toggleTopBar,
-        onStatusUpdate: (status) => {
-          if (typeof status === 'string') {
-            setProcessStatus?.(status);
-          } else if (status && typeof status === 'object') {
-            setProcessStatus?.(status.processStatus || '');
-          }
-        },
-        captureFolder
+        setCaptureCount: setCaptureCounter,
+        showCapturePreview
       });
   
       // Ensure proper return even if captureResult is null
@@ -765,7 +730,9 @@ export const calibrationCapture = async (options) => {
         screenImage: safeResult.screenImage || '',
         webcamImage: safeResult.webcamImage || '',
         success: true,
-        point
+        point,
+        userId: safeResult.userId,
+        captureNumber: safeResult.captureNumber
       };
       
     } catch (error) {
@@ -927,7 +894,20 @@ export const captureAndPreviewProcess = async (options) => {
       }
     }, 300);
 
+    // Ensure video element is available for capture
+    const videoElement = window.videoElement || document.querySelector('video');
+    if (videoElement) {
+      console.log('Video element found for capture:', {
+        videoWidth: videoElement.videoWidth,
+        videoHeight: videoElement.videoHeight,
+        readyState: videoElement.readyState
+      });
+    } else {
+      console.warn('No video element found for capture');
+    }
+
     // Use captureImagesAtUserPoint from user_savefile.js
+    console.log('Starting image capture...');
     const captureResult = await captureImagesAtUserPoint({
       point: position,
       captureCount: captureCounter,
@@ -935,6 +915,8 @@ export const captureAndPreviewProcess = async (options) => {
       setCaptureCount: setCaptureCounter,
       showCapturePreview
     });
+
+    console.log('Image capture completed:', captureResult);
 
     if (setProcessStatus) {
       setProcessStatus(`Captured dot at x=${Math.round(position.x)}, y=${Math.round(position.y)}`);
@@ -947,14 +929,58 @@ export const captureAndPreviewProcess = async (options) => {
       });
     }
 
-    // Show TopBar again with delay
+    // 🔥 SHOW TOPBAR AGAIN AFTER COMPLETE SAVE PROCESS 🔥
+    // Add a small delay to ensure save process and preview are fully complete
     setTimeout(() => {
-      if (typeof toggleTopBar === 'function') {
-        toggleTopBar(true);
-      } else if (typeof window !== 'undefined' && window.toggleTopBar) {
+      console.log('🔍 captureAndPreviewProcess: About to restore TopBar directly...');
+      
+      // Method 1: Try to call the global TopBar toggle function directly
+      if (typeof window !== 'undefined' && window.toggleTopBar) {
+        console.log('🔍 captureAndPreviewProcess: Calling global window.toggleTopBar(true)...');
         window.toggleTopBar(true);
+        console.log('🔍 captureAndPreviewProcess: Global TopBar toggle called successfully');
       }
-    }, 2500);
+      
+      // Method 2: Try to call the passed toggleTopBar function
+      else if (typeof toggleTopBar === 'function') {
+        console.log('🔍 captureAndPreviewProcess: Calling passed toggleTopBar(true)...');
+        toggleTopBar(true);
+        console.log('🔍 captureAndPreviewProcess: Passed toggleTopBar(true) called successfully');
+      }
+      
+      // Method 3: Directly restore UI elements if canvas manager is available
+      else if (typeof window !== 'undefined' && window.globalCanvasManager) {
+        console.log('🔍 captureAndPreviewProcess: Restoring UI elements via global canvas manager...');
+        window.globalCanvasManager.showUIElements();
+        console.log('🔍 captureAndPreviewProcess: UI elements restored via canvas manager');
+      }
+      
+      // Method 4: Direct DOM manipulation as last resort
+      else {
+        console.log('🔍 captureAndPreviewProcess: Using direct DOM manipulation to restore TopBar...');
+        const hiddenElements = document.querySelectorAll('[data-hidden-by-canvas="true"]');
+        hiddenElements.forEach(el => {
+          el.style.display = '';
+          el.removeAttribute('data-hidden-by-canvas');
+          
+          // Ensure TopBar has proper z-index
+          if (el.classList.contains('topbar')) {
+            el.style.zIndex = '1000';
+            el.style.position = 'relative';
+          }
+        });
+        
+        // Also ensure TopBar is visible and has proper z-index
+        const topbar = document.querySelector('.topbar');
+        if (topbar) {
+          topbar.style.display = '';
+          topbar.style.zIndex = '1000';
+          topbar.style.position = 'relative';
+        }
+        
+        console.log('🔍 captureAndPreviewProcess: Direct DOM restoration completed');
+      }
+    }, 500); // Small delay to ensure save process is complete
 
     return captureResult;
 
@@ -965,14 +991,55 @@ export const captureAndPreviewProcess = async (options) => {
       setProcessStatus(`Fatal error: ${error.message}`);
     }
     
-    // Ensure TopBar is shown even on error
-    setTimeout(() => {
-      if (typeof toggleTopBar === 'function') {
-        toggleTopBar(true);
-      } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-        window.toggleTopBar(true);
+    // 🔥 ENSURE TOPBAR IS SHOWN EVEN ON ERROR 🔥
+    console.log('🔍 captureAndPreviewProcess: Error case - About to restore TopBar directly...');
+    
+    // Method 1: Try to call the global TopBar toggle function directly
+    if (typeof window !== 'undefined' && window.toggleTopBar) {
+      console.log('🔍 captureAndPreviewProcess: Error case - Calling global window.toggleTopBar(true)...');
+      window.toggleTopBar(true);
+      console.log('🔍 captureAndPreviewProcess: Error case - Global TopBar toggle called successfully');
+    }
+    
+    // Method 2: Try to call the passed toggleTopBar function
+    else if (typeof toggleTopBar === 'function') {
+      console.log('🔍 captureAndPreviewProcess: Error case - Calling passed toggleTopBar(true)...');
+      toggleTopBar(true);
+      console.log('🔍 captureAndPreviewProcess: Error case - Passed toggleTopBar(true) called successfully');
+    }
+    
+    // Method 3: Directly restore UI elements if canvas manager is available
+    else if (typeof window !== 'undefined' && window.globalCanvasManager) {
+      console.log('🔍 captureAndPreviewProcess: Error case - Restoring UI elements via global canvas manager...');
+      window.globalCanvasManager.showUIElements();
+      console.log('🔍 captureAndPreviewProcess: Error case - UI elements restored via canvas manager');
+    }
+    
+    // Method 4: Direct DOM manipulation as last resort
+    else {
+      console.log('🔍 captureAndPreviewProcess: Error case - Using direct DOM manipulation to restore TopBar...');
+      const hiddenElements = document.querySelectorAll('[data-hidden-by-canvas="true"]');
+      hiddenElements.forEach(el => {
+        el.style.display = '';
+        el.removeAttribute('data-hidden-by-canvas');
+        
+        // Ensure TopBar has proper z-index
+        if (el.classList.contains('topbar')) {
+          el.style.zIndex = '1000';
+          el.style.position = 'relative';
+        }
+      });
+      
+      // Also ensure TopBar is visible and has proper z-index
+      const topbar = document.querySelector('.topbar');
+      if (topbar) {
+        topbar.style.display = '';
+        topbar.style.zIndex = '1000';
+        topbar.style.position = 'relative';
       }
-    }, 1500);
+      
+      console.log('🔍 captureAndPreviewProcess: Error case - Direct DOM restoration completed');
+    }
     
     // Return a minimal valid object to prevent null reference errors
     return {

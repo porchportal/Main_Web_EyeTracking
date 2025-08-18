@@ -40,7 +40,7 @@ const CameraAccessComponent = ({
     setWsStatus('connecting');
     try {
       // Connect to FastAPI WebSocket endpoint
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8010';
+      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8108';
       const ws = new WebSocket(`${wsUrl}/ws/video`);
       wsRef.current = ws;
 
@@ -130,11 +130,31 @@ const CameraAccessComponent = ({
   useEffect(() => {
     if (!isShowing) {
       disconnectWebSocket();
+      // Clear any camera activation data when camera is closed
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('cameraActivated');
+        localStorage.removeItem('cameraActivationTime');
+        // Clean up global video element when camera is closed
+        if (window.videoElement) {
+          delete window.videoElement;
+          console.log('Global video element cleaned up (camera closed)');
+        }
+      }
       return;
     }
 
     return () => {
       disconnectWebSocket();
+      // Clear any camera activation data when component unmounts
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('cameraActivated');
+        localStorage.removeItem('cameraActivationTime');
+        // Clean up global video element
+        if (window.videoElement) {
+          delete window.videoElement;
+          console.log('Global video element cleaned up');
+        }
+      }
     };
   }, [isShowing]);
 
@@ -411,6 +431,16 @@ const CameraAccessComponent = ({
           console.log('Video playing successfully!');
           setIsVideoReady(true);
           
+          // Expose video element to global scope for capture functions
+          window.videoElement = video;
+          console.log('Video element exposed to global scope:', {
+            videoElement: window.videoElement,
+            videoWidth: video.videoWidth,
+            videoHeight: video.videoHeight,
+            readyState: video.readyState,
+            srcObject: !!video.srcObject
+          });
+          
           if (wsStatus === 'connected') {
             processingInterval.current = setInterval(captureAndProcessFrame, 33);
           }
@@ -505,6 +535,13 @@ const CameraAccessComponent = ({
     setIsVideoReady(false);
     setErrorMessage('');
     setIsStarting(false);
+    
+    // Clean up global video element
+    if (typeof window !== 'undefined' && window.videoElement) {
+      delete window.videoElement;
+      console.log('Global video element cleaned up (camera stopped)');
+    }
+    
     console.log('Camera stopped successfully');
   };
 
@@ -897,23 +934,7 @@ const CameraAccessComponent = ({
         </div>
       )}
 
-      {/* Error messages */}
-      {(errorMessage || wsStatus === 'error') && (
-        <div style={{
-          position: 'absolute',
-          top: '50px',
-          right: '10px',
-          padding: '8px 12px',
-          backgroundColor: 'rgba(255, 0, 0, 0.8)',
-          color: 'white',
-          borderRadius: '4px',
-          zIndex: 3,
-          maxWidth: '300px',
-          fontSize: '12px'
-        }}>
-          {wsStatus === 'error' ? `Connection Error: ${errorMessage}` : errorMessage}
-        </div>
-      )}
+
 
 
 

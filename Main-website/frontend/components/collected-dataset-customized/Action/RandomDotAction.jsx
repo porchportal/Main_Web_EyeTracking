@@ -9,121 +9,47 @@ import {
 } from './countSave.jsx';
 
 class RandomDotAction {
-  constructor(config) {
-    // Required properties
-    this.canvasRef = config.canvasRef;
-    this.toggleTopBar = config.toggleTopBar;
-    this.setIsCapturing = config.setIsCapturing;
-    this.setProcessStatus = config.setProcessStatus;
-    this.setCurrentDot = config.setCurrentDot;
-    this.triggerCameraAccess = config.triggerCameraAccess;
-    this.onStatusUpdate = config.onStatusUpdate;
-    this.saveImageToServer = config.saveImageToServer;
-    this.setCaptureCounter = config.setCaptureCounter;
-    this.captureCounter = config.captureCounter;
-    
-    // Get canvas manager and utilities from global scope (from actionButton.js)
-    this.canvasManager = typeof window !== 'undefined' ? window.canvasManager : null;
-    this.canvasUtils = typeof window !== 'undefined' ? window.canvasUtils : null;
+  constructor(options) {
+    this.canvasRef = options.canvasRef;
+    this.toggleTopBar = options.toggleTopBar;
+    this.setIsCapturing = options.setIsCapturing;
+    this.setProcessStatus = options.setProcessStatus;
+    this.setCurrentDot = options.setCurrentDot;
+    this.triggerCameraAccess = options.triggerCameraAccess;
+    this.onStatusUpdate = options.onStatusUpdate;
+    this.saveImageToServer = options.saveImageToServer;
+    this.setCaptureCounter = options.setCaptureCounter;
+    this.captureCounter = options.captureCounter;
   }
 
-  // Get or create canvas using the canvas management system from actionButton.js
+  // Get canvas using the global canvas manager
   getCanvas() {
-    // First try to use canvasUtils from actionButton.js
-    if (this.canvasUtils && typeof this.canvasUtils.getCanvas === 'function') {
-      return this.canvasUtils.getCanvas();
+    if (typeof window !== 'undefined' && window.globalCanvasManager) {
+      return window.globalCanvasManager.getCanvas();
     }
-    
-    // Fallback to canvasManager
-    if (this.canvasManager && typeof this.canvasManager.getCanvas === 'function') {
-      return this.canvasManager.getCanvas() || this.canvasManager.createCanvas();
-    }
-    
-    // Fallback to canvasRef if canvasManager not available
     return this.canvasRef?.current || document.querySelector('#tracking-canvas');
   }
 
-  // Enter fullscreen using the canvas management system
+  // Enter fullscreen using the global canvas manager
   enterFullscreen() {
-    if (this.canvasUtils && typeof this.canvasUtils.enterFullscreen === 'function') {
-      return this.canvasUtils.enterFullscreen();
+    if (typeof window !== 'undefined' && window.globalCanvasManager) {
+      return window.globalCanvasManager.enterFullscreen();
     }
-    
-    if (this.canvasManager && typeof this.canvasManager.enterFullscreen === 'function') {
-      this.canvasManager.enterFullscreen();
-      return this.canvasManager.getCanvas();
-    }
-    
-    // Fallback: manually enter fullscreen
-    const canvas = this.getCanvas();
-    if (canvas) {
-      document.body.appendChild(canvas);
-      canvas.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: 10;
-        background-color: yellow;
-        border: none;
-        display: block;
-        opacity: 1;
-        pointer-events: auto;
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      `;
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      
-      // Clear with yellow background
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'yellow';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    return canvas;
+    return null;
   }
 
-  // Exit fullscreen using the canvas management system
+  // Exit fullscreen using the global canvas manager
   exitFullscreen() {
-    if (this.canvasUtils && typeof this.canvasUtils.exitFullscreen === 'function') {
-      return this.canvasUtils.exitFullscreen();
+    if (typeof window !== 'undefined' && window.globalCanvasManager) {
+      return window.globalCanvasManager.exitFullscreen();
     }
-    
-    if (this.canvasManager && typeof this.canvasManager.exitFullscreen === 'function') {
-      this.canvasManager.exitFullscreen();
-      return this.canvasManager.getCanvas();
-    }
-    
-    // Fallback: manually exit fullscreen
-    const canvas = this.getCanvas();
-    if (canvas) {
-      const container = document.querySelector('.canvas-container') || 
-                        document.querySelector('.main-content') ||
-                        document.body;
-      container.appendChild(canvas);
-      canvas.style.position = 'relative';
-      canvas.style.top = '';
-      canvas.style.left = '';
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
-      canvas.style.zIndex = '';
-      canvas.style.backgroundColor = 'yellow';
-    }
-    return canvas;
+    return null;
   }
 
-  // Clear canvas using the canvas management system
+  // Clear canvas using the global canvas manager
   clearCanvas() {
-    if (this.canvasUtils && typeof this.canvasUtils.clear === 'function') {
-      this.canvasUtils.clear();
-      return;
-    }
-    
-    if (this.canvasManager && typeof this.canvasManager.clear === 'function') {
-      this.canvasManager.clear();
-      return;
+    if (typeof window !== 'undefined' && window.globalCanvasManager) {
+      return window.globalCanvasManager.clear();
     }
     
     // Fallback: manually clear canvas
@@ -136,10 +62,10 @@ class RandomDotAction {
     }
   }
 
-  // Draw dot using the canvas management system
+  // Draw dot using the global canvas manager
   drawDot(x, y, radius = 12) {
-    if (this.canvasUtils && typeof this.canvasUtils.drawDot === 'function') {
-      return this.canvasUtils.drawDot(x, y, radius);
+    if (typeof window !== 'undefined' && window.globalCanvasManager) {
+      return window.globalCanvasManager.drawDot(x, y, radius);
     }
     
     // Fallback: manually draw dot
@@ -162,11 +88,13 @@ class RandomDotAction {
       }
     });
     
-    // Hide the TopBar before showing dot
+    // 🔥 HIDE THE TOPBAR BEFORE SHOWING DOT 🔥
+    console.log('RandomDotAction: Hiding TopBar before showing dot...');
     if (typeof this.toggleTopBar === 'function') {
       this.toggleTopBar(false);
-    } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-      window.toggleTopBar(false);
+      console.log('RandomDotAction: TopBar hidden via toggleTopBar function');
+    } else {
+      console.warn('RandomDotAction: No toggleTopBar function available to hide TopBar');
     }
     
     // Set capturing state if function exists
@@ -231,12 +159,10 @@ class RandomDotAction {
           // Clear the dot after capture using canvas management system
           this.clearCanvas();
           
-          // Set capturing state to false after reasonable delay
-          setTimeout(() => {
-            if (typeof this.setIsCapturing === 'function') {
-              this.setIsCapturing(false);
-            }
-          }, 2200); // Wait a bit longer than the preview duration
+          // Set capturing state to false immediately
+          if (typeof this.setIsCapturing === 'function') {
+            this.setIsCapturing(false);
+          }
           
         } catch (error) {
           console.error("Error in capture and preview process:", error);
@@ -247,12 +173,17 @@ class RandomDotAction {
             this.setIsCapturing(false);
           }
           
-          // Clear error message after delay
-          setTimeout(() => {
-            if (typeof this.setProcessStatus === 'function') {
-              this.setProcessStatus('');
-            }
-          }, 3000);
+          // Clear error message and ensure TopBar is restored immediately
+          if (typeof this.setProcessStatus === 'function') {
+            this.setProcessStatus('');
+          }
+          
+          // 🔥 ENSURE TOPBAR IS RESTORED ON ERROR 🔥
+          console.log('RandomDotAction: Error case TopBar restoration...');
+          if (typeof this.toggleTopBar === 'function') {
+            this.toggleTopBar(true);
+            console.log('RandomDotAction: TopBar restored via toggleTopBar function (error case)');
+          }
         }
       } else {
         console.error("Canvas reference is null - cannot draw dot");

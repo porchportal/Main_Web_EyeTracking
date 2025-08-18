@@ -3,250 +3,61 @@
 
 import React from 'react';
 import { generateCalibrationPoints } from './CalibratePoints.jsx';
-import { drawRedDot, runCountdown, showCapturePreview } from './countSave.jsx';
-import { captureImagesAtPoint } from '../Helper/savefile';
+import { captureAndPreviewProcess } from './countSave.jsx';
+import { getRandomPosition } from './countSave.jsx';
 
 class SetCalibrateAction {
-  constructor(config) {
-    // Required properties
-    this.canvasRef = config.canvasRef;
-    this.toggleTopBar = config.toggleTopBar;
-    this.setIsCapturing = config.setIsCapturing;
-    this.setProcessStatus = config.setProcessStatus;
-    this.setCurrentDot = config.setCurrentDot;
-    this.triggerCameraAccess = config.triggerCameraAccess;
-    this.onStatusUpdate = config.onStatusUpdate;
-    this.saveImageToServer = config.saveImageToServer;
-    this.setCaptureCounter = config.setCaptureCounter;
-    this.captureCounter = config.captureCounter;
-    
-    // Get canvas manager and utilities from global scope (from actionButton.js)
-    this.canvasManager = typeof window !== 'undefined' ? window.canvasManager : null;
-    this.canvasUtils = typeof window !== 'undefined' ? window.canvasUtils : null;
-    
-    // Store original canvas dimensions for coordinate transformation
+  constructor(options) {
+    this.canvasRef = options.canvasRef;
+    this.toggleTopBar = options.toggleTopBar;
+    this.setIsCapturing = options.setIsCapturing;
+    this.setProcessStatus = options.setProcessStatus;
+    this.setCurrentDot = options.setCurrentDot;
+    this.triggerCameraAccess = options.triggerCameraAccess;
+    this.onStatusUpdate = options.onStatusUpdate;
+    this.saveImageToServer = options.saveImageToServer;
+    this.setCaptureCounter = options.setCaptureCounter;
+    this.captureCounter = options.captureCounter;
     this.originalCanvasDimensions = null;
   }
 
-  // Get or create canvas using the canvas management system from actionButton.js
+  // Get canvas using the global canvas manager
   getCanvas() {
-    // Use the global canvas manager
     if (typeof window !== 'undefined' && window.globalCanvasManager) {
       return window.globalCanvasManager.getCanvas();
     }
-    
-    // Fallback to canvasUtils from actionButton.js
-    if (this.canvasUtils && typeof this.canvasUtils.getCanvas === 'function') {
-      return this.canvasUtils.getCanvas();
-    }
-    
-    // Fallback to canvasManager
-    if (this.canvasManager && typeof this.canvasManager.getCanvas === 'function') {
-      return this.canvasManager.getCanvas() || this.canvasManager.createCanvas();
-    }
-    
-    // Fallback to canvasRef if canvasManager not available
     return this.canvasRef?.current || document.querySelector('#tracking-canvas');
   }
 
-  // Transform canvas coordinates to viewport coordinates when in fullscreen
-  transformCoordinates(canvas, point) {
-    if (!canvas || !point) return point;
+  // Check if canvas is in fullscreen mode
+  isCanvasFullscreen() {
+    const isFullscreen = typeof window !== 'undefined' && window.globalCanvasManager ? 
+      window.globalCanvasManager.isInFullscreen() : false;
     
-    // If canvas is in fullscreen mode, we need to transform coordinates
-    const isFullscreen = this.canvasManager?.isInFullscreen() || 
-                        this.canvasUtils?.isFullscreen?.() ||
-                        (canvas.style.position === 'fixed' && canvas.style.width === '100vw');
-    
-    console.log('Transform coordinates check:', {
-      canvasPosition: canvas.style.position,
-      canvasWidth: canvas.style.width,
-      canvasHeight: canvas.style.height,
-      isFullscreen,
-      originalPoint: point,
-      canvasRect: canvas.getBoundingClientRect()
-    });
-    
-    if (isFullscreen) {
-      // Get the canvas's bounding rect to understand its position in the viewport
-      const canvasRect = canvas.getBoundingClientRect();
-      
-      // Check if canvas is properly positioned
-      const isProperlyPositioned = canvasRect.left === 0 && canvasRect.top === 0 &&
-                                  canvasRect.width === window.innerWidth && 
-                                  canvasRect.height === window.innerHeight;
-      
-      console.log('Canvas positioning check:', {
-        canvasRect,
-        windowSize: { width: window.innerWidth, height: window.innerHeight },
-        isProperlyPositioned
-      });
-      
-      // Calculate the scale factors
-      const scaleX = canvasRect.width / canvas.width;
-      const scaleY = canvasRect.height / canvas.height;
-      
-      // Transform the coordinates
-      const transformedPoint = {
-        x: point.x * scaleX + canvasRect.left,
-        y: point.y * scaleY + canvasRect.top,
-        label: point.label
-      };
-      
-      console.log('Coordinate transformation:', {
-        original: point,
-        transformed: transformedPoint,
-        canvasRect,
-        scale: { x: scaleX, y: scaleY },
-        canvasDimensions: { width: canvas.width, height: canvas.height }
-      });
-      
-      return transformedPoint;
-    }
-    
-    // If not fullscreen, return original coordinates
-    return point;
+    const canvas = this.getCanvas();
+    return isFullscreen || (canvas && canvas.style.position === 'fixed' && canvas.style.width === '100vw');
   }
 
-  // Enter fullscreen using the canvas management system
+  // Enter fullscreen using the global canvas manager
   enterFullscreen() {
-    // Use the global canvas manager
     if (typeof window !== 'undefined' && window.globalCanvasManager) {
       return window.globalCanvasManager.enterFullscreen();
     }
-    
-    if (this.canvasUtils && typeof this.canvasUtils.enterFullscreen === 'function') {
-      return this.canvasUtils.enterFullscreen();
-    }
-    
-    if (this.canvasManager && typeof this.canvasManager.enterFullscreen === 'function') {
-      this.canvasManager.enterFullscreen();
-      return this.canvasManager.getCanvas();
-    }
-    
-    // Fallback: manually enter fullscreen
-    const canvas = this.getCanvas();
-    if (canvas) {
-      // Store original dimensions before going fullscreen
-      this.originalCanvasDimensions = {
-        width: canvas.width,
-        height: canvas.height
-      };
-      
-      // Remove canvas from its current parent
-      if (canvas.parentNode) {
-        canvas.parentNode.removeChild(canvas);
-      }
-      
-      // Append to body and set fullscreen styles
-      document.body.appendChild(canvas);
-      
-      // Set fullscreen styles with proper positioning
-      canvas.style.cssText = `
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        z-index: 99999 !important;
-        background-color: yellow !important;
-        border: none !important;
-        display: block !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
-        margin: 0 !important;
-        padding: 0 !important;
-        box-sizing: border-box !important;
-        transform: none !important;
-      `;
-      
-      // Set canvas dimensions to match viewport
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      
-      // Clear with yellow background
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'yellow';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Force a reflow to ensure styles are applied
-      canvas.offsetHeight;
-      
-      console.log('Canvas fullscreen setup:', {
-        width: canvas.width,
-        height: canvas.height,
-        style: canvas.style.cssText,
-        rect: canvas.getBoundingClientRect()
-      });
-    }
-    return canvas;
+    return null;
   }
 
-  // Exit fullscreen using the canvas management system
+  // Exit fullscreen using the global canvas manager
   exitFullscreen() {
-    // Use the global canvas manager
     if (typeof window !== 'undefined' && window.globalCanvasManager) {
       return window.globalCanvasManager.exitFullscreen();
     }
-    
-    if (this.canvasUtils && typeof this.canvasUtils.exitFullscreen === 'function') {
-      return this.canvasUtils.exitFullscreen();
-    }
-    
-    if (this.canvasManager && typeof this.canvasManager.exitFullscreen === 'function') {
-      this.canvasManager.exitFullscreen();
-      return this.canvasManager.getCanvas();
-    }
-    
-    // Fallback: manually exit fullscreen
-    const canvas = this.getCanvas();
-    if (canvas) {
-      const container = document.querySelector('.canvas-container') || 
-                        document.querySelector('.main-content') ||
-                        document.body;
-      container.appendChild(canvas);
-      canvas.style.position = 'relative';
-      canvas.style.top = '';
-      canvas.style.left = '';
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
-      canvas.style.zIndex = '';
-      canvas.style.backgroundColor = 'yellow';
-      
-      // Restore original dimensions if available
-      if (this.originalCanvasDimensions) {
-        canvas.width = this.originalCanvasDimensions.width;
-        canvas.height = this.originalCanvasDimensions.height;
-        this.originalCanvasDimensions = null;
-      }
-    }
-    return canvas;
+    return null;
   }
 
-  // Restore elements that were hidden during fullscreen
-  restoreHiddenElements() {
-    const hiddenElements = document.querySelectorAll('[data-hidden-by-canvas="true"]');
-    hiddenElements.forEach(el => {
-      el.style.display = '';
-      el.removeAttribute('data-hidden-by-canvas');
-    });
-  }
-
-  // Clear canvas using the canvas management system
+  // Clear canvas using the global canvas manager
   clearCanvas() {
-    // Use the global canvas manager
     if (typeof window !== 'undefined' && window.globalCanvasManager) {
       return window.globalCanvasManager.clear();
-    }
-    
-    if (this.canvasUtils && typeof this.canvasUtils.clear === 'function') {
-      this.canvasUtils.clear();
-      return;
-    }
-    
-    if (this.canvasManager && typeof this.canvasManager.clear === 'function') {
-      this.canvasManager.clear();
-      return;
     }
     
     // Fallback: manually clear canvas
@@ -259,156 +70,59 @@ class SetCalibrateAction {
     }
   }
 
-  // Draw dot using the canvas management system
+  // Draw dot using the global canvas manager
   drawDot(x, y, radius = 12) {
-    // Use the global canvas manager
     if (typeof window !== 'undefined' && window.globalCanvasManager) {
       return window.globalCanvasManager.drawDot(x, y, radius);
-    }
-    
-    if (this.canvasUtils && typeof this.canvasUtils.drawDot === 'function') {
-      return this.canvasUtils.drawDot(x, y, radius);
     }
     
     // Fallback: manually draw dot
     const canvas = this.getCanvas();
     if (canvas) {
       const ctx = canvas.getContext('2d');
-      drawRedDot(ctx, x, y, radius, false);
+      // Draw the dot with a bright red color
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = 'red';
+      ctx.fill();
+      
+      // Add glow effect for better visibility
+      ctx.beginPath();
+      ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      
+      // Add a second larger glow for even better visibility
+      ctx.beginPath();
+      ctx.arc(x, y, radius + 6, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
       return true;
     }
     return false;
   }
 
-  // Wait until canvas is fully ready
-  async waitForCanvas(maxTries = 20, interval = 100) {
-    for (let i = 0; i < maxTries; i++) {
+  // Wait for canvas to be available
+  async waitForCanvas() {
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    while (attempts < maxAttempts) {
       const canvas = this.getCanvas();
       if (canvas && canvas.width > 0 && canvas.height > 0) {
         return canvas;
       }
-      await new Promise(resolve => setTimeout(resolve, interval));
-    }
-    throw new Error("Canvas not ready after multiple attempts");
-  }
-
-  // Test coordinate transformation
-  testCoordinateTransformation(canvas) {
-    console.log('Testing coordinate transformation...');
-    
-    const testPoint = { x: 100, y: 100, label: 'Test' };
-    const transformed = this.transformCoordinates(canvas, testPoint);
-    
-    console.log('Test transformation result:', {
-      original: testPoint,
-      transformed: transformed,
-      canvasInfo: {
-        width: canvas.width,
-        height: canvas.height,
-        style: {
-          position: canvas.style.position,
-          width: canvas.style.width,
-          height: canvas.style.height
-        },
-        rect: canvas.getBoundingClientRect()
-      }
-    });
-    
-    return transformed;
-  }
-
-  // Ensure canvas is properly positioned and sized for fullscreen
-  ensureCanvasFullscreen(canvas) {
-    if (!canvas) return false;
-    
-    // Remove any conflicting elements that might interfere
-    this.removeConflictingElements();
-    
-    // Ensure canvas is in body
-    if (canvas.parentNode !== document.body) {
-      if (canvas.parentNode) {
-        canvas.parentNode.removeChild(canvas);
-      }
-      document.body.appendChild(canvas);
+      
+      console.log(`Waiting for canvas... attempt ${attempts + 1}/${maxAttempts}`);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
     }
     
-    // Force canvas to cover entire viewport
-    canvas.style.cssText = `
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
-      z-index: 99999 !important;
-      background-color: white !important;
-      border: none !important;
-      display: block !important;
-      opacity: 1 !important;
-      pointer-events: auto !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      box-sizing: border-box !important;
-      transform: none !important;
-    `;
-    
-    // Set dimensions to match viewport
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    
-    // Clear with white background
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Force reflow
-    canvas.offsetHeight;
-    
-    // Verify positioning
-    const rect = canvas.getBoundingClientRect();
-    const isProperlyPositioned = rect.left === 0 && rect.top === 0 &&
-                                rect.width === window.innerWidth && 
-                                rect.height === window.innerHeight;
-    
-    console.log('Canvas fullscreen verification:', {
-      rect,
-      windowSize: { width: window.innerWidth, height: window.innerHeight },
-      isProperlyPositioned,
-      canvasDimensions: { width: canvas.width, height: canvas.height }
-    });
-    
-    return isProperlyPositioned;
-  }
-
-  // Remove any conflicting elements that might interfere with fullscreen canvas
-  removeConflictingElements() {
-    // Hide any elements that might interfere with fullscreen display
-    const elementsToHide = [
-      '.topbar',
-      '.canvas-container', 
-      '.main-content',
-      '.metrics-panel',
-      '.display-metrics',
-      'nav',
-      'header',
-      '.button-groups',
-      '.control-buttons'
-    ];
-    
-    elementsToHide.forEach(selector => {
-      const elements = document.querySelectorAll(selector);
-      elements.forEach(el => {
-        if (el.style.display !== 'none') {
-          el.style.display = 'none';
-          el.setAttribute('data-hidden-by-canvas', 'true');
-        }
-      });
-    });
-    
-    // Remove any existing countdown elements
-    const existingCountdowns = document.querySelectorAll('.dot-countdown, .calibrate-countdown');
-    existingCountdowns.forEach(el => {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    });
+    console.error('Canvas not available after maximum attempts');
+    return null;
   }
 
   // Main function to handle calibration sequence
@@ -416,8 +130,6 @@ class SetCalibrateAction {
     // Hide the TopBar before starting calibration
     if (typeof this.toggleTopBar === 'function') {
       this.toggleTopBar(false);
-    } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-      window.toggleTopBar(false);
     }
     
     // Set capturing state if function exists
@@ -453,19 +165,6 @@ class SetCalibrateAction {
 
         // Use canvas management system to enter fullscreen
         this.enterFullscreen();
-
-        // Ensure canvas is properly positioned and sized
-        const isProperlyPositioned = this.ensureCanvasFullscreen(canvas);
-        if (!isProperlyPositioned) {
-          console.warn('Canvas not properly positioned for fullscreen, attempting to fix...');
-          // Try one more time after a short delay
-          setTimeout(() => {
-            this.ensureCanvasFullscreen(canvas);
-          }, 100);
-        }
-
-        // Test coordinate transformation
-        this.testCoordinateTransformation(canvas);
 
         // Generate calibration points based on ORIGINAL canvas size
         const points = generateCalibrationPoints(this.originalCanvasDimensions.width, this.originalCanvasDimensions.height);
@@ -593,12 +292,15 @@ class SetCalibrateAction {
             // Capture images at this point (use original coordinates for capture)
             console.log(`Capturing calibration point ${i+1}/${points.length} at (${originalPoint.x}, ${originalPoint.y})`);
             
-            const captureResult = await captureImagesAtPoint({
-              point: originalPoint, // Use original coordinates for capture
-              captureCount: this.captureCounter,
+            const captureResult = await captureAndPreviewProcess({
               canvasRef: { current: canvas },
-              setCaptureCount: this.setCaptureCounter,
-              showCapturePreview
+              position: originalPoint,
+              captureCounter: this.captureCounter,
+              setCaptureCounter: this.setCaptureCounter,
+              setProcessStatus: this.setProcessStatus,
+              toggleTopBar: this.toggleTopBar,
+              onStatusUpdate: this.onStatusUpdate,
+              captureFolder: 'eye_tracking_captures'
             });
 
             if (captureResult && (captureResult.screenImage || captureResult.success)) {
@@ -647,22 +349,12 @@ class SetCalibrateAction {
         // Exit fullscreen and restore canvas using canvas management system
         this.exitFullscreen();
         
-        // Restore hidden elements
-        this.restoreHiddenElements();
-        
         // Set capturing state to false if function exists
         if (typeof this.setIsCapturing === 'function') {
           this.setIsCapturing(false);
         }
         
-        // Show TopBar again after a delay
-        setTimeout(() => {
-          if (typeof this.toggleTopBar === 'function') {
-            this.toggleTopBar(true);
-          } else if (typeof window !== 'undefined' && window.toggleTopBar) {
-            window.toggleTopBar(true);
-          }
-        }, 1000);
+        // TopBar restoration is now handled by captureAndPreviewProcess
       }
     }, 200);
   };

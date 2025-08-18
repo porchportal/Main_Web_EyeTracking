@@ -4,7 +4,7 @@
     top: 10px;
     right: 10px;
     display: flex;
-    z-index: 10;
+    z-index: 13;
   }
   
   .notes-output {
@@ -60,6 +60,7 @@
     position: absolute;
     right: 10px;
     top: 100px !important; /* Override the default positioning */
+    z-index: 20;
   }
   
   /* Responsive adjustments for small screens */
