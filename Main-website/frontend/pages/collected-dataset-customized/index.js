@@ -138,30 +138,37 @@ class GlobalCanvasManager {
 
   // Get or create the single main canvas
   getCanvas() {
-    if (this.canvas && this.canvas.parentNode) {
-      return this.canvas;
-    }
-    
-    // Try to find existing canvas
+    // Always try to find existing canvas first
     let canvas = document.querySelector('#tracking-canvas');
     
-    if (!canvas) {
-      // Create new canvas only if none exists
+    if (canvas) {
+      // If we found an existing canvas, use it
+      this.canvas = canvas;
+      return canvas;
+    }
+    
+    // Only create new canvas if none exists
+    if (!this.canvas) {
       canvas = document.createElement('canvas');
       canvas.className = 'tracking-canvas';
       canvas.id = 'tracking-canvas';
-
+      this.canvas = canvas;
     }
     
-    this.canvas = canvas;
-    return canvas;
+    return this.canvas;
   }
 
   // Initialize the main canvas
   initializeCanvas(container = null) {
-    if (this.isInitialized) {
-      return this.getCanvas();
-    }
+    // Remove any existing canvases first to prevent duplicates
+    const existingCanvases = document.querySelectorAll('#tracking-canvas');
+    existingCanvases.forEach((existingCanvas, index) => {
+      if (index > 0) { // Keep only the first one
+        if (existingCanvas.parentNode) {
+          existingCanvas.parentNode.removeChild(existingCanvas);
+        }
+      }
+    });
     
     const canvas = this.getCanvas();
     if (!canvas) return null;
@@ -216,14 +223,20 @@ class GlobalCanvasManager {
     canvas.width = containerWidth;
     canvas.height = containerHeight;
 
-    // Update CSS to match
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
+    // Update CSS to match viewport units for fullscreen effect
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
     canvas.style.display = 'block';
     canvas.style.backgroundColor = 'yellow';
     canvas.style.zIndex = '1';
+    canvas.style.position = 'fixed';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.margin = '0';
+    canvas.style.padding = '0';
+    canvas.style.overflow = 'hidden';
     
-    // Link with other canvases if they exist
+    // Remove any other canvases to prevent overlapping
     this.linkWithOtherCanvases(canvas);
   }
 
@@ -234,16 +247,10 @@ class GlobalCanvasManager {
     
     allCanvases.forEach(otherCanvas => {
       if (otherCanvas !== canvas && otherCanvas.id !== 'tracking-canvas') {
-        // Sync dimensions with other canvases
-        otherCanvas.width = canvas.width;
-        otherCanvas.height = canvas.height;
-        otherCanvas.style.width = '100%';
-        otherCanvas.style.height = '100%';
-        
-        // Clear and redraw other canvases
-        const ctx = otherCanvas.getContext('2d');
-        ctx.fillStyle = 'yellow';
-        ctx.fillRect(0, 0, otherCanvas.width, otherCanvas.height);
+        // Remove other canvases to prevent overlapping
+        if (otherCanvas.parentNode) {
+          otherCanvas.parentNode.removeChild(otherCanvas);
+        }
       }
     });
   }
@@ -266,6 +273,9 @@ class GlobalCanvasManager {
           const ctx = canvas.getContext('2d');
           ctx.fillStyle = 'yellow';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Remove any duplicate canvases that might have been created
+          this.linkWithOtherCanvases(canvas);
         }
       }
     });
@@ -279,6 +289,9 @@ class GlobalCanvasManager {
       const ctx = canvas.getContext('2d');
       ctx.fillStyle = 'yellow';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Remove any duplicate canvases that might have been created
+      this.linkWithOtherCanvases(canvas);
     };
 
     window.addEventListener('resize', handleWindowResize);
@@ -476,10 +489,13 @@ class GlobalCanvasManager {
       window.removeEventListener('resize', this.canvas._windowResizeHandler);
     }
 
-    // Remove canvas completely from DOM
-    if (this.canvas && this.canvas.parentNode) {
-      this.canvas.parentNode.removeChild(this.canvas);
-    }
+    // Remove ALL canvases from DOM to prevent duplicates
+    const allCanvases = document.querySelectorAll('canvas');
+    allCanvases.forEach(canvas => {
+      if (canvas.parentNode) {
+        canvas.parentNode.removeChild(canvas);
+      }
+    });
 
     this.canvas = null;
     this.originalState = null;
@@ -780,7 +796,17 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       ctx.fillStyle = 'yellow';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Link with other canvases
+      // Update CSS to use viewport units for fullscreen effect
+      canvas.style.width = '100vw';
+      canvas.style.height = '100vh';
+      canvas.style.position = 'fixed';
+      canvas.style.top = '0';
+      canvas.style.left = '0';
+      canvas.style.margin = '0';
+      canvas.style.padding = '0';
+      canvas.style.overflow = 'hidden';
+      
+      // Remove any duplicate canvases
       canvasManager.linkWithOtherCanvases(canvas);
       
       return true;
@@ -789,6 +815,27 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     // Link with other canvases
     linkWithOtherCanvases: (canvas) => {
       canvasManager.linkWithOtherCanvases(canvas);
+    },
+    
+    // Ensure only one canvas exists
+    ensureSingleCanvas: () => {
+      const allCanvases = document.querySelectorAll('canvas');
+      let mainCanvas = null;
+      
+      allCanvases.forEach((canvas, index) => {
+        if (index === 0) {
+          mainCanvas = canvas;
+          canvas.id = 'tracking-canvas';
+          canvas.className = 'tracking-canvas';
+        } else {
+          // Remove duplicate canvases
+          if (canvas.parentNode) {
+            canvas.parentNode.removeChild(canvas);
+          }
+        }
+      });
+      
+      return mainCanvas;
     }
   }), [canvasManager]);
 
@@ -836,15 +883,36 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     // Restore camera state (which will deactivate camera)
     restoreCameraState();
     
-    // Reset any existing canvas to prevent size accumulation
+    // Ensure only one canvas exists and prevent scrolling
     if (typeof window !== 'undefined') {
-      const existingCanvas = document.querySelector('#tracking-canvas');
-      if (existingCanvas) {
-        existingCanvas.width = 800;
-        existingCanvas.height = 600;
-        existingCanvas.style.width = '100%';
-        existingCanvas.style.height = '100%';
-        existingCanvas.style.backgroundColor = 'yellow';
+      // Prevent page scrolling
+      document.body.style.overflow = 'hidden';
+      document.documentElement.style.overflow = 'hidden';
+      
+      // Remove any existing canvases to prevent duplicates
+      const existingCanvases = document.querySelectorAll('canvas');
+      existingCanvases.forEach((canvas, index) => {
+        if (index > 0) { // Keep only the first canvas
+          if (canvas.parentNode) {
+            canvas.parentNode.removeChild(canvas);
+          }
+        }
+      });
+      
+      // Reset the main canvas if it exists
+      const mainCanvas = document.querySelector('#tracking-canvas');
+      if (mainCanvas) {
+        mainCanvas.width = window.innerWidth;
+        mainCanvas.height = window.innerHeight;
+        mainCanvas.style.width = '100vw';
+        mainCanvas.style.height = '100vh';
+        mainCanvas.style.backgroundColor = 'yellow';
+        mainCanvas.style.position = 'fixed';
+        mainCanvas.style.top = '0';
+        mainCanvas.style.left = '0';
+        mainCanvas.style.margin = '0';
+        mainCanvas.style.padding = '0';
+        mainCanvas.style.overflow = 'hidden';
       }
     }
     
@@ -863,6 +931,14 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         document.body.style.height = '';
         document.body.style.width = '';
         document.documentElement.style.overflow = '';
+        
+        // Remove all canvases
+        const allCanvases = document.querySelectorAll('canvas');
+        allCanvases.forEach(canvas => {
+          if (canvas.parentNode) {
+            canvas.parentNode.removeChild(canvas);
+          }
+        });
       }
     };
   }, [currentUserId, fetchSettingsFromMongoDB, checkCameraActivation, restoreCameraState]);
@@ -1087,6 +1163,16 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     // Only initialize canvas if page is active
     if (!isPageActive) return;
     
+    // Remove any existing canvases first to prevent duplicates
+    if (typeof window !== 'undefined') {
+      const existingCanvases = document.querySelectorAll('canvas');
+      existingCanvases.forEach(canvas => {
+        if (canvas.parentNode) {
+          canvas.parentNode.removeChild(canvas);
+        }
+      });
+    }
+    
     // Initialize the global canvas manager
     const canvas = canvasManager.initializeCanvas();
     
@@ -1096,7 +1182,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       ctx.fillStyle = 'yellow';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Sync all canvases after initialization
+      // Remove any duplicate canvases after initialization
       setTimeout(() => {
         canvasManager.linkWithOtherCanvases(canvas);
       }, 100);
@@ -1105,11 +1191,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     return () => {
       // Cleanup canvas on component unmount
       if (typeof window !== 'undefined') {
-        // Remove canvas completely from DOM
-        const canvas = document.querySelector('#tracking-canvas');
-        if (canvas && canvas.parentNode) {
-          canvas.parentNode.removeChild(canvas);
-        }
+        // Remove ALL canvases from DOM to prevent duplicates
+        const allCanvases = document.querySelectorAll('canvas');
+        allCanvases.forEach(canvas => {
+          if (canvas.parentNode) {
+            canvas.parentNode.removeChild(canvas);
+          }
+        });
         
         // Cleanup global canvas manager
         if (window.globalCanvasManager) {
@@ -1814,7 +1902,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       top: 0,
       left: 0,
       margin: 0,
-      padding: 0
+      padding: 0,
+      backgroundColor: 'transparent'
     }}>
       <Head>
         <title>Camera Dataset Collection</title>
@@ -1830,6 +1919,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             margin: 0;
             padding: 0;
             z-index: 1;
+            background-color: transparent;
           }
         `}</style>
       </Head>
@@ -2008,7 +2098,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: '#f5f5f5',
+              backgroundColor: 'transparent',
               overflow: 'hidden',
               zIndex: 1
             }}
@@ -2058,17 +2148,16 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                 <div 
                   className="canvas-container" 
                   style={{ 
-                    position: 'absolute', 
+                    height: '100vh',
+                    width: '100vw',
+                    overflow: 'hidden',
+                    position: 'fixed',
                     top: 0,
                     left: 0,
-                    width: '100vw', 
-                    height: '100vh',
-                    overflow: 'hidden',
+                    margin: 0,
+                    padding: 0,
                     border: 'none',
                     zIndex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
                     pointerEvents: 'auto'
                   }}
                 >
