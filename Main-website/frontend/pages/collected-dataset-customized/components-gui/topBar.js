@@ -29,14 +29,13 @@ const TopBar = ({
   onCameraAccess,
   outputText,
   onOutputChange,
-  onToggleTopBar,
-  onToggleMetrics,
   canvasRef,
   isTopBarShown = true,
   isCanvasVisible = true,
   showMetrics = true,
   isCameraActive = false,
-  isCameraActivated = false
+  isCameraActivated = false,
+  selectedCamerasCount = 0
 }) => {
   const router = useRouter();
   const [canvasStatus, setCanvasStatus] = useState(isCanvasVisible);
@@ -254,20 +253,17 @@ const TopBar = ({
 
   const handleToggleTopBar = () => {
     console.log('🔍 TopBar: handleToggleTopBar called, current isTopBarShown:', isTopBarShown);
-    console.log('🔍 TopBar: onToggleTopBar function type:', typeof onToggleTopBar);
-    onToggleTopBar(!isTopBarShown);
-    console.log('🔍 TopBar: onToggleTopBar called with:', !isTopBarShown);
+    // Use global control function
+    if (typeof window !== 'undefined' && window.toggleTopBar) {
+      window.toggleTopBar(!isTopBarShown);
+    }
   };
   
   const handleToggleMetrics = () => {
     console.log('🔍 TopBar: handleToggleMetrics called, current showMetrics:', showMetrics);
-    // Use action handler if available, otherwise fallback to direct toggle
-    if (onButtonClick) {
-      console.log('🔍 TopBar: Using action handler for metrics');
-      onButtonClick('metrics');
-    } else {
-      console.log('🔍 TopBar: Using direct toggle for metrics');
-      onToggleMetrics();
+    // Use global control function
+    if (typeof window !== 'undefined' && window.toggleMetrics) {
+      window.toggleMetrics(!showMetrics);
     }
   };
 
@@ -281,8 +277,7 @@ const TopBar = ({
     isTopBarShown,
     showMetrics,
     isCameraActivated,
-    isCameraActive,
-    onToggleTopBar: typeof onToggleTopBar
+    isCameraActive
   });
 
   // Debug showMetrics prop changes
@@ -365,36 +360,36 @@ const TopBar = ({
             <div className="button-row">
               <button 
                 className="btn"
-                onClick={() => handleButtonClick('headPose')}
-              >
-                Draw Head pose
-              </button>
-              <button 
-                className="btn"
-                onClick={() => handleButtonClick('boundingBox')}
-              >
-                Show Bounding Box
-              </button>
-            </div>
-            
-            <div className="button-row">
-              <button 
-                className="btn"
                 onClick={() => handleButtonClick('preview')}
               >
                 Show Preview
               </button>
               <button 
-                className="btn"
-                onClick={() => handleButtonClick('mask')}
+                className="btn camera-select-btn"
+                onClick={() => handleButtonClick('selectCamera')}
+                style={{
+                  position: 'relative',
+                  backgroundColor: '#4CAF50',
+                  color: 'white'
+                }}
               >
-                😊 Show Mask
-              </button>
-              <button 
-                className="btn"
-                onClick={() => handleButtonClick('parameters')}
-              >
-                Parameters
+                📷 Select Camera
+                <span className="camera-count" style={{
+                  position: 'absolute',
+                  top: '-5px',
+                  right: '-5px',
+                  backgroundColor: selectedCamerasCount > 0 ? '#4CAF50' : '#ff4444',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '18px',
+                  height: '18px',
+                  fontSize: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {selectedCamerasCount}
+                </span>
               </button>
             </div>
           </div>

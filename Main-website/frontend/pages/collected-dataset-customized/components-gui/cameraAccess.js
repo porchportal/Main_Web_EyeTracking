@@ -56,7 +56,6 @@ const CameraAccessComponent = ({
       }, 5000);
 
       ws.onopen = () => {
-        console.log('WebSocket connected to FastAPI backend');
         clearTimeout(connectionTimeout);
         setWsStatus('connected');
         setErrorMessage('');
@@ -72,12 +71,11 @@ const CameraAccessComponent = ({
           setProcessingResults(result);
           // drawResults(result);
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+          // Error parsing WebSocket message
         }
       };
 
       ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
         clearTimeout(connectionTimeout);
         setWsStatus('error');
         setErrorMessage('Failed to connect to FastAPI backend. Please check if the server is running.');
@@ -85,7 +83,6 @@ const CameraAccessComponent = ({
       };
 
       ws.onclose = (event) => {
-        console.log('WebSocket disconnected:', event.code, event.reason);
         clearTimeout(connectionTimeout);
         setWsStatus('disconnected');
         setIsLinked(false);
@@ -101,7 +98,6 @@ const CameraAccessComponent = ({
         }
       };
     } catch (error) {
-      console.error('Error creating WebSocket:', error);
       setWsStatus('error');
       setErrorMessage('Failed to create WebSocket connection. Please check your network connection.');
       setIsLinked(false);
@@ -137,7 +133,6 @@ const CameraAccessComponent = ({
         // Clean up global video element when camera is closed
         if (window.videoElement) {
           delete window.videoElement;
-          console.log('Global video element cleaned up (camera closed)');
         }
       }
       return;
@@ -152,7 +147,6 @@ const CameraAccessComponent = ({
         // Clean up global video element
         if (window.videoElement) {
           delete window.videoElement;
-          console.log('Global video element cleaned up');
         }
       }
     };
@@ -231,14 +225,11 @@ const CameraAccessComponent = ({
 
       // 3. Initialize MediaDevices API
       if (!navigator.mediaDevices) {
-        console.warn('MediaDevices API not available, initializing...');
         navigator.mediaDevices = {};
       }
 
       // 4. Enhanced MediaDevices Support
       if (!navigator.mediaDevices.getUserMedia) {
-        console.warn('getUserMedia not available, checking implementations...');
-        
         // Try all possible implementations
         const implementations = {
           standard: navigator.mediaDevices.getUserMedia,
@@ -261,8 +252,6 @@ const CameraAccessComponent = ({
         }
 
         if (getUserMedia) {
-          console.log(`Using ${implementationName} implementation of getUserMedia`);
-          
           // Wrap the implementation in a Promise
           navigator.mediaDevices.getUserMedia = function(constraints) {
             return new Promise((resolve, reject) => {
@@ -305,15 +294,13 @@ const CameraAccessComponent = ({
         if (navigator.permissions && navigator.permissions.query) {
           const permissionResult = await navigator.permissions.query({ name: 'camera' });
           permissionStatus = permissionResult.state;
-          console.log('Camera permission status:', permissionStatus);
 
           permissionResult.onchange = () => {
-            console.log('Camera permission changed to:', permissionResult.state);
             permissionStatus = permissionResult.state;
           };
         }
       } catch (permissionError) {
-        console.warn('Could not check camera permissions:', permissionError);
+        // Could not check camera permissions
       }
 
       // 7. Handle Permission States
@@ -322,9 +309,7 @@ const CameraAccessComponent = ({
       }
 
       // 8. Get Camera Constraints
-      console.log('Starting camera access with highest resolution...');
       const constraints = await getHighestResolutionConstraints();
-      console.log('Using camera constraints:', constraints);
 
       // 9. Add Fallback Constraints
       const fallbackConstraints = {
@@ -340,18 +325,14 @@ const CameraAccessComponent = ({
       // 10. Try to Access Camera with Permission Handling
       let mediaStream;
       try {
-        console.log('Attempting to access camera with high resolution...');
         mediaStream = await navigator.mediaDevices.getUserMedia({
           ...constraints,
           audio: false
         });
       } catch (error) {
-        console.warn('Failed to get high resolution stream, trying fallback constraints:', error);
         try {
-          console.log('Attempting to access camera with fallback constraints...');
           mediaStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
         } catch (fallbackError) {
-          console.error('Failed to get camera access with fallback constraints:', fallbackError);
           
           // Provide specific guidance based on error type
           if (fallbackError.name === 'NotAllowedError') {
@@ -370,7 +351,6 @@ const CameraAccessComponent = ({
         }
       }
 
-      console.log('Camera access granted successfully!');
       setStream(mediaStream);
 
       // 11. Setup Video Element with improved error handling
@@ -428,43 +408,28 @@ const CameraAccessComponent = ({
           
           // Try to play immediately
           await video.play();
-          console.log('Video playing successfully!');
           setIsVideoReady(true);
           
           // Expose video element to global scope for capture functions
           window.videoElement = video;
-          console.log('Video element exposed to global scope:', {
-            videoElement: window.videoElement,
-            videoWidth: video.videoWidth,
-            videoHeight: video.videoHeight,
-            readyState: video.readyState,
-            srcObject: !!video.srcObject
-          });
           
           if (wsStatus === 'connected') {
             processingInterval.current = setInterval(captureAndProcessFrame, 33);
           }
         } catch (playError) {
-          console.error('Video play failed:', playError);
-          
           // Handle specific play errors
           if (playError.name === 'AbortError') {
-            console.warn('Video play was aborted, this is normal during component unmount');
             return; // Don't throw error for abort
-                     } else if (playError.name === 'NotAllowedError') {
-             // For autoplay blocked, just set video as ready and let it play when user interacts
-             console.log('Autoplay blocked, setting video as ready');
-             setIsVideoReady(true);
-             console.log('Video ready but waiting for user interaction');
-           } else {
+          } else if (playError.name === 'NotAllowedError') {
+            // For autoplay blocked, just set video as ready and let it play when user interacts
+            setIsVideoReady(true);
+          } else {
             // For other errors, just set video as ready
-            console.warn('Video play error, but setting as ready:', playError.message);
             setIsVideoReady(true);
           }
         }
       }
     } catch (error) {
-      console.error('Camera access error:', error);
       let errorMessage = 'Camera error: ';
       
       if (error.name === 'NotAllowedError') {
@@ -494,8 +459,6 @@ const CameraAccessComponent = ({
   };
 
   const stopCamera = () => {
-    console.log('Stopping camera...');
-    
     // Clear processing interval first
     if (processingInterval.current) {
       clearInterval(processingInterval.current);
@@ -504,10 +467,8 @@ const CameraAccessComponent = ({
     
     // Stop all tracks in the stream
     if (stream) {
-      console.log('Stopping stream tracks...');
       stream.getTracks().forEach(track => {
         track.stop();
-        console.log(`Stopped track: ${track.kind}`);
       });
       setStream(null);
     }
@@ -520,9 +481,8 @@ const CameraAccessComponent = ({
         video.currentTime = 0;
         video.srcObject = null;
         video.load(); // Reset the video element
-        console.log('Video element reset successfully');
       } catch (error) {
-        console.warn('Error resetting video element:', error);
+        // Error resetting video element
       }
     }
     
@@ -539,10 +499,7 @@ const CameraAccessComponent = ({
     // Clean up global video element
     if (typeof window !== 'undefined' && window.videoElement) {
       delete window.videoElement;
-      console.log('Global video element cleaned up (camera stopped)');
     }
-    
-    console.log('Camera stopped successfully');
   };
 
   // Start camera on component mount if isShowing is true
@@ -551,10 +508,8 @@ const CameraAccessComponent = ({
     
     const handleCameraLifecycle = async () => {
       if (isShowing && isMounted) {
-        console.log('Starting camera...');
         await startCamera();
       } else if (!isShowing && isMounted) {
-        console.log('Stopping camera...');
         stopCamera();
       }
     };
@@ -563,7 +518,6 @@ const CameraAccessComponent = ({
     
     return () => {
       isMounted = false;
-      console.log('Component unmounting, cleaning up camera...');
       stopCamera();
     };
   }, [isShowing]);
@@ -835,23 +789,20 @@ const CameraAccessComponent = ({
         muted
         autoPlay={false}
         onLoadedMetadata={() => {
-          console.log('Video metadata loaded');
+          // Video metadata loaded
         }}
         onCanPlay={() => {
-          console.log('Video can play');
           // Try to play when video is ready
           if (videoRef.current && !isVideoReady) {
             videoRef.current.play().catch(error => {
-              console.log('Auto-play on canplay failed:', error);
+              // Auto-play on canplay failed
             });
           }
         }}
         onPlay={() => {
-          console.log('Video started playing');
           setIsVideoReady(true);
         }}
         onError={(e) => {
-          console.error('Video error:', e);
           setErrorMessage('Video playback error occurred');
         }}
       />

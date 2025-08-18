@@ -526,10 +526,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [showCameraPlaceholder, setShowCameraPlaceholder] = useState(false);
-  const [showHeadPose, setShowHeadPose] = useState(false);
-  const [showBoundingBox, setShowBoundingBox] = useState(false);
-  const [showMask, setShowMask] = useState(false);
-  const [showParameters, setShowParameters] = useState(false);
+  const [showCameraSelector, setShowCameraSelector] = useState(false);
+  const [availableCameras, setAvailableCameras] = useState([]);
+  const [selectedCameras, setSelectedCameras] = useState([]);
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0, percentage: 100 });
   const [metrics, setMetrics] = useState({ width: '---', height: '---', distance: '---' });
   const [captureCounter, setCaptureCounter] = useState(1);
@@ -566,6 +565,63 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   // Add cache for settings
   const settingsCache = useRef(new Map());
   const lastSettingsUpdate = useRef(new Map());
+  
+  // Camera selection and management functions
+  const getAvailableCameras = useCallback(async () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        
+        const cameras = videoDevices.map((device, index) => ({
+          id: device.deviceId,
+          label: device.label || `Camera ${index + 1}`,
+          index: index
+        }));
+        
+        setAvailableCameras(cameras);
+        
+        // Auto-select camera based on availability
+        if (cameras.length === 1) {
+          // If only one camera, auto-select it
+          setSelectedCameras([cameras[0].id]);
+          setProcessStatus(`Auto-selected camera: ${cameras[0].label}`);
+        } else if (cameras.length > 1 && selectedCameras.length === 0) {
+          // If multiple cameras but none selected, select the first one as default
+          setSelectedCameras([cameras[0].id]);
+          setProcessStatus(`Default camera selected: ${cameras[0].label}`);
+        }
+        
+        return cameras;
+      }
+    } catch (error) {
+      console.error('Error getting available cameras:', error);
+      setProcessStatus('Error getting camera list');
+    }
+    return [];
+  }, [selectedCameras.length]);
+
+  const handleCameraSelection = useCallback((cameraId, isSelected) => {
+    setSelectedCameras(prev => {
+      if (isSelected) {
+        if (!prev.includes(cameraId)) {
+          return [...prev, cameraId];
+        }
+      } else {
+        return prev.filter(id => id !== cameraId);
+      }
+      return prev;
+    });
+  }, []);
+
+  const openCameraSelector = useCallback(() => {
+    setShowCameraSelector(true);
+    getAvailableCameras();
+  }, [getAvailableCameras]);
+
+  const closeCameraSelector = useCallback(() => {
+    setShowCameraSelector(false);
+  }, []);
   
   // Camera state management functions
   const checkCameraActivation = useCallback(() => {
@@ -921,6 +977,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       fetchSettingsFromMongoDB(currentUserId);
     }
     
+    // Auto-detect available cameras
+    getAvailableCameras();
+    
     // Cleanup function to reset page state when navigating away
     return () => {
       // Reset any global styles or state that might affect other pages
@@ -941,7 +1000,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         });
       }
     };
-  }, [currentUserId, fetchSettingsFromMongoDB, checkCameraActivation, restoreCameraState]);
+  }, [currentUserId, fetchSettingsFromMongoDB, checkCameraActivation, restoreCameraState, getAvailableCameras]);
 
   // Handle page visibility changes
   useEffect(() => {
@@ -1382,55 +1441,50 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     };
   }, [canvasManager, canvasUtils, fetchSettingsFromMongoDB, saveSettingsToMongoDB, debugMongoDBIntegration, randomTimes, delaySeconds, currentUserId, isCameraActivated, checkCameraActivation, setCameraActivation, showCameraRequiredNotification, clearCameraActivation]);
 
-  // Make toggleTopBar function available globally
+  // Make TopBar control functions available globally
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Direct TopBar control
       window.toggleTopBar = (show) => {
-        console.log('🔍 Global toggleTopBar called with:', show, 'Current showTopBar state:', showTopBar);
+        console.log('🔍 Direct TopBar control:', show);
         setShowTopBar(show);
-        console.log('🔍 Global TopBar state set to:', show);
-        // Also control metrics visibility
+        
+        // Auto-control metrics with TopBar
         if (!show) {
           setShowMetrics(false);
-          console.log('🔍 Global Metrics hidden');
         } else {
           setShowMetrics(true);
-          console.log('🔍 Global Metrics shown');
-          // Show UI elements if they were hidden by canvas fullscreen
-          if (typeof window !== 'undefined' && window.globalCanvasManager) {
-            window.globalCanvasManager.showUIElements();
-            console.log('🔍 Global UI elements restored after canvas fullscreen');
-            
-            // Debug canvas state
-            const canvas = window.globalCanvasManager.getCanvas();
-            if (canvas) {
-              console.log('🔍 Global Canvas state after TopBar restore:', {
-                position: canvas.style.position,
-                width: canvas.style.width,
-                height: canvas.style.height,
-                zIndex: canvas.style.zIndex,
-                isFullscreen: window.globalCanvasManager.isInFullscreen(),
-                rect: canvas.getBoundingClientRect()
-              });
-              
-              // Exit fullscreen mode if canvas is still in fullscreen
-              if (window.globalCanvasManager.isInFullscreen()) {
-                console.log('🔍 Global Canvas is still in fullscreen, exiting...');
-                window.globalCanvasManager.exitFullscreen();
-                console.log('🔍 Global Canvas fullscreen exited');
-              }
-            }
-          }
+        }
+        
+        // Restore UI elements if needed
+        if (typeof window !== 'undefined' && window.globalCanvasManager) {
+          window.globalCanvasManager.showUIElements();
         }
       };
+      
+      // Direct metrics control
+      window.toggleMetrics = (show) => {
+        console.log('🔍 Direct metrics control:', show);
+        setShowMetrics(show);
+      };
+      
+      // Get current TopBar state
+      window.getTopBarState = () => ({
+        isTopBarShown: showTopBar,
+        showMetrics: showMetrics,
+        isCameraActive: isCameraActive,
+        isCameraActivated: isCameraActivated
+      });
     }
     
     return () => {
       if (typeof window !== 'undefined') {
         delete window.toggleTopBar;
+        delete window.toggleMetrics;
+        delete window.getTopBarState;
       }
     };
-  }, [showTopBar, setShowTopBar, setShowMetrics]);
+  }, [showTopBar, showMetrics, isCameraActive, isCameraActivated]);
 
   // Debug TopBar state changes
   useEffect(() => {
@@ -1661,71 +1715,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     console.log('Clear All: Reset all states');
   };
 
-  // Toggle functions
-  const handleToggleHeadPose = useCallback(() => {
-    const newHeadPoseState = !showHeadPose;
-    setShowHeadPose(newHeadPoseState);
-    setProcessStatus(`Head pose visualization ${newHeadPoseState ? 'enabled' : 'disabled'}`);
-    
-    if (onActionClick) {
-      onActionClick('headPose');
-    }
-    
-    if (typeof window !== 'undefined' && window.videoProcessor) {
-      window.videoProcessor.updateOptions({
-        showHeadPose: newHeadPoseState
-      });
-    }
-  }, [showHeadPose, onActionClick]);
-
-  const handleToggleBoundingBox = useCallback(() => {
-    const newBoundingBoxState = !showBoundingBox;
-    setShowBoundingBox(newBoundingBoxState);
-    setProcessStatus(`Bounding box ${newBoundingBoxState ? 'shown' : 'hidden'}`);
-    
-    if (onActionClick) {
-      onActionClick('boundingBox');
-    }
-    
-    if (typeof window !== 'undefined' && window.videoProcessor) {
-      window.videoProcessor.updateOptions({
-        showBoundingBox: newBoundingBoxState
-      });
-    }
-  }, [showBoundingBox, onActionClick]);
-
-  const handleToggleMask = useCallback(() => {
-    const newMaskState = !showMask;
-    setShowMask(newMaskState);
-    setProcessStatus(`Mask ${newMaskState ? 'shown' : 'hidden'}`);
-    
-    if (onActionClick) {
-      onActionClick('mask');
-    }
-    
-    if (typeof window !== 'undefined' && window.videoProcessor) {
-      window.videoProcessor.updateOptions({
-        showMask: newMaskState
-      });
-    }
-  }, [showMask, onActionClick]);
-
-  const handleToggleParameters = useCallback(() => {
-    const newParametersState = !showParameters;
-    setShowParameters(newParametersState);
-    setProcessStatus(`Parameters ${newParametersState ? 'shown' : 'hidden'}`);
-    
-    if (onActionClick) {
-      onActionClick('parameters');
-    }
-    
-    if (typeof window !== 'undefined' && window.videoProcessor) {
-      window.videoProcessor.updateOptions({
-        showParameters: newParametersState
-      });
-    }
-  }, [showParameters, onActionClick]);
-
   const handleToggleCamera = useCallback(() => {
     const newCameraState = !isCameraActive;
     console.log(`[Camera Toggle] Switching camera from ${isCameraActive} to ${newCameraState}`);
@@ -1753,19 +1742,16 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       setShowPermissionPopup(true);
     }
     
-    if (newCameraState && typeof window !== 'undefined' && window.videoProcessor) {
-      setTimeout(() => {
-        if (window.videoProcessor) {
-          window.videoProcessor.updateOptions({
-            showHeadPose,
-            showBoundingBox,
-            showMask,
-            showParameters
-          });
-        }
-      }, 100);
-    }
-  }, [isCameraActive, showCamera, onActionClick, showHeadPose, showBoundingBox, showMask, showParameters, setCameraActivation]);
+          if (newCameraState && typeof window !== 'undefined' && window.videoProcessor) {
+        setTimeout(() => {
+          if (window.videoProcessor) {
+            window.videoProcessor.updateOptions({
+              selectedCameras: selectedCameras
+            });
+          }
+        }, 100);
+      }
+    }, [isCameraActive, showCamera, onActionClick, selectedCameras, setCameraActivation]);
 
   // Add a proper action handler for camera preview
   const handleActionClick = useCallback((actionType, ...args) => {
@@ -1787,24 +1773,15 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           setProcessStatus('Camera preview stopped');
         }
         break;
-      case 'headPose':
-        handleToggleHeadPose();
-        break;
-      case 'boundingBox':
-        handleToggleBoundingBox();
-        break;
-      case 'mask':
-        handleToggleMask();
-        break;
-      case 'parameters':
-        handleToggleParameters();
-        break;
+              case 'selectCamera':
+          openCameraSelector();
+          break;
       case 'metrics':
         console.log('🔍 Metrics toggle clicked, current state:', showMetrics);
-        const newMetricsState = !showMetrics;
-        setShowMetrics(newMetricsState);
-        setProcessStatus(`Metrics ${newMetricsState ? 'shown' : 'hidden'}`);
-        console.log('🔍 Metrics state set to:', newMetricsState);
+        if (typeof window !== 'undefined' && window.toggleMetrics) {
+          window.toggleMetrics(!showMetrics);
+        }
+        setProcessStatus(`Metrics ${!showMetrics ? 'shown' : 'hidden'}`);
         break;
       case 'randomDot':
         console.log('Random Dot button clicked');
@@ -1824,14 +1801,16 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         break;
       case 'toggleTopBar':
         const show = args[0] !== undefined ? args[0] : !showTopBar;
-        setShowTopBar(show);
+        if (typeof window !== 'undefined' && window.toggleTopBar) {
+          window.toggleTopBar(show);
+        }
         break;
       default:
         console.log('Unknown action type:', actionType);
         // Silent handling for unknown actions
         break;
     }
-  }, [showCamera, showMetrics, showTopBar, handleToggleHeadPose, handleToggleBoundingBox, handleToggleMask, handleToggleParameters, handleRandomDot, handleSetRandom, handleSetCalibrate, handleClearAll, setCameraActivation]);
+  }, [showCamera, showMetrics, showTopBar, handleRandomDot, handleSetRandom, handleSetCalibrate, handleClearAll, setCameraActivation, openCameraSelector]);
 
   // Camera permission handlers
   const handlePermissionAccepted = () => {
@@ -1886,10 +1865,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     handleSetRandom,
     handleSetCalibrate,
     handleClearAll,
-    handleToggleHeadPose,
-    handleToggleBoundingBox,
-    handleToggleMask,
-    handleToggleParameters,
     handleToggleCamera
   }));
 
@@ -2007,51 +1982,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                 onCameraAccess={() => setShowPermissionPopup(true)}
                 outputText={statusMessage || outputText}
                 onOutputChange={(text) => setOutputText(text)}
-                onToggleTopBar={(show) => {
-                  console.log('🔍 TopBar toggle called with:', show, 'Current showTopBar state:', showTopBar);
-                  setShowTopBar(show);
-                  console.log('🔍 TopBar state set to:', show);
-                  // Also control metrics visibility
-                  if (!show) {
-                    setShowMetrics(false);
-                    console.log('🔍 Metrics hidden');
-                  } else {
-                    setShowMetrics(true);
-                    console.log('🔍 Metrics shown');
-                    // Show UI elements if they were hidden by canvas fullscreen
-                    if (typeof window !== 'undefined' && window.globalCanvasManager) {
-                      window.globalCanvasManager.showUIElements();
-                      console.log('🔍 UI elements restored after canvas fullscreen');
-                      
-                      // Debug canvas state
-                      const canvas = window.globalCanvasManager.getCanvas();
-                      if (canvas) {
-                        console.log('🔍 Canvas state after TopBar restore:', {
-                          position: canvas.style.position,
-                          width: canvas.style.width,
-                          height: canvas.style.height,
-                          zIndex: canvas.style.zIndex,
-                          isFullscreen: window.globalCanvasManager.isInFullscreen(),
-                          rect: canvas.getBoundingClientRect()
-                        });
-                        
-                        // Exit fullscreen mode if canvas is still in fullscreen
-                        if (window.globalCanvasManager.isInFullscreen()) {
-                          console.log('🔍 Canvas is still in fullscreen, exiting...');
-                          window.globalCanvasManager.exitFullscreen();
-                          console.log('🔍 Canvas fullscreen exited');
-                        }
-                      }
-                    }
-                  }
-                }}
-                onToggleMetrics={() => setShowMetrics(!showMetrics)}
                 canvasRef={{ current: canvasManager.getCanvas() }}
                 showMetrics={showMetrics}
                 isTopBarShown={showTopBar}
                 isCanvasVisible={showCanvas}
                 isCameraActive={isCameraActive}
                 isCameraActivated={isCameraActivated}
+                selectedCamerasCount={selectedCameras.length}
               />
             </div>
           )}
@@ -2156,16 +2093,150 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             {/* Camera component */}
             {isHydrated && typeof window !== 'undefined' && showCamera && (
               <DynamicCameraAccess
-                key={`camera-${showCamera}-${showHeadPose}-${showBoundingBox}-${showMask}-${showParameters}`}
+                key={`camera-${showCamera}-${selectedCameras.join(',')}`}
                 isShowing={showCamera} 
                 onClose={handleCameraClose}
                 onCameraReady={handleCameraReady}
-                showHeadPose={showHeadPose}
-                showBoundingBox={showBoundingBox}
-                showMask={showMask}
-                showParameters={showParameters}
+                selectedCameras={selectedCameras}
                 videoRef={videoRef}
               />
+            )}
+            
+            {/* Camera Selector Modal */}
+            {showCameraSelector && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 2000
+              }}>
+                <div style={{
+                  backgroundColor: 'white',
+                  borderRadius: '12px',
+                  padding: '24px',
+                  maxWidth: '500px',
+                  width: '90%',
+                  maxHeight: '80vh',
+                  overflow: 'auto',
+                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '20px',
+                    borderBottom: '2px solid #f0f0f0',
+                    paddingBottom: '10px'
+                  }}>
+                    <h2 style={{ margin: 0, color: '#333', fontSize: '20px' }}>📷 Camera Selection</h2>
+                    <button
+                      onClick={closeCameraSelector}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        fontSize: '24px',
+                        cursor: 'pointer',
+                        color: '#666',
+                        padding: '5px'
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+
+                  {/* Available Cameras */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <h3 style={{ margin: '0 0 15px 0', color: '#555', fontSize: '16px' }}>
+                      Available Cameras ({availableCameras.length})
+                    </h3>
+                    {availableCameras.length === 0 ? (
+                      <p style={{ color: '#666', fontStyle: 'italic' }}>
+                        No cameras detected. Please check your camera permissions.
+                      </p>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {availableCameras.map((camera) => (
+                          <label key={camera.id} style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: '12px',
+                            border: '2px solid #e0e0e0',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            backgroundColor: selectedCameras.includes(camera.id) ? '#f0f8ff' : 'white',
+                            transition: 'all 0.2s ease'
+                          }}>
+                            <input
+                              type="checkbox"
+                              checked={selectedCameras.includes(camera.id)}
+                              onChange={(e) => handleCameraSelection(camera.id, e.target.checked)}
+                              style={{ marginRight: '12px', transform: 'scale(1.2)' }}
+                            />
+                            <div>
+                              <div style={{ fontWeight: 'bold', color: '#333' }}>
+                                {camera.label}
+                              </div>
+                              <div style={{ fontSize: '12px', color: '#666' }}>
+                                ID: {camera.id.substring(0, 20)}...
+                              </div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: '10px',
+                    borderTop: '2px solid #f0f0f0',
+                    paddingTop: '15px'
+                  }}>
+                    <button
+                      onClick={closeCameraSelector}
+                      style={{
+                        padding: '10px 20px',
+                        backgroundColor: '#f0f0f0',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (selectedCameras.length > 0) {
+                          setProcessStatus(`Selected ${selectedCameras.length} camera(s)`);
+                          closeCameraSelector();
+                        } else {
+                          setProcessStatus('Please select at least one camera');
+                        }
+                      }}
+                      style={{
+                        padding: '10px 20px',
+                        backgroundColor: '#4CAF50',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Apply ({selectedCameras.length} selected)
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
             
             {/* Camera permission popup */}
