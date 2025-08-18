@@ -4,15 +4,58 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
   // Animation state for visibility transitions
   const [animationState, setAnimationState] = useState(isVisible ? 'visible' : 'hidden');
   
+  // State for canvas dimensions
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: '---', height: '---' });
+  
   // Update animation state when visibility changes
   useEffect(() => {
     console.log('🔍 DisplayResponse: isVisible changed to', isVisible);
     setAnimationState(isVisible ? 'visible' : 'hidden');
   }, [isVisible]);
   
+  // Function to get canvas dimensions
+  const getCanvasDimensions = () => {
+    if (typeof window !== 'undefined') {
+      const canvas = document.querySelector('#tracking-canvas');
+      if (canvas) {
+        return {
+          width: canvas.width || canvas.offsetWidth,
+          height: canvas.height || canvas.offsetHeight
+        };
+      }
+    }
+    return { width: '---', height: '---' };
+  };
+  
+  // Update canvas dimensions periodically
+  useEffect(() => {
+    const updateCanvasDimensions = () => {
+      const dimensions = getCanvasDimensions();
+      setCanvasDimensions(dimensions);
+    };
+    
+    // Update immediately
+    updateCanvasDimensions();
+    
+    // Update on window resize
+    const handleResize = () => {
+      updateCanvasDimensions();
+    };
+    
+    window.addEventListener('resize', handleResize);
+    
+    // Update periodically to catch any canvas size changes
+    const interval = setInterval(updateCanvasDimensions, 1000);
+    
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearInterval(interval);
+    };
+  }, []);
+  
   // Format values with units and handle missing values
-  const formattedWidth = width || '---';
-  const formattedHeight = height || '---';
+  const formattedWidth = canvasDimensions.width !== '---' ? canvasDimensions.width : (width || '---');
+  const formattedHeight = canvasDimensions.height !== '---' ? canvasDimensions.height : (height || '---');
   const formattedDistance = distance || '---';
   
   console.log('🔍 DisplayResponse: rendering with isVisible:', isVisible, 'animationState:', animationState);
@@ -52,7 +95,7 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
           paddingBottom: '5px'
         }}
       >
-        <span style={{ fontWeight: 'bold' }}>Display Metrics</span>
+        <span style={{ fontWeight: 'bold' }}>Canvas Metrics</span>
         <div 
           className="metrics-indicator"
           style={{ 

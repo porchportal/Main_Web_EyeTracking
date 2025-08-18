@@ -2105,44 +2105,31 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           >
             {!showCamera ? (
               <>
-                <div className="camera-preview-message" style={{
-                  padding: '20px',
-                  textAlign: 'center',
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  width: '100%',
-                  maxWidth: '600px',
-                  zIndex: 5,
-                  pointerEvents: 'none'
-                }}>
-                  <p style={{ margin: '0 0 10px 0', fontSize: '16px' }}>Camera preview will appear here</p>
-                  <p className="camera-size-indicator" style={{ margin: '0', fontSize: '14px', color: '#666' }}>
-                    Current window: {windowSize.percentage}% of screen width
-                  </p>
-                  
-                  {/* Camera placeholder square */}
-                  {isHydrated && showCameraPlaceholder && (
-                    <div 
-                      className="camera-placeholder-square"
-                      style={{
-                        width: '180px',
-                        height: '135px',
-                        margin: '20px auto',
-                        border: '2px dashed #666',
-                        borderRadius: '4px',
-                        backgroundColor: '#f5f5f5',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        pointerEvents: 'none'
-                      }}
-                    >
-                      <div style={{ fontSize: '1.5rem' }}>📷</div>
-                    </div>
-                  )}
-                </div>
+                {/* Camera placeholder square - only show if needed */}
+                {isHydrated && showCameraPlaceholder && (
+                  <div 
+                    className="camera-placeholder-square"
+                    style={{
+                      width: '180px',
+                      height: '135px',
+                      margin: '20px auto',
+                      border: '2px dashed #666',
+                      borderRadius: '4px',
+                      backgroundColor: '#f5f5f5',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      pointerEvents: 'none',
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      zIndex: 5
+                    }}
+                  >
+                    <div style={{ fontSize: '1.5rem' }}>📷</div>
+                  </div>
+                )}
                 
                 {/* Canvas container - managed by GlobalCanvasManager */}
                 <div 
@@ -2257,8 +2244,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           {isHydrated && (
             <DisplayResponse 
               key={`metrics-${showMetrics}`}
-              width={metrics.width} 
-              height={metrics.height} 
+              width={canvasManager.getDimensions().width} 
+              height={canvasManager.getDimensions().height} 
               distance={metrics.distance}
               isVisible={showMetrics}
             />
