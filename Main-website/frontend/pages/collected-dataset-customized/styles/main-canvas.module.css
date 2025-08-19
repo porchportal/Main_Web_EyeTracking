@@ -1,0 +1,182 @@
+/* Main Canvas Styles - Single Yellow Canvas Management */
+
+/* Single main canvas - handles both normal and fullscreen modes */
+.mainCanvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: yellow;
+  z-index: 0;
+  display: block;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: none;
+  box-sizing: border-box;
+  transition: all 0.3s ease-in-out;
+  pointer-events: auto;
+}
+
+/* Fullscreen mode - same canvas, different styling */
+.mainCanvas.fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 0 !important;
+  background-color: yellow !important;
+  border: none !important;
+  display: block !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  transform: none !important;
+}
+
+/* Camera preview area styles */
+.cameraPreviewArea {
+  background-color: transparent;
+  overflow: hidden;
+}
+
+.withTopbar {
+  /* Handled inline */
+}
+
+.withoutTopbar {
+  /* Handled inline */
+}
+
+.withBackendWarning {
+  /* Handled inline */
+}
+
+.withCameraNotification {
+  /* Handled inline */
+}
+
+/* Canvas placeholder styles */
+.cameraPlaceholderSquare {
+  width: 180px;
+  height: 135px;
+  margin: 20px auto;
+  border: 2px dashed #666;
+  border-radius: 4px;
+  background-color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 5;
+}
+
+/* Canvas animation styles */
+@keyframes canvasFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes canvasPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Canvas state transitions */
+.mainCanvas {
+  transition: all 0.3s ease-in-out;
+}
+
+.mainCanvas.fullscreen {
+  animation: canvasFadeIn 0.3s ease-in-out;
+}
+
+/* Canvas responsive behavior */
+@media (max-width: 768px) {
+  .mainCanvas {
+    width: 100vw;
+    height: 100vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .mainCanvas {
+    width: 100vw;
+    height: 100vh;
+  }
+}
+
+/* Canvas utility classes */
+.canvasHidden {
+  display: none !important;
+}
+
+.canvasVisible {
+  display: block !important;
+}
+
+.canvasOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Canvas performance optimizations */
+.mainCanvas {
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -moz-backface-visibility: hidden;
+}
+
+/* Canvas accessibility */
+.mainCanvas:focus {
+  outline: 2px solid #0066cc;
+  outline-offset: 2px;
+}
+
+/* Canvas print styles */
+@media print {
+  .mainCanvas {
+    display: none !important;
+  }
+}
+
+/* Canvas high contrast mode support */
+@media (prefers-contrast: high) {
+  .mainCanvas {
+    background-color: #ffff00 !important;
+    border: 2px solid #000000;
+  }
+}
+
+/* Canvas reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .mainCanvas {
+    transition: none;
+    animation: none;
+  }
+}

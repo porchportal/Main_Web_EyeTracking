@@ -9,6 +9,7 @@ import { generateCalibrationPoints } from '../../components/collected-dataset-cu
 import { useConsent } from '../../components/consent_ui/ConsentContext';
 import { useRouter } from 'next/router';
 import { useAdminSettings } from './components-gui/adminSettings';
+import styles from './styles/main-canvas.module.css';
 
 // Dynamically import the camera component with SSR disabled
 const DynamicCameraAccess = dynamic(
@@ -134,34 +135,73 @@ class GlobalCanvasManager {
     this.resizeObserver = null;
     this.isFullscreen = false;
     this.isInitialized = false;
+    this.container = null;
   }
 
   // Get or create the single main canvas
   getCanvas() {
-    // Always try to find existing canvas first
-    let canvas = document.querySelector('#tracking-canvas');
+    if (this.canvas) {
+      return this.canvas;
+    }
+
+    // Try to find existing canvas first
+    let canvas = document.querySelector('#main-canvas');
     
     if (canvas) {
-      // If we found an existing canvas, use it
       this.canvas = canvas;
+      // Ensure proper CSS class is applied
+      canvas.classList.add(styles.mainCanvas);
       return canvas;
     }
     
-    // Only create new canvas if none exists
-    if (!this.canvas) {
-      canvas = document.createElement('canvas');
-      canvas.className = 'tracking-canvas';
-      canvas.id = 'tracking-canvas';
-      this.canvas = canvas;
-    }
+    // Create new canvas if none exists
+    canvas = document.createElement('canvas');
+    canvas.className = styles.mainCanvas;
+    canvas.id = 'main-canvas';
+    this.canvas = canvas;
     
-    return this.canvas;
+    return canvas;
   }
 
   // Initialize the main canvas
   initializeCanvas(container = null) {
-    // Remove any existing canvases first to prevent duplicates
-    const existingCanvases = document.querySelectorAll('#tracking-canvas');
+    // Clean up any existing duplicate canvases
+    this.cleanupDuplicateCanvases();
+    
+    const canvas = this.getCanvas();
+    if (!canvas) return null;
+    
+    // Always append to body for consistent positioning
+    this.container = document.body;
+
+    // Set up canvas with proper dimensions and styling
+    this.setupCanvas(canvas);
+    
+    // Add to body if not already there
+    if (!canvas.parentNode) {
+      document.body.appendChild(canvas);
+    }
+
+    // Ensure canvas has proper z-index and is behind TopBar
+    canvas.style.zIndex = '0';
+    canvas.style.position = 'fixed';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+
+    // Store global reference for other components
+    this.setupGlobalReferences();
+
+    // Set up responsive behavior
+    this.setupResponsiveCanvas(canvas);
+
+    this.isInitialized = true;
+    console.log(`Canvas initialized: ${canvas.width}x${canvas.height} with z-index: ${canvas.style.zIndex}`);
+    return canvas;
+  }
+
+  // Clean up duplicate canvases
+  cleanupDuplicateCanvases() {
+    const existingCanvases = document.querySelectorAll('#main-canvas');
     existingCanvases.forEach((existingCanvas, index) => {
       if (index > 0) { // Keep only the first one
         if (existingCanvas.parentNode) {
@@ -169,136 +209,131 @@ class GlobalCanvasManager {
         }
       }
     });
-    
-    const canvas = this.getCanvas();
-    if (!canvas) return null;
-    
-    // Determine container
-    const targetContainer = container || 
-                           document.querySelector('.canvas-container') || 
-                           document.querySelector('.main-content') ||
-                           document.body;
-
-    // Set initial dimensions based on current window size
-    this.updateCanvasSize(canvas, targetContainer);
-    
-    // Initialize with yellow background
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'yellow';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Also set CSS background color for consistency
-    canvas.style.backgroundColor = 'yellow';
-
-    // Add to container if not already there
-    if (!canvas.parentNode) {
-      targetContainer.appendChild(canvas);
-    }
-
-    // Store global reference
-    window.whiteScreenCanvas = canvas;
-    window.globalCanvasManager = this;
-
-    // Set up responsive behavior
-    this.setupResponsiveCanvas(canvas, targetContainer);
-
-    this.isInitialized = true;
-    return canvas;
   }
 
-  // Update canvas size to match container and window size
-  updateCanvasSize(canvas, container) {
-    if (!canvas || !container) return;
+  // Set up canvas with proper dimensions and styling
+  setupCanvas(canvas) {
+    if (!canvas) return;
 
-    // Get current window dimensions
+    // Get window dimensions directly
     const windowWidth = window.innerWidth || 800;
     const windowHeight = window.innerHeight || 600;
-    
-    // Get container dimensions
-    const rect = container.getBoundingClientRect();
-    const containerWidth = rect.width || container.clientWidth || windowWidth;
-    const containerHeight = rect.height || container.clientHeight || windowHeight;
 
-    // Set canvas size to match container and window
-    canvas.width = containerWidth;
-    canvas.height = containerHeight;
+    // Set canvas dimensions to full window size
+    canvas.width = windowWidth;
+    canvas.height = windowHeight;
 
-    // Update CSS to match viewport units for fullscreen effect
-    canvas.style.width = '100vw';
-    canvas.style.height = '100vh';
-    canvas.style.display = 'block';
-    canvas.style.backgroundColor = 'yellow';
-    canvas.style.zIndex = '1';
-    canvas.style.position = 'fixed';
-    canvas.style.top = '0';
-    canvas.style.left = '0';
-    canvas.style.margin = '0';
-    canvas.style.padding = '0';
-    canvas.style.overflow = 'hidden';
-    
-    // Remove any other canvases to prevent overlapping
-    this.linkWithOtherCanvases(canvas);
+    // Apply consistent styling
+    this.applyCanvasStyles(canvas, false);
+
+    // Initialize with yellow background
+    this.clearCanvas(canvas);
   }
 
-  // Link this canvas with other canvases
-  linkWithOtherCanvases(canvas) {
-    // Find all other canvases on the page
-    const allCanvases = document.querySelectorAll('canvas');
+  // Apply consistent canvas styles
+  applyCanvasStyles(canvas, isFullscreen = false) {
+    if (!canvas) return;
+
+    // Remove existing classes
+    canvas.classList.remove(styles.fullscreen);
     
-    allCanvases.forEach(otherCanvas => {
-      if (otherCanvas !== canvas && otherCanvas.id !== 'tracking-canvas') {
-        // Remove other canvases to prevent overlapping
-        if (otherCanvas.parentNode) {
-          otherCanvas.parentNode.removeChild(otherCanvas);
-        }
-      }
-    });
+    if (isFullscreen) {
+      // Add fullscreen class to main canvas
+      canvas.classList.add(styles.fullscreen);
+      // Ensure fullscreen canvas is behind TopBar
+      canvas.style.zIndex = '0';
+    } else {
+      // Ensure base mainCanvas class is applied
+      canvas.classList.add(styles.mainCanvas);
+      // Ensure normal canvas is behind TopBar
+      canvas.style.zIndex = '0';
+    }
   }
 
-  // Set up responsive canvas that adapts to container size
-  setupResponsiveCanvas(canvas, container) {
-    if (!canvas || !container) return;
+  // Add CSS class to canvas
+  addCanvasClass(className) {
+    const canvas = this.getCanvas();
+    if (canvas) {
+      canvas.classList.add(className);
+    }
+  }
 
-    // Remove existing resize observer
+  // Remove CSS class from canvas
+  removeCanvasClass(className) {
+    const canvas = this.getCanvas();
+    if (canvas) {
+      canvas.classList.remove(className);
+    }
+  }
+
+  // Toggle CSS class on canvas
+  toggleCanvasClass(className) {
+    const canvas = this.getCanvas();
+    if (canvas) {
+      canvas.classList.toggle(className);
+    }
+  }
+
+  // Check if canvas has CSS class
+  hasCanvasClass(className) {
+    const canvas = this.getCanvas();
+    return canvas ? canvas.classList.contains(className) : false;
+  }
+
+  // Clear canvas with yellow background
+  clearCanvas(canvas = null) {
+    const targetCanvas = canvas || this.getCanvas();
+    if (!targetCanvas) return;
+    
+    const ctx = targetCanvas.getContext('2d');
+    ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+    ctx.fillStyle = 'yellow';
+    ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+  }
+
+  // Set up global references
+  setupGlobalReferences() {
+    if (typeof window !== 'undefined') {
+      window.mainCanvas = this.canvas;
+      window.globalCanvasManager = this;
+    }
+  }
+
+  // Set up responsive canvas behavior
+  setupResponsiveCanvas(canvas) {
+    if (!canvas) return;
+
+    // Clean up existing resize observer
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
     }
 
-    // Create new resize observer
-    this.resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.target === container) {
-          this.updateCanvasSize(canvas, container);
-          // Redraw yellow background after resize
-          const ctx = canvas.getContext('2d');
-          ctx.fillStyle = 'yellow';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
-          
-          // Remove any duplicate canvases that might have been created
-          this.linkWithOtherCanvases(canvas);
-        }
-      }
-    });
-
-    // Observe container for size changes
-    this.resizeObserver.observe(container);
-
-    // Also listen for window resize as fallback
+    // Listen for window resize directly
     const handleWindowResize = () => {
-      this.updateCanvasSize(canvas, container);
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'yellow';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Remove any duplicate canvases that might have been created
-      this.linkWithOtherCanvases(canvas);
+      this.handleResize();
     };
 
     window.addEventListener('resize', handleWindowResize);
     canvas._windowResizeHandler = handleWindowResize;
   }
 
-  // Switch to fullscreen mode
+  // Handle resize events
+  handleResize() {
+    const canvas = this.getCanvas();
+    if (!canvas) return;
+
+    // Update canvas dimensions to window size
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Redraw yellow background
+    this.clearCanvas(canvas);
+
+    // Clean up any duplicate canvases
+    this.cleanupDuplicateCanvases();
+  }
+
+  // Enter fullscreen mode
   enterFullscreen() {
     const canvas = this.getCanvas();
     if (!canvas) return null;
@@ -314,46 +349,21 @@ class GlobalCanvasManager {
       zIndex: canvas.style.zIndex
     };
 
-    // Remove canvas from current parent
-    if (canvas.parentNode) {
-      canvas.parentNode.removeChild(canvas);
-    }
-
-    // Move to body and make fullscreen
-    document.body.appendChild(canvas);
-    
-    // Set fullscreen styles
-    canvas.style.cssText = `
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
-      z-index: 15;
-      background-color: yellow !important;
-      border: none !important;
-      display: block !important;
-      opacity: 1 !important;
-      pointer-events: auto !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      box-sizing: border-box !important;
-      transform: none !important;
-    `;
+    // Canvas is already in body, just apply fullscreen styles
+    this.applyCanvasStyles(canvas, true);
 
     // Set canvas dimensions to window size
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
 
     // Clear with yellow background
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'yellow';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    this.clearCanvas(canvas);
 
     // Hide UI elements
     this.hideUIElements();
 
     this.isFullscreen = true;
+    console.log('Canvas entered fullscreen mode');
     return canvas;
   }
 
@@ -365,46 +375,20 @@ class GlobalCanvasManager {
     // Show UI elements
     this.showUIElements();
 
-    // Find appropriate container
-    const container = document.querySelector('.canvas-container') || 
-                      document.querySelector('.main-content') ||
-                      document.body;
+    // Canvas stays in body, just restore normal styles
+    this.applyCanvasStyles(canvas, false);
 
-    // Move canvas back to container
-    container.appendChild(canvas);
-
-    // Restore original styles - FIXED: Don't use fullscreen-like styles
-    canvas.style.position = 'relative';
-    canvas.style.top = '';
-    canvas.style.left = '';
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
-    canvas.style.zIndex = '';
-    canvas.style.backgroundColor = 'yellow';
-    canvas.style.display = 'block';
-    canvas.style.margin = '';
-    canvas.style.padding = '';
-    canvas.style.overflow = 'hidden';
-
-    // Update size to match container - FIXED: Don't use viewport units
-    if (container) {
-      const rect = container.getBoundingClientRect();
-      const containerWidth = rect.width || container.clientWidth || 800;
-      const containerHeight = rect.height || container.clientHeight || 600;
-      
-      canvas.width = containerWidth;
-      canvas.height = containerHeight;
-    }
+    // Update size to window size
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
 
     // Clear with yellow background
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'yellow';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    this.clearCanvas(canvas);
 
     // Clear original state
     this.originalState = null;
     this.isFullscreen = false;
-
+    console.log('Canvas exited fullscreen mode');
     return canvas;
   }
 
@@ -412,7 +396,6 @@ class GlobalCanvasManager {
   hideUIElements() {
     const elementsToHide = [
       '.topbar',
-      '.canvas-container', 
       '.main-content',
       '.metrics-panel',
       '.display-metrics',
@@ -438,30 +421,19 @@ class GlobalCanvasManager {
       el.style.display = '';
       el.removeAttribute('data-hidden-by-canvas');
       
-              // Ensure TopBar has proper z-index
-        if (el.classList.contains('topbar')) {
-          el.style.zIndex = '12';
-          el.style.position = 'relative';
-        }
+      // Ensure TopBar has proper z-index
+      if (el.classList.contains('topbar')) {
+        el.style.zIndex = '12';
+        el.style.position = 'relative';
+      }
     });
     
-            // Also ensure any other UI elements have proper z-index
-        const topbar = document.querySelector('.topbar');
-        if (topbar) {
-          topbar.style.zIndex = '12';
-          topbar.style.position = 'relative';
-        }
-  }
-
-  // Clear canvas content
-  clear() {
-    const canvas = this.getCanvas();
-    if (!canvas) return;
-    
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'yellow';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Also ensure any other UI elements have proper z-index
+    const topbar = document.querySelector('.topbar');
+    if (topbar) {
+      topbar.style.zIndex = '12';
+      topbar.style.position = 'relative';
+    }
   }
 
   // Draw dot at position
@@ -490,17 +462,19 @@ class GlobalCanvasManager {
     return this.isFullscreen;
   }
 
-  // Cleanup
+  // Cleanup and destroy
   destroy() {
+    // Clean up resize observer
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
     }
 
+    // Clean up window resize listener
     if (this.canvas && this.canvas._windowResizeHandler) {
       window.removeEventListener('resize', this.canvas._windowResizeHandler);
     }
 
-    // Remove ALL canvases from DOM to prevent duplicates
+    // Remove all canvases from DOM
     const allCanvases = document.querySelectorAll('canvas');
     allCanvases.forEach(canvas => {
       if (canvas.parentNode) {
@@ -508,10 +482,20 @@ class GlobalCanvasManager {
       }
     });
 
+    // Reset state
     this.canvas = null;
     this.originalState = null;
     this.isFullscreen = false;
     this.isInitialized = false;
+    this.container = null;
+
+    // Clean up global references
+    if (typeof window !== 'undefined') {
+      delete window.whiteScreenCanvas;
+      delete window.globalCanvasManager;
+    }
+
+    console.log('Canvas manager destroyed');
   }
 }
 
@@ -829,7 +813,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     
     // Clear canvas
     clear: () => {
-      canvasManager.clear();
+      canvasManager.clearCanvas();
     },
     
     // Draw dot at position
@@ -845,64 +829,31 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     // Check if canvas is in fullscreen
     isFullscreen: () => canvasManager.isInFullscreen(),
     
-    // Update canvas size to match container and window
-    resizeToContainer: (container) => {
-      const canvas = canvasManager.getCanvas();
-      if (!canvas || !container) return false;
-      
-      // Get current window dimensions
-      const windowWidth = window.innerWidth || 800;
-      const windowHeight = window.innerHeight || 600;
-      
-      const rect = container.getBoundingClientRect();
-      canvas.width = rect.width || container.clientWidth || windowWidth;
-      canvas.height = rect.height || container.clientHeight || windowHeight;
-      
-      // Clear and redraw yellow background
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'yellow';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Update CSS to use viewport units for fullscreen effect
-      canvas.style.width = '100vw';
-      canvas.style.height = '100vh';
-      canvas.style.position = 'fixed';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
-      canvas.style.margin = '0';
-      canvas.style.padding = '0';
-      canvas.style.overflow = 'hidden';
-      
-      // Remove any duplicate canvases
-      canvasManager.linkWithOtherCanvases(canvas);
-      
-      return true;
+    // Initialize canvas
+    initialize: (container) => {
+      return canvasManager.initializeCanvas(container);
     },
     
-    // Link with other canvases
-    linkWithOtherCanvases: (canvas) => {
-      canvasManager.linkWithOtherCanvases(canvas);
+    // Clean up duplicate canvases
+    cleanupDuplicates: () => {
+      canvasManager.cleanupDuplicateCanvases();
     },
-    
-    // Ensure only one canvas exists
-    ensureSingleCanvas: () => {
-      const allCanvases = document.querySelectorAll('canvas');
-      let mainCanvas = null;
-      
-      allCanvases.forEach((canvas, index) => {
-        if (index === 0) {
-          mainCanvas = canvas;
-          canvas.id = 'tracking-canvas';
-          canvas.className = 'tracking-canvas';
-        } else {
-          // Remove duplicate canvases
-          if (canvas.parentNode) {
-            canvas.parentNode.removeChild(canvas);
-          }
-        }
-      });
-      
-      return mainCanvas;
+
+    // CSS class management
+    addClass: (className) => {
+      canvasManager.addCanvasClass(className);
+    },
+
+    removeClass: (className) => {
+      canvasManager.removeCanvasClass(className);
+    },
+
+    toggleClass: (className) => {
+      canvasManager.toggleCanvasClass(className);
+    },
+
+    hasClass: (className) => {
+      return canvasManager.hasCanvasClass(className);
     }
   }), [canvasManager]);
 
@@ -911,23 +862,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     if (typeof window !== 'undefined') {
       window.canvasUtils = canvasUtils;
       window.canvasManager = canvasManager;
-      
-      // Add a function to sync all canvases
-      window.syncAllCanvases = () => {
-        if (canvasManager) {
-          const canvas = canvasManager.getCanvas();
-          if (canvas) {
-            canvasManager.linkWithOtherCanvases(canvas);
-          }
-        }
-      };
     }
     
     return () => {
       if (typeof window !== 'undefined') {
         delete window.canvasUtils;
         delete window.canvasManager;
-        delete window.syncAllCanvases;
       }
     };
   }, [canvasUtils, canvasManager]);
@@ -956,30 +896,18 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
       
-      // Remove any existing canvases to prevent duplicates
-      const existingCanvases = document.querySelectorAll('canvas');
-      existingCanvases.forEach((canvas, index) => {
-        if (index > 0) { // Keep only the first canvas
-          if (canvas.parentNode) {
-            canvas.parentNode.removeChild(canvas);
-          }
-        }
-      });
+      // Initialize canvas using the canvas manager
+      canvasManager.initializeCanvas();
       
-      // Reset the main canvas if it exists
-      const mainCanvas = document.querySelector('#tracking-canvas');
-      if (mainCanvas) {
-        mainCanvas.width = window.innerWidth;
-        mainCanvas.height = window.innerHeight;
-        mainCanvas.style.width = '100vw';
-        mainCanvas.style.height = '100vh';
-        mainCanvas.style.backgroundColor = 'yellow';
-        mainCanvas.style.position = 'fixed';
-        mainCanvas.style.top = '0';
-        mainCanvas.style.left = '0';
-        mainCanvas.style.margin = '0';
-        mainCanvas.style.padding = '0';
-        mainCanvas.style.overflow = 'hidden';
+      // Ensure canvas is properly positioned
+      const canvas = canvasManager.getCanvas();
+      if (canvas) {
+        canvas.style.position = 'fixed';
+        canvas.style.top = '0';
+        canvas.style.left = '0';
+        canvas.style.width = '100vw';
+        canvas.style.height = '100vh';
+        canvas.style.zIndex = '0';
       }
     }
     
@@ -1002,16 +930,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         document.body.style.width = '';
         document.documentElement.style.overflow = '';
         
-        // Remove all canvases
-        const allCanvases = document.querySelectorAll('canvas');
-        allCanvases.forEach(canvas => {
-          if (canvas.parentNode) {
-            canvas.parentNode.removeChild(canvas);
-          }
-        });
+        // Clean up canvas manager
+        if (canvasManager) {
+          canvasManager.destroy();
+        }
       }
     };
-  }, [currentUserId, fetchSettingsFromMongoDB, checkCameraActivation, restoreCameraState, getAvailableCameras]);
+  }, [currentUserId, fetchSettingsFromMongoDB, checkCameraActivation, restoreCameraState, getAvailableCameras, canvasManager]);
 
   // Handle page visibility changes
   useEffect(() => {
@@ -1042,7 +967,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     const cleanupPageStyles = () => {
       if (typeof window !== 'undefined') {
         // Remove canvas completely from DOM
-        const canvas = document.querySelector('#tracking-canvas');
+        const canvas = document.querySelector('#main-canvas');
         if (canvas && canvas.parentNode) {
           canvas.parentNode.removeChild(canvas);
         }
@@ -1073,6 +998,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         // Remove any classes that might affect other pages
         document.body.classList.remove('collected-dataset-customized-page');
         document.documentElement.classList.remove('collected-dataset-customized-page');
+        document.body.classList.remove('main-container');
+        document.documentElement.classList.remove('main-container');
       }
     };
 
@@ -1100,7 +1027,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         localStorage.removeItem('cameraActivationTime');
         
         // Remove canvas completely from DOM
-        const canvas = document.querySelector('#tracking-canvas');
+        const canvas = document.querySelector('#main-canvas');
         if (canvas && canvas.parentNode) {
           canvas.parentNode.removeChild(canvas);
         }
@@ -1131,6 +1058,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         // Remove any classes that might affect other pages
         document.body.classList.remove('collected-dataset-customized-page');
         document.documentElement.classList.remove('collected-dataset-customized-page');
+        document.body.classList.remove('main-container');
+        document.documentElement.classList.remove('main-container');
       }
     };
 
@@ -1213,10 +1142,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         
         // Update canvas size when window size changes
         if (canvasManager && isPageActive) {
-          const canvas = canvasManager.getCanvas();
-          if (canvas) {
-            canvasManager.updateCanvasSize(canvas, previewAreaRef.current);
-          }
+          canvasManager.handleResize();
         }
       }
     };
@@ -1233,67 +1159,25 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     // Only initialize canvas if page is active
     if (!isPageActive) return;
     
-    // Remove any duplicate canvases first to prevent duplicates, but keep the main tracking canvas
-    if (typeof window !== 'undefined') {
-      const existingCanvases = document.querySelectorAll('canvas');
-      let mainCanvasFound = false;
-      
-      existingCanvases.forEach(canvas => {
-        if (canvas.id === 'tracking-canvas') {
-          if (mainCanvasFound) {
-            // This is a duplicate main canvas, remove it
-            if (canvas.parentNode) {
-              canvas.parentNode.removeChild(canvas);
-            }
-          } else {
-            // This is the first main canvas, keep it
-            mainCanvasFound = true;
-          }
-        } else {
-          // This is not a tracking canvas, remove it
-          if (canvas.parentNode) {
-            canvas.parentNode.removeChild(canvas);
-          }
-        }
-      });
-    }
-    
     // Initialize the global canvas manager
     const canvas = canvasManager.initializeCanvas();
     
-    // Ensure canvas has yellow background
+    // Ensure canvas has yellow background and proper positioning
     if (canvas) {
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'yellow';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Remove any duplicate canvases after initialization
-      setTimeout(() => {
-        canvasManager.linkWithOtherCanvases(canvas);
-      }, 100);
+      canvasManager.clearCanvas(canvas);
+      // Ensure canvas is properly positioned
+      canvas.style.position = 'fixed';
+      canvas.style.top = '0';
+      canvas.style.left = '0';
+      canvas.style.width = '100vw';
+      canvas.style.height = '100vh';
+      canvas.style.zIndex = '0';
     }
     
     return () => {
       // Cleanup canvas on component unmount
-      if (typeof window !== 'undefined') {
-        // Remove ALL canvases from DOM to prevent duplicates
-        const allCanvases = document.querySelectorAll('canvas');
-        allCanvases.forEach(canvas => {
-          if (canvas.parentNode) {
-            canvas.parentNode.removeChild(canvas);
-          }
-        });
-        
-        // Cleanup global canvas manager
-        if (window.globalCanvasManager) {
-          window.globalCanvasManager.destroy();
-          delete window.globalCanvasManager;
-        }
-        
-        // Cleanup canvas utilities
-        if (window.canvasUtils) {
-          delete window.canvasUtils;
-        }
+      if (canvasManager) {
+        canvasManager.destroy();
       }
     };
   }, [canvasManager, isPageActive]);
@@ -1728,7 +1612,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
   const handleClearAll = () => {
     // Clear canvas content
-    canvasManager.clear();
+    canvasManager.clearCanvas();
     
     // Reset states
     setProcessStatus('');
@@ -1895,32 +1779,20 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   }));
 
   return (
-    <div className={`main-container collected-dataset-customized-page ${getSizeClass()}`} style={{
-      height: '100vh',
-      width: '100vw',
-      overflow: 'hidden',
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      margin: 0,
-      padding: 0,
-      backgroundColor: 'transparent'
-    }}>
+    <>
       <Head>
         <title>Camera Dataset Collection</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <style jsx>{`
-          .collected-dataset-customized-page {
-            height: 100vh;
-            width: 100vw;
-            overflow: hidden;
-            position: fixed;
-            top: 0;
-            left: 0;
-            margin: 0;
-            padding: 0;
-            z-index: 1;
-            background-color: transparent;
+          /* Ensure main canvas is properly positioned */
+          #main-canvas {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 0 !important;
+            background-color: yellow !important;
           }
         `}</style>
       </Head>
@@ -2051,68 +1923,34 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           {/* Main preview area */}
           <div 
             ref={previewAreaRef}
-            className="camera-preview-area"
-            style={{ 
-              height: showTopBar ? 'calc(100vh - 120px)' : '100vh',
-              marginTop: backendStatus === 'disconnected' ? '32px' : '0',
-              paddingTop: showCameraNotification ? '44px' : '0',
-              position: 'absolute',
-              top: 0,
+            className={`${styles.cameraPreviewArea} ${
+              showTopBar ? styles.withTopbar : styles.withoutTopbar
+            } ${
+              backendStatus === 'disconnected' ? styles.withBackendWarning : ''
+            } ${
+              showCameraNotification ? styles.withCameraNotification : ''
+            }`}
+            style={{
+              position: 'fixed',
+              top: showTopBar ? '120px' : '0',
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: 'transparent',
-              overflow: 'hidden',
-              zIndex: 1
+              zIndex: 1,
+              backgroundColor: 'transparent'
             }}
           >
             {!showCamera ? (
               <>
                 {/* Camera placeholder square - only show if needed */}
                 {isHydrated && showCameraPlaceholder && (
-                  <div 
-                    className="camera-placeholder-square"
-                    style={{
-                      width: '180px',
-                      height: '135px',
-                      margin: '20px auto',
-                      border: '2px dashed #666',
-                      borderRadius: '4px',
-                      backgroundColor: '#f5f5f5',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      pointerEvents: 'none',
-                      position: 'absolute',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)',
-                      zIndex: 5
-                    }}
-                  >
+                  <div className={styles.cameraPlaceholderSquare}>
                     <div style={{ fontSize: '1.5rem' }}>📷</div>
                   </div>
                 )}
                 
-                {/* Canvas container - managed by GlobalCanvasManager */}
-                <div 
-                  className="canvas-container" 
-                  style={{ 
-                    height: '100vh',
-                    width: '100vw',
-                    overflow: 'hidden',
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    margin: 0,
-                    padding: 0,
-                    border: 'none',
-                    zIndex: 1,
-                    pointerEvents: 'auto'
-                  }}
-                >
-                  {/* The canvas will be dynamically created and managed by GlobalCanvasManager */}
-                </div>
+                {/* Main Canvas - managed by GlobalCanvasManager */}
+                {/* The canvas will be dynamically created and managed by GlobalCanvasManager */}
               </>
             ) : null}
             
@@ -2350,7 +2188,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           {console.log('🔍 Rendering DisplayResponse, showMetrics:', showMetrics, 'isHydrated:', isHydrated)}
         </>
       )}
-    </div>
+    </>
   );
 });
 
@@ -2362,4 +2200,4 @@ export default function MainPage() {
   return <MainComponentClient />;
 }
 
-export { ActionButton, MainComponent }; 
+export { ActionButton, MainComponent };

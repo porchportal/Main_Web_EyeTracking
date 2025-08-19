@@ -49,7 +49,7 @@ class RandomDotAction {
   // Clear canvas using the global canvas manager
   clearCanvas() {
     if (typeof window !== 'undefined' && window.globalCanvasManager) {
-      return window.globalCanvasManager.clear();
+      return window.globalCanvasManager.clearCanvas();
     }
     
     // Fallback: manually clear canvas
