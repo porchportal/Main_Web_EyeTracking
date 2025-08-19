@@ -12,7 +12,7 @@ const getCanvas = () => {
   if (typeof window !== 'undefined' && window.globalCanvasManager) {
     return window.globalCanvasManager.getCanvas();
   }
-  return document.querySelector('#tracking-canvas');
+  return document.querySelector('#main-canvas');
 };
 
 /**
@@ -23,11 +23,7 @@ const getCanvas = () => {
  * @returns {boolean} Success status
  */
 const drawDotWithCanvasManager = (x, y, radius = 12) => {
-  if (typeof window !== 'undefined' && window.globalCanvasManager) {
-    return window.globalCanvasManager.drawDot(x, y, radius);
-  }
-  
-  // Fallback: manually draw dot
+  // Get canvas using the global canvas manager
   const canvas = getCanvas();
   if (canvas) {
     const ctx = canvas.getContext('2d');
@@ -367,7 +363,7 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
   // Get the backup countdown element
   const backupCountdown = document.querySelector('.backup-countdown');
 
-  // Use canvas management system to draw dot
+  // Draw dot using the canvas management system
   drawDotWithCanvasManager(position.x, position.y);
 
   let count = 3;
@@ -667,7 +663,7 @@ export const calibrationCapture = async (options) => {
         return { success: false };
       }
   
-      // Use canvas management system to draw dot
+      // Draw dot using the canvas management system
       drawDotWithCanvasManager(point.x, point.y);
   
       setProcessStatus?.(`Calibration point ${pointIndex + 1}/${totalPoints}`);
@@ -934,12 +930,7 @@ export const captureAndPreviewProcess = async (options) => {
     setTimeout(() => {
       console.log('🔍 captureAndPreviewProcess: About to restore TopBar directly...');
       
-      // 🔥 EXIT FULLSCREEN MODE FIRST 🔥
-      if (typeof window !== 'undefined' && window.globalCanvasManager) {
-        console.log('🔍 captureAndPreviewProcess: Exiting fullscreen mode via global canvas manager...');
-        window.globalCanvasManager.exitFullscreen();
-        console.log('🔍 captureAndPreviewProcess: Fullscreen mode exited successfully');
-      }
+
       
       // Use the same TopBar control pattern as index.js
       if (typeof window !== 'undefined' && window.toggleTopBar) {
@@ -1001,12 +992,7 @@ export const captureAndPreviewProcess = async (options) => {
     // 🔥 ENSURE TOPBAR IS SHOWN EVEN ON ERROR 🔥
     console.log('🔍 captureAndPreviewProcess: Error case - About to restore TopBar directly...');
     
-    // 🔥 EXIT FULLSCREEN MODE ON ERROR AS WELL 🔥
-    if (typeof window !== 'undefined' && window.globalCanvasManager) {
-      console.log('🔍 captureAndPreviewProcess: Error case - Exiting fullscreen mode via global canvas manager...');
-      window.globalCanvasManager.exitFullscreen();
-      console.log('🔍 captureAndPreviewProcess: Error case - Fullscreen mode exited successfully');
-    }
+
     
     // Use the same TopBar control pattern as index.js
     if (typeof window !== 'undefined' && window.toggleTopBar) {

@@ -127,18 +127,14 @@ const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabl
   );
 };
 
-// Global Canvas Manager - Single source of truth for canvas operations
+// Simplified Canvas Manager - Essential functions only
 class GlobalCanvasManager {
   constructor() {
     this.canvas = null;
-    this.originalState = null;
-    this.resizeObserver = null;
-    this.isFullscreen = false;
     this.isInitialized = false;
-    this.container = null;
   }
 
-  // Get or create the single main canvas
+  // Get or create the main canvas
   getCanvas() {
     if (this.canvas) {
       return this.canvas;
@@ -149,7 +145,6 @@ class GlobalCanvasManager {
     
     if (canvas) {
       this.canvas = canvas;
-      // Ensure proper CSS class is applied
       canvas.classList.add(styles.mainCanvas);
       return canvas;
     }
@@ -164,17 +159,11 @@ class GlobalCanvasManager {
   }
 
   // Initialize the main canvas
-  initializeCanvas(container = null) {
-    // Clean up any existing duplicate canvases
-    this.cleanupDuplicateCanvases();
-    
+  initializeCanvas() {
     const canvas = this.getCanvas();
     if (!canvas) return null;
     
-    // Always append to body for consistent positioning
-    this.container = document.body;
-
-    // Set up canvas with proper dimensions and styling
+    // Set up canvas with proper dimensions
     this.setupCanvas(canvas);
     
     // Add to body if not already there
@@ -182,13 +171,13 @@ class GlobalCanvasManager {
       document.body.appendChild(canvas);
     }
 
-    // Ensure canvas has proper z-index and is behind TopBar
+    // Ensure canvas has proper positioning
     canvas.style.zIndex = '0';
     canvas.style.position = 'fixed';
     canvas.style.top = '0';
     canvas.style.left = '0';
 
-    // Store global reference for other components
+    // Set up global references
     this.setupGlobalReferences();
 
     // Set up responsive behavior
@@ -199,85 +188,18 @@ class GlobalCanvasManager {
     return canvas;
   }
 
-  // Clean up duplicate canvases
-  cleanupDuplicateCanvases() {
-    const existingCanvases = document.querySelectorAll('#main-canvas');
-    existingCanvases.forEach((existingCanvas, index) => {
-      if (index > 0) { // Keep only the first one
-        if (existingCanvas.parentNode) {
-          existingCanvas.parentNode.removeChild(existingCanvas);
-        }
-      }
-    });
-  }
-
-  // Set up canvas with proper dimensions and styling
+  // Set up canvas with proper dimensions
   setupCanvas(canvas) {
     if (!canvas) return;
 
-    // Get window dimensions directly
     const windowWidth = window.innerWidth || 800;
     const windowHeight = window.innerHeight || 600;
 
-    // Set canvas dimensions to full window size
     canvas.width = windowWidth;
     canvas.height = windowHeight;
 
-    // Apply consistent styling
-    this.applyCanvasStyles(canvas, false);
-
     // Initialize with yellow background
     this.clearCanvas(canvas);
-  }
-
-  // Apply consistent canvas styles
-  applyCanvasStyles(canvas, isFullscreen = false) {
-    if (!canvas) return;
-
-    // Remove existing classes
-    canvas.classList.remove(styles.fullscreen);
-    
-    if (isFullscreen) {
-      // Add fullscreen class to main canvas
-      canvas.classList.add(styles.fullscreen);
-      // Ensure fullscreen canvas is behind TopBar
-      canvas.style.zIndex = '0';
-    } else {
-      // Ensure base mainCanvas class is applied
-      canvas.classList.add(styles.mainCanvas);
-      // Ensure normal canvas is behind TopBar
-      canvas.style.zIndex = '0';
-    }
-  }
-
-  // Add CSS class to canvas
-  addCanvasClass(className) {
-    const canvas = this.getCanvas();
-    if (canvas) {
-      canvas.classList.add(className);
-    }
-  }
-
-  // Remove CSS class from canvas
-  removeCanvasClass(className) {
-    const canvas = this.getCanvas();
-    if (canvas) {
-      canvas.classList.remove(className);
-    }
-  }
-
-  // Toggle CSS class on canvas
-  toggleCanvasClass(className) {
-    const canvas = this.getCanvas();
-    if (canvas) {
-      canvas.classList.toggle(className);
-    }
-  }
-
-  // Check if canvas has CSS class
-  hasCanvasClass(className) {
-    const canvas = this.getCanvas();
-    return canvas ? canvas.classList.contains(className) : false;
   }
 
   // Clear canvas with yellow background
@@ -303,12 +225,6 @@ class GlobalCanvasManager {
   setupResponsiveCanvas(canvas) {
     if (!canvas) return;
 
-    // Clean up existing resize observer
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
-    }
-
-    // Listen for window resize directly
     const handleWindowResize = () => {
       this.handleResize();
     };
@@ -322,128 +238,29 @@ class GlobalCanvasManager {
     const canvas = this.getCanvas();
     if (!canvas) return;
 
-    // Update canvas dimensions to window size
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-
-    // Redraw yellow background
     this.clearCanvas(canvas);
-
-    // Clean up any duplicate canvases
-    this.cleanupDuplicateCanvases();
   }
 
-  // Enter fullscreen mode
-  enterFullscreen() {
-    const canvas = this.getCanvas();
-    if (!canvas) return null;
-
-    // Save original state
-    this.originalState = {
-      parent: canvas.parentElement,
-      position: canvas.style.position,
-      top: canvas.style.top,
-      left: canvas.style.left,
-      width: canvas.style.width,
-      height: canvas.style.height,
-      zIndex: canvas.style.zIndex
-    };
-
-    // Canvas is already in body, just apply fullscreen styles
-    this.applyCanvasStyles(canvas, true);
-
-    // Set canvas dimensions to window size
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    // Clear with yellow background
-    this.clearCanvas(canvas);
-
-    // Hide UI elements
-    this.hideUIElements();
-
-    this.isFullscreen = true;
-    console.log('Canvas entered fullscreen mode');
-    return canvas;
-  }
-
-  // Exit fullscreen mode
-  exitFullscreen() {
-    const canvas = this.getCanvas();
-    if (!canvas || !this.originalState) return null;
-
-    // Show UI elements
-    this.showUIElements();
-
-    // Canvas stays in body, just restore normal styles
-    this.applyCanvasStyles(canvas, false);
-
-    // Update size to window size
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-
-    // Clear with yellow background
-    this.clearCanvas(canvas);
-
-    // Clear original state
-    this.originalState = null;
-    this.isFullscreen = false;
-    console.log('Canvas exited fullscreen mode');
-    return canvas;
-  }
-
-  // Hide UI elements during fullscreen
-  hideUIElements() {
-    const elementsToHide = [
-      '.topbar',
-      '.main-content',
-      '.metrics-panel',
-      '.display-metrics',
-      'nav',
-      'header',
-      '.button-groups',
-      '.control-buttons'
-    ];
-    
-    elementsToHide.forEach(selector => {
-      const elements = document.querySelectorAll(selector);
-      elements.forEach(el => {
-        el.style.display = 'none';
-        el.setAttribute('data-hidden-by-canvas', 'true');
-      });
-    });
-  }
-
-  // Show UI elements after fullscreen
+  // Show UI elements (used by action handlers)
   showUIElements() {
     const hiddenElements = document.querySelectorAll('[data-hidden-by-canvas="true"]');
     hiddenElements.forEach(el => {
       el.style.display = '';
       el.removeAttribute('data-hidden-by-canvas');
       
-      // Ensure TopBar has proper z-index
       if (el.classList.contains('topbar')) {
         el.style.zIndex = '12';
         el.style.position = 'relative';
       }
     });
     
-    // Also ensure any other UI elements have proper z-index
     const topbar = document.querySelector('.topbar');
     if (topbar) {
       topbar.style.zIndex = '12';
       topbar.style.position = 'relative';
     }
-  }
-
-  // Draw dot at position
-  drawDot(x, y, radius = 12) {
-    const canvas = this.getCanvas();
-    if (!canvas) return false;
-    
-    const ctx = canvas.getContext('2d');
-    drawRedDot(ctx, x, y, radius, false);
-    return true;
   }
 
   // Get canvas dimensions
@@ -457,18 +274,8 @@ class GlobalCanvasManager {
     };
   }
 
-  // Check if canvas is in fullscreen mode
-  isInFullscreen() {
-    return this.isFullscreen;
-  }
-
   // Cleanup and destroy
   destroy() {
-    // Clean up resize observer
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
-    }
-
     // Clean up window resize listener
     if (this.canvas && this.canvas._windowResizeHandler) {
       window.removeEventListener('resize', this.canvas._windowResizeHandler);
@@ -484,10 +291,7 @@ class GlobalCanvasManager {
 
     // Reset state
     this.canvas = null;
-    this.originalState = null;
-    this.isFullscreen = false;
     this.isInitialized = false;
-    this.container = null;
 
     // Clean up global references
     if (typeof window !== 'undefined') {
@@ -796,29 +600,14 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     return manager;
   }, []);
 
-  // Utility function to easily manage canvas operations
+  // Simplified canvas utilities - only essential functions
   const canvasUtils = useMemo(() => ({
     // Get or create canvas
     getCanvas: () => canvasManager.getCanvas(),
     
-    // Enter fullscreen mode
-    enterFullscreen: () => {
-      return canvasManager.enterFullscreen();
-    },
-    
-    // Exit fullscreen mode
-    exitFullscreen: () => {
-      return canvasManager.exitFullscreen();
-    },
-    
     // Clear canvas
     clear: () => {
       canvasManager.clearCanvas();
-    },
-    
-    // Draw dot at position
-    drawDot: (x, y, radius = 12) => {
-      return canvasManager.drawDot(x, y, radius);
     },
     
     // Get canvas dimensions
@@ -826,34 +615,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       return canvasManager.getDimensions();
     },
     
-    // Check if canvas is in fullscreen
-    isFullscreen: () => canvasManager.isInFullscreen(),
-    
     // Initialize canvas
-    initialize: (container) => {
-      return canvasManager.initializeCanvas(container);
-    },
-    
-    // Clean up duplicate canvases
-    cleanupDuplicates: () => {
-      canvasManager.cleanupDuplicateCanvases();
-    },
-
-    // CSS class management
-    addClass: (className) => {
-      canvasManager.addCanvasClass(className);
-    },
-
-    removeClass: (className) => {
-      canvasManager.removeCanvasClass(className);
-    },
-
-    toggleClass: (className) => {
-      canvasManager.toggleCanvasClass(className);
-    },
-
-    hasClass: (className) => {
-      return canvasManager.hasCanvasClass(className);
+    initialize: () => {
+      return canvasManager.initializeCanvas();
     }
   }), [canvasManager]);
 
@@ -1288,7 +1052,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     const handleTopBarSettingsLoaded = (event) => {
       if (event.detail && event.detail.userId === currentUserId) {
         const { times_set_random, delay_set_random } = event.detail;
-        console.log(`[TopBar Settings Loaded] User ${currentUserId}: times_set_random=${times_set_random}, delay_set_random=${delay_set_random}`);
+
         
         if (times_set_random !== undefined) {
           setRandomTimes(Number(times_set_random) || 1);
@@ -1356,7 +1120,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     if (typeof window !== 'undefined') {
       // Direct TopBar control
       window.toggleTopBar = (show) => {
-        console.log('🔍 Direct TopBar control:', show);
         setShowTopBar(show);
         
         // Auto-control metrics with TopBar
@@ -1374,7 +1137,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       
       // Direct metrics control
       window.toggleMetrics = (show) => {
-        console.log('🔍 Direct metrics control:', show);
         setShowMetrics(show);
       };
       
@@ -1396,15 +1158,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     };
   }, [showTopBar, showMetrics, isCameraActive, isCameraActivated]);
 
-  // Debug TopBar state changes
-  useEffect(() => {
-    console.log('🔍 MainComponent: showTopBar state changed to:', showTopBar);
-  }, [showTopBar]);
 
-  // Debug showMetrics state changes
-  useEffect(() => {
-    console.log('🔍 MainComponent: showMetrics state changed to:', showMetrics);
-  }, [showMetrics]);
 
   // Action handlers
   const handleRandomDot = async () => {
@@ -1429,34 +1183,26 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       const randomDotAction = new RandomDotAction({
         canvasRef: { current: canvas },
         toggleTopBar: (show) => {
-          console.log('🔍 RandomDotAction: toggleTopBar called with:', show, 'Current showTopBar state:', showTopBar);
           setShowTopBar(show);
-          console.log('🔍 RandomDotAction: TopBar state set to:', show);
           // Also control metrics visibility
           if (!show) {
             setShowMetrics(false);
-            console.log('🔍 RandomDotAction: Metrics hidden');
           } else {
             setShowMetrics(true);
-            console.log('🔍 RandomDotAction: Metrics shown');
             // Show UI elements if they were hidden by canvas fullscreen
             if (typeof window !== 'undefined' && window.globalCanvasManager) {
               window.globalCanvasManager.showUIElements();
-              console.log('🔍 RandomDotAction: UI elements restored after canvas fullscreen');
             }
           }
         },
         setIsCapturing: (capturing) => {
           setIsCapturing(capturing);
-          console.log('RandomDotAction: isCapturing set to', capturing);
         },
         setProcessStatus: (status) => {
           setProcessStatus(status);
-          console.log('RandomDotAction: processStatus set to', status);
         },
         setCurrentDot: (dot) => {
           setCurrentDot(dot);
-          console.log('RandomDotAction: currentDot set to', dot);
         },
         triggerCameraAccess,
         onStatusUpdate: (status) => {
@@ -1504,20 +1250,15 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         },
         setCaptureCounter,
         toggleTopBar: (show) => {
-          console.log('🔍 SetRandomAction: toggleTopBar called with:', show, 'Current showTopBar state:', showTopBar);
           setShowTopBar(show);
-          console.log('🔍 SetRandomAction: TopBar state set to:', show);
           // Also control metrics visibility
           if (!show) {
             setShowMetrics(false);
-            console.log('🔍 SetRandomAction: Metrics hidden');
           } else {
             setShowMetrics(true);
-            console.log('🔍 SetRandomAction: Metrics shown');
             // Show UI elements if they were hidden by canvas fullscreen
             if (typeof window !== 'undefined' && window.globalCanvasManager) {
               window.globalCanvasManager.showUIElements();
-              console.log('🔍 SetRandomAction: UI elements restored after canvas fullscreen');
             }
           }
         },
@@ -1525,11 +1266,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         triggerCameraAccess,
         setIsCapturing: (capturing) => {
           setIsCapturing(capturing);
-          console.log('SetRandomAction: isCapturing set to', capturing);
         },
         setProcessStatus: (status) => {
           setProcessStatus(status);
-          console.log('SetRandomAction: processStatus set to', status);
         }
       });
       
@@ -1563,34 +1302,26 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       const setCalibrateAction = new SetCalibrateAction({
         canvasRef: { current: canvas },
         toggleTopBar: (show) => {
-          console.log('🔍 SetCalibrateAction: toggleTopBar called with:', show, 'Current showTopBar state:', showTopBar);
           setShowTopBar(show);
-          console.log('🔍 SetCalibrateAction: TopBar state set to:', show);
           // Also control metrics visibility
           if (!show) {
             setShowMetrics(false);
-            console.log('🔍 SetCalibrateAction: Metrics hidden');
           } else {
             setShowMetrics(true);
-            console.log('🔍 SetCalibrateAction: Metrics shown');
             // Show UI elements if they were hidden by canvas fullscreen
             if (typeof window !== 'undefined' && window.globalCanvasManager) {
               window.globalCanvasManager.showUIElements();
-              console.log('🔍 SetCalibrateAction: UI elements restored after canvas fullscreen');
             }
           }
         },
         setIsCapturing: (capturing) => {
           setIsCapturing(capturing);
-          console.log('SetCalibrateAction: isCapturing set to', capturing);
         },
         setProcessStatus: (status) => {
           setProcessStatus(status);
-          console.log('SetCalibrateAction: processStatus set to', status);
         },
         setCurrentDot: (dot) => {
           setCurrentDot(dot);
-          console.log('SetCalibrateAction: currentDot set to', dot);
         },
         triggerCameraAccess,
         onStatusUpdate: (status) => {
@@ -1621,13 +1352,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     setCountdownValue(null);
     setShowCanvas(true);
     setCurrentDot(null);
-    
-    console.log('Clear All: Reset all states');
   };
 
   const handleToggleCamera = useCallback(() => {
     const newCameraState = !isCameraActive;
-    console.log(`[Camera Toggle] Switching camera from ${isCameraActive} to ${newCameraState}`);
     
     setIsCameraActive(newCameraState);
     setShowCamera(newCameraState); // Link the camera display state with the active state
@@ -1668,7 +1396,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     switch (actionType) {
       case 'preview':
         const shouldShow = args[0] !== undefined ? args[0] : !showCamera;
-        console.log(`[Action Handler] Preview action: shouldShow=${shouldShow}, current showCamera=${showCamera}`);
         setShowCamera(shouldShow);
         setIsCameraActive(shouldShow);
         
@@ -1687,26 +1414,21 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           openCameraSelector();
           break;
       case 'metrics':
-        console.log('🔍 Metrics toggle clicked, current state:', showMetrics);
         if (typeof window !== 'undefined' && window.toggleMetrics) {
           window.toggleMetrics(!showMetrics);
         }
         setProcessStatus(`Metrics ${!showMetrics ? 'shown' : 'hidden'}`);
         break;
       case 'randomDot':
-        console.log('Random Dot button clicked');
         handleRandomDot();
         break;
       case 'setRandom':
-        console.log('Set Random button clicked');
         handleSetRandom();
         break;
       case 'calibrate':
-        console.log('Set Calibrate button clicked');
         handleSetCalibrate();
         break;
       case 'clearAll':
-        console.log('Clear All button clicked');
         handleClearAll();
         break;
       case 'toggleTopBar':
@@ -1716,7 +1438,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         }
         break;
       default:
-        console.log('Unknown action type:', actionType);
         // Silent handling for unknown actions
         break;
     }
@@ -2185,7 +1906,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
               isVisible={showMetrics}
             />
           )}
-          {console.log('🔍 Rendering DisplayResponse, showMetrics:', showMetrics, 'isHydrated:', isHydrated)}
+
         </>
       )}
     </>

@@ -27,24 +27,9 @@ class RandomDotAction {
     if (typeof window !== 'undefined' && window.globalCanvasManager) {
       return window.globalCanvasManager.getCanvas();
     }
-    return this.canvasRef?.current || document.querySelector('#tracking-canvas');
+    return this.canvasRef?.current || document.querySelector('#main-canvas');
   }
 
-  // Enter fullscreen using the global canvas manager
-  enterFullscreen() {
-    if (typeof window !== 'undefined' && window.globalCanvasManager) {
-      return window.globalCanvasManager.enterFullscreen();
-    }
-    return null;
-  }
-
-  // Exit fullscreen using the global canvas manager
-  exitFullscreen() {
-    if (typeof window !== 'undefined' && window.globalCanvasManager) {
-      return window.globalCanvasManager.exitFullscreen();
-    }
-    return null;
-  }
 
   // Clear canvas using the global canvas manager
   clearCanvas() {
@@ -64,11 +49,7 @@ class RandomDotAction {
 
   // Draw dot using the global canvas manager
   drawDot(x, y, radius = 12) {
-    if (typeof window !== 'undefined' && window.globalCanvasManager) {
-      return window.globalCanvasManager.drawDot(x, y, radius);
-    }
-    
-    // Fallback: manually draw dot
+    // Get canvas using the global canvas manager
     const canvas = this.getCanvas();
     if (canvas) {
       const ctx = canvas.getContext('2d');
@@ -125,9 +106,6 @@ class RandomDotAction {
     setTimeout(async () => {
       const canvas = this.getCanvas();
       if (canvas) {
-        // Use canvas management system to enter fullscreen
-        this.enterFullscreen();
-        
         // Generate random position
         const position = getRandomPosition(canvas);
         
@@ -163,12 +141,7 @@ class RandomDotAction {
             captureFolder: 'eye_tracking_captures'
           });
           
-          // 🔥 EXIT FULLSCREEN MODE FIRST, THEN CLEAR CANVAS 🔥
-          console.log('RandomDotAction: Exiting fullscreen mode after capture completion...');
-          this.exitFullscreen();
-          console.log('RandomDotAction: Fullscreen mode exited successfully');
-          
-          // Clear the dot after exiting fullscreen using canvas management system
+          // Clear the dot using canvas management system
           this.clearCanvas();
           
           // Set capturing state to false immediately
@@ -204,10 +177,7 @@ class RandomDotAction {
             console.log('RandomDotAction: Error case - TopBar restored via passed toggleTopBar function');
           }
           
-          // 🔥 EXIT FULLSCREEN MODE ON ERROR AS WELL 🔥
-          console.log('RandomDotAction: Error case - Exiting fullscreen mode...');
-          this.exitFullscreen();
-          console.log('RandomDotAction: Error case - Fullscreen mode exited successfully');
+
         }
       } else {
         console.error("Canvas reference is null - cannot draw dot");
