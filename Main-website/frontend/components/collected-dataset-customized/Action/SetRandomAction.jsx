@@ -3,7 +3,7 @@
 
 import React from 'react';
 import { getRandomPosition, drawRedDot, runCountdown, showCapturePreview } from './countSave.jsx';
-import { captureImagesAtPoint } from '../Helper/savefile';
+import { captureImagesAtUserPoint } from '../Helper/user_savefile';
 
 class SetRandomAction {
   constructor(config) {
@@ -22,103 +22,45 @@ class SetRandomAction {
     this.canvasUtils = typeof window !== 'undefined' ? window.canvasUtils : null;
   }
 
-  // Get or create canvas using the canvas management system from actionButton.js
+  // Get or create canvas using the canvas management system from index.js
   getCanvas() {
-    // First try to use canvasUtils from actionButton.js
+    // First try to use canvasUtils from index.js
     if (this.canvasUtils && typeof this.canvasUtils.getCanvas === 'function') {
       return this.canvasUtils.getCanvas();
     }
     
     // Fallback to canvasManager
     if (this.canvasManager && typeof this.canvasManager.getCanvas === 'function') {
-      return this.canvasManager.getCanvas() || this.canvasManager.createCanvas();
+      return this.canvasManager.getCanvas();
+    }
+    
+    // Fallback to global canvas manager
+    if (typeof window !== 'undefined' && window.globalCanvasManager) {
+      return window.globalCanvasManager.getCanvas();
     }
     
     // Fallback to canvasRef if canvasManager not available
-    return this.canvasRef?.current || document.querySelector('#tracking-canvas');
+    return this.canvasRef?.current || document.querySelector('#main-canvas');
   }
 
   // Enter fullscreen using the canvas management system
   enterFullscreen() {
-    if (this.canvasUtils && typeof this.canvasUtils.enterFullscreen === 'function') {
-      return this.canvasUtils.enterFullscreen();
-    }
-    
-    if (this.canvasManager && typeof this.canvasManager.enterFullscreen === 'function') {
-      this.canvasManager.enterFullscreen();
-      return this.canvasManager.getCanvas();
-    }
-    
-    // Fallback: manually enter fullscreen
-    const canvas = this.getCanvas();
-    if (canvas) {
-      document.body.appendChild(canvas);
-      canvas.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: 99999;
-        background-color: white;
-        border: none;
-        display: block;
-        opacity: 1;
-        pointer-events: auto;
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-      `;
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      
-      // Clear with white background
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
-    return canvas;
+    // Fullscreen functionality removed from simplified canvas manager
+    // This method is kept for compatibility but does nothing
+    return null;
   }
 
   // Exit fullscreen using the canvas management system
   exitFullscreen() {
-    if (this.canvasUtils && typeof this.canvasUtils.exitFullscreen === 'function') {
-      return this.canvasUtils.exitFullscreen();
-    }
-    
-    if (this.canvasManager && typeof this.canvasManager.exitFullscreen === 'function') {
-      this.canvasManager.exitFullscreen();
-      return this.canvasManager.getCanvas();
-    }
-    
-    // Fallback: manually exit fullscreen
-    const canvas = this.getCanvas();
-    if (canvas) {
-      const container = document.querySelector('.canvas-container') || 
-                        document.querySelector('.main-content') ||
-                        document.body;
-      container.appendChild(canvas);
-      canvas.style.position = 'relative';
-      canvas.style.top = '';
-      canvas.style.left = '';
-      canvas.style.width = '100%';
-      canvas.style.height = '100%';
-      canvas.style.zIndex = '';
-      canvas.style.backgroundColor = 'white';
-    }
-    return canvas;
+    // Fullscreen functionality removed from simplified canvas manager
+    // This method is kept for compatibility but does nothing
+    return null;
   }
 
-  // Clear canvas using the canvas management system
+  // Clear canvas using the global canvas manager
   clearCanvas() {
-    if (this.canvasUtils && typeof this.canvasUtils.clear === 'function') {
-      this.canvasUtils.clear();
-      return;
-    }
-    
-    if (this.canvasManager && typeof this.canvasManager.clear === 'function') {
-      this.canvasManager.clear();
-      return;
+    if (this.canvasManager && typeof this.canvasManager.clearCanvas === 'function') {
+      return this.canvasManager.clearCanvas();
     }
     
     // Fallback: manually clear canvas
@@ -133,11 +75,7 @@ class SetRandomAction {
 
   // Draw dot using the canvas management system
   drawDot(x, y, radius = 12) {
-    if (this.canvasUtils && typeof this.canvasUtils.drawDot === 'function') {
-      return this.canvasUtils.drawDot(x, y, radius);
-    }
-    
-    // Fallback: manually draw dot
+    // Get canvas using the canvas management system
     const canvas = this.getCanvas();
     if (canvas) {
       const ctx = canvas.getContext('2d');
@@ -186,7 +124,16 @@ class SetRandomAction {
       }
       
       // Hide UI during capture process
-      if (this.toggleTopBar) this.toggleTopBar(false);
+      // Use the same TopBar control pattern as index.js
+      if (typeof window !== 'undefined' && window.toggleTopBar) {
+        console.log('SetRandomAction: Using global window.toggleTopBar(false)...');
+        window.toggleTopBar(false);
+        console.log('SetRandomAction: TopBar hidden via global window.toggleTopBar');
+      } else if (this.toggleTopBar) {
+        console.log('SetRandomAction: Using passed toggleTopBar(false)...');
+        this.toggleTopBar(false);
+        console.log('SetRandomAction: TopBar hidden via passed toggleTopBar function');
+      }
       
       // Set capturing state if function exists
       if (typeof this.setIsCapturing === 'function') {
@@ -202,8 +149,7 @@ class SetRandomAction {
       // Wait for canvas to be ready
       const canvas = await this.waitForCanvas();
       
-      // Use canvas management system to enter fullscreen
-      this.enterFullscreen();
+
       
       // Process all captures sequentially
       let successCount = 0;
@@ -270,7 +216,7 @@ class SetRandomAction {
         
         // Capture images at this point
         try {
-          const captureResult = await captureImagesAtPoint({
+          const captureResult = await captureImagesAtUserPoint({
             point: position,
             captureCount: this.captureCounter,
             canvasRef: { current: canvas },
@@ -320,12 +266,18 @@ class SetRandomAction {
       // Clear the last dot using canvas management system
       this.clearCanvas();
       
-      // Exit fullscreen and restore canvas using canvas management system
-      this.exitFullscreen();
+
       
       // Turn TopBar back on
-      if (this.toggleTopBar) {
+      // Use the same TopBar control pattern as index.js
+      if (typeof window !== 'undefined' && window.toggleTopBar) {
+        console.log('SetRandomAction: Using global window.toggleTopBar(true)...');
+        window.toggleTopBar(true);
+        console.log('SetRandomAction: TopBar restored via global window.toggleTopBar');
+      } else if (this.toggleTopBar) {
+        console.log('SetRandomAction: Using passed toggleTopBar(true)...');
         this.toggleTopBar(true);
+        console.log('SetRandomAction: TopBar restored via passed toggleTopBar function');
       }
       
     } catch (err) {
@@ -342,7 +294,16 @@ class SetRandomAction {
       }
       
       // Make sure to restore the UI
-      if (this.toggleTopBar) this.toggleTopBar(true);
+      // Use the same TopBar control pattern as index.js
+      if (typeof window !== 'undefined' && window.toggleTopBar) {
+        console.log('SetRandomAction: Error case - Using global window.toggleTopBar(true)...');
+        window.toggleTopBar(true);
+        console.log('SetRandomAction: Error case - TopBar restored via global window.toggleTopBar');
+      } else if (this.toggleTopBar) {
+        console.log('SetRandomAction: Error case - Using passed toggleTopBar(true)...');
+        this.toggleTopBar(true);
+        console.log('SetRandomAction: Error case - TopBar restored via passed toggleTopBar function');
+      }
     }
   };
 }

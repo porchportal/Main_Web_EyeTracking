@@ -26,38 +26,34 @@ class SetCalibrateAction {
     if (typeof window !== 'undefined' && window.globalCanvasManager) {
       return window.globalCanvasManager.getCanvas();
     }
-    return this.canvasRef?.current || document.querySelector('#tracking-canvas');
+    return this.canvasRef?.current || document.querySelector('#main-canvas');
   }
 
   // Check if canvas is in fullscreen mode
   isCanvasFullscreen() {
-    const isFullscreen = typeof window !== 'undefined' && window.globalCanvasManager ? 
-      window.globalCanvasManager.isInFullscreen() : false;
-    
-    const canvas = this.getCanvas();
-    return isFullscreen || (canvas && canvas.style.position === 'fixed' && canvas.style.width === '100vw');
+    // Fullscreen functionality removed from simplified canvas manager
+    // This method is kept for compatibility but always returns false
+    return false;
   }
 
   // Enter fullscreen using the global canvas manager
   enterFullscreen() {
-    if (typeof window !== 'undefined' && window.globalCanvasManager) {
-      return window.globalCanvasManager.enterFullscreen();
-    }
+    // Fullscreen functionality removed from simplified canvas manager
+    // This method is kept for compatibility but does nothing
     return null;
   }
 
   // Exit fullscreen using the global canvas manager
   exitFullscreen() {
-    if (typeof window !== 'undefined' && window.globalCanvasManager) {
-      return window.globalCanvasManager.exitFullscreen();
-    }
+    // Fullscreen functionality removed from simplified canvas manager
+    // This method is kept for compatibility but does nothing
     return null;
   }
 
   // Clear canvas using the global canvas manager
   clearCanvas() {
     if (typeof window !== 'undefined' && window.globalCanvasManager) {
-      return window.globalCanvasManager.clear();
+      return window.globalCanvasManager.clearCanvas();
     }
     
     // Fallback: manually clear canvas
@@ -72,11 +68,7 @@ class SetCalibrateAction {
 
   // Draw dot using the global canvas manager
   drawDot(x, y, radius = 12) {
-    if (typeof window !== 'undefined' && window.globalCanvasManager) {
-      return window.globalCanvasManager.drawDot(x, y, radius);
-    }
-    
-    // Fallback: manually draw dot
+    // Get canvas using the global canvas manager
     const canvas = this.getCanvas();
     if (canvas) {
       const ctx = canvas.getContext('2d');
@@ -125,11 +117,29 @@ class SetCalibrateAction {
     return null;
   }
 
+  // Transform canvas coordinates to viewport coordinates
+  transformCoordinates(canvas, point) {
+    if (!canvas || !point) return point;
+    
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: rect.left + point.x,
+      y: rect.top + point.y
+    };
+  }
+
   // Main function to handle calibration sequence
   handleSetCalibrate = async () => {
     // Hide the TopBar before starting calibration
-    if (typeof this.toggleTopBar === 'function') {
+    // Use the same TopBar control pattern as index.js
+    if (typeof window !== 'undefined' && window.toggleTopBar) {
+      console.log('SetCalibrateAction: Using global window.toggleTopBar(false)...');
+      window.toggleTopBar(false);
+      console.log('SetCalibrateAction: TopBar hidden via global window.toggleTopBar');
+    } else if (typeof this.toggleTopBar === 'function') {
+      console.log('SetCalibrateAction: Using passed toggleTopBar(false)...');
       this.toggleTopBar(false);
+      console.log('SetCalibrateAction: TopBar hidden via passed toggleTopBar function');
     }
     
     // Set capturing state if function exists
@@ -163,8 +173,7 @@ class SetCalibrateAction {
           height: canvas.height
         };
 
-        // Use canvas management system to enter fullscreen
-        this.enterFullscreen();
+
 
         // Generate calibration points based on ORIGINAL canvas size
         const points = generateCalibrationPoints(this.originalCanvasDimensions.width, this.originalCanvasDimensions.height);
@@ -227,23 +236,24 @@ class SetCalibrateAction {
           countdownElement.className = 'dot-countdown';
           countdownElement.style.cssText = `
             position: fixed;
-            left: ${transformedPoint.x}px;
-            top: ${transformedPoint.y}px;
-            transform: translate(-50%, -50%);
+            left: ${transformedPoint.x - 10}px;
+            top: ${transformedPoint.y - 10}px;
+            transform: none;
             color: red;
-            font-size: 24px;
+            font-size: 13px;
             font-weight: bold;
-            text-shadow: 0 0 10px white, 0 0 20px white;
+            text-shadow: 0 0 4px white, 0 0 6px white, 0 0 8px white;
             z-index: 10000;
-            background-color: rgba(255, 255, 255, 0.9);
-            border: 2px solid red;
+            background-color: rgba(255, 255, 255, 0.98);
+            border: 1px solid red;
             border-radius: 50%;
-            width: 48px;
-            height: 48px;
+            width: 20px;
+            height: 20px;
             display: flex;
             justify-content: center;
             align-items: center;
-            box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 0 6px rgba(0, 0, 0, 0.7), 0 0 10px rgba(255, 0, 0, 0.5);
+            animation: countdownPulse 1s infinite;
           `;
           document.body.appendChild(countdownElement);
           
@@ -346,8 +356,7 @@ class SetCalibrateAction {
         console.error("Calibration error:", error);
         this.setProcessStatus(`Calibration error: ${error.message}`);
       } finally {
-        // Exit fullscreen and restore canvas using canvas management system
-        this.exitFullscreen();
+
         
         // Set capturing state to false if function exists
         if (typeof this.setIsCapturing === 'function') {
@@ -355,6 +364,19 @@ class SetCalibrateAction {
         }
         
         // TopBar restoration is now handled by captureAndPreviewProcess
+        // But add a fallback to ensure TopBar is always restored
+        setTimeout(() => {
+          // Use the same TopBar control pattern as index.js
+          if (typeof window !== 'undefined' && window.toggleTopBar) {
+            console.log('SetCalibrateAction: Fallback - Using global window.toggleTopBar(true)...');
+            window.toggleTopBar(true);
+            console.log('SetCalibrateAction: Fallback - TopBar restored via global window.toggleTopBar');
+          } else if (typeof this.toggleTopBar === 'function') {
+            console.log('SetCalibrateAction: Fallback - Using passed toggleTopBar(true)...');
+            this.toggleTopBar(true);
+            console.log('SetCalibrateAction: Fallback - TopBar restored via passed toggleTopBar function');
+          }
+        }, 1000); // Small delay to ensure captureAndPreviewProcess has time to handle it first
       }
     }, 200);
   };
