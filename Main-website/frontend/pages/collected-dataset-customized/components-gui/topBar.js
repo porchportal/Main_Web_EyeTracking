@@ -40,60 +40,8 @@ const TopBar = ({
 }) => {
   const router = useRouter();
   const [canvasStatus, setCanvasStatus] = useState(isCanvasVisible);
-  const { settings, updateSettings } = useAdminSettings();
+  const { settings, updateSettings, fetchSettings, currentSettings, isLoading } = useAdminSettings();
   const [currentUserId, setCurrentUserId] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [currentSettings, setCurrentSettings] = useState({ times_set_random: 1, delay_set_random: 3 });
-  const isUpdatingRef = useRef(false);
-
-  // Memoized function to fetch settings
-  const fetchSettings = useCallback(async (userId) => {
-    if (!userId || isUpdatingRef.current) return;
-    
-    try {
-      isUpdatingRef.current = true;
-      console.log(`[TopBar] Fetching settings for user: ${userId}`);
-      
-      const response = await fetch(`/api/data-center/settings/${userId}`, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch settings');
-      }
-
-      const result = await response.json();
-      const userSettings = result.data || {};
-      
-      console.log(`[TopBar] Retrieved settings for user ${userId}:`, userSettings);
-      
-      if (userSettings && (userSettings.times_set_random !== undefined || userSettings.delay_set_random !== undefined)) {
-        setCurrentSettings(userSettings);
-        if (updateSettings) {
-          await updateSettings(userSettings, userId);
-        }
-        
-        // Dispatch event to notify other components
-        const event = new CustomEvent('topBarSettingsLoaded', {
-          detail: {
-            userId: userId,
-            times_set_random: userSettings.times_set_random,
-            delay_set_random: userSettings.delay_set_random,
-            settings: userSettings
-          }
-        });
-        window.dispatchEvent(event);
-      }
-    } catch (error) {
-      console.error('TopBar - Error fetching settings:', error);
-    } finally {
-      isUpdatingRef.current = false;
-    }
-  }, [updateSettings]);
 
   // Get canvas function - use existing canvas from global manager
   const getCanvas = () => {
@@ -118,10 +66,9 @@ const TopBar = ({
   // Debounced save settings function
   const debouncedSaveSettings = useCallback(
     debounce(async (userId, newSettings) => {
-      if (!userId || isUpdatingRef.current) return;
+      if (!userId) return;
       
       try {
-        isUpdatingRef.current = true;
         const response = await fetch(`/api/data-center/settings/${userId}`, {
           method: 'POST',
           headers: {
@@ -136,14 +83,11 @@ const TopBar = ({
         }
 
         const latestSettings = await response.json();
-        setCurrentSettings(latestSettings);
         if (updateSettings) {
           await updateSettings(latestSettings, userId);
         }
       } catch (error) {
         console.error('TopBar - Error saving settings:', error);
-      } finally {
-        isUpdatingRef.current = false;
       }
     }, 500),
     [updateSettings]
@@ -156,7 +100,6 @@ const TopBar = ({
       if (userId) {
         setCurrentUserId(userId);
         await fetchSettings(userId);
-        setIsLoading(false);
       }
     };
     initializeUserId();

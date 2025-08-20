@@ -74,6 +74,7 @@ export const useAdminSettings = (ref) => {
   const pendingUpdates = useRef(new Map());
   const isUpdating = useRef(false);
   const lastKnownSettings = useRef(new Map());
+  const isUpdatingRef = useRef(false); // Separate ref for TopBar fetch operations
 
   // Debug logging for settings changes
   useEffect(() => {
@@ -393,12 +394,67 @@ export const useAdminSettings = (ref) => {
     }
   };
 
+  // New function moved from topBar.js - Fetch settings with TopBar specific logic
+  const fetchSettings = useCallback(async (userId) => {
+    if (!userId || isUpdatingRef.current) return;
+    
+    try {
+      isUpdatingRef.current = true;
+      console.log(`[AdminSettings] Fetching settings for user: ${userId}`);
+      
+      const response = await fetch(`/api/data-center/settings/${userId}`, {
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch settings');
+      }
+
+      const result = await response.json();
+      const userSettings = result.data || {};
+      
+      console.log(`[AdminSettings] Retrieved settings for user ${userId}:`, userSettings);
+      
+      if (userSettings && (userSettings.times_set_random !== undefined || userSettings.delay_set_random !== undefined)) {
+        setCurrentSettings(userSettings);
+        
+        console.log(`[AdminSettings] Settings loaded and dispatching event - Times: ${userSettings.times_set_random}, Delay: ${userSettings.delay_set_random}`);
+        
+        // Dispatch event to notify other components
+        const event = new CustomEvent('topBarSettingsLoaded', {
+          detail: {
+            userId: userId,
+            times_set_random: userSettings.times_set_random,
+            delay_set_random: userSettings.delay_set_random,
+            settings: userSettings
+          }
+        });
+        window.dispatchEvent(event);
+        
+        return userSettings;
+      }
+      
+      return userSettings;
+    } catch (error) {
+      console.error('AdminSettings - Error fetching settings:', error);
+      return null;
+    } finally {
+      isUpdatingRef.current = false;
+    }
+  }, []);
+
   return {
     settings,
     currentSettings,
     currentUserId,
     error,
-    updateSettings: fetchSettingsForUser
+    updateSettings: fetchSettingsForUser,
+    fetchSettings, // New function for TopBar
+    isLoading: initialized.current === false
   };
 };
 

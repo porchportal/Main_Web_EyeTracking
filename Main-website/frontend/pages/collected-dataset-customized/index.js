@@ -307,7 +307,7 @@ class GlobalCanvasManager {
 const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onActionClick }, ref) => {
   const router = useRouter();
   const { userId: consentUserId } = useConsent();
-  const { settings, updateSettings } = useAdminSettings(ref);
+  const { settings, updateSettings, fetchSettings, currentSettings } = useAdminSettings(ref);
   
   // State management
   const [userData, setUserData] = useState(null);
@@ -1307,6 +1307,23 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     }
     
     try {
+      // Fetch current settings from adminSettings
+      let times = randomTimes;
+      let delay = delaySeconds;
+      
+      if (currentUserId && fetchSettings) {
+        try {
+          const userSettings = await fetchSettings(currentUserId);
+          if (userSettings) {
+            times = Number(userSettings.times_set_random) || randomTimes;
+            delay = Number(userSettings.delay_set_random) || delaySeconds;
+            console.log(`[handleSetRandom] Fetched settings - Times: ${times}, Delay: ${delay}`);
+          }
+        } catch (error) {
+          console.warn('[handleSetRandom] Error fetching settings, using current values:', error);
+        }
+      }
+      
       // Import and use SetRandomAction
       const { default: SetRandomAction } = await import('../../components/collected-dataset-customized/Action/SetRandomAction.jsx');
       
@@ -1344,7 +1361,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         },
         setProcessStatus: (status) => {
           setProcessStatus(status);
-        }
+        },
+        times: times,
+        delay: delay
       });
       
       await setRandomAction.handleAction();

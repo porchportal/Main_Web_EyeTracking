@@ -17,6 +17,12 @@ class SetRandomAction {
     this.setIsCapturing = config.setIsCapturing;
     this.setProcessStatus = config.setProcessStatus;
     
+    // Settings values passed from index.js (linked from adminSettings through TopBar)
+    this.times = config.times || 1;
+    this.delay = config.delay || 3;
+    
+    console.log(`[SetRandomAction] Constructor received settings - Times: ${this.times}, Delay: ${this.delay}`);
+    
     // Get canvas manager and utilities from global scope (from actionButton.js)
     this.canvasManager = typeof window !== 'undefined' ? window.canvasManager : null;
     this.canvasUtils = typeof window !== 'undefined' ? window.canvasUtils : null;
@@ -41,20 +47,6 @@ class SetRandomAction {
     
     // Fallback to canvasRef if canvasManager not available
     return this.canvasRef?.current || document.querySelector('#main-canvas');
-  }
-
-  // Enter fullscreen using the canvas management system
-  enterFullscreen() {
-    // Fullscreen functionality removed from simplified canvas manager
-    // This method is kept for compatibility but does nothing
-    return null;
-  }
-
-  // Exit fullscreen using the canvas management system
-  exitFullscreen() {
-    // Fullscreen functionality removed from simplified canvas manager
-    // This method is kept for compatibility but does nothing
-    return null;
   }
 
   // Clear canvas using the global canvas manager
@@ -100,28 +92,11 @@ class SetRandomAction {
   // Main handler for Set Random button
   handleAction = async () => {
     try {
-      // Get control values from the TopBar
-      const timeInput = document.querySelector('.control-input-field[data-control="time"]');
-      const delayInput = document.querySelector('.control-input-field[data-control="delay"]');
+      // Use the settings values passed from index.js (linked from adminSettings through TopBar)
+      const times = this.times;
+      const delay = this.delay;
       
-      // Default values if inputs can't be found
-      let times = 1;
-      let delay = 3;
-      
-      // Parse input values if available
-      if (timeInput) {
-        const parsedTime = parseInt(timeInput.value, 10);
-        if (!isNaN(parsedTime) && parsedTime > 0) {
-          times = parsedTime;
-        }
-      }
-      
-      if (delayInput) {
-        const parsedDelay = parseInt(delayInput.value, 10);
-        if (!isNaN(parsedDelay) && parsedDelay > 0) {
-          delay = parsedDelay;
-        }
-      }
+      console.log(`[SetRandomAction] Using passed settings - Times: ${times}, Delay: ${delay}`);
       
       // Hide UI during capture process
       // Use the same TopBar control pattern as index.js
