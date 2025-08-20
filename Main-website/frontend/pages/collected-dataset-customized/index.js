@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import TopBar from './components-gui/topBar';
 import DisplayResponse from './components-gui/displayResponse';
 import { showCapturePreview, drawRedDot, getRandomPosition, createCountdownElement, runCountdown } from '../../components/collected-dataset-customized/Action/countSave.jsx';
-import { captureImagesAtPoint } from '../../components/collected-dataset-customized/Helper/savefile';
+import { captureImagesAtUserPoint } from '../../components/collected-dataset-customized/Helper/user_savefile';
 import { generateCalibrationPoints } from '../../components/collected-dataset-customized/Action/CalibratePoints.jsx';
 import { useConsent } from '../../components/consent_ui/ConsentContext';
 import { useRouter } from 'next/router';
@@ -1100,7 +1100,59 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         checkActivation: checkCameraActivation,
         setActivation: setCameraActivation,
         showNotification: showCameraRequiredNotification,
-        clearActivation: clearCameraActivation
+        clearActivation: clearCameraActivation,
+        stopCamera: () => {
+          setShowCamera(false);
+          setIsCameraActive(false);
+          setCameraActivation(false);
+          setProcessStatus('Camera stopped');
+        },
+        getVideoElement: () => {
+          // Try multiple methods to get the video element
+          let videoElement = window.videoElement || document.querySelector('video');
+          
+          if (!videoElement) {
+            // Try to find video element in camera components
+            const cameraComponents = document.querySelectorAll('[data-camera-video], .camera-video, video');
+            for (const component of cameraComponents) {
+              if (component.tagName === 'VIDEO' && component.srcObject) {
+                videoElement = component;
+                break;
+              }
+            }
+          }
+          
+          return videoElement;
+        },
+        ensureCameraActive: async () => {
+          // Ensure camera is activated and video element is available
+          if (!isCameraActivated) {
+            setCameraActivation(true);
+            setIsCameraActive(true);
+          }
+          
+          // Wait a bit for camera to initialize
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          // Return the video element
+          return window.cameraStateManager.getVideoElement();
+        },
+        debugCameraState: () => {
+          const videoElement = window.cameraStateManager.getVideoElement();
+          console.log('🔍 Camera Debug State:', {
+            isCameraActivated,
+            isCameraActive,
+            showCamera,
+            videoElement: {
+              found: !!videoElement,
+              videoWidth: videoElement?.videoWidth,
+              videoHeight: videoElement?.videoHeight,
+              readyState: videoElement?.readyState,
+              srcObject: !!videoElement?.srcObject,
+              paused: videoElement?.paused
+            }
+          });
+        }
       };
     }
     
@@ -1170,7 +1222,30 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       return;
     }
 
+    // Hide camera UI if it's currently shown, but keep camera activated and active
+    if (showCamera === true) {
+      setShowCamera(false);
+      setCameraActivation(true);
+      setIsCameraActive(true); // Ensure camera stays active for capture
+      setProcessStatus('Camera preview hidden for Random Dot action');
+      
+      // Ensure video element is available for capture
+      setTimeout(() => {
+        const videoElement = window.videoElement || document.querySelector('video');
+        if (!videoElement || !videoElement.srcObject) {
+          console.warn('Camera not ready for capture, attempting to ensure camera is active...');
+          // Try to trigger camera activation if available
+          if (typeof window !== 'undefined' && window.cameraStateManager) {
+            window.cameraStateManager.setActivation(true);
+          }
+        }
+      }, 500);
+    }
+
     try {
+      // Clear canvas before starting the main process
+      canvasManager.clearCanvas();
+      
       // Import and use RandomDotAction
       const { default: RandomDotAction } = await import('../../components/collected-dataset-customized/Action/RandomDotAction.jsx');
       
@@ -1396,13 +1471,21 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     switch (actionType) {
       case 'preview':
         const shouldShow = args[0] !== undefined ? args[0] : !showCamera;
+        
+        // Control camera UI visibility
         setShowCamera(shouldShow);
+        
+        // Control camera active state
         setIsCameraActive(shouldShow);
+        
+        // Control camera activation state
+        setCameraActivation(shouldShow);
+        
+        console.log("show preview")
         
         if (shouldShow) {
           setProcessStatus('Camera preview started');
-          // Set camera activation when camera is started
-          setCameraActivation(true);
+          console.log("activate the camera")
           // Clear any existing warnings when camera is activated
           setShowWarning(false);
           setWarningMessage('');
@@ -1459,7 +1542,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   // Handle camera close
   const handleCameraClose = useCallback(() => {
     setShowCamera(false);
-    setIsCameraActive(false);
+    // Don't deactivate camera when closing camera UI
+    // This allows buttons to continue working with camera capture
+    // setIsCameraActive(false); // Commented out to keep camera active
     setProcessStatus('Camera preview stopped');
     // Don't clear camera activation when closing camera
     // This allows buttons to continue working
@@ -1669,17 +1754,15 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                     <div style={{ fontSize: '1.5rem' }}>📷</div>
                   </div>
                 )}
-                
-                {/* Main Canvas - managed by GlobalCanvasManager */}
-                {/* The canvas will be dynamically created and managed by GlobalCanvasManager */}
               </>
             ) : null}
             
             {/* Camera component */}
-            {isHydrated && typeof window !== 'undefined' && showCamera && (
+            {isHydrated && typeof window !== 'undefined' && (showCamera || isCameraActive) && (
               <DynamicCameraAccess
-                key={`camera-${showCamera}-${selectedCameras.join(',')}`}
+                key={`camera-${showCamera}-${isCameraActive}-${selectedCameras.join(',')}`}
                 isShowing={showCamera} 
+                isHidden={!showCamera && isCameraActive}
                 onClose={handleCameraClose}
                 onCameraReady={handleCameraReady}
                 selectedCameras={selectedCameras}

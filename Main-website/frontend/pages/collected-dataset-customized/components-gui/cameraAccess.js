@@ -6,6 +6,7 @@ import { getHighestResolutionConstraints } from '../../../components/collected-d
 // Create the main camera component
 const CameraAccessComponent = ({ 
   isShowing, 
+  isHidden = false,
   onClose, 
   onCameraReady,
   showHeadPose = false,
@@ -502,29 +503,29 @@ const CameraAccessComponent = ({
     }
   };
 
-  // Start camera on component mount if isShowing is true
+    // Start camera on component mount if isShowing is true or if hidden but active
   useEffect(() => {
     let isMounted = true;
     
     const handleCameraLifecycle = async () => {
-      if (isShowing && isMounted) {
+      if ((isShowing || isHidden) && isMounted) {
         await startCamera();
-      } else if (!isShowing && isMounted) {
+      } else if (!isShowing && !isHidden && isMounted) {
         stopCamera();
       }
     };
-    
+
     handleCameraLifecycle();
     
     return () => {
       isMounted = false;
       stopCamera();
     };
-  }, [isShowing]);
+  }, [isShowing, isHidden]);
 
   // Setup FPS counter
   useEffect(() => {
-    if (!isShowing) return;
+    if (!isShowing && !isHidden) return;
     
     fpsTimerRef.current = setInterval(() => {
       setFps(prevFps => {
@@ -542,11 +543,11 @@ const CameraAccessComponent = ({
         clearInterval(processingInterval.current);
       }
     };
-  }, [isShowing]);
+  }, [isShowing, isHidden]);
 
   // Update dimensions when container size changes
   useEffect(() => {
-    if (!isShowing) return;
+    if (!isShowing && !isHidden) return;
     
     const updateDimensions = () => {
       if (containerRef.current) {
@@ -558,11 +559,11 @@ const CameraAccessComponent = ({
     updateDimensions();
     window.addEventListener('resize', updateDimensions);
     return () => window.removeEventListener('resize', updateDimensions);
-  }, [isShowing]);
+  }, [isShowing, isHidden]);
 
   // Handle video element ready state
   useEffect(() => {
-    if (!isShowing || !videoRef.current || !stream) return;
+    if ((!isShowing && !isHidden) || !videoRef.current || !stream) return;
     
     const video = videoRef.current;
     
@@ -753,7 +754,7 @@ const CameraAccessComponent = ({
     ctx.fillText(`Face: ${faceDetected ? 'Detected' : 'Not Detected'}`, 10, canvas.height - 10);
   };
 
-  if (!isShowing) {
+  if (!isShowing && !isHidden) {
     return null;
   }
 
@@ -771,7 +772,8 @@ const CameraAccessComponent = ({
         borderRadius: '8px',
         boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
         overflow: 'hidden',
-        zIndex: 1000
+        zIndex: 1000,
+        display: isHidden ? 'none' : 'block'
       }}
     >
       <video

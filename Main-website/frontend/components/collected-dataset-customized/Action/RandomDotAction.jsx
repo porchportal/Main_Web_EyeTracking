@@ -128,6 +128,13 @@ class RandomDotAction {
         
         
         try {
+          // Ensure camera is active before capture
+          if (typeof window !== 'undefined' && window.cameraStateManager) {
+            console.log('🔍 RandomDotAction: Ensuring camera is active before capture...');
+            await window.cameraStateManager.ensureCameraActive();
+            window.cameraStateManager.debugCameraState();
+          }
+          
           // Use the shared capture and preview process
           await captureAndPreviewProcess({
             canvasRef: { current: canvas },

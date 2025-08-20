@@ -1,7 +1,6 @@
 // Fixed countSave.jsx - Resolving redrawInterval reference error
 // Shared functionality for countdown and image capture processes
 import React from 'react';
-import { captureImagesAtPoint } from '../Helper/savefile';
 import { captureImagesAtUserPoint } from '../Helper/user_savefile';
 
 /**
@@ -22,7 +21,7 @@ const getCanvas = () => {
  * @param {number} radius - Dot radius
  * @returns {boolean} Success status
  */
-const drawDotWithCanvasManager = (x, y, radius = 12) => {
+const drawDotWithCanvasManager = (x, y, radius = 6) => {
   // Get canvas using the global canvas manager
   const canvas = getCanvas();
   if (canvas) {
@@ -67,19 +66,6 @@ export const createCountdownElement = (position, canvasRect) => {
       x: position.x,
       y: position.y
     };
-    // if (isFullscreen) {
-    //   // Canvas is in fullscreen mode, use direct coordinates
-    //   displayPosition = {
-    //     x: position.x,
-    //     y: position.y
-    //   };
-    // } else {
-    //   // Canvas is in normal mode, use canvas-relative coordinates
-    //   displayPosition = {
-    //     x: canvasRect.left + position.x,
-    //     y: canvasRect.top + position.y
-    //   };
-    // }
   }
 
   console.log('[createCountdownElement] Creating countdown at position:', {
@@ -94,23 +80,23 @@ export const createCountdownElement = (position, canvasRect) => {
   countdownElement.className = 'dot-countdown';
   countdownElement.style.cssText = `
     position: fixed;
-    left: ${displayPosition.x}px;
-    top: ${displayPosition.y - 80}px;
-    transform: translateX(-50%);
+    left: ${displayPosition.x - 5}px;
+    top: ${displayPosition.y - 5}px;
+    transform: none;
     color: red;
-    font-size: 64px;
+    font-size: 13px;
     font-weight: bold;
-    text-shadow: 0 0 20px white, 0 0 30px white, 0 0 40px white;
+    text-shadow: 0 0 4px white, 0 0 6px white, 0 0 8px white;
     z-index: 30;
     background-color: rgba(255, 255, 255, 0.98);
-    border: 4px solid red;
+    border: 1px solid red;
     border-radius: 50%;
-    width: 100px;
-    height: 100px;
+    width: 10px;
+    height: 10px;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.7), 0 0 50px rgba(255, 0, 0, 0.5);
+    box-shadow: 0 0 6px rgba(0, 0, 0, 0.7), 0 0 10px rgba(255, 0, 0, 0.5);
     animation: countdownPulse 1s infinite;
     pointer-events: none;
     user-select: none;
@@ -122,9 +108,9 @@ export const createCountdownElement = (position, canvasRect) => {
     style.id = 'countdown-styles';
     style.textContent = `
       @keyframes countdownPulse {
-        0% { transform: translateX(-50%) scale(1); }
-        50% { transform: translateX(-50%) scale(1.1); }
-        100% { transform: translateX(-50%) scale(1); }
+        0% { transform: scale(1); }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); }
       }
     `;
     document.head.appendChild(style);
@@ -193,7 +179,8 @@ export const showCapturePreview = (screenImage, webcamImage, point) => {
     position: fixed;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    // transform: translate(-50%, -50%);
+    transform: none;
     display: flex;
     gap: 20px;
     background-color: rgba(0, 0, 0, 0.85);
@@ -447,7 +434,7 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
  * @param {boolean} clearCanvas - Whether to clear the canvas before drawing (default: true)
  * @returns {Object} - {x, y} position
  */
-export const drawRedDot = (ctx, x, y, radius = 12, clearCanvas = true) => {
+export const drawRedDot = (ctx, x, y, radius = 6, clearCanvas = true) => {
   const canvas = ctx.canvas;
   
   // Clear the canvas if requested (default behavior)
@@ -465,14 +452,14 @@ export const drawRedDot = (ctx, x, y, radius = 12, clearCanvas = true) => {
   
   // Add glow effect for better visibility
   ctx.beginPath();
-  ctx.arc(x, y, radius + 3, 0, Math.PI * 2);
+  ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
   ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
   ctx.lineWidth = 3;
   ctx.stroke();
   
   // Add a second larger glow for even better visibility
   ctx.beginPath();
-  ctx.arc(x, y, radius + 6, 0, Math.PI * 2);
+  ctx.arc(x, y, radius + 4, 0, Math.PI * 2);
   ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
   ctx.lineWidth = 2;
   ctx.stroke();
@@ -797,19 +784,6 @@ export const captureAndPreviewProcess = async (options) => {
       x: position.x,
       y: position.y
     };
-    // if (canvas.style.position === 'fixed' && canvas.style.width === '100vw') {
-    //   // Canvas is in fullscreen mode, use direct coordinates
-    //   displayPosition = {
-    //     x: position.x,
-    //     y: position.y
-    //   };
-    // } else {
-    //   // Canvas is in normal mode, use canvas-relative coordinates
-    //   displayPosition = {
-    //     x: canvasRect.left + position.x,
-    //     y: canvasRect.top + position.y
-    //   };
-    // }
     
     console.log('captureAndPreviewProcess: Creating countdown at:', {
       originalPosition: position,
@@ -826,24 +800,24 @@ export const captureAndPreviewProcess = async (options) => {
     countdownElement.className = 'calibrate-countdown';
     countdownElement.style.cssText = `
       position: fixed;
-      left: ${displayPosition.x}px;
-      top: ${displayPosition.y - 60}px;
-      transform: translateX(-50%);
+      left: ${displayPosition.x - 10}px;
+      top: ${displayPosition.y - 10}px;
+      transform: none;
       color: red;
-      font-size: 48px;
+      font-size: 13px;
       font-weight: bold;
-      text-shadow: 0 0 15px white, 0 0 25px white, 0 0 35px white;
+      text-shadow: 0 0 4px white, 0 0 6px white, 0 0 8px white;
       z-index: 30;
-      background-color: rgba(255, 255, 255, 0.95);
-      border: 3px solid red;
+      background-color: rgba(255, 255, 255, 0.98);
+      border: 1px solid red;
       border-radius: 50%;
-      width: 80px;
-      height: 80px;
+      width: 20px;
+      height: 20px;
       display: flex;
       justify-content: center;
       align-items: center;
-      box-shadow: 0 0 20px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 0, 0, 0.3);
-      animation: pulse 1s infinite;
+      box-shadow: 0 0 6px rgba(0, 0, 0, 0.7), 0 0 10px rgba(255, 0, 0, 0.5);
+      animation: countdownPulse 1s infinite;
     `;
     document.body.appendChild(countdownElement);
 
