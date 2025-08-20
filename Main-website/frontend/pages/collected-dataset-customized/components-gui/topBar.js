@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import { useAdminSettings } from './adminSettings';
 import { getOrCreateUserId } from '../../../utils/consentManager';
 
@@ -265,25 +266,94 @@ const TopBar = ({
     console.log('🔍 TopBar: showMetrics prop changed to:', showMetrics);
   }, [showMetrics]);
 
-  return (
+    return (
     <div className="topbar" style={{ zIndex: 12, position: 'relative' }}>
       <div className="topbar-left">
-        <div className="logo">
-          <h1 className="logo-text">Logo</h1>
-        </div>
-
-        <div className="controls-container">
-          <div className="control-group" key={`times-${currentSettings.times_set_random}-${Date.now()}`}>
-            <span className="control-label">Time(s):</span>
-            <div className="control-input">
-              <span className="control-input-field">{currentSettings.times_set_random}</span>
-            </div>
+        <div className="logo-container" style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '20px'
+        }}>
+          <div className="logo" style={{
+            display: 'flex',
+            alignItems: 'center',
+            height: '100%'
+          }}>
+            <Image
+              src="/logo.png"
+              alt="NECTEC NSTDA Logo"
+              width={220}
+              height={160}
+              style={{
+                objectFit: 'contain',
+                maxHeight: '50px'
+              }}
+              priority
+            />
           </div>
-          
-          <div className="control-group" key={`delay-${currentSettings.delay_set_random}-${Date.now()}`}>
-            <span className="control-label">Delay(s):</span>
-            <div className="control-input">
-              <span className="control-input-field">{currentSettings.delay_set_random}</span>
+
+          <div className="controls-container" style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            alignItems: 'flex-start'
+          }}>
+            <div className="control-group" key={`times-${currentSettings.times_set_random}-${Date.now()}`} style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span className="control-label" style={{
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#333',
+                whiteSpace: 'nowrap',
+                width: '60px',
+                textAlign: 'right'
+              }}>Time(s):</span>
+              <div className="control-input">
+                <div className="control-input-field" style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  height: '100%',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  color: '#333'
+                }}>
+                  {currentSettings.times_set_random}
+                </div>
+              </div>
+            </div>
+            
+            <div className="control-group" key={`delay-${currentSettings.delay_set_random}-${Date.now()}`} style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span className="control-label" style={{
+                fontSize: '14px',
+                fontWeight: '500',
+                color: '#333',
+                whiteSpace: 'nowrap',
+                width: '60px',
+                textAlign: 'right'
+              }}>Delay(s):</span>
+              <div className="control-input">
+                <div className="control-input-field" style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  height: '100%',
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  color: '#333'
+                }}>
+                  {currentSettings.delay_set_random}
+                </div>
+              </div>
             </div>
           </div>
         </div>
