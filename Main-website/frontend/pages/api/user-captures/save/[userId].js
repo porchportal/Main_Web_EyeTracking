@@ -2,7 +2,15 @@
 import fs from 'fs';
 import path from 'path';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8108';
+const BACKEND_URL = process.env.BACKEND_URL || 'http://nginx:80';
+
+// Debug environment variables
+console.log('🔧 Environment variables in save API:', {
+  BACKEND_URL: process.env.BACKEND_URL,
+  NEXT_PUBLIC_API_KEY: process.env.NEXT_PUBLIC_API_KEY,
+  NODE_ENV: process.env.NODE_ENV,
+  fallbackUsed: !process.env.BACKEND_URL
+});
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -13,31 +21,53 @@ export default async function handler(req, res) {
     const { userId } = req.query;
     const { imageData, filename, type, captureGroup } = req.body;
 
+    console.log('🔍 Frontend API received request:', {
+      userId,
+      hasImageData: !!imageData,
+      imageDataLength: imageData?.length || 0,
+      filename,
+      type,
+      captureGroup,
+      method: req.method,
+      headers: Object.keys(req.headers),
+      backendUrl: BACKEND_URL
+    });
+
     if (!imageData || !filename || !type) {
+      console.error('❌ Missing required fields:', { imageData: !!imageData, filename: !!filename, type: !!type });
       return res.status(400).json({
         success: false,
         message: 'Missing required fields: imageData, filename, or type'
       });
     }
 
-    // Forward the request to the backend
-    const backendResponse = await fetch(`${BACKEND_URL}/api/user-captures/save/${userId}`, {
+    const backendUrl = `${BACKEND_URL}/api/user-captures/save/${userId}`;
+    console.log('📤 Forwarding to backend via nginx:', backendUrl);
+
+    const requestBody = {
+      imageData,
+      filename,
+      type,
+      captureGroup
+    };
+
+    console.log('📤 Backend request body keys:', Object.keys(requestBody));
+
+    // Forward the request to the backend via nginx
+    const backendResponse = await fetch(backendUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': req.headers['x-api-key'] || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+        'X-API-Key': req.headers['x-api-key'] || req.headers['X-API-Key'] || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
       },
-      body: JSON.stringify({
-        imageData,
-        filename,
-        type,
-        captureGroup
-      })
+      body: JSON.stringify(requestBody)
     });
+
+    console.log(`📥 Backend response status: ${backendResponse.status} ${backendResponse.statusText}`);
 
     if (!backendResponse.ok) {
       const errorData = await backendResponse.json();
-      console.error('Backend error:', errorData);
+      console.error('❌ Backend error response:', errorData);
       return res.status(backendResponse.status).json({
         success: false,
         detail: errorData.detail || `Backend returned ${backendResponse.status}`
@@ -45,12 +75,17 @@ export default async function handler(req, res) {
     }
 
     const result = await backendResponse.json();
-    console.log(`✅ Forwarded save request to backend for user ${userId}:`, result);
+    console.log(`✅ Successfully forwarded save request to backend for user ${userId}:`, result);
     
     return res.status(200).json(result);
 
   } catch (error) {
     console.error('❌ Error in user-captures save API:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      type: error.constructor.name
+    });
     return res.status(500).json({
       success: false,
       detail: error.message

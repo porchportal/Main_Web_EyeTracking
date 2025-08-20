@@ -46,6 +46,8 @@ services:
     container_name: backend_auth_service
     ports:
       - "8108:8108"
+    volumes:
+      - ./backend/auth_service/resource_security/public/captures:/app/resource_security/public/captures
     env_file:
       - ./backend/.env.backend
     depends_on:

@@ -35,31 +35,51 @@ export const saveImageToUserServer = async (imageData, filename, type, captureGr
   try {
     const userId = getCurrentUserId();
     
+    console.log(`🔄 Attempting to save ${type} file for user ${userId}:`, {
+      filename,
+      type,
+      captureGroup,
+      imageDataLength: imageData?.length || 0,
+      hasImageData: !!imageData
+    });
+    
+    const requestBody = { 
+      imageData, 
+      filename, 
+      type,
+      captureGroup
+    };
+    
+    console.log('📤 Sending request to:', `/api/user-captures/save/${userId}`);
+    console.log('📤 Request body keys:', Object.keys(requestBody));
+    
     const response = await fetch(`/api/user-captures/save/${userId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
       },
-      body: JSON.stringify({ 
-        imageData, 
-        filename, 
-        type,
-        captureGroup
-      })
+      body: JSON.stringify(requestBody)
     });
+    
+    console.log(`📥 Response status: ${response.status} ${response.statusText}`);
     
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('Server error:', errorData);
+      console.error('❌ Server error response:', errorData);
       throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
     }
     
     const result = await response.json();
-    console.log(`✅ Saved ${type} file for user ${userId}:`, result);
+    console.log(`✅ Successfully saved ${type} file for user ${userId}:`, result);
     return result;
   } catch (error) {
     console.error(`❌ Error saving ${type} file:`, error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      type: error.constructor.name
+    });
     throw error;
   }
 };
@@ -75,9 +95,18 @@ export const saveCSVToUserServer = async (csvData, filename, captureGroup = null
   try {
     const userId = getCurrentUserId();
     
+    console.log(`🔄 Attempting to save CSV file for user ${userId}:`, {
+      filename,
+      captureGroup,
+      csvDataLength: csvData?.length || 0,
+      hasCsvData: !!csvData
+    });
+    
     // Convert CSV data to base64
     const base64Data = btoa(unescape(encodeURIComponent(csvData)));
     const dataUrl = `data:text/csv;base64,${base64Data}`;
+    
+    console.log('📤 Sending CSV request to:', `/api/user-captures/save/${userId}`);
     
     const response = await fetch(`/api/user-captures/save/${userId}`, {
       method: 'POST',
@@ -93,17 +122,24 @@ export const saveCSVToUserServer = async (csvData, filename, captureGroup = null
       })
     });
     
+    console.log(`📥 CSV Response status: ${response.status} ${response.statusText}`);
+    
     if (!response.ok) {
       const errorData = await response.json();
-      console.error('Server error:', errorData);
+      console.error('❌ CSV Server error response:', errorData);
       throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
     }
     
     const result = await response.json();
-    console.log(`✅ Saved CSV file for user ${userId}:`, result);
+    console.log(`✅ Successfully saved CSV file for user ${userId}:`, result);
     return result;
   } catch (error) {
     console.error(`❌ Error saving CSV file:`, error);
+    console.error('CSV Error details:', {
+      message: error.message,
+      stack: error.stack,
+      type: error.constructor.name
+    });
     throw error;
   }
 };
@@ -176,11 +212,12 @@ export const clearUserCaptures = async () => {
 export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvasRef, setCaptureCount, showCapturePreview }) => {
   try {
     const userId = getCurrentUserId();
-    console.log(`Starting user-specific capture for user: ${userId}`);
+    console.log(`🎯 Starting user-specific capture for user: ${userId}`);
+    console.log(`📍 Capture point: x=${point.x}, y=${point.y}`);
     
     // Create a unique ID for this capture group
     const captureGroupId = `capture-${Date.now()}-${userId}`;
-    console.log(`Generated capture group ID: ${captureGroupId}`);
+    console.log(`🆔 Generated capture group ID: ${captureGroupId}`);
     
     // File patterns for saving
     const screenFilename = 'screen_001.jpg';
@@ -196,18 +233,23 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
     let webcamWidth = 0;
     let webcamHeight = 0;
     
+    console.log('📸 Starting image capture process...');
+    
     // 1. Prepare all data first
     
     // 1.1 Canvas/screen image
     if (canvas) {
       screenImage = canvas.toDataURL('image/png');
+      console.log(`📱 Screen image captured, length: ${screenImage.length}`);
+    } else {
+      console.warn('⚠️ No canvas available for screen capture');
     }
 
     // 1.2 Webcam image - Try to get the highest resolution available
     let webcamImagePreview = null;
     const videoElement = window.videoElement || document.querySelector('video');
     
-    console.log('Video element for capture:', {
+    console.log('📹 Video element for capture:', {
       found: !!videoElement,
       videoWidth: videoElement?.videoWidth,
       videoHeight: videoElement?.videoHeight,
@@ -239,7 +281,7 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         
         // Get high-resolution image
         webcamImage = tempCanvas.toDataURL('image/jpeg', 0.95);
-        console.log('Webcam image captured successfully:', {
+        console.log('📷 Webcam image captured successfully:', {
           width: tempCanvas.width,
           height: tempCanvas.height,
           imageLength: webcamImage.length
@@ -258,7 +300,7 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         previewCtx.restore();
         webcamImagePreview = previewCanvas.toDataURL('image/jpeg', 0.8);
         
-        console.log('Preview image created:', {
+        console.log('🖼️ Preview image created:', {
           width: previewCanvas.width,
           height: previewCanvas.height,
           imageLength: webcamImagePreview.length
@@ -268,7 +310,7 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         tempCanvas.remove();
         previewCanvas.remove();
       } catch (webcamError) {
-        console.error("Error capturing webcam:", webcamError);
+        console.error("❌ Error capturing webcam:", webcamError);
         // Fallback: try to get webcam from video element directly
         try {
           const tempVideo = document.createElement('video');
@@ -295,11 +337,13 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
           tempVideo.remove();
           tempCanvas.remove();
         } catch (fallbackErr) {
-          console.error("All webcam capture methods failed:", fallbackErr);
+          console.error("❌ All webcam capture methods failed:", fallbackErr);
           webcamWidth = 640;
           webcamHeight = 480;
         }
       }
+    } else {
+      console.warn('⚠️ No video element found for webcam capture');
     }
 
     // 1.3 Parameter data - Now including webcam resolution and user ID
@@ -318,36 +362,65 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
       `group_id,${captureGroupId}`
     ].join('\n');
     
+    console.log('📊 Parameter data prepared:', {
+      userId,
+      captureGroupId,
+      csvDataLength: csvData.length
+    });
+    
     // 2. Save all files with the same group ID so they get the same number
     
+    console.log('💾 Starting file save process...');
+    
     // 2.1 Save parameter file
+    console.log('📄 Saving parameter file...');
     const paramResult = await saveCSVToUserServer(csvData, parameterFilename, captureGroupId);
     
     if (paramResult && paramResult.success) {
       captureNumber = paramResult.number;
-      console.log(`Server assigned capture number: ${captureNumber} for group: ${captureGroupId}`);
+      console.log(`✅ Server assigned capture number: ${captureNumber} for group: ${captureGroupId}`);
+    } else {
+      console.error('❌ Failed to save parameter file');
     }
     
     // 2.2 Save screen image if available
     let screenResult = null;
     if (screenImage) {
+      console.log('📱 Saving screen image...');
       screenResult = await saveImageToUserServer(screenImage, screenFilename, 'screen', captureGroupId);
+      if (screenResult && screenResult.success) {
+        console.log('✅ Screen image saved successfully');
+      } else {
+        console.error('❌ Failed to save screen image');
+      }
+    } else {
+      console.warn('⚠️ No screen image to save');
     }
     
     // 2.3 Save webcam image if available
     let webcamResult = null;
     if (webcamImage) {
+      console.log('📷 Saving webcam image...');
       webcamResult = await saveImageToUserServer(webcamImage, webcamFilename, 'webcam', captureGroupId);
+      if (webcamResult && webcamResult.success) {
+        console.log('✅ Webcam image saved successfully');
+      } else {
+        console.error('❌ Failed to save webcam image');
+      }
+    } else {
+      console.warn('⚠️ No webcam image to save');
     }
     
     // 3. Show preview if needed - use the lower resolution version for preview
     if (showCapturePreview && typeof showCapturePreview === 'function') {
+      console.log('🖼️ Showing capture preview...');
       showCapturePreview(screenImage, webcamImagePreview || webcamImage, point);
     }
     
     // 4. Increment counter for next capture
     if (setCaptureCount && typeof setCaptureCount === 'function') {
       setCaptureCount(prevCount => prevCount + 1);
+      console.log('🔢 Capture counter incremented');
     }
     
     // 5. Return results
@@ -365,18 +438,28 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
       }
     };
     
-    console.log('Capture completed successfully:', {
+    console.log('🎉 Capture completed successfully:', {
       captureId: captureGroupId,
       captureNumber: captureNumber,
       hasScreenImage: !!screenImage,
       hasWebcamImage: !!webcamImage,
-      userId: userId
+      userId: userId,
+      saveResults: {
+        parameter: paramResult?.success,
+        screen: screenResult?.success,
+        webcam: webcamResult?.success
+      }
     });
     
     return result;
     
   } catch (error) {
     console.error('❌ Error in captureImagesAtUserPoint:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      type: error.constructor.name
+    });
     throw error;
   }
 };

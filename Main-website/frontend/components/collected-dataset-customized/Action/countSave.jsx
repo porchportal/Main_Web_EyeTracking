@@ -162,7 +162,14 @@ export const createCountdownElement = (position, canvasRect) => {
  * @param {Object} point - {x, y} position of the dot
  */
 export const showCapturePreview = (screenImage, webcamImage, point) => {
-  if (!screenImage && !webcamImage) return;
+  // Force display even if only one image is available
+  const hasScreenImage = screenImage && screenImage.length > 100; // Check if it's a valid data URL
+  const hasWebcamImage = webcamImage && webcamImage.length > 100; // Check if it's a valid data URL
+  
+  if (!hasScreenImage && !hasWebcamImage) {
+    console.warn('No valid images to display in preview');
+    return;
+  }
   
   // Remove any existing previews
   const existingPreviews = document.querySelectorAll('.capture-preview-container');
@@ -179,19 +186,34 @@ export const showCapturePreview = (screenImage, webcamImage, point) => {
     position: fixed;
     top: 50%;
     left: 50%;
-    // transform: translate(-50%, -50%);
-    transform: none;
+    transform: translate(-50%, -50%);
     display: flex;
-    gap: 20px;
-    background-color: rgba(0, 0, 0, 0.85);
+    gap: 15px;
+    background-color: rgba(0, 0, 0, 0.8);
     padding: 20px;
-    border-radius: 12px;
-    z-index: 20;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+    border-radius: 8px;
+    z-index: 1000;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    min-width: 300px;
   `;
   
+  // Add simple success indicator
+  const successIndicator = document.createElement('div');
+  successIndicator.textContent = '✓ Captured';
+  successIndicator.style.cssText = `
+    position: absolute;
+    top: -25px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    color: #4CAF50;
+    font-size: 14px;
+    font-weight: 500;
+  `;
+  previewContainer.appendChild(successIndicator);
+  
   // Add screen image if available
-  if (screenImage) {
+  if (hasScreenImage) {
     const screenPreview = document.createElement('div');
     screenPreview.style.cssText = `
       display: flex;
@@ -203,29 +225,66 @@ export const showCapturePreview = (screenImage, webcamImage, point) => {
     screenImg.src = screenImage;
     screenImg.alt = 'Screen Capture';
     screenImg.style.cssText = `
-      max-width: 320px;
-      max-height: 240px;
-      border: 3px solid white;
-      border-radius: 8px;
-      background-color: #333;
+      max-width: 200px;
+      max-height: 150px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #fff;
     `;
     
     const screenLabel = document.createElement('div');
-    screenLabel.textContent = 'Screen Capture';
+    screenLabel.textContent = 'Screen';
     screenLabel.style.cssText = `
-      color: white;
-      font-size: 14px;
-      margin-top: 10px;
-      font-weight: bold;
+      color: #fff;
+      font-size: 12px;
+      margin-top: 8px;
+      font-weight: 400;
     `;
     
     screenPreview.appendChild(screenImg);
     screenPreview.appendChild(screenLabel);
     previewContainer.appendChild(screenPreview);
+  } else {
+    // Show minimal placeholder for missing screen image
+    const screenPreview = document.createElement('div');
+    screenPreview.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      opacity: 0.6;
+    `;
+    
+    const screenPlaceholder = document.createElement('div');
+    screenPlaceholder.textContent = 'No Screen';
+    screenPlaceholder.style.cssText = `
+      width: 200px;
+      height: 150px;
+      border: 1px dashed #666;
+      border-radius: 4px;
+      background-color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 12px;
+    `;
+    
+    const screenLabel = document.createElement('div');
+    screenLabel.textContent = 'Screen';
+    screenLabel.style.cssText = `
+      color: #999;
+      font-size: 12px;
+      margin-top: 8px;
+      font-weight: 400;
+    `;
+    
+    screenPreview.appendChild(screenPlaceholder);
+    screenPreview.appendChild(screenLabel);
+    previewContainer.appendChild(screenPreview);
   }
   
   // Add webcam image if available
-  if (webcamImage) {
+  if (hasWebcamImage) {
     const webcamPreview = document.createElement('div');
     webcamPreview.style.cssText = `
       display: flex;
@@ -237,65 +296,100 @@ export const showCapturePreview = (screenImage, webcamImage, point) => {
     webcamImg.src = webcamImage;
     webcamImg.alt = 'Webcam Capture';
     webcamImg.style.cssText = `
-      max-width: 320px;
-      max-height: 240px;
-      border: 3px solid white;
-      border-radius: 8px;
-      background-color: #333;
+      max-width: 200px;
+      max-height: 150px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #fff;
     `;
     
     const webcamLabel = document.createElement('div');
-    webcamLabel.textContent = 'Webcam Capture';
+    webcamLabel.textContent = 'Webcam';
     webcamLabel.style.cssText = `
-      color: white;
-      font-size: 14px;
-      margin-top: 10px;
-      font-weight: bold;
+      color: #fff;
+      font-size: 12px;
+      margin-top: 8px;
+      font-weight: 400;
     `;
     
     webcamPreview.appendChild(webcamImg);
     webcamPreview.appendChild(webcamLabel);
     previewContainer.appendChild(webcamPreview);
+  } else {
+    // Show minimal placeholder for missing webcam image
+    const webcamPreview = document.createElement('div');
+    webcamPreview.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      opacity: 0.6;
+    `;
+    
+    const webcamPlaceholder = document.createElement('div');
+    webcamPlaceholder.textContent = 'No Webcam';
+    webcamPlaceholder.style.cssText = `
+      width: 200px;
+      height: 150px;
+      border: 1px dashed #666;
+      border-radius: 4px;
+      background-color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 12px;
+    `;
+    
+    const webcamLabel = document.createElement('div');
+    webcamLabel.textContent = 'Webcam';
+    webcamLabel.style.cssText = `
+      color: #999;
+      font-size: 12px;
+      margin-top: 8px;
+      font-weight: 400;
+    `;
+    
+    webcamPreview.appendChild(webcamPlaceholder);
+    webcamPreview.appendChild(webcamLabel);
+    previewContainer.appendChild(webcamPreview);
   }
   
-  // Add point info
+  // Add minimal point info
   if (point) {
     const pointInfo = document.createElement('div');
-    pointInfo.textContent = point.label ? 
-      `${point.label}: x=${Math.round(point.x)}, y=${Math.round(point.y)}` :
-      `Point: x=${Math.round(point.x)}, y=${Math.round(point.y)}`;
-      
+    pointInfo.textContent = `(${Math.round(point.x)}, ${Math.round(point.y)})`;
     pointInfo.style.cssText = `
-      color: #ffcc00;
-      font-size: 14px;
+      color: #ccc;
+      font-size: 11px;
       position: absolute;
-      top: -40px;
+      bottom: -20px;
       left: 0;
       width: 100%;
       text-align: center;
+      font-weight: 400;
     `;
     previewContainer.appendChild(pointInfo);
   }
   
-  // Add timer
+  // Add simple timer
   const timerElement = document.createElement('div');
-  timerElement.textContent = '2.0s';
+  timerElement.textContent = '2s';
   timerElement.style.cssText = `
     position: absolute;
-    bottom: -25px;
-    right: 20px;
-    color: white;
-    font-size: 12px;
-    background-color: rgba(0, 0, 0, 0.7);
-    padding: 3px 8px;
-    border-radius: 4px;
+    bottom: -20px;
+    right: 10px;
+    color: #999;
+    font-size: 11px;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 2px 6px;
+    border-radius: 3px;
   `;
   previewContainer.appendChild(timerElement);
   
   // Add to document
   document.body.appendChild(previewContainer);
   
-  // Countdown
+  // Countdown with shorter display time
   let timeLeft = 2.0;
   const interval = setInterval(() => {
     timeLeft -= 0.1;
@@ -883,20 +977,61 @@ export const captureAndPreviewProcess = async (options) => {
       captureCount: captureCounter,
       canvasRef,
       setCaptureCount: setCaptureCounter,
-      showCapturePreview
+      showCapturePreview: true // Force preview to be shown
     });
 
     console.log('Image capture completed:', captureResult);
 
-    if (setProcessStatus) {
-      setProcessStatus(`Captured dot at x=${Math.round(position.x)}, y=${Math.round(position.y)}`);
-    }
-
-    if (onStatusUpdate) {
-      onStatusUpdate({
-        processStatus: 'Capture complete',
-        isCapturing: false
+    // Force display of capture preview with both images
+    if (captureResult && (captureResult.screenImage || captureResult.webcamImage)) {
+      console.log('Forcing display of capture preview...');
+      
+      // Remove any existing previews first
+      const existingPreviews = document.querySelectorAll('.capture-preview-container');
+      existingPreviews.forEach(preview => {
+        if (preview.parentNode) {
+          preview.parentNode.removeChild(preview);
+        }
       });
+      
+      // Force show the preview with both images
+      showCapturePreview(
+        captureResult.screenImage || '', 
+        captureResult.webcamImage || '', 
+        position
+      );
+      
+      // Show success message
+      const successMessage = `✅ Capture successful! Screen: ${captureResult.screenImage ? '✓' : '✗'}, Webcam: ${captureResult.webcamImage ? '✓' : '✗'}`;
+      console.log(successMessage);
+      
+      if (setProcessStatus) {
+        setProcessStatus(successMessage);
+      }
+      
+      if (onStatusUpdate) {
+        onStatusUpdate({
+          processStatus: successMessage,
+          isCapturing: false,
+          captureSuccess: true
+        });
+      }
+    } else {
+      // Show error message if no images were captured
+      const errorMessage = '❌ No images captured - check camera and screen access';
+      console.error(errorMessage);
+      
+      if (setProcessStatus) {
+        setProcessStatus(errorMessage);
+      }
+      
+      if (onStatusUpdate) {
+        onStatusUpdate({
+          processStatus: errorMessage,
+          isCapturing: false,
+          captureSuccess: false
+        });
+      }
     }
 
     // 🔥 SHOW TOPBAR AGAIN AFTER COMPLETE SAVE PROCESS 🔥

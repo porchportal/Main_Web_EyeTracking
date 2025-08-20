@@ -1497,12 +1497,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         // Control camera active state
         setIsCameraActive(shouldShow);
         
-        // Control camera activation state
-        setCameraActivation(shouldShow);
-        
-        console.log("show preview")
-        
+        // Only activate camera when showing preview, but don't deactivate when hiding
         if (shouldShow) {
+          setCameraActivation(true);
           setProcessStatus('Camera preview started');
           console.log("activate the camera")
           // Clear any existing warnings when camera is activated
@@ -1510,6 +1507,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           setWarningMessage('');
         } else {
           setProcessStatus('Camera preview stopped');
+          // Don't deactivate camera when hiding preview - keep it activated for other functions
         }
         break;
               case 'selectCamera':

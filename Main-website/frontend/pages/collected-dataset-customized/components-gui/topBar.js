@@ -176,7 +176,6 @@ const TopBar = ({
   };
 
   const handleToggleTopBar = () => {
-    console.log('🔍 TopBar: handleToggleTopBar called, current isTopBarShown:', isTopBarShown);
     // Use global control function
     if (typeof window !== 'undefined' && window.toggleTopBar) {
       window.toggleTopBar(!isTopBarShown);
@@ -184,7 +183,6 @@ const TopBar = ({
   };
   
   const handleToggleMetrics = () => {
-    console.log('🔍 TopBar: handleToggleMetrics called, current showMetrics:', showMetrics);
     // Use global control function
     if (typeof window !== 'undefined' && window.toggleMetrics) {
       window.toggleMetrics(!showMetrics);
@@ -196,18 +194,6 @@ const TopBar = ({
   };
 
   const statusMessage = `TopBar ${isTopBarShown ? 'shown' : 'hidden'}, Canvas: ${canvasStatus ? 'Visible' : 'Hidden'}`;
-
-  console.log('🔍 TopBar: Rendering with props:', {
-    isTopBarShown,
-    showMetrics,
-    isCameraActivated,
-    isCameraActive
-  });
-
-  // Debug showMetrics prop changes
-  useEffect(() => {
-    console.log('🔍 TopBar: showMetrics prop changed to:', showMetrics);
-  }, [showMetrics]);
 
     return (
     <div className="topbar" style={{ zIndex: 12, position: 'relative' }}>
@@ -229,7 +215,8 @@ const TopBar = ({
               height={160}
               style={{
                 objectFit: 'contain',
-                maxHeight: '50px'
+                maxHeight: '50px',
+                width: 'auto'
               }}
               priority
             />

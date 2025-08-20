@@ -2,7 +2,7 @@
 // Handles the set random sequence functionality
 
 import React from 'react';
-import { getRandomPosition, drawRedDot, runCountdown, showCapturePreview } from './countSave.jsx';
+import { getRandomPosition, drawRedDot, captureAndPreviewProcess, showCapturePreview } from './countSave.jsx';
 import { captureImagesAtUserPoint } from '../Helper/user_savefile';
 
 class SetRandomAction {
@@ -124,8 +124,6 @@ class SetRandomAction {
       // Wait for canvas to be ready
       const canvas = await this.waitForCanvas();
       
-
-      
       // Process all captures sequentially
       let successCount = 0;
       let currentCapture = 1;
@@ -144,20 +142,16 @@ class SetRandomAction {
         // Generate random position for this capture
         const position = getRandomPosition(canvas, 20);
         
-        // Draw the dot using canvas management system
-        this.drawDot(position.x, position.y, 12);
-        
-        // Create a redrawInterval to ensure dot stays visible
-        let redrawInterval = setInterval(() => {
-          this.drawDot(position.x, position.y, 12);
-        }, 200);
-        
-        // Run countdown and wait for it to complete
-        await new Promise(resolve => {
-          runCountdown(
+        // Use captureAndPreviewProcess instead of runCountdown to avoid blue dots
+        try {
+          await captureAndPreviewProcess({
+            canvasRef: { current: canvas },
             position,
-            canvas,
-            (status) => {
+            captureCounter: this.captureCounter,
+            setCaptureCounter: this.setCaptureCounter,
+            setProcessStatus: this.setProcessStatus,
+            toggleTopBar: this.toggleTopBar,
+            onStatusUpdate: (status) => {
               // Update UI based on status
               if (status.processStatus) {
                 this.onStatusUpdate?.({
@@ -167,41 +161,10 @@ class SetRandomAction {
                 });
               }
             },
-            resolve // This will be called when countdown completes
-          );
-        });
-        
-        // Clear redrawInterval after countdown
-        clearInterval(redrawInterval);
-        
-        // Trigger camera access before capture
-        if (this.triggerCameraAccess) {
-          try {
-            const cameraResult = this.triggerCameraAccess(true);
-            if (!cameraResult) {
-              console.warn('Camera access failed, but continuing with capture');
-            }
-          } catch (error) {
-            console.warn('Camera access error, but continuing with capture:', error);
-          }
-        }
-        
-        // Wait briefly for camera to initialize
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Capture images at this point
-        try {
-          const captureResult = await captureImagesAtUserPoint({
-            point: position,
-            captureCount: this.captureCounter,
-            canvasRef: { current: canvas },
-            setCaptureCount: this.setCaptureCounter,
-            showCapturePreview
+            captureFolder: 'eye_tracking_captures'
           });
           
-          if (captureResult && (captureResult.screenImage || captureResult.success)) {
-            successCount++;
-          }
+          successCount++;
           
           // Increment counter
           if (this.setCaptureCounter) {
@@ -240,8 +203,6 @@ class SetRandomAction {
       
       // Clear the last dot using canvas management system
       this.clearCanvas();
-      
-
       
       // Turn TopBar back on
       // Use the same TopBar control pattern as index.js
