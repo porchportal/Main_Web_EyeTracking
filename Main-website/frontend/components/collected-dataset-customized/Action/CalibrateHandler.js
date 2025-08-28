@@ -243,10 +243,7 @@ class CalibrateHandler {
         this.statusIndicator.textContent = `Calibration complete: ${successCount}/${this.calibrationPoints.length} points`;
       }
       
-      // Turn TopBar back on
-      if (this.toggleTopBar) {
-        this.toggleTopBar(true);
-      }
+      // TopBar restoration is now handled by index.js
       
       if (this.onComplete) {
         this.onComplete();
@@ -270,12 +267,7 @@ class CalibrateHandler {
         this.setProcessStatus('Error: ' + error.message);
       }
       
-      // Show TopBar again even if there was an error
-      setTimeout(() => {
-        if (typeof this.toggleTopBar === 'function') {
-          this.toggleTopBar(true);
-        }
-      }, 1500);
+      // TopBar restoration is now handled by index.js
       
       // Return a default object to prevent null reference errors
       return {

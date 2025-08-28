@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:21-alpine
 
 # Set working directory
 WORKDIR /app
@@ -19,6 +19,8 @@ COPY . .
 ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV WATCHPACK_POLLING=true
+# Suppress punycode deprecation warning
+ENV NODE_OPTIONS="--no-deprecation"
 
 # Expose the frontend port
 EXPOSE 3010

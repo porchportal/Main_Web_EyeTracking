@@ -170,19 +170,7 @@ class RandomDotAction {
             this.setProcessStatus('');
           }
           
-          // 🔥 ENSURE TOPBAR IS RESTORED ON ERROR 🔥
-          console.log('RandomDotAction: Error case TopBar restoration...');
-          
-          // Use the same TopBar control pattern as index.js
-          if (typeof window !== 'undefined' && window.toggleTopBar) {
-            console.log('RandomDotAction: Error case - Using global window.toggleTopBar(true)...');
-            window.toggleTopBar(true);
-            console.log('RandomDotAction: Error case - TopBar restored via global window.toggleTopBar');
-          } else if (typeof this.toggleTopBar === 'function') {
-            console.log('RandomDotAction: Error case - Using passed toggleTopBar(true)...');
-            this.toggleTopBar(true);
-            console.log('RandomDotAction: Error case - TopBar restored via passed toggleTopBar function');
-          }
+          console.log('RandomDotAction: Error occurred during capture process');
           
 
         }

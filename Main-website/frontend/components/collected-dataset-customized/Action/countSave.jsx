@@ -1037,56 +1037,7 @@ export const captureAndPreviewProcess = async (options) => {
     // 🔥 SHOW TOPBAR AGAIN AFTER COMPLETE SAVE PROCESS 🔥
     // Add a small delay to ensure save process and preview are fully complete
     setTimeout(() => {
-      console.log('🔍 captureAndPreviewProcess: About to restore TopBar directly...');
-      
-
-      
-      // Use the same TopBar control pattern as index.js
-      if (typeof window !== 'undefined' && window.toggleTopBar) {
-        console.log('🔍 captureAndPreviewProcess: Using global window.toggleTopBar(true)...');
-        window.toggleTopBar(true);
-        console.log('🔍 captureAndPreviewProcess: Global TopBar toggle called successfully');
-      }
-      
-      // Method 2: Try to call the passed toggleTopBar function
-      else if (typeof toggleTopBar === 'function') {
-        console.log('🔍 captureAndPreviewProcess: Using passed toggleTopBar(true)...');
-        toggleTopBar(true);
-        console.log('🔍 captureAndPreviewProcess: Passed toggleTopBar(true) called successfully');
-      }
-      
-      // Method 3: Directly restore UI elements if canvas manager is available
-      else if (typeof window !== 'undefined' && window.globalCanvasManager) {
-        console.log('🔍 captureAndPreviewProcess: Restoring UI elements via global canvas manager...');
-        window.globalCanvasManager.showUIElements();
-        console.log('🔍 captureAndPreviewProcess: UI elements restored via canvas manager');
-      }
-      
-      // Method 4: Direct DOM manipulation as last resort
-      else {
-        console.log('🔍 captureAndPreviewProcess: Using direct DOM manipulation to restore TopBar...');
-        const hiddenElements = document.querySelectorAll('[data-hidden-by-canvas="true"]');
-        hiddenElements.forEach(el => {
-          el.style.display = '';
-          el.removeAttribute('data-hidden-by-canvas');
-          
-          // Ensure TopBar has proper z-index
-          if (el.classList.contains('topbar')) {
-            el.style.zIndex = '1000';
-            el.style.position = 'relative';
-          }
-        });
-        
-        // Also ensure TopBar is visible and has proper z-index
-        const topbar = document.querySelector('.topbar');
-        if (topbar) {
-          topbar.style.display = '';
-          topbar.style.zIndex = '1000';
-          topbar.style.position = 'relative';
-        }
-        
-        console.log('🔍 captureAndPreviewProcess: Direct DOM restoration completed');
-      }
+      console.log('🔍 captureAndPreviewProcess: Capture process completed successfully');
     }, 500); // Small delay to ensure save process is complete
 
     return captureResult;
@@ -1098,57 +1049,7 @@ export const captureAndPreviewProcess = async (options) => {
       setProcessStatus(`Fatal error: ${error.message}`);
     }
     
-    // 🔥 ENSURE TOPBAR IS SHOWN EVEN ON ERROR 🔥
-    console.log('🔍 captureAndPreviewProcess: Error case - About to restore TopBar directly...');
-    
-
-    
-    // Use the same TopBar control pattern as index.js
-    if (typeof window !== 'undefined' && window.toggleTopBar) {
-      console.log('🔍 captureAndPreviewProcess: Error case - Using global window.toggleTopBar(true)...');
-      window.toggleTopBar(true);
-      console.log('🔍 captureAndPreviewProcess: Error case - Global TopBar toggle called successfully');
-    }
-    
-    // Method 2: Try to call the passed toggleTopBar function
-    else if (typeof toggleTopBar === 'function') {
-      console.log('🔍 captureAndPreviewProcess: Error case - Using passed toggleTopBar(true)...');
-      toggleTopBar(true);
-      console.log('🔍 captureAndPreviewProcess: Error case - Passed toggleTopBar(true) called successfully');
-    }
-    
-    // Method 3: Directly restore UI elements if canvas manager is available
-    else if (typeof window !== 'undefined' && window.globalCanvasManager) {
-      console.log('🔍 captureAndPreviewProcess: Error case - Restoring UI elements via global canvas manager...');
-      window.globalCanvasManager.showUIElements();
-      console.log('🔍 captureAndPreviewProcess: Error case - UI elements restored via canvas manager');
-    }
-    
-    // Method 4: Direct DOM manipulation as last resort
-    else {
-      console.log('🔍 captureAndPreviewProcess: Error case - Using direct DOM manipulation to restore TopBar...');
-      const hiddenElements = document.querySelectorAll('[data-hidden-by-canvas="true"]');
-      hiddenElements.forEach(el => {
-        el.style.display = '';
-        el.removeAttribute('data-hidden-by-canvas');
-        
-        // Ensure TopBar has proper z-index
-        if (el.classList.contains('topbar')) {
-          el.style.zIndex = '1000';
-          el.style.position = 'relative';
-        }
-      });
-      
-      // Also ensure TopBar is visible and has proper z-index
-      const topbar = document.querySelector('.topbar');
-      if (topbar) {
-        topbar.style.display = '';
-        topbar.style.zIndex = '1000';
-        topbar.style.position = 'relative';
-      }
-      
-      console.log('🔍 captureAndPreviewProcess: Error case - Direct DOM restoration completed');
-    }
+    console.log('🔍 captureAndPreviewProcess: Error occurred during capture process');
     
     // Return a minimal valid object to prevent null reference errors
     return {

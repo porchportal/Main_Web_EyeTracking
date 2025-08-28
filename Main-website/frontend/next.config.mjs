@@ -11,9 +11,6 @@ const nextConfig = {
   // Add proper configuration for Docker development
   output: 'standalone',
   
-  // Disable telemetry
-  telemetry: false,
-  
   // Environment variables for backend configuration
   env: {
     BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8108',

@@ -351,12 +351,7 @@ class CaptureHandler {
         // Step 6: Show preview using the in-memory image data
         this.showCapturePreview(screenImage, webcamSuccess ? 'webcam_image_data' : null, position);
         
-        // Step 7: Show TopBar again after preview is done
-        setTimeout(() => {
-          if (typeof this.toggleTopBar === 'function') {
-            this.toggleTopBar(true);
-          }
-        }, 2200); // Wait longer than the preview duration
+        // TopBar restoration is now handled by index.js
         
         // Step 8: Clear status after a delay
         setTimeout(() => {
@@ -373,12 +368,7 @@ class CaptureHandler {
           this.setProcessStatus('Error: ' + error.message);
         }
         
-        // Show TopBar again even if there was an error
-        setTimeout(() => {
-          if (typeof this.toggleTopBar === 'function') {
-            this.toggleTopBar(true);
-          }
-        }, 1500);
+        // TopBar restoration is now handled by index.js
         
         // Clear error message after delay
         setTimeout(() => {

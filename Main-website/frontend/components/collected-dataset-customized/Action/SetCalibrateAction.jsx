@@ -396,20 +396,7 @@ class SetCalibrateAction {
           this.setIsCapturing(false);
         }
         
-        // TopBar restoration is now handled by captureAndPreviewProcess
-        // But add a fallback to ensure TopBar is always restored
-        setTimeout(() => {
-          // Use the same TopBar control pattern as index.js
-          if (typeof window !== 'undefined' && window.toggleTopBar) {
-            console.log('SetCalibrateAction: Fallback - Using global window.toggleTopBar(true)...');
-            window.toggleTopBar(true);
-            console.log('SetCalibrateAction: Fallback - TopBar restored via global window.toggleTopBar');
-          } else if (typeof this.toggleTopBar === 'function') {
-            console.log('SetCalibrateAction: Fallback - Using passed toggleTopBar(true)...');
-            this.toggleTopBar(true);
-            console.log('SetCalibrateAction: Fallback - TopBar restored via passed toggleTopBar function');
-          }
-        }, 1000); // Small delay to ensure captureAndPreviewProcess has time to handle it first
+        // TopBar restoration is now handled by index.js
       }
     }, 200);
   };
