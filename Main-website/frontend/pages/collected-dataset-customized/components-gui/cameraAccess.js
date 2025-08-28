@@ -139,6 +139,12 @@ const CameraAccessComponent = ({
       return;
     }
 
+    // When camera is shown, ensure it's properly activated
+    if (isShowing && typeof window !== 'undefined' && window.cameraStateManager) {
+      // Set camera as activated when camera component is shown
+      window.cameraStateManager.setActivation(true);
+    }
+
     return () => {
       disconnectWebSocket();
       // Clear any camera activation data when component unmounts

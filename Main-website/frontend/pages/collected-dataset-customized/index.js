@@ -342,11 +342,16 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const [showCameraNotification, setShowCameraNotification] = useState(false);
   const [cameraNotificationMessage, setCameraNotificationMessage] = useState('');
   
+  // Countdown timer state for camera activation
+  const [showCountdown, setShowCountdown] = useState(false);
+  const [countdownValue, setCountdownValue] = useState(2);
+  const [isCountdownActive, setIsCountdownActive] = useState(false);
+  const [hasShownFirstTimeCountdown, setHasShownFirstTimeCountdown] = useState(false);
+  
   // Button action states
   const [randomTimes, setRandomTimes] = useState(1);
   const [delaySeconds, setDelaySeconds] = useState(3);
   const [processStatus, setProcessStatus] = useState('');
-  const [countdownValue, setCountdownValue] = useState(null);
   const [currentDot, setCurrentDot] = useState(null);
   const [calibrationPoints, setCalibrationPoints] = useState([]);
   const [remainingCaptures, setRemainingCaptures] = useState(0);
@@ -422,6 +427,31 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     setShowCameraSelector(false);
   }, []);
   
+  // Countdown timer function for camera activation
+  const startCameraActivationCountdown = useCallback(() => {
+    if (hasShownFirstTimeCountdown) return; // Only show countdown on first activation
+    
+    setShowCountdown(true);
+    setIsCountdownActive(true);
+    setCountdownValue(2);
+    setProcessStatus('Camera activation countdown starting...');
+    
+    const countdownInterval = setInterval(() => {
+      setCountdownValue(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownInterval);
+          setShowCountdown(false);
+          setIsCountdownActive(false);
+          setHasShownFirstTimeCountdown(true);
+          setProcessStatus('Camera activated and ready for use!');
+          return 0;
+        }
+        setProcessStatus(`Camera activating... ${prev - 1} seconds remaining`);
+        return prev - 1;
+      });
+    }, 1000);
+  }, [hasShownFirstTimeCountdown]);
+
   // Camera state management functions
   const checkCameraActivation = useCallback(() => {
     if (typeof window === 'undefined') return false;
@@ -437,6 +467,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     if (typeof window === 'undefined') return;
     
     if (activated) {
+      // Start countdown timer for first-time activation
+      startCameraActivationCountdown();
+      
       // Don't persist camera activation to localStorage
       // This ensures camera deactivates on page refresh
       setIsCameraActivated(true);
@@ -448,7 +481,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       localStorage.removeItem('cameraActivationTime');
       setIsCameraActivated(false);
     }
-  }, []);
+  }, [startCameraActivationCountdown]);
 
   const restoreCameraState = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -1101,6 +1134,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         setActivation: setCameraActivation,
         showNotification: showCameraRequiredNotification,
         clearActivation: clearCameraActivation,
+        isCountdownActive: isCountdownActive,
         stopCamera: () => {
           setShowCamera(false);
           setIsCameraActive(false);
@@ -1165,7 +1199,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         delete window.cameraStateManager;
       }
     };
-  }, [canvasManager, canvasUtils, fetchSettingsFromMongoDB, saveSettingsToMongoDB, debugMongoDBIntegration, randomTimes, delaySeconds, currentUserId, isCameraActivated, checkCameraActivation, setCameraActivation, showCameraRequiredNotification, clearCameraActivation]);
+  }, [canvasManager, canvasUtils, fetchSettingsFromMongoDB, saveSettingsToMongoDB, debugMongoDBIntegration, randomTimes, delaySeconds, currentUserId, isCameraActivated, isCountdownActive, checkCameraActivation, setCameraActivation, showCameraRequiredNotification, clearCameraActivation]);
 
   // Make TopBar control functions available globally
   useEffect(() => {
@@ -1215,6 +1249,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   // Action handlers
   const handleRandomDot = async () => {
     if (isCapturing) return;
+
+    // Check if countdown is active - block action during countdown
+    if (isCountdownActive) {
+      setProcessStatus('Please wait for camera activation countdown to complete...');
+      return;
+    }
 
     // Check if camera is activated - show notification and return early if not
     if (!isCameraActivated) {
@@ -1300,6 +1340,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const handleSetRandom = async () => {
     if (isCapturing) return;
     
+    // Check if countdown is active - block action during countdown
+    if (isCountdownActive) {
+      setProcessStatus('Please wait for camera activation countdown to complete...');
+      return;
+    }
+    
     // Check if camera is activated - show notification and return early if not
     if (!isCameraActivated) {
       showCameraRequiredNotification('Set Random');
@@ -1376,6 +1422,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
   const handleSetCalibrate = async () => {
     if (isCapturing) return;
+    
+    // Check if countdown is active - block action during countdown
+    if (isCountdownActive) {
+      setProcessStatus('Please wait for camera activation countdown to complete...');
+      return;
+    }
     
     // Check if camera is activated - show notification and return early if not
     if (!isCameraActivated) {
@@ -1617,6 +1669,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             z-index: 0 !important;
             background-color: yellow !important;
           }
+          
+          /* Countdown animations */
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
         `}</style>
       </Head>
       
@@ -1676,6 +1734,48 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           fontWeight: '500'
         }}>
           <strong>📷 {cameraNotificationMessage}</strong>
+        </div>
+      )}
+
+      {/* Camera activation countdown */}
+      {isHydrated && showCountdown && (
+        <div className="camera-countdown-overlay" style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 2000,
+          animation: 'fadeIn 0.3s ease-in-out'
+        }}>
+          <div className="countdown-container" style={{
+            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+            borderRadius: '12px',
+            padding: '20px',
+            textAlign: 'center',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+            minWidth: '120px'
+          }}>
+            <div className="countdown-icon" style={{
+              fontSize: '24px',
+              marginBottom: '8px'
+            }}>
+              📷
+            </div>
+            <div className="countdown-number" style={{
+              fontSize: '32px',
+              fontWeight: 'bold',
+              color: '#fff',
+              marginBottom: '4px'
+            }}>
+              {countdownValue}
+            </div>
+            <div className="countdown-message" style={{
+              fontSize: '12px',
+              color: '#ccc'
+            }}>
+              Activating...
+            </div>
+          </div>
         </div>
       )}
 
