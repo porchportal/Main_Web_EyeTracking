@@ -69,18 +69,11 @@ class RandomDotAction {
       }
     });
     
-    // 🔥 HIDE THE TOPBAR BEFORE SHOWING DOT 🔥
-    console.log('RandomDotAction: Hiding TopBar before showing dot...');
-    
-    // Use the same TopBar control pattern as index.js
+    // Hide the TopBar before showing dot
     if (typeof window !== 'undefined' && window.toggleTopBar) {
-      console.log('RandomDotAction: Using global window.toggleTopBar(false)...');
       window.toggleTopBar(false);
-      console.log('RandomDotAction: TopBar hidden via global window.toggleTopBar');
     } else if (typeof this.toggleTopBar === 'function') {
-      console.log('RandomDotAction: Using passed toggleTopBar(false)...');
       this.toggleTopBar(false);
-      console.log('RandomDotAction: TopBar hidden via passed toggleTopBar function');
     } else {
       console.warn('RandomDotAction: No toggleTopBar function available to hide TopBar');
     }
@@ -109,17 +102,6 @@ class RandomDotAction {
         // Generate random position
         const position = getRandomPosition(canvas);
         
-        console.log('RandomDotAction: Generated position:', {
-          position,
-          canvasDimensions: { width: canvas.width, height: canvas.height },
-          canvasStyle: {
-            position: canvas.style.position,
-            width: canvas.style.width,
-            height: canvas.style.height
-          },
-          canvasRect: canvas.getBoundingClientRect()
-        });
-        
         // Draw the dot using canvas management system
         this.drawDot(position.x, position.y, 12);
         
@@ -130,7 +112,6 @@ class RandomDotAction {
         try {
           // Ensure camera is active before capture
           if (typeof window !== 'undefined' && window.cameraStateManager) {
-            console.log('🔍 RandomDotAction: Ensuring camera is active before capture...');
             await window.cameraStateManager.ensureCameraActive();
             window.cameraStateManager.debugCameraState();
           }
@@ -169,8 +150,6 @@ class RandomDotAction {
           if (typeof this.setProcessStatus === 'function') {
             this.setProcessStatus('');
           }
-          
-          console.log('RandomDotAction: Error occurred during capture process');
           
 
         }

@@ -214,183 +214,100 @@ class SetCalibrateAction {
           // Process each calibration point in this sequence
           let sequenceSuccessCount = 0;
           for (let i = 0; i < points.length; i++) {
-          const originalPoint = points[i];
-          
-          // Transform coordinates for fullscreen display
-          const transformedPoint = this.transformCoordinates(canvas, originalPoint);
-          
-          // Update status displays
-          statusIndicator.textContent = `Sequence ${currentSequence}/${times}: Point ${i + 1}/${points.length}`;
-          this.setProcessStatus(`Processing calibration point ${i + 1}/${points.length} (Sequence ${currentSequence}/${times})`);
-          
-          // Clear canvas with white background using canvas management system
-          this.clearCanvas();
-          
-          // Draw the calibration point using ORIGINAL coordinates (canvas coordinates)
-          const radius = 12; // Standard size for consistency
-          this.drawDot(originalPoint.x, originalPoint.y, radius);
-          
-          // Create redraw interval to ensure dot stays visible
-          const redrawInterval = setInterval(() => {
-            this.drawDot(originalPoint.x, originalPoint.y, radius);
-          }, 200);
-          
-          // Remove any existing countdown elements
-          const existingCountdowns = document.querySelectorAll('.dot-countdown, .calibrate-countdown');
-          existingCountdowns.forEach(el => {
-            if (el.parentNode) el.parentNode.removeChild(el);
-          });
-          
-          // Create custom countdown element positioned using TRANSFORMED coordinates (viewport coordinates)
-          const countdownElement = document.createElement('div');
-          countdownElement.className = 'dot-countdown';
-          countdownElement.style.cssText = `
-            position: fixed;
-            left: ${transformedPoint.x - 10}px;
-            top: ${transformedPoint.y - 10}px;
-            transform: none;
-            color: red;
-            font-size: 13px;
-            font-weight: bold;
-            text-shadow: 0 0 4px white, 0 0 6px white, 0 0 8px white;
-            z-index: 10000;
-            background-color: rgba(255, 255, 255, 0.98);
-            border: 1px solid red;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 0 6px rgba(0, 0, 0, 0.7), 0 0 10px rgba(255, 0, 0, 0.5);
-            animation: countdownPulse 1s infinite;
-          `;
-          document.body.appendChild(countdownElement);
-          
-          // Debug: Log positioning information
-          console.log(`Point ${i+1} positioning:`, {
-            originalPoint,
-            transformedPoint,
-            countdownPosition: {
-              left: transformedPoint.x,
-              top: transformedPoint.y
-            },
-            canvasInfo: {
-              width: canvas.width,
-              height: canvas.height,
-              rect: canvas.getBoundingClientRect()
-            }
-          });
-          
-          try {
-            // Manual countdown
-            for (let count = 3; count > 0; count--) {
-              countdownElement.textContent = count;
-              this.setProcessStatus(`Point ${i+1}/${points.length} (Sequence ${currentSequence}/${times}): Countdown ${count}`);
-              
-              // Force redraw to ensure dot stays visible (using original coordinates)
-              this.drawDot(originalPoint.x, originalPoint.y, radius);
-              
-              await new Promise(resolve => setTimeout(resolve, 800));
-              
-              // Redraw again halfway through the wait
-              this.drawDot(originalPoint.x, originalPoint.y, radius);
-            }
+            const originalPoint = points[i];
             
-            // Show checkmark
-            countdownElement.textContent = "✓";
-            this.drawDot(originalPoint.x, originalPoint.y, radius);
+            // Update status displays
+            statusIndicator.textContent = `Sequence ${currentSequence}/${times}: Point ${i + 1}/${points.length}`;
+            this.setProcessStatus(`Processing calibration point ${i + 1}/${points.length} (Sequence ${currentSequence}/${times})`);
             
-            // Remove countdown element immediately
-            if (countdownElement.parentNode) {
-              countdownElement.parentNode.removeChild(countdownElement);
-            }
-            
-            // Make sure dot is still visible
-            this.drawDot(originalPoint.x, originalPoint.y, radius);
-
-            // Capture images at this point (use original coordinates for capture)
-            console.log(`Capturing calibration point ${i+1}/${points.length} (Sequence ${currentSequence}/${times}) at (${originalPoint.x}, ${originalPoint.y})`);
-            
-            const captureResult = await captureAndPreviewProcess({
-              canvasRef: { current: canvas },
-              position: originalPoint,
-              captureCounter: this.captureCounter,
-              setCaptureCounter: this.setCaptureCounter,
-              setProcessStatus: this.setProcessStatus,
-              toggleTopBar: this.toggleTopBar,
-              onStatusUpdate: this.onStatusUpdate,
-              captureFolder: 'eye_tracking_captures'
-            });
-
-            if (captureResult && (captureResult.screenImage || captureResult.success)) {
-              sequenceSuccessCount++;
-            }
-
-            // Wait a moment before clearing to ensure capture is complete
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            // Clear the dot after capture using canvas management system
+            // Clear canvas with yellow background using canvas management system
             this.clearCanvas();
+            
+            // Draw the calibration point using ORIGINAL coordinates (canvas coordinates)
+            const radius = 12; // Standard size for consistency
+            this.drawDot(originalPoint.x, originalPoint.y, radius);
+            
+            // Store current dot position
+            this.setCurrentDot(originalPoint);
+            
+            try {
+              // Ensure camera is active before capture
+              if (typeof window !== 'undefined' && window.cameraStateManager) {
+                console.log('🔍 SetCalibrateAction: Ensuring camera is active before capture...');
+                await window.cameraStateManager.ensureCameraActive();
+                window.cameraStateManager.debugCameraState();
+              }
+              
+              // Use the shared capture and preview process (like RandomDotAction)
+              // This will handle the countdown and capture automatically
+              const captureResult = await captureAndPreviewProcess({
+                canvasRef: { current: canvas },
+                position: originalPoint,
+                captureCounter: this.captureCounter,
+                setCaptureCounter: this.setCaptureCounter,
+                setProcessStatus: this.setProcessStatus,
+                toggleTopBar: this.toggleTopBar,
+                onStatusUpdate: this.onStatusUpdate,
+                captureFolder: 'eye_tracking_captures'
+              });
 
-            // Wait between points
-            await new Promise(resolve => setTimeout(resolve, 1200));
-            
-          } catch (error) {
-            console.error(`Error processing calibration point ${i+1} (Sequence ${currentSequence}/${times}):`, error);
-          } finally {
-            // Clean up countdown if it still exists
-            if (countdownElement.parentNode) {
-              countdownElement.parentNode.removeChild(countdownElement);
+              if (captureResult && (captureResult.screenImage || captureResult.success)) {
+                sequenceSuccessCount++;
+              }
+
+              // Clear the dot after capture using canvas management system
+              this.clearCanvas();
+
+              // Wait between points
+              await new Promise(resolve => setTimeout(resolve, 1200));
+              
+            } catch (error) {
+              console.error(`Error processing calibration point ${i+1} (Sequence ${currentSequence}/${times}):`, error);
+              // Clear canvas on error
+              this.clearCanvas();
             }
-            
-            // Clear redraw interval
-            clearInterval(redrawInterval);
           }
-        }
-        
-        // Sequence complete
-        totalSuccessCount += sequenceSuccessCount;
-        
-        // Update status for sequence completion
-        if (statusIndicator) {
-          statusIndicator.textContent = `Sequence ${currentSequence}/${times} complete: ${sequenceSuccessCount}/${points.length} points`;
-        }
-        this.setProcessStatus(`Calibration sequence ${currentSequence}/${times} completed: ${sequenceSuccessCount}/${points.length} points captured`);
-        
-        // Remove status indicator for this sequence
-        setTimeout(() => {
-          if (statusIndicator.parentNode) {
-            statusIndicator.parentNode.removeChild(statusIndicator);
-          }
-        }, 2000);
-        
-        // Wait between sequences for the specified delay time
-        if (currentSequence < times) {
-          this.onStatusUpdate?.({
-            processStatus: `Waiting ${delay}s before next calibration sequence...`,
-            isCapturing: true
-          });
           
-          await new Promise(resolve => setTimeout(resolve, delay * 1000));
+          // Sequence complete
+          totalSuccessCount += sequenceSuccessCount;
+          
+          // Update status for sequence completion
+          if (statusIndicator) {
+            statusIndicator.textContent = `Sequence ${currentSequence}/${times} complete: ${sequenceSuccessCount}/${points.length} points`;
+          }
+          this.setProcessStatus(`Calibration sequence ${currentSequence}/${times} completed: ${sequenceSuccessCount}/${points.length} points captured`);
+          
+          // Remove status indicator for this sequence
+          setTimeout(() => {
+            if (statusIndicator.parentNode) {
+              statusIndicator.parentNode.removeChild(statusIndicator);
+            }
+          }, 2000);
+          
+          // Wait between sequences for the specified delay time
+          if (currentSequence < times) {
+            this.onStatusUpdate?.({
+              processStatus: `Waiting ${delay}s before next calibration sequence...`,
+              isCapturing: true
+            });
+            
+            await new Promise(resolve => setTimeout(resolve, delay * 1000));
+          }
+          
+          // Move to next sequence
+          currentSequence++;
         }
         
-        // Move to next sequence
-        currentSequence++;
-      }
-      
-      // All sequences complete
-      this.onStatusUpdate?.({
-        processStatus: `Calibration sequences completed: ${totalSuccessCount}/${points.length * times} total points captured`,
-        isCapturing: false
-      });
-        
+        // All sequences complete
+        this.onStatusUpdate?.({
+          processStatus: `Calibration sequences completed: ${totalSuccessCount}/${points.length * times} total points captured`,
+          isCapturing: false
+        });
+          
       } catch (error) {
         console.error("Calibration error:", error);
         this.setProcessStatus(`Calibration error: ${error.message}`);
       } finally {
-
-        
         // Set capturing state to false if function exists
         if (typeof this.setIsCapturing === 'function') {
           this.setIsCapturing(false);

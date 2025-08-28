@@ -294,11 +294,11 @@ const TopBar = ({
           <div className="button-group">
             <div className="button-row">
               <button 
-                className="btn back-button"
-                onClick={handleGoBack}
-                title="Go back to home page"
+                className="btn"
+                onClick={() => handleButtonClick('randomDot')}
+                title="Start random dot sequence"
               >
-                ← Back
+                Random Dot
               </button>
               
               <button 
@@ -317,14 +317,19 @@ const TopBar = ({
               </button>
             </div>
             
-            <div className="button-row" style={{ marginRight: '80px' }}>
-                              <button 
-                  className="btn"
-                  onClick={() => handleButtonClick('randomDot')}
-                  title="Start random dot sequence"
-                >
-                  Random Dot
-                </button>
+            <div className="button-row" style={{ 
+              marginRight: '10px',
+              display: 'flex',
+              justifyContent: 'center',
+              gap: '10px'
+            }}>
+              <button 
+                className="btn back-button"
+                onClick={handleGoBack}
+                title="Go back to home page"
+              >
+                ← Back
+              </button>
               <button 
                 className="btn"
                 onClick={() => handleButtonClick('clearAll')}

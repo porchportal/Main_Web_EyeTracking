@@ -4,6 +4,7 @@
 import React from 'react';
 import { getRandomPosition, drawRedDot, captureAndPreviewProcess, showCapturePreview } from './countSave.jsx';
 import { captureImagesAtUserPoint } from '../Helper/user_savefile';
+import DelayUI from './delayUI.jsx';
 
 class SetRandomAction {
   constructor(config) {
@@ -21,11 +22,12 @@ class SetRandomAction {
     this.times = config.times || 1; // Default to 1 if not provided
     this.delay = config.delay || 3; // Default to 3 seconds if not provided
     
-    console.log(`[SetRandomAction] Constructor received settings - Times: ${this.times}, Delay: ${this.delay}`);
-    
     // Get canvas manager and utilities from global scope (from actionButton.js)
     this.canvasManager = typeof window !== 'undefined' ? window.canvasManager : null;
     this.canvasUtils = typeof window !== 'undefined' ? window.canvasUtils : null;
+    
+    // Initialize delay UI
+    this.delayUI = new DelayUI();
   }
 
   // Get or create canvas using the canvas management system from index.js
@@ -89,6 +91,8 @@ class SetRandomAction {
     throw new Error("Canvas not ready after multiple attempts");
   }
 
+
+
   // Main handler for Set Random button
   handleAction = async () => {
     try {
@@ -96,20 +100,12 @@ class SetRandomAction {
       const times = this.times;
       const delay = this.delay;
       
-      console.log(`[SetRandomAction] Using passed settings - Times: ${times}, Delay: ${delay}`);
-      console.log(`[SetRandomAction] Type check - times: ${typeof times}, delay: ${typeof delay}`);
-      console.log(`[SetRandomAction] Value check - times: ${times}, delay: ${delay}`);
-      
       // Hide UI during capture process
       // Use the same TopBar control pattern as index.js
       if (typeof window !== 'undefined' && window.toggleTopBar) {
-        console.log('SetRandomAction: Using global window.toggleTopBar(false)...');
         window.toggleTopBar(false);
-        console.log('SetRandomAction: TopBar hidden via global window.toggleTopBar');
       } else if (this.toggleTopBar) {
-        console.log('SetRandomAction: Using passed toggleTopBar(false)...');
         this.toggleTopBar(false);
-        console.log('SetRandomAction: TopBar hidden via passed toggleTopBar function');
       }
       
       // Set capturing state if function exists
@@ -130,10 +126,7 @@ class SetRandomAction {
       let successCount = 0;
       let currentCapture = 1;
       
-      console.log(`[SetRandomAction] Starting loop - currentCapture: ${currentCapture}, times: ${times}`);
-      
       while (currentCapture <= times) {
-        console.log(`[SetRandomAction] Loop iteration ${currentCapture}/${times}`);
         // Update status for current capture
         this.onStatusUpdate?.({
           processStatus: `Capture ${currentCapture} of ${times}`,
@@ -179,22 +172,22 @@ class SetRandomAction {
           console.error(`Error capturing point ${currentCapture}:`, error);
         }
         
-        // Wait between captures for the specified delay time
+        // Wait between captures for the specified delay time with minimal countdown display
         if (currentCapture < times) {
-          console.log(`[SetRandomAction] Waiting ${delay}s before next capture...`);
           this.onStatusUpdate?.({
-            processStatus: `Waiting ${delay}s before next capture...`,
+            processStatus: `Capture ${currentCapture} complete. Next capture in ${delay}s...`,
             remainingCaptures: times - currentCapture,
             isCapturing: true
           });
           
-          await new Promise(resolve => setTimeout(resolve, delay * 1000));
-          console.log(`[SetRandomAction] Delay completed, moving to next capture`);
+          // Use DelayUI for countdown
+          await this.delayUI.startCountdownAfterProcess(delay, () => {
+            // Delay completed callback
+          });
         }
         
         // Move to next capture
         currentCapture++;
-        console.log(`[SetRandomAction] Moved to capture ${currentCapture}`);
       }
       
       // Sequence complete
@@ -211,6 +204,9 @@ class SetRandomAction {
       
       // Clear the last dot using canvas management system
       this.clearCanvas();
+      
+      // Cleanup delay UI
+      this.delayUI.cleanup();
     
       
     } catch (err) {
@@ -225,6 +221,9 @@ class SetRandomAction {
       if (typeof this.setIsCapturing === 'function') {
         this.setIsCapturing(false);
       }
+      
+      // Cleanup delay UI on error
+      this.delayUI.cleanup();
     
     }
   };
