@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
-import styles from '../../styles/Consent.module.css';
+import styles from './Admin.module.css';
 import { useConsent } from '../../components/consent_ui/ConsentContext';
 import { useAdminSettings } from '../collected-dataset-customized/components-gui/adminSettings';
 import fs from 'fs';
 import path from 'path';
 import DragDropPriorityList from './adminDrag&Drop';
 import AdminCanvaConfig from './adminCanvaConfig';
+import DataPreview from './adjust-preview';
 import { useRouter } from 'next/router';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://nginx';
@@ -79,6 +80,7 @@ export default function AdminPage({ initialSettings }) {
   const [settingsAnimating, setSettingsAnimating] = useState(false);
   const [systemControlsVisible, setSystemControlsVisible] = useState(false);
   const [systemControlsAnimating, setSystemControlsAnimating] = useState(false);
+  const [showDataPreview, setShowDataPreview] = useState(false);
 
   // Check authentication on page load
   useEffect(() => {
@@ -286,36 +288,21 @@ export default function AdminPage({ initialSettings }) {
     }
   };
 
-  const handleZoomChange = async (value) => {
+  const handleZoomChange = (value) => {
     if (!selectedUserId || selectedUserId === 'default') {
-      setErrorMessage('Please select a user ID before changing zoom level!');
-      setTimeout(() => setErrorMessage(''), 3000);
+      showNotification('Please select a user ID before changing zoom level!', 'error');
       return;
     }
 
-    try {
-      const response = await fetch('/api/data-center/zoom', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
-        },
-        body: JSON.stringify({
-          userId: selectedUserId,
-          zoomLevel: value
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update zoom level');
-      }
-
-      setSuccessMessage('Zoom level updated successfully!');
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (error) {
-      console.error('Error updating zoom level:', error);
-      setErrorMessage('Failed to update zoom level. Please try again.');
-      setTimeout(() => setErrorMessage(''), 3000);
+    const newValue = parseInt(value, 10);
+    if (!isNaN(newValue) && newValue >= 50 && newValue <= 200) {
+      setTempSettings(prev => ({
+        ...prev,
+        [selectedUserId]: {
+          ...prev[selectedUserId],
+          zoom_level: newValue
+        }
+      }));
     }
   };
 
@@ -1028,7 +1015,7 @@ export default function AdminPage({ initialSettings }) {
         {settingsVisible && (
                       <div className={`${styles.settingsGrid} ${settingsAnimating ? (selectedUserId && selectedUserId !== 'default' ? styles.settingsEnter : styles.settingsExit) : ''}`}>
               {/* Capture Settings Section */}
-              <div className={styles.div1} style={{ marginLeft: '1rem' }}>
+              <div className={styles.div1}>
                 <h2>Capture Settings on Set Random Action</h2>
               <div className={styles.settingsSubScroll}>
                 <div className={styles.settingItem}>
@@ -1168,7 +1155,7 @@ export default function AdminPage({ initialSettings }) {
             </div>
 
             {/* Required Button Click Order Section */}
-                          <div className={styles.div2} style={{ marginLeft: '1rem' }}>
+                          <div className={styles.div2}>
                 <h2>Required Button Click Order</h2>
                 {tempSettings[selectedUserId]?.buttons_order && (
                   <div className={styles.currentOrderDisplay}>
@@ -1182,7 +1169,7 @@ export default function AdminPage({ initialSettings }) {
               </div>
 
             {/* Set Calibrate Section */}
-            <div className={styles.div3} style={{ marginLeft: '1rem' }}>
+            <div className={styles.div3}>
               <h2>Set Calibrate</h2>
               <div className={styles.settingsSubScroll}>
                 <div className={styles.settingItem}>
@@ -1322,7 +1309,7 @@ export default function AdminPage({ initialSettings }) {
             </div>
 
             {/* Image Settings Section */}
-            <div className={styles.div4} style={{ marginLeft: '1rem' }}>
+            <div className={styles.div4}>
               <h2>Image Background Settings</h2>
               <div className={styles.settingItem}>
                 <button
@@ -1451,22 +1438,68 @@ export default function AdminPage({ initialSettings }) {
             </div>
 
             {/* Zoom Control Section */}
-            <div className={styles.div5} style={{ marginLeft: '1rem' }}>
+            <div className={styles.div5}>
               <h2>Zoom Control Respond</h2>
               <div className={styles.settingItem}>
                 <label>Zoom Level:</label>
-                <div className={styles.zoomControls}>
-                  <button className={styles.zoomButton}>-</button>
+                <div className={styles.numberInputContainer}>
                   <input
                     type="number"
+                    name="zoom_level"
+                    value={tempSettings[selectedUserId]?.zoom_level ?? 100}
+                    onChange={(e) => handleZoomChange(e.target.value)}
                     min="50"
                     max="200"
-                    className={styles.zoomInput}
-                    onChange={(e) => handleZoomChange(e.target.value)}
+                    className={styles.numberInput}
+                    data-control="zoom_level"
                   />
-                  <span className={styles.zoomPercent}>%</span>
-                  <button className={styles.zoomButton}>+</button>
+                  <div className={styles.numberControls}>
+                    <button 
+                      className={styles.numberControl}
+                      onClick={() => {
+                        const currentValue = tempSettings[selectedUserId]?.zoom_level ?? 100;
+                        if (currentValue < 200) {
+                          setTempSettings(prev => ({
+                            ...prev,
+                            [selectedUserId]: {
+                              ...prev[selectedUserId],
+                              zoom_level: currentValue + 1
+                            }
+                          }));
+                        }
+                      }}
+                    >
+                      ▲
+                    </button>
+                    <button 
+                      className={styles.numberControl}
+                      onClick={() => {
+                        const currentValue = tempSettings[selectedUserId]?.zoom_level ?? 100;
+                        if (currentValue > 50) {
+                          setTempSettings(prev => ({
+                            ...prev,
+                            [selectedUserId]: {
+                              ...prev[selectedUserId],
+                              zoom_level: currentValue - 1
+                            }
+                          }));
+                        }
+                      }}
+                    >
+                      ▼
+                    </button>
+                  </div>
                 </div>
+                <span style={{ marginLeft: '10px', fontSize: '14px', color: '#666' }}>%</span>
+              </div>
+              <div className={styles.settingItem}>
+                <button
+                  onClick={handleSaveSettings}
+                  className={styles.saveButton}
+                  disabled={!selectedUserId}
+                >
+                  Save Settings
+                </button>
               </div>
             </div>
           </div>
@@ -1491,19 +1524,13 @@ export default function AdminPage({ initialSettings }) {
               <div className={styles.controlButtons}>
                 <div className={styles.controlButtonGroup}>
                   <button 
-                    className={`${styles.toggleButton} ${publicAccessEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
+                    className={`${styles.toggleButton} ${styles.toggleButtonCompact} ${publicAccessEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
                     onClick={handlePublicAccessToggle}
                   >
                     <span className={styles.buttonIcon}>🌐</span>
                     <div className={styles.buttonContent}>
                       <span className={styles.buttonTitle}>
                         {publicAccessEnabled ? 'Disable' : 'Enable'} Public Access
-                      </span>
-                      <span className={styles.buttonDescription}>
-                        {publicAccessEnabled 
-                          ? 'Public access is currently enabled' 
-                          : 'Allow people to collect dataset without admin approval'
-                        }
                       </span>
                     </div>
                     <span className={styles.toggleIndicator}>
@@ -1512,19 +1539,47 @@ export default function AdminPage({ initialSettings }) {
                   </button>
                   
                   <button 
-                    className={`${styles.toggleButton} ${backendChangeEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
+                    className={`${styles.toggleButton} ${styles.toggleButtonCompact} ${styles.actionButton} ${showDataPreview ? styles.actionButtonActive : ''}`}
+                    onClick={() => {
+                      if (showDataPreview) {
+                        showNotification('Data Preview closed');
+                        setShowDataPreview(false);
+                      } else {
+                        showNotification('Adjusting Dataset...');
+                        setShowDataPreview(true);
+                      }
+                    }}
+                  >
+                    <span className={styles.buttonIcon}>🔧</span>
+                    <div className={styles.buttonContent}>
+                      <span className={styles.buttonTitle}>
+                        Adjust Dataset
+                      </span>
+                    </div>
+                  </button>
+                  
+                  <button 
+                    className={styles.toggleButton}
+                    onClick={() => {
+                      showNotification('Downloading Dataset...');
+                    }}
+                  >
+                    <span className={styles.buttonIcon}>📥</span>
+                    <div className={styles.buttonContent}>
+                      <span className={styles.buttonTitle}>
+                        Download Dataset
+                      </span>
+                    </div>
+                  </button>
+                  
+                  <button 
+                    className={`${styles.toggleButton} ${styles.toggleButtonCompact} ${backendChangeEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
                     onClick={handleBackendChangeToggle}
                   >
                     <span className={styles.buttonIcon}>⚙️</span>
                     <div className={styles.buttonContent}>
                       <span className={styles.buttonTitle}>
                         {backendChangeEnabled ? 'Disable' : 'Enable'} Backend Change
-                      </span>
-                      <span className={styles.buttonDescription}>
-                        {backendChangeEnabled 
-                          ? 'Backend changes are currently enabled' 
-                          : 'Allow dynamic backend configuration changes'
-                        }
                       </span>
                     </div>
                     <span className={styles.toggleIndicator}>
@@ -1536,6 +1591,14 @@ export default function AdminPage({ initialSettings }) {
               
 
             </div>
+          )}
+
+          {/* Data Preview Section */}
+          {showDataPreview && (
+            <DataPreview
+              userId={selectedUserId}
+              onClose={() => setShowDataPreview(false)}
+            />
           )}
 
           {/* Second Box - Download Dataset */}
