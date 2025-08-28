@@ -4,6 +4,7 @@ import './collected-dataset/styles/camera.css';
 import './collected-dataset/styles/topbar.css';
 import '../styles/Home.module.css';
 import './collected-dataset/styles/control-buttons.css';
+import './collected-dataset-customized/styles/camera.css';
 import { ProcessStatusProvider, BackendConnectionProvider } from '../utils/stateManager';
 import { ConsentProvider } from '../components/consent_ui/ConsentContext';
 // import ConnectionStatusIndicator from '../components/ConnectionStatusIndicator';

@@ -3,6 +3,7 @@ import Head from 'next/head';
 import dynamic from 'next/dynamic';
 import TopBar from './components-gui/topBar';
 import DisplayResponse from './components-gui/displayResponse';
+import NotificationMessage from './components-gui/noti_message';
 import { showCapturePreview, drawRedDot, getRandomPosition, createCountdownElement, runCountdown } from '../../components/collected-dataset-customized/Action/countSave.jsx';
 import { captureImagesAtUserPoint } from '../../components/collected-dataset-customized/Helper/user_savefile';
 import { generateCalibrationPoints } from '../../components/collected-dataset-customized/Action/CalibratePoints.jsx';
@@ -1669,115 +1670,21 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             z-index: 0 !important;
             background-color: yellow !important;
           }
-          
-          /* Countdown animations */
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
         `}</style>
       </Head>
       
-      {/* Backend connection status banner */}
-      {isHydrated && backendStatus === 'disconnected' && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100%',
-          padding: '6px 0',
-          backgroundColor: '#ffe0b2',
-          color: '#e65100',
-          textAlign: 'center',
-          fontSize: '14px',
-          fontWeight: 'bold',
-          zIndex: 110
-        }}>
-          ⚠️ Backend disconnected. Hurry up, Make ONLINE please and Using mock mode
-        </div>
-      )}
-      
-      {/* Warning message banner */}
-      {isHydrated && showWarning && (
-        <div className="warning-banner" style={{
-          position: 'fixed',
-          top: showTopBar ? (backendStatus === 'disconnected' ? '32px' : '60px') : '0',
-          left: '0',
-          width: '100%',
-          backgroundColor: '#ffeb3b',
-          color: '#333',
-          padding: '10px',
-          textAlign: 'center',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-          zIndex: 11,
-          animation: 'fadeIn 0.3s ease-in-out'
-        }}>
-          <strong>⚠️ {warningMessage}</strong>
-        </div>
-      )}
-
-      {/* Camera activation notification */}
-      {isHydrated && showCameraNotification && (
-        <div className="camera-notification-banner" style={{
-          position: 'fixed',
-          top: showTopBar ? (backendStatus === 'disconnected' ? '60px' : '90px') : '30px',
-          left: '0',
-          width: '100%',
-          backgroundColor: '#ff6b6b',
-          color: 'white',
-          padding: '12px',
-          textAlign: 'center',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
-          zIndex: 102,
-          animation: 'fadeIn 0.3s ease-in-out',
-          fontSize: '14px',
-          fontWeight: '500'
-        }}>
-          <strong>📷 {cameraNotificationMessage}</strong>
-        </div>
-      )}
-
-      {/* Camera activation countdown */}
-      {isHydrated && showCountdown && (
-        <div className="camera-countdown-overlay" style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 2000,
-          animation: 'fadeIn 0.3s ease-in-out'
-        }}>
-          <div className="countdown-container" style={{
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-            borderRadius: '12px',
-            padding: '20px',
-            textAlign: 'center',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-            minWidth: '120px'
-          }}>
-            <div className="countdown-icon" style={{
-              fontSize: '24px',
-              marginBottom: '8px'
-            }}>
-              📷
-            </div>
-            <div className="countdown-number" style={{
-              fontSize: '32px',
-              fontWeight: 'bold',
-              color: '#fff',
-              marginBottom: '4px'
-            }}>
-              {countdownValue}
-            </div>
-            <div className="countdown-message" style={{
-              fontSize: '12px',
-              color: '#ccc'
-            }}>
-              Activating...
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Notification Messages Component */}
+      <NotificationMessage
+        isHydrated={isHydrated}
+        backendStatus={backendStatus}
+        showTopBar={showTopBar}
+        showWarning={showWarning}
+        warningMessage={warningMessage}
+        showCameraNotification={showCameraNotification}
+        cameraNotificationMessage={cameraNotificationMessage}
+        showCountdown={showCountdown}
+        countdownValue={countdownValue}
+      />
 
       {isLoading ? (
         <div className="loading-container">
@@ -1787,16 +1694,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         <>
           {/* TopBar component */}
           {showTopBar && (
-            <div style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              zIndex: 12,
-              height: '120px',
-              backgroundColor: 'rgba(255, 255, 255, 0.95)',
-              borderBottom: 'none'
-            }}>
+            <div className="topbar-container">
               <TopBar 
                 key={`topbar-${showTopBar}-${showMetrics}`}
                 onButtonClick={handleActionClick}
@@ -1818,25 +1716,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
           {/* Show restore button when TopBar is hidden */}
           {!showTopBar && (
-            <div className="restore-button-container" style={{
-              position: 'fixed',
-              top: '10px',
-              right: '10px',
-              zIndex: 1000
-            }}>
+            <div className="restore-button-container">
               <button 
                 className="restore-btn"
                 onClick={() => setShowTopBar(true)}
                 title="Show TopBar and Metrics"
-                style={{
-                  padding: '5px 10px',
-                  background: '#0066cc',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '16px',
-                  cursor: 'pointer'
-                }}
               >
                 ≡
               </button>
@@ -1846,29 +1730,16 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           {/* Main preview area */}
           <div 
             ref={previewAreaRef}
-            className={`${styles.cameraPreviewArea} ${
-              showTopBar ? styles.withTopbar : styles.withoutTopbar
-            } ${
-              backendStatus === 'disconnected' ? styles.withBackendWarning : ''
-            } ${
-              showCameraNotification ? styles.withCameraNotification : ''
+            className={`main-preview-area ${
+              showTopBar ? 'with-topbar' : 'without-topbar'
             }`}
-            style={{
-              position: 'fixed',
-              top: showTopBar ? '120px' : '0',
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 1,
-              backgroundColor: 'transparent'
-            }}
           >
             {!showCamera ? (
               <>
                 {/* Camera placeholder square - only show if needed */}
                 {isHydrated && showCameraPlaceholder && (
-                  <div className={styles.cameraPlaceholderSquare}>
-                    <div style={{ fontSize: '1.5rem' }}>📷</div>
+                  <div className="camera-placeholder-square">
+                    <div className="camera-placeholder-icon">📷</div>
                   </div>
                 )}
               </>
@@ -1889,85 +1760,45 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             
             {/* Camera Selector Modal */}
             {showCameraSelector && (
-              <div style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                zIndex: 2000
-              }}>
-                <div style={{
-                  backgroundColor: 'white',
-                  borderRadius: '12px',
-                  padding: '24px',
-                  maxWidth: '500px',
-                  width: '90%',
-                  maxHeight: '80vh',
-                  overflow: 'auto',
-                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
-                }}>
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '20px',
-                    borderBottom: '2px solid #f0f0f0',
-                    paddingBottom: '10px'
-                  }}>
-                    <h2 style={{ margin: 0, color: '#333', fontSize: '20px' }}>📷 Camera Selection</h2>
+              <div className="camera-selector-modal">
+                <div className="camera-selector-dialog">
+                  <div className="camera-selector-header">
+                    <h2 className="camera-selector-title">📷 Camera Selection</h2>
                     <button
                       onClick={closeCameraSelector}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        fontSize: '24px',
-                        cursor: 'pointer',
-                        color: '#666',
-                        padding: '5px'
-                      }}
+                      className="camera-selector-close-btn"
                     >
                       ×
                     </button>
                   </div>
 
                   {/* Available Cameras */}
-                  <div style={{ marginBottom: '20px' }}>
-                    <h3 style={{ margin: '0 0 15px 0', color: '#555', fontSize: '16px' }}>
+                  <div className="camera-selector-section">
+                    <h3 className="camera-selector-section-title">
                       Available Cameras ({availableCameras.length})
                     </h3>
                     {availableCameras.length === 0 ? (
-                      <p style={{ color: '#666', fontStyle: 'italic' }}>
+                      <p className="camera-selector-no-cameras">
                         No cameras detected. Please check your camera permissions.
                       </p>
                     ) : (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div className="camera-selector-list">
                         {availableCameras.map((camera) => (
-                          <label key={camera.id} style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            padding: '12px',
-                            border: '2px solid #e0e0e0',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                            backgroundColor: selectedCameras.includes(camera.id) ? '#f0f8ff' : 'white',
-                            transition: 'all 0.2s ease'
-                          }}>
+                          <label 
+                            key={camera.id} 
+                            className={`camera-selector-item ${selectedCameras.includes(camera.id) ? 'selected' : ''}`}
+                          >
                             <input
                               type="checkbox"
                               checked={selectedCameras.includes(camera.id)}
                               onChange={(e) => handleCameraSelection(camera.id, e.target.checked)}
-                              style={{ marginRight: '12px', transform: 'scale(1.2)' }}
+                              className="camera-selector-checkbox"
                             />
                             <div>
-                              <div style={{ fontWeight: 'bold', color: '#333' }}>
+                              <div className="camera-selector-item-label">
                                 {camera.label}
                               </div>
-                              <div style={{ fontSize: '12px', color: '#666' }}>
+                              <div className="camera-selector-item-id">
                                 ID: {camera.id.substring(0, 20)}...
                               </div>
                             </div>
@@ -1978,23 +1809,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                   </div>
 
                   {/* Action Buttons */}
-                  <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: '10px',
-                    borderTop: '2px solid #f0f0f0',
-                    paddingTop: '15px'
-                  }}>
+                  <div className="camera-selector-actions">
                     <button
                       onClick={closeCameraSelector}
-                      style={{
-                        padding: '10px 20px',
-                        backgroundColor: '#f0f0f0',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '14px'
-                      }}
+                      className="camera-selector-btn cancel"
                     >
                       Cancel
                     </button>
@@ -2007,15 +1825,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                           setProcessStatus('Please select at least one camera');
                         }
                       }}
-                      style={{
-                        padding: '10px 20px',
-                        backgroundColor: '#4CAF50',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        fontSize: '14px'
-                      }}
+                      className="camera-selector-btn apply"
                     >
                       Apply ({selectedCameras.length} selected)
                     </button>
@@ -2026,67 +1836,23 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             
             {/* Camera permission popup */}
             {isHydrated && typeof window !== 'undefined' && showPermissionPopup && (
-              <div className="camera-permission-popup" style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                zIndex: 2000
-              }}>
-                <div className="camera-permission-dialog" style={{
-                  width: '400px',
-                  backgroundColor: 'white',
-                  borderRadius: '8px',
-                  padding: '20px',
-                  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
-                }}>
-                  <h3 className="camera-permission-title" style={{
-                    margin: '0 0 15px',
-                    fontSize: '18px',
-                    fontWeight: 'bold'
-                  }}>Camera Access Required</h3>
-                  <p className="camera-permission-message" style={{
-                    margin: '0 0 20px',
-                    fontSize: '14px',
-                    lineHeight: '1.4'
-                  }}>
+              <div className="camera-permission-popup">
+                <div className="camera-permission-dialog">
+                  <h3 className="camera-permission-title">Camera Access Required</h3>
+                  <p className="camera-permission-message">
                     This application needs access to your camera to function properly. 
                     When prompted by your browser, please click "Allow" to grant camera access.
                   </p>
-                  <div className="camera-permission-buttons" style={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    gap: '10px'
-                  }}>
+                  <div className="camera-permission-buttons">
                     <button 
                       onClick={handlePermissionDenied}
-                      className="camera-btn"
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#f0f0f0',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                      }}
+                      className="camera-btn cancel"
                     >
                       Cancel
                     </button>
                     <button 
                       onClick={handlePermissionAccepted}
-                      className="camera-btn"
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#0066cc',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                      }}
+                      className="camera-btn continue"
                     >
                       Continue
                     </button>
