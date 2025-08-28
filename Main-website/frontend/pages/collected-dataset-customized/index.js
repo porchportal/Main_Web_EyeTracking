@@ -308,7 +308,7 @@ class GlobalCanvasManager {
 const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onActionClick }, ref) => {
   const router = useRouter();
   const { userId: consentUserId } = useConsent();
-  const { settings, updateSettings, fetchSettings, currentSettings } = useAdminSettings(ref);
+  const { settings, updateSettings, fetchSettings, currentSettings, currentUserId: adminCurrentUserId } = useAdminSettings(ref, consentUserId);
   
   // State management
   const [userData, setUserData] = useState(null);
@@ -1377,9 +1377,19 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       let times = randomTimes;
       let delay = delaySeconds;
       
-      if (currentUserId && fetchSettings) {
+      // Use the correct user ID from admin settings
+      const effectiveUserId = adminCurrentUserId || currentUserId;
+      console.log(`[handleSetRandom] Current user ID: ${currentUserId}`);
+      console.log(`[handleSetRandom] Admin current user ID: ${adminCurrentUserId}`);
+      console.log(`[handleSetRandom] Effective user ID: ${effectiveUserId}`);
+      console.log(`[handleSetRandom] Current state values - randomTimes: ${randomTimes}, delaySeconds: ${delaySeconds}`);
+      
+      // Always try to fetch fresh settings from MongoDB
+      if (effectiveUserId && fetchSettings) {
         try {
-          const userSettings = await fetchSettings(currentUserId);
+          console.log(`[handleSetRandom] Fetching settings for user: ${effectiveUserId}`);
+          const userSettings = await fetchSettings(effectiveUserId);
+          console.log(`[handleSetRandom] Raw userSettings:`, userSettings);
           if (userSettings) {
             times = Number(userSettings.times_set_random);
             delay = Number(userSettings.delay_set_random);
@@ -1389,6 +1399,18 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           console.warn('[handleSetRandom] Error fetching settings:', error);
         }
       }
+      
+      // If we still don't have valid values, use defaults
+      if (!times || isNaN(times)) {
+        times = 1;
+        console.log('[handleSetRandom] Using default times: 1');
+      }
+      if (!delay || isNaN(delay)) {
+        delay = 3;
+        console.log('[handleSetRandom] Using default delay: 3');
+      }
+      
+      console.log(`[handleSetRandom] Final settings - Times: ${times}, Delay: ${delay}`);
       
       // Import and use SetRandomAction
       const { default: SetRandomAction } = await import('../../components/collected-dataset-customized/Action/SetRandomAction.jsx');
@@ -1476,9 +1498,18 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       let times = randomTimes;
       let delay = delaySeconds;
       
-      if (currentUserId && fetchSettings) {
+      // Use the correct user ID from admin settings
+      const effectiveUserId = adminCurrentUserId || currentUserId;
+      console.log(`[handleSetCalibrate] Current user ID: ${currentUserId}`);
+      console.log(`[handleSetCalibrate] Admin current user ID: ${adminCurrentUserId}`);
+      console.log(`[handleSetCalibrate] Effective user ID: ${effectiveUserId}`);
+      
+      // Always try to fetch fresh settings from MongoDB
+      if (effectiveUserId && fetchSettings) {
         try {
-          const userSettings = await fetchSettings(currentUserId);
+          console.log(`[handleSetCalibrate] Fetching settings for user: ${effectiveUserId}`);
+          const userSettings = await fetchSettings(effectiveUserId);
+          console.log(`[handleSetCalibrate] Raw userSettings:`, userSettings);
           if (userSettings) {
             times = Number(userSettings.times_set_random);
             delay = Number(userSettings.delay_set_random);
@@ -1488,6 +1519,18 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           console.warn('[handleSetCalibrate] Error fetching settings:', error);
         }
       }
+      
+      // If we still don't have valid values, use defaults
+      if (!times || isNaN(times)) {
+        times = 1;
+        console.log('[handleSetCalibrate] Using default times: 1');
+      }
+      if (!delay || isNaN(delay)) {
+        delay = 3;
+        console.log('[handleSetCalibrate] Using default delay: 3');
+      }
+      
+      console.log(`[handleSetCalibrate] Final settings - Times: ${times}, Delay: ${delay}`);
       
       // Ensure canvas is initialized first
       const canvas = canvasManager.getCanvas();

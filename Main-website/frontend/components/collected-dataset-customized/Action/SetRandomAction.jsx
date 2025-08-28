@@ -97,6 +97,8 @@ class SetRandomAction {
       const delay = this.delay;
       
       console.log(`[SetRandomAction] Using passed settings - Times: ${times}, Delay: ${delay}`);
+      console.log(`[SetRandomAction] Type check - times: ${typeof times}, delay: ${typeof delay}`);
+      console.log(`[SetRandomAction] Value check - times: ${times}, delay: ${delay}`);
       
       // Hide UI during capture process
       // Use the same TopBar control pattern as index.js
@@ -128,7 +130,10 @@ class SetRandomAction {
       let successCount = 0;
       let currentCapture = 1;
       
+      console.log(`[SetRandomAction] Starting loop - currentCapture: ${currentCapture}, times: ${times}`);
+      
       while (currentCapture <= times) {
+        console.log(`[SetRandomAction] Loop iteration ${currentCapture}/${times}`);
         // Update status for current capture
         this.onStatusUpdate?.({
           processStatus: `Capture ${currentCapture} of ${times}`,
@@ -176,6 +181,7 @@ class SetRandomAction {
         
         // Wait between captures for the specified delay time
         if (currentCapture < times) {
+          console.log(`[SetRandomAction] Waiting ${delay}s before next capture...`);
           this.onStatusUpdate?.({
             processStatus: `Waiting ${delay}s before next capture...`,
             remainingCaptures: times - currentCapture,
@@ -183,10 +189,12 @@ class SetRandomAction {
           });
           
           await new Promise(resolve => setTimeout(resolve, delay * 1000));
+          console.log(`[SetRandomAction] Delay completed, moving to next capture`);
         }
         
         // Move to next capture
         currentCapture++;
+        console.log(`[SetRandomAction] Moved to capture ${currentCapture}`);
       }
       
       // Sequence complete

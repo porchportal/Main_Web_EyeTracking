@@ -50,12 +50,21 @@ const setLocalStorage = (key, value) => {
   }
 };
 
-export const useAdminSettings = (ref) => {
+export const useAdminSettings = (ref, consentUserId) => {
   const [settings, setSettings] = useState({});
   const [currentUserId, setCurrentUserId] = useState(() => {
     // Initialize from localStorage on mount, safely
     return getLocalStorage('currentUserId');
   });
+  
+  // Update currentUserId when consentUserId changes
+  useEffect(() => {
+    if (consentUserId && consentUserId !== currentUserId) {
+      console.log('[AdminSettings] Updating currentUserId from consent context:', consentUserId);
+      setCurrentUserId(consentUserId);
+      setLocalStorage('currentUserId', consentUserId);
+    }
+  }, [consentUserId, currentUserId]);
   const [isTopBarUpdated, setIsTopBarUpdated] = useState(false);
   const [error, setError] = useState(null);
   const initialized = useRef(false);
