@@ -350,8 +350,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const [hasShownFirstTimeCountdown, setHasShownFirstTimeCountdown] = useState(false);
   
   // Button action states
-  const [randomTimes, setRandomTimes] = useState(1);
-  const [delaySeconds, setDelaySeconds] = useState(3);
+  const [randomTimes, setRandomTimes] = useState();
+  const [delaySeconds, setDelaySeconds] = useState();
   const [processStatus, setProcessStatus] = useState('');
   const [currentDot, setCurrentDot] = useState(null);
   const [calibrationPoints, setCalibrationPoints] = useState([]);
@@ -1352,6 +1352,25 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       showCameraRequiredNotification('Set Random');
       return;
     }
+
+    if (showCamera === true) {
+      setShowCamera(false);
+      setCameraActivation(true);
+      setIsCameraActive(true); // Ensure camera stays active for capture
+      setProcessStatus('Camera preview hidden for Random Dot action');
+      
+      // Ensure video element is available for capture
+      setTimeout(() => {
+        const videoElement = window.videoElement || document.querySelector('video');
+        if (!videoElement || !videoElement.srcObject) {
+          console.warn('Camera not ready for capture, attempting to ensure camera is active...');
+          // Try to trigger camera activation if available
+          if (typeof window !== 'undefined' && window.cameraStateManager) {
+            window.cameraStateManager.setActivation(true);
+          }
+        }
+      }, 500);
+    }
     
     try {
       // Fetch current settings from adminSettings
@@ -1362,12 +1381,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         try {
           const userSettings = await fetchSettings(currentUserId);
           if (userSettings) {
-            times = Number(userSettings.times_set_random) || randomTimes;
-            delay = Number(userSettings.delay_set_random) || delaySeconds;
+            times = Number(userSettings.times_set_random);
+            delay = Number(userSettings.delay_set_random);
             console.log(`[handleSetRandom] Fetched settings - Times: ${times}, Delay: ${delay}`);
           }
         } catch (error) {
-          console.warn('[handleSetRandom] Error fetching settings, using current values:', error);
+          console.warn('[handleSetRandom] Error fetching settings:', error);
         }
       }
       
@@ -1419,6 +1438,22 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       setProcessStatus(`Random sequence failed: ${error.message}`);
       setIsCapturing(false);
     }
+    
+    // Restore TopBar at the end of handleSetRandom function
+    if (typeof window !== 'undefined' && window.toggleTopBar) {
+      console.log('handleSetRandom: Using global window.toggleTopBar(true)...');
+      window.toggleTopBar(true);
+      console.log('handleSetRandom: TopBar restored via global window.toggleTopBar');
+    } else {
+      console.log('handleSetRandom: Using direct setShowTopBar(true)...');
+      setShowTopBar(true);
+      setShowMetrics(true);
+      // Show UI elements if they were hidden by canvas fullscreen
+      if (typeof window !== 'undefined' && window.globalCanvasManager) {
+        window.globalCanvasManager.showUIElements();
+      }
+      console.log('handleSetRandom: TopBar restored via direct state update');
+    }
   };
 
   const handleSetCalibrate = async () => {
@@ -1437,6 +1472,23 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     }
     
     try {
+      // Fetch current settings from adminSettings
+      let times = randomTimes;
+      let delay = delaySeconds;
+      
+      if (currentUserId && fetchSettings) {
+        try {
+          const userSettings = await fetchSettings(currentUserId);
+          if (userSettings) {
+            times = Number(userSettings.times_set_random);
+            delay = Number(userSettings.delay_set_random);
+            console.log(`[handleSetCalibrate] Fetched settings - Times: ${times}, Delay: ${delay}`);
+          }
+        } catch (error) {
+          console.warn('[handleSetCalibrate] Error fetching settings:', error);
+        }
+      }
+      
       // Ensure canvas is initialized first
       const canvas = canvasManager.getCanvas();
       if (!canvas) {
@@ -1477,7 +1529,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         },
         saveImageToServer: true,
         setCaptureCounter,
-        captureCounter: captureCounter
+        captureCounter: captureCounter,
+        times: times,
+        delay: delay
       });
       
       await setCalibrateAction.handleSetCalibrate();

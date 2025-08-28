@@ -18,6 +18,8 @@ class SetCalibrateAction {
     this.saveImageToServer = options.saveImageToServer;
     this.setCaptureCounter = options.setCaptureCounter;
     this.captureCounter = options.captureCounter;
+    this.times = options.times || 1; // Default to 1 if not provided
+    this.delay = options.delay || 3; // Default to 3 seconds if not provided
     this.originalCanvasDimensions = null;
   }
 
@@ -130,6 +132,12 @@ class SetCalibrateAction {
 
   // Main function to handle calibration sequence
   handleSetCalibrate = async () => {
+    // Use the settings values passed from index.js
+    const times = this.times;
+    const delay = this.delay;
+    
+    console.log(`[SetCalibrateAction] Using passed settings - Times: ${times}, Delay: ${delay}`);
+    
     // Hide the TopBar before starting calibration
     // Use the same TopBar control pattern as index.js
     if (typeof window !== 'undefined' && window.toggleTopBar) {
@@ -147,17 +155,10 @@ class SetCalibrateAction {
       this.setIsCapturing(true);
     }
     
-    if (typeof this.setProcessStatus === 'function') {
-      this.setProcessStatus('Starting calibration sequence...');
-    }
-    
-    // Update parent component if available
-    if (this.onStatusUpdate) {
-      this.onStatusUpdate({
-        processStatus: 'Starting calibration sequence...',
-        isCapturing: true
-      });
-    }
+    this.onStatusUpdate?.({
+      processStatus: `Starting ${times} calibration sequences with ${delay}s delay...`,
+      isCapturing: true
+    });
     
     // Give the component time to update
     setTimeout(async () => {
@@ -173,8 +174,6 @@ class SetCalibrateAction {
           height: canvas.height
         };
 
-
-
         // Generate calibration points based on ORIGINAL canvas size
         const points = generateCalibrationPoints(this.originalCanvasDimensions.width, this.originalCanvasDimensions.height);
         
@@ -182,36 +181,47 @@ class SetCalibrateAction {
           throw new Error("Failed to generate calibration points");
         }
 
-        // Create status indicator
-        const statusIndicator = document.createElement('div');
-        statusIndicator.className = 'calibrate-status-indicator';
-        statusIndicator.style.cssText = `
-          position: fixed;
-          top: 20px;
-          right: 20px;
-          background-color: rgba(0, 102, 204, 0.9);
-          color: white;
-          font-size: 16px;
-          font-weight: bold;
-          padding: 10px 15px;
-          border-radius: 8px;
-          z-index: 10000;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        `;
-        statusIndicator.textContent = 'Calibration: Initializing...';
-        document.body.appendChild(statusIndicator);
+        // Process all sequences
+        let totalSuccessCount = 0;
+        let currentSequence = 1;
+        
+        while (currentSequence <= times) {
+          // Update status for current sequence
+          this.onStatusUpdate?.({
+            processStatus: `Calibration sequence ${currentSequence} of ${times}`,
+            isCapturing: true
+          });
+          
+          // Create status indicator for this sequence
+          const statusIndicator = document.createElement('div');
+          statusIndicator.className = 'calibrate-status-indicator';
+          statusIndicator.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: rgba(0, 102, 204, 0.9);
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+            padding: 10px 15px;
+            border-radius: 8px;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+          `;
+          statusIndicator.textContent = `Calibration Sequence ${currentSequence}/${times}: Initializing...`;
+          document.body.appendChild(statusIndicator);
 
-        // Process each calibration point
-        let successCount = 0;
-        for (let i = 0; i < points.length; i++) {
+          // Process each calibration point in this sequence
+          let sequenceSuccessCount = 0;
+          for (let i = 0; i < points.length; i++) {
           const originalPoint = points[i];
           
           // Transform coordinates for fullscreen display
           const transformedPoint = this.transformCoordinates(canvas, originalPoint);
           
           // Update status displays
-          statusIndicator.textContent = `Calibration: Point ${i + 1}/${points.length}`;
-          this.setProcessStatus(`Processing calibration point ${i + 1}/${points.length}`);
+          statusIndicator.textContent = `Sequence ${currentSequence}/${times}: Point ${i + 1}/${points.length}`;
+          this.setProcessStatus(`Processing calibration point ${i + 1}/${points.length} (Sequence ${currentSequence}/${times})`);
           
           // Clear canvas with white background using canvas management system
           this.clearCanvas();
@@ -276,7 +286,7 @@ class SetCalibrateAction {
             // Manual countdown
             for (let count = 3; count > 0; count--) {
               countdownElement.textContent = count;
-              this.setProcessStatus(`Point ${i+1}/${points.length}: Countdown ${count}`);
+              this.setProcessStatus(`Point ${i+1}/${points.length} (Sequence ${currentSequence}/${times}): Countdown ${count}`);
               
               // Force redraw to ensure dot stays visible (using original coordinates)
               this.drawDot(originalPoint.x, originalPoint.y, radius);
@@ -300,7 +310,7 @@ class SetCalibrateAction {
             this.drawDot(originalPoint.x, originalPoint.y, radius);
 
             // Capture images at this point (use original coordinates for capture)
-            console.log(`Capturing calibration point ${i+1}/${points.length} at (${originalPoint.x}, ${originalPoint.y})`);
+            console.log(`Capturing calibration point ${i+1}/${points.length} (Sequence ${currentSequence}/${times}) at (${originalPoint.x}, ${originalPoint.y})`);
             
             const captureResult = await captureAndPreviewProcess({
               canvasRef: { current: canvas },
@@ -314,7 +324,7 @@ class SetCalibrateAction {
             });
 
             if (captureResult && (captureResult.screenImage || captureResult.success)) {
-              successCount++;
+              sequenceSuccessCount++;
             }
 
             // Wait a moment before clearing to ensure capture is complete
@@ -327,7 +337,7 @@ class SetCalibrateAction {
             await new Promise(resolve => setTimeout(resolve, 1200));
             
           } catch (error) {
-            console.error(`Error processing calibration point ${i+1}:`, error);
+            console.error(`Error processing calibration point ${i+1} (Sequence ${currentSequence}/${times}):`, error);
           } finally {
             // Clean up countdown if it still exists
             if (countdownElement.parentNode) {
@@ -339,18 +349,41 @@ class SetCalibrateAction {
           }
         }
         
-        // Calibration complete
-        if (statusIndicator) {
-          statusIndicator.textContent = `Calibration complete: ${successCount}/${points.length} points`;
-        }
-        this.setProcessStatus(`Calibration completed: ${successCount}/${points.length} points captured`);
+        // Sequence complete
+        totalSuccessCount += sequenceSuccessCount;
         
-        // Remove status indicator after delay
+        // Update status for sequence completion
+        if (statusIndicator) {
+          statusIndicator.textContent = `Sequence ${currentSequence}/${times} complete: ${sequenceSuccessCount}/${points.length} points`;
+        }
+        this.setProcessStatus(`Calibration sequence ${currentSequence}/${times} completed: ${sequenceSuccessCount}/${points.length} points captured`);
+        
+        // Remove status indicator for this sequence
         setTimeout(() => {
           if (statusIndicator.parentNode) {
             statusIndicator.parentNode.removeChild(statusIndicator);
           }
-        }, 3000);
+        }, 2000);
+        
+        // Wait between sequences for the specified delay time
+        if (currentSequence < times) {
+          this.onStatusUpdate?.({
+            processStatus: `Waiting ${delay}s before next calibration sequence...`,
+            isCapturing: true
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, delay * 1000));
+        }
+        
+        // Move to next sequence
+        currentSequence++;
+      }
+      
+      // All sequences complete
+      this.onStatusUpdate?.({
+        processStatus: `Calibration sequences completed: ${totalSuccessCount}/${points.length * times} total points captured`,
+        isCapturing: false
+      });
         
       } catch (error) {
         console.error("Calibration error:", error);

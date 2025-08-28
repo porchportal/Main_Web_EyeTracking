@@ -18,8 +18,8 @@ class SetRandomAction {
     this.setProcessStatus = config.setProcessStatus;
     
     // Settings values passed from index.js (linked from adminSettings through TopBar)
-    this.times = config.times || 1;
-    this.delay = config.delay || 3;
+    this.times = config.times || 1; // Default to 1 if not provided
+    this.delay = config.delay || 3; // Default to 3 seconds if not provided
     
     console.log(`[SetRandomAction] Constructor received settings - Times: ${this.times}, Delay: ${this.delay}`);
     
@@ -203,18 +203,7 @@ class SetRandomAction {
       
       // Clear the last dot using canvas management system
       this.clearCanvas();
-      
-      // Turn TopBar back on
-      // Use the same TopBar control pattern as index.js
-      if (typeof window !== 'undefined' && window.toggleTopBar) {
-        console.log('SetRandomAction: Using global window.toggleTopBar(true)...');
-        window.toggleTopBar(true);
-        console.log('SetRandomAction: TopBar restored via global window.toggleTopBar');
-      } else if (this.toggleTopBar) {
-        console.log('SetRandomAction: Using passed toggleTopBar(true)...');
-        this.toggleTopBar(true);
-        console.log('SetRandomAction: TopBar restored via passed toggleTopBar function');
-      }
+    
       
     } catch (err) {
       console.error('Random sequence error:', err);
@@ -228,18 +217,7 @@ class SetRandomAction {
       if (typeof this.setIsCapturing === 'function') {
         this.setIsCapturing(false);
       }
-      
-      // Make sure to restore the UI
-      // Use the same TopBar control pattern as index.js
-      if (typeof window !== 'undefined' && window.toggleTopBar) {
-        console.log('SetRandomAction: Error case - Using global window.toggleTopBar(true)...');
-        window.toggleTopBar(true);
-        console.log('SetRandomAction: Error case - TopBar restored via global window.toggleTopBar');
-      } else if (this.toggleTopBar) {
-        console.log('SetRandomAction: Error case - Using passed toggleTopBar(true)...');
-        this.toggleTopBar(true);
-        console.log('SetRandomAction: Error case - TopBar restored via passed toggleTopBar function');
-      }
+    
     }
   };
 }
