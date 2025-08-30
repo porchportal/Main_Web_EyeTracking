@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import styles from '../../styles/UserProfile.module.css';
+import styles from './UserProfile.module.css';
 import { useConsent } from '../consent_ui/ConsentContext';
 import { useBackendConnection } from '../../utils/stateManager';
 import { getOrCreateUserId } from '../../utils/consentManager';
@@ -231,6 +231,7 @@ export default function UserProfileSidebar() {
         isVisible={notification.isVisible}
         onClose={handleNotificationClose}
         duration={4000}
+        sidebarOpen={isOpen}
       />
       <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 100 }}>
       <button 

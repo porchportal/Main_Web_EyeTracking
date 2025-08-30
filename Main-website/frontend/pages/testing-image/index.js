@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import ImageUploader from '../../components/ImageUploader';
-import styles from '../../styles/Home.module.css';
+import ImageUploader from './ImageUploader';
+import styles from './TestingImage.module.css';
 
 export default function TestingModel() {
   const router = useRouter();
@@ -16,30 +16,31 @@ export default function TestingModel() {
 
       <main className={styles.main}>
         <h1 className={styles.title}>
-          Face Analysis Application
+          Face Analysis
         </h1>
         
         <p className={styles.description}>
-          Upload an image to analyze face and head pose
+          Upload an image to analyze face landmarks and head pose detection
         </p>
 
         <div className={styles.uploaderContainer}>
           <ImageUploader />
         </div>
-        
-        <button 
-          className={styles.backButton}
-          onClick={() => router.push('/')}
-        >
-          Back to Home
-        </button>
       </main>
+      
+      <button 
+        className={styles.backButton}
+        onClick={() => router.push('/')}
+      >
+        ← Back to Home
+      </button>
 
       <footer className={styles.footer}>
         <a 
           href="https://yourwebsite.com"
           target="_blank"
           rel="noopener noreferrer"
+          className={styles.footerLink}
         >
           Powered by Porch
         </a>

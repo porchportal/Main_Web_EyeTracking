@@ -6,6 +6,7 @@ from mediapipe.tasks.python import vision
 # from mediapipe.tasks.python import BaseOptions
 
 import math
+import warnings
 from dataclasses import dataclass
 from typing import Tuple, List, Dict, Optional
 
@@ -13,6 +14,8 @@ from .headpose_outCV import HeadPoseTracker01
 from .facetrack_outCV import FaceTracker01
 
 from PIL import Image
+# Suppress torchvision deprecation warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="torchvision.transforms.functional_tensor")
 from torchvision.transforms import functional as F
 import torch
 from mediapipe import Image

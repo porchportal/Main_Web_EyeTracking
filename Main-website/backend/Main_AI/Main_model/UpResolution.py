@@ -7,8 +7,12 @@ import torch
 import numpy as np
 import csv
 import datetime
+import warnings
 from pathlib import Path
 from typing import Dict, Tuple, Optional, List, Union
+
+# Suppress torchvision deprecation warnings
+warnings.filterwarnings("ignore", category=UserWarning, module="torchvision.transforms.functional_tensor")
 
 # Import RealESRGAN components
 from basicsr.archs.rrdbnet_arch import RRDBNet

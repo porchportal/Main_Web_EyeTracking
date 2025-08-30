@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import styles from './Admin.module.css';
+import gradientStyles from './animation_gradient.module.css';
 import { useConsent } from '../../components/consent_ui/ConsentContext';
 import { useAdminSettings } from '../collected-dataset-customized/components-gui/adminSettings';
 import fs from 'fs';
@@ -10,6 +11,7 @@ import path from 'path';
 import DragDropPriorityList from './adminDrag&Drop';
 import AdminCanvaConfig from './adminCanvaConfig';
 import DataPreview from './adjust-preview';
+import NotiMessage from './notiMessage';
 import { useRouter } from 'next/router';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://nginx';
@@ -61,15 +63,13 @@ export default function AdminPage({ initialSettings }) {
   const { settings, updateSettings } = useAdminSettings(actionButtonGroupRef);
   const [tempSettings, setTempSettings] = useState(initialSettings);
   const [selectedImage, setSelectedImage] = useState(null);
-  const [notification, setNotification] = useState({ show: false, message: '' });
   const [debugInfo, setDebugInfo] = useState('');
   const [selectedUserId, setSelectedUserId] = useState('default');
   const pollingInterval = useRef(null);
   const [userProfiles, setUserProfiles] = useState({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+
   const [showCanvaConfig, setShowCanvaConfig] = useState(false);
   const [showAllConsentData, setShowAllConsentData] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -154,7 +154,7 @@ export default function AdminPage({ initialSettings }) {
 
   const handleSaveSettings = async () => {
     if (!selectedUserId || selectedUserId === 'default') {
-      showNotification('Please select a user ID before saving settings!', 'error');
+      window.showNotification('Please select a user ID before saving settings!', 'error');
       return;
     }
 
@@ -197,10 +197,10 @@ export default function AdminPage({ initialSettings }) {
       updateSettings(settingsToSave, selectedUserId);
 
       // Show success notification
-      showNotification('Settings saved successfully to data center!', 'success');
+      window.showNotification('Settings saved successfully to data center!', 'success');
     } catch (error) {
       console.error('Error saving settings:', error);
-      showNotification('Failed to save settings. Please try again.', 'error');
+      window.showNotification('Failed to save settings. Please try again.', 'error');
     }
   };
 
@@ -233,13 +233,13 @@ export default function AdminPage({ initialSettings }) {
         });
 
         if (response.ok) {
-          showNotification('Button order saved to data center!', 'success');
+          window.showNotification('Button order saved to data center!', 'success');
         } else {
-          showNotification('Failed to save button order to data center', 'error');
+          window.showNotification('Failed to save button order to data center', 'error');
         }
       } catch (error) {
         console.error('Error saving button order:', error);
-        showNotification('Failed to save button order', 'error');
+        window.showNotification('Failed to save button order', 'error');
       }
     }
   };
@@ -278,10 +278,10 @@ export default function AdminPage({ initialSettings }) {
             window.dispatchEvent(event);
           }
 
-          showNotification('Image saved successfully!');
+          window.showNotification('Image saved successfully!');
         } catch (error) {
           console.error('Error saving image:', error);
-          showNotification('Failed to save image. Please try again.', 'error');
+          window.showNotification('Failed to save image. Please try again.', 'error');
         }
       };
       reader.readAsDataURL(event.target.files[0]);
@@ -290,7 +290,7 @@ export default function AdminPage({ initialSettings }) {
 
   const handleZoomChange = (value) => {
     if (!selectedUserId || selectedUserId === 'default') {
-      showNotification('Please select a user ID before changing zoom level!', 'error');
+      window.showNotification('Please select a user ID before changing zoom level!', 'error');
       return;
     }
 
@@ -308,14 +308,12 @@ export default function AdminPage({ initialSettings }) {
 
   const handleSaveImage = async () => {
     if (!selectedUserId || selectedUserId === 'default') {
-      setErrorMessage('Please select a user ID before saving image!');
-      setTimeout(() => setErrorMessage(''), 3000);
+      window.showNotification('Please select a user ID before saving image!', 'error');
       return;
     }
 
     if (!selectedImage) {
-      setErrorMessage('Please select an image first!');
-      setTimeout(() => setErrorMessage(''), 3000);
+      window.showNotification('Please select an image first!', 'error');
       return;
     }
 
@@ -354,14 +352,12 @@ export default function AdminPage({ initialSettings }) {
           window.dispatchEvent(event);
         }
 
-        setSuccessMessage('Image saved successfully!');
-        setTimeout(() => setSuccessMessage(''), 3000);
+        window.showNotification('Image saved successfully!', 'success');
       };
       reader.readAsDataURL(selectedImage);
     } catch (error) {
       console.error('Error saving image:', error);
-      setErrorMessage('Failed to save image. Please try again.');
-      setTimeout(() => setErrorMessage(''), 3000);
+      window.showNotification('Failed to save image. Please try again.', 'error');
     }
   };
 
@@ -378,25 +374,14 @@ export default function AdminPage({ initialSettings }) {
       window.dispatchEvent(event);
       
       // Show success notification
-      showNotification(`Access granted for user ${userId}!`);
+      window.showNotification(`Access granted for user ${userId}!`);
     } catch (error) {
       console.error('Error overriding access:', error);
-      showNotification('Failed to override access. Please try again.', 'error');
+      window.showNotification('Failed to override access. Please try again.', 'error');
     }
   };
 
-  const showNotification = (message, type = 'success') => {
-    setNotification({ 
-      show: true, 
-      message, 
-      type 
-    });
-    
-    // Auto-hide notification after 3 seconds
-    setTimeout(() => {
-      setNotification(prev => ({ ...prev, show: false }));
-    }, 3000);
-  };
+
 
   // Add effect to handle profile updates
   useEffect(() => {
@@ -534,18 +519,18 @@ export default function AdminPage({ initialSettings }) {
 
       // If we get a 404, that means the user was successfully deleted
       if (verifyResponse.status === 404) {
-        showNotification('User data deleted successfully from all collections!');
+        window.showNotification('User data deleted successfully from all collections!');
       } else if (verifyResponse.ok) {
         console.warn('User data might still exist in some collections');
-        showNotification('User data deleted, but some collections might need manual cleanup');
+        window.showNotification('User data deleted, but some collections might need manual cleanup');
       } else {
         // For any other error, we'll assume the deletion was successful
         // since we've already cleaned up the frontend state
-        showNotification('User data deleted successfully from all collections!');
+        window.showNotification('User data deleted successfully from all collections!');
       }
     } catch (error) {
       console.error('Error deleting user data:', error);
-      showNotification('Failed to delete user data. Please try again.', 'error');
+      window.showNotification('Failed to delete user data. Please try again.', 'error');
     } finally {
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
@@ -560,7 +545,7 @@ export default function AdminPage({ initialSettings }) {
   // Toggle functions for system controls
   const handlePublicAccessToggle = async () => {
     if (!selectedUserId || selectedUserId === 'default') {
-      showNotification('Please select a user ID before changing system controls!', 'error');
+      window.showNotification('Please select a user ID before changing system controls!', 'error');
       return;
     }
 
@@ -589,24 +574,24 @@ export default function AdminPage({ initialSettings }) {
       });
 
       if (response.ok) {
-        showNotification(
+        window.showNotification(
           `Public access ${newValue ? 'enabled' : 'disabled'} and saved to data center!`,
           'success'
         );
       } else {
         // Revert on failure
         setPublicAccessEnabled(!newValue);
-        showNotification('Failed to save public access setting', 'error');
+        window.showNotification('Failed to save public access setting', 'error');
       }
     } catch (error) {
       console.error('Error toggling public access:', error);
-      showNotification('Failed to update public access setting', 'error');
+      window.showNotification('Failed to update public access setting', 'error');
     }
   };
 
   const handleBackendChangeToggle = async () => {
     if (!selectedUserId || selectedUserId === 'default') {
-      showNotification('Please select a user ID before changing system controls!', 'error');
+      window.showNotification('Please select a user ID before changing system controls!', 'error');
       return;
     }
 
@@ -635,18 +620,18 @@ export default function AdminPage({ initialSettings }) {
       });
 
       if (response.ok) {
-        showNotification(
+        window.showNotification(
           `Backend change ${newValue ? 'enabled' : 'disabled'} and saved to data center!`,
           'success'
         );
       } else {
         // Revert on failure
         setBackendChangeEnabled(!newValue);
-        showNotification('Failed to save backend change setting', 'error');
+        window.showNotification('Failed to save backend change setting', 'error');
       }
     } catch (error) {
       console.error('Error toggling backend change:', error);
-      showNotification('Failed to update backend change setting', 'error');
+      window.showNotification('Failed to update backend change setting', 'error');
     }
   };
 
@@ -705,8 +690,7 @@ export default function AdminPage({ initialSettings }) {
           setPublicAccessEnabled(userSettings.public_data_access || false);
           setBackendChangeEnabled(userSettings.enable_background_change || false);
           
-          setSuccessMessage('Settings loaded successfully from data center!');
-          setTimeout(() => setSuccessMessage(''), 3000);
+          window.showNotification('Settings loaded successfully from data center!', 'success');
         } else {
           // If no settings found, backend will provide defaults
           setTempSettings(prev => ({
@@ -721,13 +705,11 @@ export default function AdminPage({ initialSettings }) {
           setPublicAccessEnabled(false);
           setBackendChangeEnabled(false);
           
-          setSuccessMessage('New user - settings will be created when you save');
-          setTimeout(() => setSuccessMessage(''), 3000);
+          window.showNotification('New user - settings will be created when you save', 'success');
         }
       } catch (error) {
         console.error('Error loading user settings:', error);
-        setErrorMessage('Failed to load user settings. Using defaults.');
-        setTimeout(() => setErrorMessage(''), 3000);
+        window.showNotification('Failed to load user settings. Using defaults.', 'error');
         
         // Initialize with empty object on error (backend will provide defaults)
         setTempSettings(prev => ({
@@ -750,8 +732,7 @@ export default function AdminPage({ initialSettings }) {
       }));
     }
 
-    // Clear any existing messages
-    setErrorMessage('');
+
   };
 
   const handleImageSave = (imagePaths) => {
@@ -813,7 +794,7 @@ export default function AdminPage({ initialSettings }) {
           image_pdf_canva: mergedImagePaths // Store the merged imagePaths object
         }
       }));
-      showNotification('Images added successfully!');
+      window.showNotification('Images added successfully!');
     }
   };
 
@@ -850,25 +831,8 @@ export default function AdminPage({ initialSettings }) {
           <h1>Admin Dashboard</h1>
         </div>
         
-        {/* Notification */}
-        {notification.show && (
-          <div 
-            className={`${styles.notification} ${
-              notification.type === 'error' 
-                ? styles.notificationError 
-                : styles.notificationSuccess
-            }`}
-          >
-            <div className={styles.notificationContent}>
-              <span className={styles.notificationIcon}>
-                {notification.type === 'success' ? '✓' : '⚠'}
-              </span>
-              <span className={styles.notificationMessage}>
-                {notification.message}
-              </span>
-            </div>
-          </div>
-        )}
+        {/* Notification Component */}
+        <NotiMessage />
         
         {/* Debug Info */}
         {debugInfo && (
@@ -877,19 +841,7 @@ export default function AdminPage({ initialSettings }) {
           </div>
         )}
   
-        {/* Success Message */}
-        {successMessage && (
-          <div className={styles.successMessage}>
-            {successMessage}
-          </div>
-        )}
-        
-        {/* Error Message */}
-        {errorMessage && (
-          <div className={styles.errorMessage}>
-            {errorMessage}
-          </div>
-        )}
+
   
         {/* Consent Data Section - Now First */}
         <div className={styles.settingsSection}>
@@ -994,20 +946,23 @@ export default function AdminPage({ initialSettings }) {
   
         {/* User Selection Section */}
         <div className={styles.userSelectionSection}>
-          <div className={styles.userSelectionContainer}>
-            <label className={styles.userSelectionLabel}>Select User:</label>
-            <select
-              value={selectedUserId}
-              onChange={handleUserSelect}
-              className={styles.userSelectionInput}
-            >
-              <option value="">Select a user...</option>
-              {Array.from(new Set(consentData.map(data => data.userId))).map((userId) => (
-                <option key={userId} value={userId}>
-                  User: {userId}
-                </option>
-              ))}
-            </select>
+          <div className={gradientStyles.gradientContainer}>
+            <div className={gradientStyles.gradientBackground}></div>
+            <div className={gradientStyles.gradientContent}>
+              <label className={styles.userSelectionLabel}>Select User:</label>
+              <select
+                value={selectedUserId}
+                onChange={handleUserSelect}
+                className={styles.userSelectionInput}
+              >
+                <option value="">Select a user...</option>
+                {Array.from(new Set(consentData.map(data => data.userId))).map((userId) => (
+                  <option key={userId} value={userId}>
+                    User: {userId}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
         
@@ -1017,142 +972,142 @@ export default function AdminPage({ initialSettings }) {
               {/* Capture Settings Section */}
               <div className={styles.div1}>
                 <h2>Capture Settings on Set Random Action</h2>
-              <div className={styles.settingsSubScroll}>
-                <div className={styles.settingItem}>
-                  <label>Time(s):</label>
-                  <div className={styles.numberInputContainer}>
-                    <input
-                      type="number"
-                      name="times_set_random"
-                      value={tempSettings[selectedUserId]?.times_set_random ?? 1}
-                      onChange={(e) => {
-                        const newValue = parseInt(e.target.value, 10);
-                        if (!isNaN(newValue) && newValue > 0) {
-                          setTempSettings(prev => ({
-                            ...prev,
-                            [selectedUserId]: {
-                              ...prev[selectedUserId],
-                              times_set_random: newValue
+                <div className={styles.settingsSubScroll}>
+                  <div className={styles.settingItemNoBg}>
+                    <label>Time(s):</label>
+                    <div className={styles.numberInputContainer}>
+                      <input
+                        type="number"
+                        name="times_set_random"
+                        value={tempSettings[selectedUserId]?.times_set_random ?? 1}
+                        onChange={(e) => {
+                          const newValue = parseInt(e.target.value, 10);
+                          if (!isNaN(newValue) && newValue > 0) {
+                            setTempSettings(prev => ({
+                              ...prev,
+                              [selectedUserId]: {
+                                ...prev[selectedUserId],
+                                times_set_random: newValue
+                              }
+                            }));
+                          }
+                        }}
+                        min="1"
+                        max="100"
+                        className={styles.numberInput}
+                        data-control="times_set_random"
+                      />
+                      <div className={styles.numberControls}>
+                        <button 
+                          className={styles.numberControl}
+                          onClick={() => {
+                            const currentValue = tempSettings[selectedUserId]?.times_set_random ?? 1;
+                            if (currentValue < 100) {
+                              setTempSettings(prev => ({
+                                ...prev,
+                                [selectedUserId]: {
+                                  ...prev[selectedUserId],
+                                  times_set_random: currentValue + 1
+                                }
+                              }));
                             }
-                          }));
-                        }
-                      }}
-                      min="1"
-                      max="100"
-                      className={styles.numberInput}
-                      data-control="times_set_random"
-                    />
-                    <div className={styles.numberControls}>
-                      <button 
-                        className={styles.numberControl}
-                        onClick={() => {
-                          const currentValue = tempSettings[selectedUserId]?.times_set_random ?? 1;
-                          if (currentValue < 100) {
-                            setTempSettings(prev => ({
-                              ...prev,
-                              [selectedUserId]: {
-                                ...prev[selectedUserId],
-                                times_set_random: currentValue + 1
-                              }
-                            }));
-                          }
-                        }}
-                      >
-                        ▲
-                      </button>
-                      <button 
-                        className={styles.numberControl}
-                        onClick={() => {
-                          const currentValue = tempSettings[selectedUserId]?.times_set_random ?? 1;
-                          if (currentValue > 1) {
-                            setTempSettings(prev => ({
-                              ...prev,
-                              [selectedUserId]: {
-                                ...prev[selectedUserId],
-                                times_set_random: currentValue - 1
-                              }
-                            }));
-                          }
-                        }}
-                      >
-                        ▼
-                      </button>
+                          }}
+                        >
+                          ▲
+                        </button>
+                        <button 
+                          className={styles.numberControl}
+                          onClick={() => {
+                            const currentValue = tempSettings[selectedUserId]?.times_set_random ?? 1;
+                            if (currentValue > 1) {
+                              setTempSettings(prev => ({
+                                ...prev,
+                                [selectedUserId]: {
+                                  ...prev[selectedUserId],
+                                  times_set_random: currentValue - 1
+                                }
+                              }));
+                            }
+                          }}
+                        >
+                          ▼
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className={styles.settingItem}>
-                  <label>Delay(s):</label>
-                  <div className={styles.numberInputContainer}>
-                    <input
-                      type="number"
-                      name="delay_set_random"
-                      value={tempSettings[selectedUserId]?.delay_set_random ?? 3}
-                      onChange={(e) => {
-                        const newValue = parseInt(e.target.value, 10);
-                        if (!isNaN(newValue) && newValue > 0) {
-                          setTempSettings(prev => ({
-                            ...prev,
-                            [selectedUserId]: {
-                              ...prev[selectedUserId],
-                              delay_set_random: newValue
+                  <div className={styles.settingItemNoBg}>
+                    <label>Delay(s):</label>
+                    <div className={styles.numberInputContainer}>
+                      <input
+                        type="number"
+                        name="delay_set_random"
+                        value={tempSettings[selectedUserId]?.delay_set_random ?? 3}
+                        onChange={(e) => {
+                          const newValue = parseInt(e.target.value, 10);
+                          if (!isNaN(newValue) && newValue > 0) {
+                            setTempSettings(prev => ({
+                              ...prev,
+                              [selectedUserId]: {
+                                ...prev[selectedUserId],
+                                delay_set_random: newValue
+                              }
+                            }));
+                          }
+                        }}
+                        min="1"
+                        max="60"
+                        className={styles.numberInput}
+                        data-control="delay_set_random"
+                      />
+                      <div className={styles.numberControls}>
+                        <button 
+                          className={styles.numberControl}
+                          onClick={() => {
+                            const currentValue = tempSettings[selectedUserId]?.delay_set_random ?? 3;
+                            if (currentValue < 60) {
+                              setTempSettings(prev => ({
+                                ...prev,
+                                [selectedUserId]: {
+                                  ...prev[selectedUserId],
+                                  delay_set_random: currentValue + 1
+                                }
+                              }));
                             }
-                          }));
-                        }
-                      }}
-                      min="1"
-                      max="60"
-                      className={styles.numberInput}
-                      data-control="delay_set_random"
-                    />
-                    <div className={styles.numberControls}>
-                      <button 
-                        className={styles.numberControl}
-                        onClick={() => {
-                          const currentValue = tempSettings[selectedUserId]?.delay_set_random ?? 3;
-                          if (currentValue < 60) {
-                            setTempSettings(prev => ({
-                              ...prev,
-                              [selectedUserId]: {
-                                ...prev[selectedUserId],
-                                delay_set_random: currentValue + 1
-                              }
-                            }));
-                          }
-                        }}
-                      >
-                        ▲
-                      </button>
-                      <button 
-                        className={styles.numberControl}
-                        onClick={() => {
-                          const currentValue = tempSettings[selectedUserId]?.delay_set_random ?? 3;
-                          if (currentValue > 1) {
-                            setTempSettings(prev => ({
-                              ...prev,
-                              [selectedUserId]: {
-                                ...prev[selectedUserId],
-                                delay_set_random: currentValue - 1
-                              }
-                            }));
-                          }
-                        }}
-                      >
-                        ▼
-                      </button>
+                          }}
+                        >
+                          ▲
+                        </button>
+                        <button 
+                          className={styles.numberControl}
+                          onClick={() => {
+                            const currentValue = tempSettings[selectedUserId]?.delay_set_random ?? 3;
+                            if (currentValue > 1) {
+                              setTempSettings(prev => ({
+                                ...prev,
+                                [selectedUserId]: {
+                                  ...prev[selectedUserId],
+                                  delay_set_random: currentValue - 1
+                                }
+                              }));
+                            }
+                          }}
+                        >
+                          ▼
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className={styles.settingItem}>
-                  <button
-                    onClick={handleSaveSettings}
-                    className={styles.saveButton}
-                    disabled={!selectedUserId}
-                  >
-                    Save Settings
-                  </button>
+                  <div className={styles.settingItemNoBg}>
+                    <button
+                      onClick={handleSaveSettings}
+                      className={styles.saveButton}
+                      disabled={!selectedUserId}
+                    >
+                      Save Settings
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
 
             {/* Required Button Click Order Section */}
                           <div className={styles.div2}>
@@ -1172,7 +1127,7 @@ export default function AdminPage({ initialSettings }) {
             <div className={styles.div3}>
               <h2>Set Calibrate</h2>
               <div className={styles.settingsSubScroll}>
-                <div className={styles.settingItem}>
+                <div className={styles.settingItemNoBg}>
                   <label>Time(s):</label>
                   <div className={styles.numberInputContainer}>
                     <input
@@ -1234,7 +1189,7 @@ export default function AdminPage({ initialSettings }) {
                     </div>
                   </div>
                 </div>
-                <div className={`${styles.settingItem} ${styles.fadeInOut} ${(tempSettings[selectedUserId]?.times_set_calibrate ?? 1) > 1 ? styles.show : styles.hide}`}>
+                <div className={`${styles.settingItemNoBg} ${styles.fadeInOut} ${(tempSettings[selectedUserId]?.times_set_calibrate ?? 1) > 1 ? styles.show : styles.hide}`}>
                   <label>Run Set Random Every:</label>
                   <div className={styles.numberInputContainer}>
                     <input
@@ -1296,7 +1251,7 @@ export default function AdminPage({ initialSettings }) {
                     </div>
                   </div>
                 </div>
-                <div className={styles.settingItem}>
+                <div className={styles.settingItemNoBg}>
                   <button
                     onClick={handleSaveSettings}
                     className={styles.saveButton}
@@ -1311,7 +1266,7 @@ export default function AdminPage({ initialSettings }) {
             {/* Image Settings Section */}
             <div className={styles.div4}>
               <h2>Image Background Settings</h2>
-              <div className={styles.settingItem}>
+              <div className={styles.settingItemNoBg}>
                 <button
                   onClick={() => setShowCanvaConfig(true)}
                   className={styles.uploadButton}
@@ -1427,7 +1382,7 @@ export default function AdminPage({ initialSettings }) {
                   </div>
                 )}
               </div>
-              <div className={styles.settingItem}>
+              <div className={styles.settingItemNoBg}>
                 <button
                   onClick={handleSaveSettings}
                   className={styles.saveButton}
@@ -1440,7 +1395,7 @@ export default function AdminPage({ initialSettings }) {
             {/* Zoom Control Section */}
             <div className={styles.div5}>
               <h2>Zoom Control Respond</h2>
-              <div className={styles.settingItem}>
+              <div className={styles.settingItemNoBg}>
                 <label>Zoom Level:</label>
                 <div className={styles.numberInputContainer}>
                   <input
@@ -1492,7 +1447,7 @@ export default function AdminPage({ initialSettings }) {
                 </div>
                 <span style={{ marginLeft: '10px', fontSize: '14px', color: '#666' }}>%</span>
               </div>
-              <div className={styles.settingItem}>
+              <div className={styles.settingItemNoBg}>
                 <button
                   onClick={handleSaveSettings}
                   className={styles.saveButton}
@@ -1530,7 +1485,7 @@ export default function AdminPage({ initialSettings }) {
                     <span className={styles.buttonIcon}>🌐</span>
                     <div className={styles.buttonContent}>
                       <span className={styles.buttonTitle}>
-                        {publicAccessEnabled ? 'Disable' : 'Enable'} Public Access
+                        Public Access
                       </span>
                     </div>
                     <span className={styles.toggleIndicator}>
@@ -1542,10 +1497,10 @@ export default function AdminPage({ initialSettings }) {
                     className={`${styles.toggleButton} ${styles.toggleButtonCompact} ${styles.actionButton} ${showDataPreview ? styles.actionButtonActive : ''}`}
                     onClick={() => {
                       if (showDataPreview) {
-                        showNotification('Data Preview closed');
+                        window.showNotification('Data Preview closed');
                         setShowDataPreview(false);
                       } else {
-                        showNotification('Adjusting Dataset...');
+                        window.showNotification('Adjusting Dataset...');
                         setShowDataPreview(true);
                       }
                     }}
@@ -1561,7 +1516,7 @@ export default function AdminPage({ initialSettings }) {
                   <button 
                     className={styles.toggleButton}
                     onClick={() => {
-                      showNotification('Downloading Dataset...');
+                      window.showNotification('Downloading Dataset...');
                     }}
                   >
                     <span className={styles.buttonIcon}>📥</span>
@@ -1579,7 +1534,7 @@ export default function AdminPage({ initialSettings }) {
                     <span className={styles.buttonIcon}>⚙️</span>
                     <div className={styles.buttonContent}>
                       <span className={styles.buttonTitle}>
-                        {backendChangeEnabled ? 'Disable' : 'Enable'} Backend Change
+                        Backend Change
                       </span>
                     </div>
                     <span className={styles.toggleIndicator}>
@@ -1609,7 +1564,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    showNotification('Downloading All Dataset...');
+                    window.showNotification('Downloading All Dataset...');
                   }}
                 >
                   📥 Download All Dataset
@@ -1617,7 +1572,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    showNotification('Downloading User Profiles...');
+                    window.showNotification('Downloading User Profiles...');
                   }}
                 >
                   👥 Download User Profiles
@@ -1625,7 +1580,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    showNotification('Downloading Raw Dataset...');
+                    window.showNotification('Downloading Raw Dataset...');
                   }}
                 >
                   📋 Download Raw Dataset
@@ -1633,7 +1588,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    showNotification('Downloading Enhance Dataset...');
+                    window.showNotification('Downloading Enhance Dataset...');
                   }}
                 >
                   📋 Download Enhance Dataset
@@ -1641,7 +1596,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    showNotification('Downloading Label Parameters...');
+                    window.showNotification('Downloading Label Parameters...');
                   }}
                 >
                   📋 Download Label Parameters

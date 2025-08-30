@@ -2,10 +2,11 @@
   position: fixed;
   top: 20px;
   right: 20px;
-  z-index: 9999;
+  z-index: 200;
   transform: translateX(100%);
   opacity: 0;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
 }
 
 .notificationContainer.active {
@@ -20,12 +21,13 @@
   max-width: 400px;
   padding: 16px;
   border-radius: 12px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 10px 25px rgba(76, 175, 80, 0.3), 0 5px 15px rgba(76, 175, 80, 0.2);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(76, 175, 80, 0.2);
+  background: rgba(255, 255, 255, 1);
   position: relative;
   overflow: hidden;
+  pointer-events: auto;
 }
 
 .notification::before {
@@ -125,8 +127,8 @@
 }
 
 .closeButton:hover {
-  background: rgba(0, 0, 0, 0.05);
-  color: #666;
+  background: rgba(76, 175, 80, 0.1);
+  color: #4CAF50;
 }
 
 .closeButton:active {
@@ -170,23 +172,36 @@
   }
 }
 
+/* Adjust notification position when sidebar is open */
+@media (min-width: 481px) {
+  .notificationContainer {
+    right: 20px;
+  }
+  
+  /* When sidebar is open, move notification to avoid overlap */
+  .notificationContainer.sidebarOpen {
+    right: 420px;
+  }
+}
+
 /* Dark mode support */
 @media (prefers-color-scheme: dark) {
   .notification {
-    background: rgba(30, 30, 30, 0.95);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 1);
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    box-shadow: 0 10px 25px rgba(76, 175, 80, 0.3), 0 5px 15px rgba(76, 175, 80, 0.2);
   }
   
   .message {
-    color: #e0e0e0;
+    color: #333;
   }
   
   .closeButton {
-    color: #bbb;
+    color: #999;
   }
   
   .closeButton:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
+    background: rgba(76, 175, 80, 0.1);
+    color: #4CAF50;
   }
 }

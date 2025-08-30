@@ -6,7 +6,8 @@ const UINotification = ({
   type = 'success', 
   isVisible = false, 
   duration = 3000, 
-  onClose 
+  onClose,
+  sidebarOpen = false
 }) => {
   const [isActive, setIsActive] = useState(false);
 
@@ -51,7 +52,7 @@ const UINotification = ({
   };
 
   return (
-    <div className={`${styles.notificationContainer} ${isActive ? styles.active : ''}`}>
+    <div className={`${styles.notificationContainer} ${isActive ? styles.active : ''} ${sidebarOpen ? styles.sidebarOpen : ''}`}>
       <div className={`${styles.notification} ${styles[type]}`}>
         <div className={styles.iconContainer}>
           <span className={styles.icon}>{getIcon()}</span>

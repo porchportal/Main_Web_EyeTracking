@@ -1,0 +1,83 @@
+/* animation_gradient.module.css - Animation gradient effects for admin UI */
+
+/* Gradient Animation Container */
+.gradientContainer {
+  position: relative;
+  display: inline-block;
+}
+
+/* Animated Gradient Background */
+.gradientBackground {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  right: -8px;
+  bottom: -8px;
+  border-radius: 12px;
+  background: linear-gradient(45deg, #10b981, #3b82f6, #06b6d4, #10b981);
+  background-size: 400% 400%;
+  opacity: 0.4;
+  filter: blur(8px);
+  animation: gradientShift 3s ease-in-out infinite;
+  z-index: 0;
+}
+
+/* Main Content Container */
+.gradientContent {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  background: #fff;
+  padding: 15px 25px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  min-width: 300px;
+  width: 100%;
+  max-width: 600px;
+  box-sizing: border-box;
+  z-index: 1;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Gradient Animation Keyframes */
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Hover Effect */
+.gradientContainer:hover .gradientBackground {
+  animation-duration: 1.5s;
+  opacity: 0.6;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .gradientContent {
+    flex-direction: column;
+    gap: 10px;
+    min-width: auto;
+    width: 100%;
+  }
+  
+  .gradientBackground {
+    top: -4px;
+    left: -4px;
+    right: -4px;
+    bottom: -4px;
+  }
+}
+
+@media (max-width: 480px) {
+  .gradientContent {
+    padding: 12px 20px;
+  }
+}
