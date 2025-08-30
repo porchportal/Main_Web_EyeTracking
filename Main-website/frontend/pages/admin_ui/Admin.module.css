@@ -886,6 +886,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  width: 100%;
 }
 
 .controlButtonGroup {
@@ -893,6 +894,7 @@
   gap: 2rem;
   flex-wrap: wrap;
   justify-content: center;
+  align-items: stretch;
 }
 
 /* Toggle Button Styles */
@@ -908,7 +910,10 @@
   cursor: pointer;
   transition: all 0.3s ease;
   min-width: 280px;
+  max-width: 280px;
+  width: 280px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
 }
 
 .toggleButton:hover {
@@ -957,12 +962,16 @@
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
+  flex: 1;
+  min-width: 0;
 }
 
 .buttonTitle {
   font-weight: 600;
   font-size: 1rem;
   margin-bottom: 0.25rem;
+  text-align: left;
+  width: 100%;
 }
 
 .buttonDescription {
@@ -974,12 +983,17 @@
 /* Compact Toggle Button Styles */
 .toggleButtonCompact {
   min-width: 200px !important;
+  max-width: 200px !important;
+  width: 200px !important;
   padding: 1rem 1.5rem !important;
+  box-sizing: border-box !important;
 }
 
 .toggleButtonCompact .buttonTitle {
   font-size: 1rem;
   margin-bottom: 0;
+  text-align: left;
+  width: 100%;
 }
 
 .toggleButtonCompact .buttonIcon {
@@ -1004,13 +1018,35 @@
 
 .actionButtonActive {
   background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
-  border: 2px solid #28a745 !important;
-  box-shadow: 0 8px 15px rgba(40, 167, 69, 0.3);
+  border: 3px solid #28a745 !important;
+  box-shadow: 0 8px 20px rgba(40, 167, 69, 0.4) !important;
+  transform: translateY(-2px) !important;
+  position: relative !important;
 }
 
 .actionButtonActive:hover {
   background: linear-gradient(135deg, #20c997 0%, #28a745 100%) !important;
-  box-shadow: 0 8px 15px rgba(40, 167, 69, 0.4);
+  box-shadow: 0 10px 25px rgba(40, 167, 69, 0.5) !important;
+  transform: translateY(-3px) !important;
+}
+
+.actionButtonActive::after {
+  content: '✓';
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #28a745;
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  border: 2px solid white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .actionButton .buttonTitle {
@@ -1019,6 +1055,35 @@
 
 .actionButton .buttonIcon {
   font-size: 1.2rem;
+}
+
+/* Adjust Dataset Button Specific Styles */
+.adjustDatasetButton {
+  position: relative;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #6c757d 0%, #495057 100%) !important;
+  color: white !important;
+  border: 2px solid #6c757d !important;
+}
+
+.adjustDatasetButton:hover {
+  background: linear-gradient(135deg, #495057 0%, #6c757d 100%) !important;
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+
+.adjustDatasetButton.active {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+  border: 2px solid #28a745 !important;
+  box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4) !important;
+  transform: translateY(-2px) !important;
+  color: white !important;
+}
+
+.adjustDatasetButton.active:hover {
+  background: linear-gradient(135deg, #20c997 0%, #28a745 100%) !important;
+  box-shadow: 0 8px 20px rgba(40, 167, 69, 0.5) !important;
+  transform: translateY(-3px) !important;
 }
 
 /* Download Section Styles */
@@ -1128,12 +1193,19 @@
   .controlButtonGroup {
     flex-direction: column;
     gap: 1rem;
+    align-items: center;
   }
   
   .toggleButton {
-    min-width: auto;
-    width: 100%;
-    max-width: 320px;
+    min-width: 280px;
+    width: 280px;
+    max-width: 280px;
+  }
+  
+  .toggleButtonCompact {
+    min-width: 200px !important;
+    width: 200px !important;
+    max-width: 200px !important;
   }
   
   .downloadButtons {

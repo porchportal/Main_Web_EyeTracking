@@ -1479,22 +1479,14 @@ export default function AdminPage({ initialSettings }) {
               <div className={styles.controlButtons}>
                 <div className={styles.controlButtonGroup}>
                   <button 
-                    className={`${styles.toggleButton} ${styles.toggleButtonCompact} ${publicAccessEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
+                    className={`${styles.downloadButton} ${publicAccessEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
                     onClick={handlePublicAccessToggle}
                   >
-                    <span className={styles.buttonIcon}>🌐</span>
-                    <div className={styles.buttonContent}>
-                      <span className={styles.buttonTitle}>
-                        Public Access
-                      </span>
-                    </div>
-                    <span className={styles.toggleIndicator}>
-                      {publicAccessEnabled ? 'ON' : 'OFF'}
-                    </span>
+                    🌐 Public Access {publicAccessEnabled ? '(ON)' : '(OFF)'}
                   </button>
                   
                   <button 
-                    className={`${styles.toggleButton} ${styles.toggleButtonCompact} ${styles.actionButton} ${showDataPreview ? styles.actionButtonActive : ''}`}
+                    className={`${styles.downloadButton} ${styles.adjustDatasetButton} ${showDataPreview ? styles.active : ''}`}
                     onClick={() => {
                       if (showDataPreview) {
                         window.showNotification('Data Preview closed');
@@ -1505,41 +1497,23 @@ export default function AdminPage({ initialSettings }) {
                       }
                     }}
                   >
-                    <span className={styles.buttonIcon}>🔧</span>
-                    <div className={styles.buttonContent}>
-                      <span className={styles.buttonTitle}>
-                        Adjust Dataset
-                      </span>
-                    </div>
+                    🔧 Adjust Dataset
                   </button>
                   
                   <button 
-                    className={styles.toggleButton}
+                    className={styles.downloadButton}
                     onClick={() => {
                       window.showNotification('Downloading Dataset...');
                     }}
                   >
-                    <span className={styles.buttonIcon}>📥</span>
-                    <div className={styles.buttonContent}>
-                      <span className={styles.buttonTitle}>
-                        Download Dataset
-                      </span>
-                    </div>
+                    📥 Download Dataset
                   </button>
                   
                   <button 
-                    className={`${styles.toggleButton} ${styles.toggleButtonCompact} ${backendChangeEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
+                    className={`${styles.downloadButton} ${backendChangeEnabled ? styles.toggleButtonActive : styles.toggleButtonInactive}`}
                     onClick={handleBackendChangeToggle}
                   >
-                    <span className={styles.buttonIcon}>⚙️</span>
-                    <div className={styles.buttonContent}>
-                      <span className={styles.buttonTitle}>
-                        Backend Change
-                      </span>
-                    </div>
-                    <span className={styles.toggleIndicator}>
-                      {backendChangeEnabled ? 'ON' : 'OFF'}
-                    </span>
+                    ⚙️ Backend Change {backendChangeEnabled ? '(ON)' : '(OFF)'}
                   </button>
                 </div>
               </div>
