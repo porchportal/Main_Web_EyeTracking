@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GripVertical, Edit2, Save, X } from 'lucide-react';
-import styles from '../../styles/Consent.module.css';
+import styles from './style/buttonOrderDrag&Drop.module.css';
 
 export default function DragDropPriorityList({ onOrderChange, initialOrder = "" }) {
   const [items, setItems] = useState([
@@ -14,7 +14,7 @@ export default function DragDropPriorityList({ onOrderChange, initialOrder = "" 
   const [draggedOverItem, setDraggedOverItem] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editValue, setEditValue] = useState('');
-  const [saveStatus, setSaveStatus] = useState({ show: false, message: '', type: '' });
+
   const [isReordering, setIsReordering] = useState(false);
 
   // Parse initial order string and update items
@@ -243,28 +243,9 @@ export default function DragDropPriorityList({ onOrderChange, initialOrder = "" 
         onOrderChange(orderString);
       }
 
-      // Show success message
-      setSaveStatus({
-        show: true,
-        message: 'Button order saved successfully!',
-        type: 'success'
-      });
 
-      // Hide the success message after 3 seconds
-      setTimeout(() => {
-        setSaveStatus({
-          show: false,
-          message: '',
-          type: ''
-        });
-      }, 3000);
     } catch (error) {
       console.error('Error saving button order:', error);
-      setSaveStatus({
-        show: true,
-        message: 'Failed to save button order. Please try again.',
-        type: 'error'
-      });
     }
   };
 
@@ -356,11 +337,7 @@ export default function DragDropPriorityList({ onOrderChange, initialOrder = "" 
           <Save size={16} />
           Save Button Order
         </button>
-        {saveStatus.show && (
-          <div className={`${styles.saveStatus} ${styles[saveStatus.type]}`}>
-            {saveStatus.message}
-          </div>
-        )}
+
       </div>
       {/* Order Summary */}
       <div className={styles.orderSummaryBox}>

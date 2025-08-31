@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
-import styles from './Admin.module.css';
-import gradientStyles from './animation_gradient.module.css';
+import styles from './style/Admin.module.css';
+import gradientStyles from './style/animation_gradient.module.css';
 import { useConsent } from '../../components/consent_ui/ConsentContext';
 import { useAdminSettings } from '../collected-dataset-customized/components-gui/adminSettings';
 import fs from 'fs';
@@ -753,8 +753,8 @@ export default function AdminPage({ initialSettings }) {
         updateImageName = imagePaths.split('/').pop();
         mergedImagePaths = { ...existingImages, 'image_path_1': imagePaths };
       } else if (typeof imagePaths === 'object' && imagePaths !== null) {
-        // Handle imagePaths object with multiple images
-        const firstImagePath = imagePaths['Image_path_1'] || Object.values(imagePaths)[0];
+        // Handle imagePaths object with multiple images (new format: image_1, image_2, etc.)
+        const firstImagePath = imagePaths['image_1'] || Object.values(imagePaths)[0];
         
         // Only update primary image if there's no existing primary image
         if (!existingPrimaryPath || existingPrimaryPath === "/asfgrebvxcv" || existingPrimaryPath === "") {
@@ -769,7 +769,9 @@ export default function AdminPage({ initialSettings }) {
         // Convert to the new format: image_path_1, image_path_2, etc.
         const newImageFormat = {};
         Object.entries(imagePaths).forEach(([key, path], index) => {
-          newImageFormat[`image_path_${index + 1}`] = path;
+          // Convert image_1, image_2, etc. to image_path_1, image_path_2, etc.
+          const newKey = key.replace('image_', 'image_path_');
+          newImageFormat[newKey] = path;
         });
         
         // Merge with existing images in the new format
@@ -1112,11 +1114,6 @@ export default function AdminPage({ initialSettings }) {
             {/* Required Button Click Order Section */}
                           <div className={styles.div2}>
                 <h2>Required Button Click Order</h2>
-                {tempSettings[selectedUserId]?.buttons_order && (
-                  <div className={styles.currentOrderDisplay}>
-                    <strong>Current Order:</strong> {tempSettings[selectedUserId].buttons_order}
-                  </div>
-                )}
                 <DragDropPriorityList 
                   onOrderChange={handleButtonOrderChange}
                   initialOrder={tempSettings[selectedUserId]?.buttons_order || ""}
@@ -1263,15 +1260,15 @@ export default function AdminPage({ initialSettings }) {
               </div>
             </div>
 
-            {/* Image Settings Section */}
+            {/* Canvas Image Settings Section */}
             <div className={styles.div4}>
-              <h2>Image Background Settings</h2>
+              <h2>Canvas Background Settings</h2>
               <div className={styles.settingItemNoBg}>
                 <button
                   onClick={() => setShowCanvaConfig(true)}
                   className={styles.uploadButton}
                 >
-                  Choose Image
+                  Choose Canvas Images
                 </button>
                 
                 {/* Show current images */}
@@ -1279,7 +1276,7 @@ export default function AdminPage({ initialSettings }) {
                  typeof tempSettings[selectedUserId].image_pdf_canva === 'object' && 
                  Object.keys(tempSettings[selectedUserId].image_pdf_canva).length > 0 && (
                   <div className={styles.currentImages}>
-                    <p>Images ({Object.keys(tempSettings[selectedUserId].image_pdf_canva).length}):</p>
+                    <p>Canvas Images ({Object.keys(tempSettings[selectedUserId].image_pdf_canva).length}):</p>
                     
                     {/* Show image previews grid */}
                     {/* <div className={styles.imagePreviewGrid}>
@@ -1341,7 +1338,7 @@ export default function AdminPage({ initialSettings }) {
                     
                     {/* Show image list in new format */}
                     <div className={styles.imageList}>
-                      <p>Image Paths:</p>
+                      <p>Canvas Image Paths:</p>
                       {Object.entries(tempSettings[selectedUserId].image_pdf_canva)
                         .sort(([a], [b]) => {
                           // Sort by image_path_1, image_path_2, etc.
@@ -1352,6 +1349,9 @@ export default function AdminPage({ initialSettings }) {
                         .map(([key, path]) => (
                           <div key={key} className={styles.imagePathItem}>
                             <strong>{key}:</strong> {path}
+                            {path.startsWith('/canvas/') && (
+                              <span className={styles.canvasBadge}>Canvas</span>
+                            )}
                           </div>
                         ))}
                     </div>

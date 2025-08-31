@@ -86,9 +86,32 @@
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 9999;
-  animation: slideIn 0.3s ease-out;
   max-width: 400px;
   min-width: 300px;
+  transform: translateX(100%);
+  opacity: 0;
+  animation: slideInFromRight 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.notification:nth-child(1) { 
+  animation-delay: 0s; 
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.notification:nth-child(2) { 
+  animation-delay: 0.1s; 
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+}
+.notification:nth-child(3) { 
+  animation-delay: 0.2s; 
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.notification:nth-child(4) { 
+  animation-delay: 0.3s; 
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+}
+.notification:nth-child(5) { 
+  animation-delay: 0.4s; 
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .notificationContent {
@@ -105,6 +128,24 @@
 .notificationMessage {
   font-size: 14px;
   line-height: 1.4;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Hover effect for notifications */
+.notification:hover {
+  transform: translateX(-5px);
+  transition: transform 0.2s ease;
+}
+
+/* Ensure notifications don't get cut off on small screens */
+@media (max-width: 480px) {
+  .notification {
+    right: 10px;
+    left: 10px;
+    max-width: calc(100vw - 20px);
+    min-width: auto;
+  }
 }
 
 .notificationSuccess {
@@ -119,15 +160,31 @@
   border-left: 4px solid #d32f2f;
 }
 
-@keyframes slideIn {
-  from {
+@keyframes slideInFromRight {
+  0% {
     transform: translateX(100%);
     opacity: 0;
   }
-  to {
+  100% {
     transform: translateX(0);
     opacity: 1;
   }
+}
+
+@keyframes slideOutToRight {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Notification exit animation */
+.notification.removing {
+  animation: slideOutToRight 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
 /* Debug Info */
@@ -777,10 +834,25 @@
   font-size: 0.9rem;
   color: #666;
   border-bottom: 1px solid #eee;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .imagePathItem:last-child {
   border-bottom: none;
+}
+
+.canvasBadge {
+  background-color: #28a745;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 8px;
 }
 
 /* Current Image */

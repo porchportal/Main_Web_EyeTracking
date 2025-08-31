@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import styles from '../../styles/Consent.module.css';
+import styles from './style/adminCanvasImage.module.css';
 
 export default function AdminCanvaConfig({ onImageSave, onClose, userId, existingImages = {} }) {
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -137,7 +137,7 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
       console.log('Uploading files for user:', userId);
       console.log('File count:', selectedFiles.length);
 
-      const response = await fetch('/api/admin/upload-image', {
+      const response = await fetch('/api/admin/canvas-upload', {
         method: 'POST',
         body: formData,
       });
@@ -157,14 +157,18 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
       }
 
       console.log('Upload successful, image paths:', data.imagePaths);
+      console.log('Uploaded images data:', data.uploaded_images);
+      console.log('Backend data:', data.backendData);
+      console.log('Formatted data:', data.data);
       
       // Call the callback with the image paths
       if (onImageSave) {
-        onImageSave(data.imagePaths);
+        onImageSave(data.data);
       }
       
       // Show success message and close modal
-      alert('Images uploaded successfully!');
+      const uploadedCount = data.uploaded_images?.length || data.backendData?.uploaded_images?.length || 0;
+      alert(`Images uploaded successfully to canvas service! ${uploadedCount} images processed.`);
       onClose();
     } catch (error) {
       console.error('Error uploading images:', error);
@@ -252,29 +256,33 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
         )}
 
         <div className={styles.canvaConfigActions}>
-          <button 
-            onClick={handleSave} 
-            className={styles.saveButton}
-            disabled={isUploading || selectedFiles.length === 0}
-          >
-            {isUploading ? 'Uploading...' : existingPreviews.length > 0 ? 'Add More Images' : 'Save Images'}
-          </button>
-          {selectedFiles.length > 0 && (
+          <div className={styles.buttonRow}>
             <button 
-              onClick={clearAllFiles} 
-              className={styles.clearButton}
+              onClick={handleSave} 
+              className={styles.saveButton}
+              disabled={isUploading || selectedFiles.length === 0}
+            >
+              {isUploading ? 'Uploading...' : existingPreviews.length > 0 ? 'Add More Images' : 'Save Images'}
+            </button>
+            <button 
+              onClick={onClose} 
+              className={styles.cancelButton}
               disabled={isUploading}
             >
-              Clear New
+              Cancel
             </button>
+          </div>
+          {selectedFiles.length > 0 && (
+            <div className={styles.clearButtonContainer}>
+              <button 
+                onClick={clearAllFiles} 
+                className={styles.clearButton}
+                disabled={isUploading}
+              >
+                Clear New
+              </button>
+            </div>
           )}
-          <button 
-            onClick={onClose} 
-            className={styles.cancelButton}
-            disabled={isUploading}
-          >
-            Cancel
-          </button>
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@
 // Data Preview component for adjusting dataset
 
 import React, { useState, useEffect } from 'react';
-import styles from './adjust-preview.module.css';
+import styles from './style/adjust-preview.module.css';
 
 const DataPreview = ({ userId, onClose }) => {
   const [previewData, setPreviewData] = useState(null);

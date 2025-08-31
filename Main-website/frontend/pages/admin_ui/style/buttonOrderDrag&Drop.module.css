@@ -1,0 +1,347 @@
+/* buttonOrderDrag&Drop.module.css - Styles for adminDrag&Drop.js */
+
+/* Button Order Section */
+.buttonOrderSection {
+  grid-row: span 3;
+  background: #f4f6fb;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 4px 24px rgba(80, 112, 255, 0.07);
+}
+
+.buttonOrderSection h2 {
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+/* Info Box Styles */
+.infoBox {
+  background: #eaf3ff;
+  border: 1px solid #b6d4fe;
+  border-radius: 10px;
+  padding: 18px 24px;
+  margin-bottom: 24px;
+  color: #2563eb;
+  font-size: 15px;
+  box-shadow: 0 2px 8px rgba(80,112,255,0.04);
+}
+
+.infoBox ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* Task List Styles */
+.taskList {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Task Card Styles */
+.taskCard {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(80,112,255,0.07);
+  border: 1.5px solid #e5e7eb;
+  padding: 18px 20px;
+  transition: all 0.3s ease;
+  cursor: move;
+  position: relative;
+  overflow: hidden;
+}
+
+.taskCard:active, .taskCard:hover {
+  border: 1.5px solid #2563eb;
+  box-shadow: 0 4px 16px rgba(80,112,255,0.13);
+  transform: translateY(-2px);
+}
+
+/* Dragging state */
+.taskCardDragging {
+  opacity: 0.6;
+  transform: scale(1.05) rotate(2deg);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.3);
+  z-index: 1000;
+  border: 1.5px solid #2563eb;
+}
+
+/* Drop target state */
+.taskCardDropTarget {
+  border: 2px dashed #2563eb;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(37, 99, 235, 0.1));
+  transform: scale(1.02);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.2);
+}
+
+.taskCardDropTarget::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.1), transparent);
+  animation: shimmer 1.5s infinite;
+}
+
+/* Reordering animation */
+.taskCardReordering {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Shimmer effect for drop target */
+@keyframes shimmer {
+  0% {
+    left: -100%;
+  }
+  100% {
+    left: 100%;
+  }
+}
+
+/* Pulse animation for priority changes */
+@keyframes priorityPulse {
+  0% {
+    box-shadow: 0 2px 8px rgba(80,112,255,0.07);
+  }
+  50% {
+    box-shadow: 0 6px 20px rgba(34, 197, 94, 0.3);
+    border-color: #22c55e;
+  }
+  100% {
+    box-shadow: 0 2px 8px rgba(80,112,255,0.07);
+  }
+}
+
+/* Add smooth transitions for all interactive elements */
+.taskCard input,
+.taskCard select,
+.taskCard button {
+  transition: all 0.2s ease;
+}
+
+.taskCard input:focus,
+.taskCard select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  border-color: #2563eb;
+}
+
+/* Task Checkbox */
+.taskCheckbox {
+  width: 20px;
+  height: 20px;
+  accent-color: #2563eb;
+  margin-right: 2px;
+}
+
+/* Drag Handle */
+.dragHandle {
+  color: #bdbdbd;
+  cursor: grab;
+  margin-right: 2px;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.dragHandle:hover {
+  color: #2563eb;
+  background-color: rgba(37, 99, 235, 0.1);
+  transform: scale(1.1);
+}
+
+.dragHandle:active {
+  cursor: grabbing;
+  color: #1d4ed8;
+  transform: scale(0.95);
+}
+
+/* Priority Badge */
+.priorityBadge {
+  min-width: 38px;
+  text-align: center;
+  padding: 4px 0;
+  border-radius: 16px;
+  font-size: 15px;
+  font-weight: 600;
+  border: 1.5px solid;
+  margin-right: 2px;
+}
+
+.priorityBadgeRed {
+  background: #ffeaea;
+  color: #d32f2f;
+  border-color: #ffc1c1;
+}
+
+.priorityBadgeYellow {
+  background: #fffbe6;
+  color: #b59f00;
+  border-color: #ffe58f;
+}
+
+.priorityBadgeGreen {
+  background: #eaffea;
+  color: #388e3c;
+  border-color: #b7eb8f;
+}
+
+.priorityBadgeGray {
+  background: #f3f4f6;
+  color: #9ca3af;
+  border-color: #e5e7eb;
+}
+
+/* Priority Input Container */
+.priorityInputContainer {
+  width: 54px;
+  margin-right: 2px;
+}
+
+.priorityInput {
+  width: 48px;
+  padding: 4px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 15px;
+  background: #fff;
+  color: #222;
+  text-align: center;
+}
+
+.priorityInput:disabled {
+  background: #f3f4f6;
+  color: #bdbdbd;
+  cursor: not-allowed;
+}
+
+/* Task Content */
+.taskContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.taskInfoRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.taskName {
+  font-weight: 600;
+  font-size: 16px;
+  color: #222;
+  margin-right: 8px;
+}
+
+.taskDesc {
+  display: block;
+  font-size: 13px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+/* Save Order Container */
+.saveOrderContainer {
+  margin: 20px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.saveOrderButton {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #4CAF50;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.saveOrderButton:hover {
+  background-color: #45a049;
+}
+
+.saveOrderButton:active {
+  background-color: #3d8b40;
+}
+
+/* Order Summary Box */
+.orderSummaryBox {
+  margin-top: 32px;
+  background: #f9fafb;
+  border-radius: 10px;
+  padding: 18px 24px;
+  box-shadow: 0 1px 4px rgba(80,112,255,0.04);
+  border: 1px solid #e5e7eb;
+}
+
+.orderSummaryTitle {
+  font-size: 17px;
+  font-weight: 700;
+  color: #222;
+  margin-bottom: 8px;
+}
+
+.orderSummaryRow {
+  font-size: 15px;
+  color: #444;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.orderSummaryNone {
+  color: #bdbdbd;
+  font-style: italic;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .buttonOrderSection {
+    padding: 20px;
+  }
+  
+  .taskCard {
+    padding: 15px;
+    gap: 12px;
+  }
+  
+  .taskCard h2 {
+    font-size: 24px;
+  }
+  
+  .priorityInput {
+    width: 40px;
+    font-size: 14px;
+  }
+  
+  .taskName {
+    font-size: 14px;
+  }
+  
+  .taskDesc {
+    font-size: 12px;
+  }
+}

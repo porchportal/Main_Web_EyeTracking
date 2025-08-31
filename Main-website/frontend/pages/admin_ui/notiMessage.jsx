@@ -1,19 +1,35 @@
 import { useState, useEffect } from 'react';
-import styles from './Admin.module.css';
+import styles from './style/Admin.module.css';
 
 const NotiMessage = () => {
-  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+  const [notifications, setNotifications] = useState([]);
+  let notificationId = 0;
 
   const showNotification = (message, type = 'success') => {
-    setNotification({ 
+    const id = ++notificationId;
+    const newNotification = { 
+      id,
       show: true, 
       message, 
-      type 
-    });
+      type,
+      timestamp: Date.now()
+    };
     
-    // Auto-hide notification after 3 seconds
+    // Add new notification to the stack
+    setNotifications(prev => [...prev, newNotification]);
+    
+    // Auto-hide notification after 3 seconds with smooth exit animation
     setTimeout(() => {
-      setNotification(prev => ({ ...prev, show: false }));
+      setNotifications(prev => prev.map(notification => 
+        notification.id === id 
+          ? { ...notification, removing: true }
+          : notification
+      ));
+      
+      // Remove from DOM after exit animation completes
+      setTimeout(() => {
+        setNotifications(prev => prev.filter(notification => notification.id !== id));
+      }, 300);
     }, 3000);
   };
 
@@ -32,19 +48,22 @@ const NotiMessage = () => {
 
   return (
     <>
-      {notification.show && (
+      {notifications.map((notification, index) => (
         <div 
+          key={notification.id}
           className={`${styles.notification} ${
             notification.type === 'error' 
               ? styles.notificationError 
               : styles.notificationSuccess
-          }`}
+          } ${notification.removing ? styles.removing : ''}`}
           style={{
             position: 'fixed',
-            top: '20px',
+            top: `${20 + (index * 80)}px`, // Stack notifications vertically with 80px spacing
             right: '20px',
-            zIndex: 9999,
-            pointerEvents: 'auto'
+            zIndex: 9999 + index, // Ensure proper layering
+            pointerEvents: 'auto',
+            maxWidth: '400px',
+            minWidth: '300px'
           }}
         >
           <div className={styles.notificationContent}>
@@ -56,7 +75,7 @@ const NotiMessage = () => {
             </span>
           </div>
         </div>
-      )}
+      ))}
     </>
   );
 };

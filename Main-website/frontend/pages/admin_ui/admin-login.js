@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useRouter } from 'next/router';
-import styles from '../../styles/AdminLogin.module.css';
+import styles from './style/AdminLogin.module.css';
 
 export default function AdminLogin() {
   const router = useRouter();

@@ -2,7 +2,8 @@
 from fastapi import FastAPI, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Body, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 import logging
 from typing import Optional, Dict, Any, List
 import asyncio
@@ -30,6 +31,7 @@ from routes import files
 from routes import preview
 from routes.data_center_routes import router as data_center_router
 from routes.admin_updates import router as admin_updates_router
+from routes.canvas_admin import router as canvas_admin_router
 from routes.consent import router as consent_router
 from routes.backup import router as backup_router
 from routes.user_captures import router as user_captures_router
@@ -78,6 +80,11 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"]
 )
+
+# Mount static files for canvas images
+canvas_dir = Path(__file__).parent / "resource_security" / "canvas"
+canvas_dir.mkdir(parents=True, exist_ok=True)
+app.mount("/canvas", StaticFiles(directory=str(canvas_dir)), name="canvas")
 
 # Add specific CORS middleware for user preferences
 @app.middleware("http")
@@ -333,6 +340,7 @@ async def update_user_preferences(user_id: str, preferences: UserProfileUpdate):
 
 app.include_router(data_center_router)
 app.include_router(admin_updates_router)
+app.include_router(canvas_admin_router)
 app.include_router(backup_router)
 app.include_router(user_captures_router)
 
