@@ -47,8 +47,8 @@ export default async function handler(req, res) {
     }
 
     // Get the backend URL and API key from environment variables
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost';
-    const apiKey = process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+    const backendUrl = process.env.BACKEND_URL;
+         const apiKey = process.env.NEXT_PUBLIC_API_KEY;
 
     // Prepare form data for backend using form-data package
     const FormData = require('form-data');
@@ -207,11 +207,8 @@ export default async function handler(req, res) {
     // Merge existing and new images
     const mergedImagePaths = { ...existingImages, ...backendData.data };
 
-    // Convert to the new format: image_path_1, image_path_2, etc.
-    const newImageFormat = {};
-    Object.entries(mergedImagePaths).forEach(([key, path], index) => {
-      newImageFormat[`image_path_${index + 1}`] = path;
-    });
+    // Keep the original backend format (image_1, image_2, etc.)
+    // No need to convert since backend already sends the correct format
 
     // Prepare the data structure for the new MongoDB format
     const updateData = {
@@ -220,31 +217,16 @@ export default async function handler(req, res) {
       data: {
         image_path: existingImages.image_path || Object.values(backendData.data)[0] || '/asfgrebvxcv',
         updateImage: existingImages.updateImage || Object.values(backendData.data)[0]?.split('/').pop() || 'image.jpg',
-        image_pdf_canva: newImageFormat,
+        image_pdf_canva: mergedImagePaths, // Use the original backend format
         updated_at: new Date().toISOString()
       }
     };
 
     console.log('Sending updated data to backend:', updateData);
 
-    // Send the updated image paths to the backend API
-    const settingsResponse = await fetch(`${backendUrl}/api/admin/update`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': apiKey
-      },
-      body: JSON.stringify(updateData)
-    });
-
-    if (!settingsResponse.ok) {
-      const errorData = await settingsResponse.json().catch(() => ({}));
-      console.error('Settings update response error:', errorData);
-      throw new Error(errorData.detail || errorData.error || 'Failed to update settings');
-    }
-
-    const settingsData = await settingsResponse.json();
-    console.log('Settings update successful:', settingsData);
+    // Temporarily disabled to test if error comes from canvas upload or admin update
+    console.log('Skipping admin update for testing...');
+    const settingsData = { skipped: true };
 
     res.status(200).json({ 
       success: true,

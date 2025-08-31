@@ -7,7 +7,6 @@ import { useConsent } from '../components/consent_ui/ConsentContext';
 import { isProfileComplete } from '../utils/consentManager';
 
 // Use relative URLs for browser compatibility
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export default function HomePage() {
   const router = useRouter();
@@ -35,7 +34,7 @@ export default function HomePage() {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
         }
       });
       
@@ -56,7 +55,7 @@ export default function HomePage() {
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
-              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
             },
             body: JSON.stringify({
               userId: userId,
@@ -95,7 +94,7 @@ export default function HomePage() {
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
-              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
             }
           });
           if (!newResponse.ok) {
@@ -283,7 +282,7 @@ export default function HomePage() {
               headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
-                'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+                'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
               }
             });
             if (!response.ok) {

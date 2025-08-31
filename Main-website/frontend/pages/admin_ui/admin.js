@@ -14,7 +14,7 @@ import DataPreview from './adjust-preview';
 import NotiMessage from './notiMessage';
 import { useRouter } from 'next/router';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://nginx';
+
 
 export async function getServerSideProps() {
   // Define the path to the settings file
@@ -107,7 +107,7 @@ export default function AdminPage({ initialSettings }) {
           const consentResponse = await fetch('/api/admin/consent-data', {
             headers: {
               'Content-Type': 'application/json',
-              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
             }
           });
 
@@ -168,8 +168,8 @@ export default function AdminPage({ initialSettings }) {
       // Send the current settings to the data center (backend will handle defaults)
       const settingsToSave = { ...currentSettings };
 
-      // Save to data center using the new API endpoint
-      const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
+              // Save to data center using the new API endpoint
+        const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -250,7 +250,7 @@ export default function AdminPage({ initialSettings }) {
       reader.onload = async (e) => {
         try {
           // Save image to server using REST API
-          const response = await fetch('/api/data-center/image', {
+          const response = await fetch(`/api/data-center/image`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -324,7 +324,7 @@ export default function AdminPage({ initialSettings }) {
         const base64Image = e.target.result;
         
         // Save to server using REST API
-        const response = await fetch('/api/data-center/image', {
+        const response = await fetch(`/api/data-center/image`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -428,11 +428,11 @@ export default function AdminPage({ initialSettings }) {
 
   const handleDeleteConfirm = async () => {
     try {
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+      const apiKey = process.env.NEXT_PUBLIC_API_KEY;
       console.log('Using API Key:', apiKey);
       
       // Delete user data using the consolidated endpoint
-      const response = await fetch(`${API_BASE_URL}/consent/${deleteTarget}`, {
+              const response = await fetch(`/api/consent/${deleteTarget}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -509,7 +509,7 @@ export default function AdminPage({ initialSettings }) {
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Verify deletion by checking if the user still exists
-      const verifyResponse = await fetch(`${API_BASE_URL}/consent/${deleteTarget}`, {
+              const verifyResponse = await fetch(`/api/consent/${deleteTarget}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -751,9 +751,9 @@ export default function AdminPage({ initialSettings }) {
         // Backward compatibility for single image path
         primaryImagePath = imagePaths;
         updateImageName = imagePaths.split('/').pop();
-        mergedImagePaths = { ...existingImages, 'image_path_1': imagePaths };
+        mergedImagePaths = { ...existingImages, 'image_1': imagePaths };
       } else if (typeof imagePaths === 'object' && imagePaths !== null) {
-        // Handle imagePaths object with multiple images (new format: image_1, image_2, etc.)
+        // Handle imagePaths object with multiple images (backend format: image_1, image_2, etc.)
         const firstImagePath = imagePaths['image_1'] || Object.values(imagePaths)[0];
         
         // Only update primary image if there's no existing primary image
@@ -766,22 +766,8 @@ export default function AdminPage({ initialSettings }) {
           updateImageName = existingUpdateImage;
         }
         
-        // Convert to the new format: image_path_1, image_path_2, etc.
-        const newImageFormat = {};
-        Object.entries(imagePaths).forEach(([key, path], index) => {
-          // Convert image_1, image_2, etc. to image_path_1, image_path_2, etc.
-          const newKey = key.replace('image_', 'image_path_');
-          newImageFormat[newKey] = path;
-        });
-        
-        // Merge with existing images in the new format
-        const existingImageCount = Object.keys(existingImages).length;
-        Object.entries(newImageFormat).forEach(([key, path], index) => {
-          const newKey = `image_path_${existingImageCount + index + 1}`;
-          existingImages[newKey] = path;
-        });
-        
-        mergedImagePaths = existingImages;
+        // Keep the original backend format (image_1, image_2, etc.) and merge with existing images
+        mergedImagePaths = { ...existingImages, ...imagePaths };
       } else {
         console.error('Invalid imagePaths format:', imagePaths);
         return;
@@ -1276,7 +1262,19 @@ export default function AdminPage({ initialSettings }) {
                  typeof tempSettings[selectedUserId].image_pdf_canva === 'object' && 
                  Object.keys(tempSettings[selectedUserId].image_pdf_canva).length > 0 && (
                   <div className={styles.currentImages}>
-                    <p>Canvas Images ({Object.keys(tempSettings[selectedUserId].image_pdf_canva).length}):</p>
+                    <p>Canvas Images ({Object.entries(tempSettings[selectedUserId].image_pdf_canva)
+                      .filter(([key, path]) => {
+                        // Filter out non-image entries (like user IDs)
+                        return path && 
+                               typeof path === 'string' && 
+                               (path.startsWith('/canvas/') || 
+                                path.startsWith('http') || 
+                                path.includes('.jpg') || 
+                                path.includes('.jpeg') || 
+                                path.includes('.png') || 
+                                path.includes('.gif') ||
+                                path.includes('.webp'));
+                      }).length}):</p>
                     
                     {/* Show image previews grid */}
                     {/* <div className={styles.imagePreviewGrid}>
@@ -1300,60 +1298,171 @@ export default function AdminPage({ initialSettings }) {
                     </div> */}
                     
                     {/* Show "Show All Images" button if more than 1 image */}
-                    {Object.keys(tempSettings[selectedUserId].image_pdf_canva).length > 1 && (
-                      <div className={styles.showAllImagesContainer}>
-                        <button
-                          onClick={() => {
-                            // Create a modal to show all images
-                            const allImages = tempSettings[selectedUserId].image_pdf_canva;
-                            const imageEntries = Object.entries(allImages);
-                            
-                            // Create modal content
-                            const modalContent = document.createElement('div');
-                            modalContent.className = styles.imageModal;
-                            modalContent.innerHTML = `
-                              <div class="${styles.imageModalContent}">
-                                <h3>All Images (${imageEntries.length})</h3>
-                                <div class="${styles.imageModalGrid}">
-                                  ${imageEntries.map(([key, path]) => `
-                                    <div class="${styles.imageModalItem}">
-                                      <img src="${path}" alt="${key}" class="${styles.imageModalPreview}" />
-                                      <p class="${styles.imageModalName}">${key}</p>
-                                    </div>
-                                  `).join('')}
+                    {(() => {
+                      const actualImageCount = Object.entries(tempSettings[selectedUserId].image_pdf_canva)
+                        .filter(([key, path]) => {
+                          // Filter out non-image entries (like user IDs)
+                          return path && 
+                                 typeof path === 'string' && 
+                                 (path.startsWith('/canvas/') || 
+                                  path.startsWith('http') || 
+                                  path.includes('.jpg') || 
+                                  path.includes('.jpeg') || 
+                                  path.includes('.png') || 
+                                  path.includes('.gif') ||
+                                  path.includes('.webp'));
+                        }).length;
+                      
+                      return actualImageCount > 0 ? (
+                        <div className={styles.showAllImagesContainer}>
+                          <button
+                            onClick={() => {
+                              // Create a proper modal to show all images
+                              const allImages = tempSettings[selectedUserId].image_pdf_canva;
+                              const imageEntries = Object.entries(allImages)
+                                .filter(([key, path]) => {
+                                  // Filter out non-image entries (like user IDs)
+                                  return path && 
+                                         typeof path === 'string' && 
+                                         (path.startsWith('/canvas/') || 
+                                          path.startsWith('http') || 
+                                          path.includes('.jpg') || 
+                                          path.includes('.jpeg') || 
+                                          path.includes('.png') || 
+                                          path.includes('.gif') ||
+                                          path.includes('.webp'));
+                                });
+                              
+                                                          // Get backend URL for proper image serving
+                            const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+                              
+                              // Create modal content with proper styling
+                              const modalContent = document.createElement('div');
+                              modalContent.className = styles.imageModal;
+                              modalContent.style.cssText = `
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                background: rgba(0, 0, 0, 0.8);
+                                z-index: 1000;
+                                display: flex;
+                                justify-content: center;
+                                align-items: center;
+                              `;
+                              
+                              modalContent.innerHTML = `
+                                <div style="
+                                  background: white;
+                                  padding: 20px;
+                                  border-radius: 8px;
+                                  max-width: 90%;
+                                  max-height: 90%;
+                                  overflow-y: auto;
+                                  position: relative;
+                                ">
+                                  <button onclick="this.parentElement.parentElement.remove()" style="
+                                    position: absolute;
+                                    top: 10px;
+                                    right: 10px;
+                                    background: #dc3545;
+                                    color: white;
+                                    border: none;
+                                    border-radius: 50%;
+                                    width: 30px;
+                                    height: 30px;
+                                    cursor: pointer;
+                                    font-size: 16px;
+                                  ">×</button>
+                                  <h3 style="margin-top: 0; margin-bottom: 20px;">All Images (${imageEntries.length})</h3>
+                                  <div style="
+                                    display: grid;
+                                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                                    gap: 20px;
+                                    margin-bottom: 20px;
+                                  ">
+                                    ${imageEntries.map(([key, path]) => {
+                                      // Convert backend path to frontend accessible URL
+                                      const imageUrl = path.startsWith('/canvas/') 
+                                        ? `${backendUrl}${path}` 
+                                        : path;
+                                      
+                                      return `
+                                        <div style="
+                                          border: 1px solid #ddd;
+                                          border-radius: 8px;
+                                          padding: 10px;
+                                          text-align: center;
+                                        ">
+                                          <img src="${imageUrl}" alt="${key}" style="
+                                            width: 100%;
+                                            height: 150px;
+                                            object-fit: cover;
+                                            border-radius: 4px;
+                                            margin-bottom: 10px;
+                                          " />
+                                          <p style="margin: 0; font-weight: bold; color: #333;">${key}</p>
+                                          <p style="margin: 5px 0 0 0; font-size: 12px; color: #666; word-break: break-all;">${path}</p>
+                                        </div>
+                                      `;
+                                    }).join('')}
+                                  </div>
                                 </div>
-                                <button class="${styles.imageModalClose}" onclick="this.parentElement.parentElement.remove()">Close</button>
-                              </div>
-                            `;
-                            
-                            // Add modal to page
-                            document.body.appendChild(modalContent);
-                          }}
-                          className={styles.showAllImagesButton}
-                        >
-                          Show All Images ({Object.keys(tempSettings[selectedUserId].image_pdf_canva).length})
-                        </button>
-                      </div>
-                    )}
+                              `;
+                              
+                              // Add modal to page
+                              document.body.appendChild(modalContent);
+                            }}
+                            className={styles.showAllImagesButton}
+                          >
+                            Show All Images ({actualImageCount})
+                          </button>
+                        </div>
+                      ) : null;
+                    })()}
                     
-                    {/* Show image list in new format */}
+                    {/* Show image list in backend format */}
                     <div className={styles.imageList}>
                       <p>Canvas Image Paths:</p>
                       {Object.entries(tempSettings[selectedUserId].image_pdf_canva)
+                        .filter(([key, path]) => {
+                          // Filter out non-image entries (like user IDs)
+                          // Only show entries that have image-like paths
+                          return path && 
+                                 typeof path === 'string' && 
+                                 (path.startsWith('/canvas/') || 
+                                  path.startsWith('http') || 
+                                  path.includes('.jpg') || 
+                                  path.includes('.jpeg') || 
+                                  path.includes('.png') || 
+                                  path.includes('.gif') ||
+                                  path.includes('.webp'));
+                        })
                         .sort(([a], [b]) => {
-                          // Sort by image_path_1, image_path_2, etc.
-                          const aNum = parseInt(a.replace('image_path_', ''));
-                          const bNum = parseInt(b.replace('image_path_', ''));
+                          // Sort by image_1, image_2, etc.
+                          const aNum = parseInt(a.replace('image_', ''));
+                          const bNum = parseInt(b.replace('image_', ''));
                           return aNum - bNum;
                         })
-                        .map(([key, path]) => (
-                          <div key={key} className={styles.imagePathItem}>
-                            <strong>{key}:</strong> {path}
-                            {path.startsWith('/canvas/') && (
-                              <span className={styles.canvasBadge}>Canvas</span>
-                            )}
-                          </div>
-                        ))}
+                        .map(([key, path]) => {
+                          // Convert backend path to frontend accessible URL
+                          const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+                          const imageUrl = path.startsWith('/canvas/') 
+                            ? `${backendUrl}${path}` 
+                            : path;
+                          
+                          return (
+                            <div key={key} className={styles.imagePathItem}>
+                              <strong>{key}:</strong> {path}
+                              {path.startsWith('/canvas/') && (
+                                <span className={styles.canvasBadge}>Canvas</span>
+                              )}
+                              <br />
+                              <small style={{ color: '#666' }}>Accessible at: {imageUrl}</small>
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
                 )}
@@ -1367,15 +1476,25 @@ export default function AdminPage({ initialSettings }) {
                   Object.keys(tempSettings[selectedUserId].image_pdf_canva).length === 0) && (
                   <div className={styles.currentImage}>
                     <p>Current Image: {tempSettings[selectedUserId].updateImage}</p>
-                    <img 
-                      src={tempSettings[selectedUserId].image_path} 
-                      alt="Current background" 
-                      className={styles.currentImagePreview}
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'block';
-                      }}
-                    />
+                    {(() => {
+                                                // Convert backend path to frontend accessible URL
+                          const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+                          const imageUrl = tempSettings[selectedUserId].image_path.startsWith('/canvas/') 
+                            ? `${backendUrl}${tempSettings[selectedUserId].image_path}` 
+                            : tempSettings[selectedUserId].image_path;
+                      
+                      return (
+                        <img 
+                          src={imageUrl} 
+                          alt="Current background" 
+                          className={styles.currentImagePreview}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'block';
+                          }}
+                        />
+                      );
+                    })()}
                     <p className={styles.imageError} style={{ display: 'none', color: '#dc3545', fontSize: '0.9rem' }}>
                       Image not found
                     </p>

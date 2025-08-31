@@ -19,8 +19,8 @@ async function processImageWithPython(inputPath, outputPath, setNumber, captureD
     }
     
     // Get the backend URL
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8010';
-    const apiKey = process.env.API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+    const backendUrl = process.env.BACKEND_URL;
+    const apiKey = process.env.API_KEY;
     
     // Create form data
     const formData = new FormData();
@@ -515,8 +515,8 @@ async function updateParameterFile(setNumber, metrics, captureDir, enhancePath) 
 async function processFilesViaBackend(setNumbers) {
   try {
     // Get the backend URL from environment variable or use default
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8010';
-    const apiKey = process.env.API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+    const backendUrl = process.env.BACKEND_URL;
+    const apiKey = process.env.API_KEY;
     
     // Call the FastAPI backend to process the files
     const response = await fetch(`${backendUrl}/process-batch`, {

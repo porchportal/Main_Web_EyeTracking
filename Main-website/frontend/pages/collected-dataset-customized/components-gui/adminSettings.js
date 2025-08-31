@@ -127,7 +127,7 @@ export const useAdminSettings = (ref, consentUserId) => {
         headers: {
           'Accept': 'application/json',
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
         }
       });
       
@@ -347,7 +347,7 @@ export const useAdminSettings = (ref, consentUserId) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
         },
         body: JSON.stringify(updatedSettings)
       });
@@ -385,7 +385,7 @@ export const useAdminSettings = (ref, consentUserId) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
         },
         body: JSON.stringify({ image: base64Image })
       });

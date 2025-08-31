@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:80';
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
 
     // GET - Retrieve user settings
     if (method === 'GET') {

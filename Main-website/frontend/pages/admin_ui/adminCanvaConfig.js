@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import styles from './style/adminCanvasImage.module.css';
 
 export default function AdminCanvaConfig({ onImageSave, onClose, userId, existingImages = {} }) {
@@ -6,15 +6,75 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
   const [previewUrls, setPreviewUrls] = useState([]);
   const [dragActive, setDragActive] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [existingPreviews, setExistingPreviews] = useState([]);
+  const [loadingExisting, setLoadingExisting] = useState(true);
   const fileInputRef = useRef(null);
 
-  // Convert existing images to preview format
-  const existingPreviews = Object.entries(existingImages).map(([key, path]) => ({
-    url: path,
-    name: path.split('/').pop() || key,
-    isExisting: true,
-    key: key
-  }));
+  // Fetch existing canvas images from backend when component mounts
+  useEffect(() => {
+    const fetchExistingImages = async () => {
+      if (!userId) {
+        setLoadingExisting(false);
+        return;
+      }
+
+      try {
+        setLoadingExisting(true);
+        
+        // Fetch images from the backend canvas service
+        const response = await fetch(`/api/admin/view-canvas-image?userId=${userId}`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch canvas images: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.images) {
+          // Convert backend paths to preview format
+          const previews = data.images
+            .filter(path => {
+              // Filter out non-image entries (like user IDs)
+              return path && 
+                     typeof path === 'string' && 
+                     (path.startsWith('/canvas/') || 
+                      path.startsWith('http') || 
+                      path.includes('.jpg') || 
+                      path.includes('.jpeg') || 
+                      path.includes('.png') || 
+                      path.includes('.gif') ||
+                      path.includes('.webp'));
+            })
+                          .map((path, index) => {
+                // Convert backend path to frontend accessible URL
+                const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+                const imageUrl = path.startsWith('/canvas/') 
+                  ? `${backendUrl}${path}` 
+                  : path;
+              
+              return {
+                url: imageUrl,
+                name: path.split('/').pop() || `image_${index + 1}`,
+                isExisting: true,
+                key: `existing_${index}`,
+                originalPath: path
+              };
+            });
+          
+          setExistingPreviews(previews);
+        } else {
+          setExistingPreviews([]);
+        }
+      } catch (error) {
+        console.error('Error fetching existing canvas images:', error);
+        setExistingPreviews([]);
+      } finally {
+        setLoadingExisting(false);
+      }
+    };
+
+    fetchExistingImages();
+  }, [userId]);
 
   const handleFileSelect = (event) => {
     const files = Array.from(event.target.files);
@@ -36,7 +96,11 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
 
     const skippedCount = files.length - validFiles.length;
     if (skippedCount > 0) {
-      alert(`${skippedCount} file(s) were skipped. Only JPG, JPEG, and PNG files under 50MB are allowed.`);
+      if (typeof window !== 'undefined' && window.showNotification) {
+        window.showNotification(`${skippedCount} file(s) were skipped. Only JPG, JPEG, and PNG files under 50MB are allowed.`, 'error');
+      } else {
+        alert(`${skippedCount} file(s) were skipped. Only JPG, JPEG, and PNG files under 50MB are allowed.`);
+      }
     }
 
     if (validFiles.length > 0) {
@@ -87,7 +151,11 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
 
     const skippedCount = files.length - validFiles.length;
     if (skippedCount > 0) {
-      alert(`${skippedCount} file(s) were skipped. Only JPG, JPEG, and PNG files under 50MB are allowed.`);
+      if (typeof window !== 'undefined' && window.showNotification) {
+        window.showNotification(`${skippedCount} file(s) were skipped. Only JPG, JPEG, and PNG files under 50MB are allowed.`, 'error');
+      } else {
+        alert(`${skippedCount} file(s) were skipped. Only JPG, JPEG, and PNG files under 50MB are allowed.`);
+      }
     }
 
     if (validFiles.length > 0) {
@@ -116,12 +184,20 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
 
   const handleSave = async () => {
     if (selectedFiles.length === 0) {
-      alert('Please select at least one image');
+      if (typeof window !== 'undefined' && window.showNotification) {
+        window.showNotification('Please select at least one image', 'error');
+      } else {
+        alert('Please select at least one image');
+      }
       return;
     }
 
     if (!userId) {
-      alert('Please select a user first');
+      if (typeof window !== 'undefined' && window.showNotification) {
+        window.showNotification('Please select a user first', 'error');
+      } else {
+        alert('Please select a user first');
+      }
       return;
     }
 
@@ -168,12 +244,20 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
       
       // Show success message and close modal
       const uploadedCount = data.uploaded_images?.length || data.backendData?.uploaded_images?.length || 0;
-      alert(`Images uploaded successfully to canvas service! ${uploadedCount} images processed.`);
+      if (typeof window !== 'undefined' && window.showNotification) {
+        window.showNotification(`Images uploaded successfully to canvas service! ${uploadedCount} images processed.`, 'success');
+      } else {
+        alert(`Images uploaded successfully to canvas service! ${uploadedCount} images processed.`);
+      }
       onClose();
     } catch (error) {
       console.error('Error uploading images:', error);
       console.error('Error stack:', error.stack);
-      alert(`Failed to upload images: ${error.message}`);
+      if (typeof window !== 'undefined' && window.showNotification) {
+        window.showNotification(`Failed to upload images: ${error.message}`, 'error');
+      } else {
+        alert(`Failed to upload images: ${error.message}`);
+      }
     } finally {
       setIsUploading(false);
     }
@@ -183,8 +267,9 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
     <div className={styles.canvaConfigModal}>
       <div className={styles.canvaConfigContent}>
         <h2>
-          {existingPreviews.length > 0 ? 'Add More Images' : 'Image Upload Configuration'}
-          {existingPreviews.length > 0 && (
+          {loadingExisting ? 'Loading Canvas Images...' : 
+           existingPreviews.length > 0 ? 'Add More Images' : 'Image Upload Configuration'}
+          {!loadingExisting && existingPreviews.length > 0 && (
             <span className={styles.existingCount}>
               ({existingPreviews.length} existing)
             </span>
@@ -214,23 +299,45 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
         </div>
 
         {/* Show images in a separate box below */}
-        {(previewUrls.length > 0 || existingPreviews.length > 0) && (
+        {(previewUrls.length > 0 || existingPreviews.length > 0 || loadingExisting) && (
           <div className={styles.imagesContainer}>
             <h3 className={styles.imagesContainerTitle}>
-              {existingPreviews.length > 0 ? 'All Images' : 'Selected Images'}
-              {existingPreviews.length > 0 && (
+              {loadingExisting ? 'Loading Existing Images...' :
+               existingPreviews.length > 0 ? 'All Images' : 'Selected Images'}
+              {!loadingExisting && existingPreviews.length > 0 && (
                 <span className={styles.imageCount}>
                   ({existingPreviews.length + previewUrls.length} total)
                 </span>
               )}
             </h3>
             <div className={styles.imagesPreviewGrid}>
+              {/* Show loading state for existing images */}
+              {loadingExisting && (
+                <div className={styles.loadingContainer}>
+                  <div className={styles.loadingSpinner}></div>
+                  <p>Loading existing canvas images...</p>
+                </div>
+              )}
+              
               {/* Show existing images first */}
-              {existingPreviews.map((preview, index) => (
+              {!loadingExisting && existingPreviews.map((preview, index) => (
                 <div key={`existing-${preview.key}`} className={`${styles.previewItem} ${styles.existingImage}`}>
-                  <img src={preview.url} alt={`Existing ${preview.name}`} className={styles.imagePreview} />
+                  <img 
+                    src={preview.url} 
+                    alt={`Existing ${preview.name}`} 
+                    className={styles.imagePreview}
+                    onError={(e) => {
+                      console.error(`Failed to load image: ${preview.url}`);
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'block';
+                    }}
+                  />
+                  <p className={styles.imageError} style={{ display: 'none', color: '#dc3545', fontSize: '0.8rem' }}>
+                    Failed to load image
+                  </p>
                   <div className={styles.existingBadge}>Existing</div>
                   <span className={styles.fileName}>{preview.name}</span>
+                  <small className={styles.imagePath}>{preview.originalPath}</small>
                 </div>
               ))}
               
@@ -262,7 +369,8 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
               className={styles.saveButton}
               disabled={isUploading || selectedFiles.length === 0}
             >
-              {isUploading ? 'Uploading...' : existingPreviews.length > 0 ? 'Add More Images' : 'Save Images'}
+              {isUploading ? 'Uploading...' : 
+               !loadingExisting && existingPreviews.length > 0 ? 'Add More Images' : 'Save Images'}
             </button>
             <button 
               onClick={onClose} 

@@ -5,10 +5,10 @@ const fetchWithRetry = async (url, options = {}, retries = 2) => {
   let lastError;
   
   // Get API key from environment variable
-  const apiKey = process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+  const apiKey = process.env.NEXT_PUBLIC_API_KEY;
   
   // Get backend URL from environment variable
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || '';
+  const backendUrl = process.env.NEXT_PUBLIC_API_URL;
   
   // Use relative URL for browser fetches
   const isBrowser = typeof window !== 'undefined';
@@ -77,7 +77,7 @@ const fetchWithRetry = async (url, options = {}, retries = 2) => {
 };
 
 // API configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
 
 // Check if the backend is connected

@@ -9,7 +9,7 @@ export default async function handler(req, res) {
 
     try {
       // Use the nginx proxy URL since that's what the frontend is configured to use
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:80';
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL;
       
       // Add timeout to prevent hanging requests
       const controller = new AbortController();
@@ -59,7 +59,7 @@ export default async function handler(req, res) {
       }
 
       // Verify session with backend through nginx proxy
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:80';
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL;
       
       // Add timeout to prevent hanging requests
       const controller = new AbortController();

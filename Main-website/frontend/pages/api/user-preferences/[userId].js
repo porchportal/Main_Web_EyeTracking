@@ -3,8 +3,25 @@ import fetch from 'node-fetch';
 
 export default async function handler(req, res) {
   // Get the backend URL and API key from environment variables
-  const backendUrl = process.env.AUTH_SERVICE_URL || process.env.BACKEND_URL || 'http://auth_service:8108';
-  const apiKey = process.env.NEXT_PUBLIC_API_KEY || process.env.API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+  const backendUrl = process.env.BACKEND_URL;
+  const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+
+  // Validate required environment variables
+  if (!backendUrl) {
+    console.error('BACKEND_URL environment variable is not set');
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server configuration error: BACKEND_URL not configured' 
+    });
+  }
+
+  if (!apiKey) {
+    console.error('NEXT_PUBLIC_API_KEY environment variable is not set');
+    return res.status(500).json({ 
+      success: false, 
+      message: 'Server configuration error: API key not configured' 
+    });
+  }
 
   try {
     const { userId } = req.query;
@@ -106,21 +123,19 @@ export default async function handler(req, res) {
       return res.status(200).json({
         success: true,
         message: 'User profile updated successfully',
-        data: data.data
+        data: data
       });
-
     } else {
       return res.status(405).json({
         success: false,
         message: 'Method not allowed'
       });
     }
-    
   } catch (error) {
-    console.error('Error handling user preferences:', error);
+    console.error('Error in user preferences handler:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to handle user preferences',
+      message: 'Internal server error',
       error: error.message
     });
   }

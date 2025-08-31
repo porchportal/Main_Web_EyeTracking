@@ -1,5 +1,5 @@
 // pages/api/user-captures/status/[userId].js
-const BACKEND_URL = process.env.BACKEND_URL || 'http://nginx:80';
+const BACKEND_URL = process.env.BACKEND_URL;
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

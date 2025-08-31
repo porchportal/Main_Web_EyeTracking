@@ -8,6 +8,7 @@ RUN apk add --no-cache libc6-compat
 
 # Copy package manifests
 COPY package*.json ./
+COPY .env.frontend ./.env.frontend
 
 # Install all dependencies (including devDependencies for build process)
 RUN npm ci && npm cache clean --force

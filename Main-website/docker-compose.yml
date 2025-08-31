@@ -48,6 +48,7 @@ services:
       - "8108:8108"
     volumes:
       - ./backend/auth_service/resource_security/public/captures:/app/resource_security/public/captures
+      - ./backend/auth_service/resource_security/canvas:/app/resource_security/canvas
     env_file:
       - ./backend/.env.backend
     depends_on:

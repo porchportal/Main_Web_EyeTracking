@@ -1,7 +1,18 @@
 export default async function handler(req, res) {
-  // Get auth service URL
-  const authServiceUrl = process.env.AUTH_SERVICE_URL || 'http://auth_service:8108';
-  const apiKey = process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+  // Get auth service URL and API key
+  const authServiceUrl = process.env.AUTH_SERVICE_URL;
+  const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+
+  // Validate required environment variables
+  if (!authServiceUrl) {
+    console.error('AUTH_SERVICE_URL environment variable is not set');
+    return res.status(500).json({ error: 'Server configuration error: AUTH_SERVICE_URL not configured' });
+  }
+
+  if (!apiKey) {
+    console.error('NEXT_PUBLIC_API_KEY environment variable is not set');
+    return res.status(500).json({ error: 'Server configuration error: API key not configured' });
+  }
 
   if (req.method === 'GET') {
     try {

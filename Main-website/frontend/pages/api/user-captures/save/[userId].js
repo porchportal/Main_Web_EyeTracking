@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://nginx:80';
+const BACKEND_URL = process.env.BACKEND_URL;
 
 // Debug environment variables
 console.log('🔧 Environment variables in save API:', {

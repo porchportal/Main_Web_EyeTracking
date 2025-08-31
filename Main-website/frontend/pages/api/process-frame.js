@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   try {
     // First check backend connection
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8010';
+         const backendUrl = process.env.NEXT_PUBLIC_API_URL;
     const url = new URL(backendUrl);
     
     // Check if backend is available
@@ -76,7 +76,7 @@ export default async function handler(req, res) {
       formData.append('showParameters', showParameters.toString());
       
       // Get backend URL and API key from environment or use defaults
-      const apiKey = process.env.API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+      const apiKey = process.env.API_KEY;
       
       // Send to FastAPI backend
       let response;

@@ -13,14 +13,14 @@ export default async function handler(req, res) {
     }
 
     // Get backend URL from environment or use default
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8000';
+    const backendUrl = process.env.BACKEND_URL;
     
     // Make request to backend
     const response = await fetch(`${backendUrl}/consent/update-user-profile/${userId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+                 'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
       },
       body: JSON.stringify({
         username: username || "",

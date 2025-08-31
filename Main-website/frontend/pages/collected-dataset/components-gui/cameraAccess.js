@@ -38,7 +38,7 @@ const CameraAccess = ({
     setWsStatus('connecting');
     try {
       // Connect to FastAPI WebSocket endpoint
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8010';
+      const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
       const ws = new WebSocket(`${wsUrl}/ws/video`);
       wsRef.current = ws;
 

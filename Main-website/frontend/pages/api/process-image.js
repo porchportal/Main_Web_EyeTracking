@@ -145,8 +145,8 @@ async function handleSingleImageUpload(req, res) {
       formData.append('file', blob, file.originalFilename || 'image.jpg');
       
       // In the backend request section
-      const backendUrl = process.env.BACKEND_URL || 'http://localhost:8010';
-      const apiKey = process.env.API_KEY || '';
+      const backendUrl = process.env.BACKEND_URL;
+      const apiKey = process.env.API_KEY;
 
       // Send the request to the FastAPI backend with API key
       const response = await fetch(`${backendUrl}/process-image`, {
