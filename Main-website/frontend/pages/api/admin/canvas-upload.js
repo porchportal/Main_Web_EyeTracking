@@ -228,14 +228,29 @@ export default async function handler(req, res) {
     console.log('Skipping admin update for testing...');
     const settingsData = { skipped: true };
 
+    // Create appropriate message based on backend response
+    let message = backendData.message || 'Images processed successfully';
+    
+    // Add storage optimization info to the message
+    if (backendData.storage_optimized) {
+      if (backendData.new_uploads > 0 && backendData.duplicates > 0) {
+        message += ` - Storage optimized: ${backendData.new_uploads} new files, ${backendData.duplicates} base image duplicates reused`;
+      } else if (backendData.duplicates > 0) {
+        message += ` - Storage optimized: ${backendData.duplicates} base image duplicates reused (no new storage used)`;
+      }
+    }
+    
     res.status(200).json({ 
       success: true,
       imagePaths: backendData.data, // Return the formatted data for frontend processing
       uploaded_images: backendData.uploaded_images, // Pass through uploaded images info
       data: backendData.data, // Pass through the formatted data
-      message: 'Images uploaded successfully to canvas service',
+      message: message,
       backendData,
-      settingsData
+      settingsData,
+      storage_optimized: backendData.storage_optimized || false,
+      new_uploads: backendData.new_uploads || 0,
+      duplicates: backendData.duplicates || 0
     });
   } catch (error) {
     console.error('Error uploading images to canvas:', error);

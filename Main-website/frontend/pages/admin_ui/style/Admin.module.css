@@ -817,10 +817,11 @@
 /* Image List */
 .imageList {
   margin-top: 10px;
-  padding: 10px;
+  padding: 15px;
   background: #f8f9fa;
-  border-radius: 4px;
+  border-radius: 8px;
   border: 1px solid #dee2e6;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .imageList p {
@@ -830,13 +831,40 @@
 }
 
 .imagePathItem {
-  padding: 5px 0;
+  padding: 8px 12px;
   font-size: 0.9rem;
   color: #666;
   border-bottom: 1px solid #eee;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
+  background: #fff;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.imagePathItem:hover {
+  background: #f8f9fa;
+}
+
+.imagePathContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.imagePathContent strong {
+  white-space: nowrap;
+  color: #333;
+}
+
+.imagePathContent span {
+  white-space: nowrap;
 }
 
 .imagePathItem:last-child {
@@ -853,6 +881,39 @@
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-left: 8px;
+}
+
+.deleteImageButton {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+}
+
+.deleteImageButton:hover {
+  background: #c82333;
+  transform: scale(1.1);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+}
+
+.deleteImageButton:active {
+  transform: scale(0.95);
+}
+
+.deleteImageButton:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.3);
 }
 
 /* Current Image */

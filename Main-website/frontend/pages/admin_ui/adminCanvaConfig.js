@@ -10,6 +10,23 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
   const [loadingExisting, setLoadingExisting] = useState(true);
   const fileInputRef = useRef(null);
 
+  // Function to get base image name without numeric suffixes
+  const getBaseImageName = (filename) => {
+    if (!filename) return '';
+    const nameWithoutExt = filename.split('.').slice(0, -1).join('.');
+    // Remove numeric suffixes like _1, _2, _3, etc.
+    return nameWithoutExt.replace(/_\d+$/, '');
+  };
+
+  // Function to check if a file is a duplicate of existing images
+  const isDuplicateBaseImage = (filename) => {
+    const baseName = getBaseImageName(filename);
+    return existingPreviews.some(preview => {
+      const existingBaseName = getBaseImageName(preview.name);
+      return existingBaseName === baseName;
+    });
+  };
+
   // Fetch existing canvas images from backend when component mounts
   useEffect(() => {
     const fetchExistingImages = async () => {
@@ -47,14 +64,36 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
             })
                           .map((path, index) => {
                 // Convert backend path to frontend accessible URL
-                const backendUrl = process.env.NEXT_PUBLIC_API_URL;
-                const imageUrl = path.startsWith('/canvas/') 
-                  ? `${backendUrl}${path}` 
-                  : path;
+                // Use the correct URL structure for canvas images
+                let imageUrl;
+                if (path.startsWith('/canvas/')) {
+                  // For canvas images, construct the correct URL
+                  // Try to use the same hostname as the current page but with nginx port
+                  const protocol = window.location.protocol;
+                  const hostname = window.location.hostname;
+                  const currentPort = window.location.port;
+                  
+                  // If we're running on a different port than nginx, use nginx port
+                  // Otherwise, use relative URL
+                  if (currentPort && currentPort !== '80') {
+                    imageUrl = `${protocol}//${hostname}:80${path}`;
+                  } else {
+                    imageUrl = path; // Use relative URL if same port
+                  }
+                } else if (path.startsWith('http')) {
+                  imageUrl = path;
+                } else {
+                  // Fallback for other paths
+                  imageUrl = path;
+                }
+              
+              const filename = path.split('/').pop() || `image_${index + 1}`;
+              const baseName = getBaseImageName(filename);
               
               return {
                 url: imageUrl,
-                name: path.split('/').pop() || `image_${index + 1}`,
+                name: filename,
+                baseName: baseName,
                 isExisting: true,
                 key: `existing_${index}`,
                 originalPath: path
@@ -83,6 +122,7 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
                          file.type === 'image/png' || 
                          file.type === 'image/jpg';
       const isValidSize = file.size <= 50 * 1024 * 1024; // 50MB limit
+      const isDuplicate = isDuplicateBaseImage(file.name);
       
       if (!isValidType) {
         console.warn(`Skipped file ${file.name}: Invalid file type`);
@@ -90,16 +130,30 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
       if (!isValidSize) {
         console.warn(`Skipped file ${file.name}: File too large (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
       }
+      if (isDuplicate) {
+        console.warn(`Skipped file ${file.name}: Base image already exists`);
+      }
       
-      return isValidType && isValidSize;
+      return isValidType && isValidSize && !isDuplicate;
     });
 
     const skippedCount = files.length - validFiles.length;
     if (skippedCount > 0) {
+      let skipReason = '';
+      if (files.some(f => !['image/jpeg', 'image/png', 'image/jpg'].includes(f.type))) {
+        skipReason += 'Invalid file type. ';
+      }
+      if (files.some(f => f.size > 50 * 1024 * 1024)) {
+        skipReason += 'File too large. ';
+      }
+      if (files.some(f => isDuplicateBaseImage(f.name))) {
+        skipReason += 'Base image duplicates detected. ';
+      }
+      
       if (typeof window !== 'undefined' && window.showNotification) {
-        window.showNotification(`${skippedCount} file(s) were skipped. Only JPG, JPEG, and PNG files under 50MB are allowed.`, 'error');
+        window.showNotification(`${skippedCount} file(s) were skipped. ${skipReason}Only JPG, JPEG, and PNG files under 50MB without duplicate base names are allowed.`, 'error');
       } else {
-        alert(`${skippedCount} file(s) were skipped. Only JPG, JPEG, and PNG files under 50MB are allowed.`);
+        alert(`${skippedCount} file(s) were skipped. ${skipReason}Only JPG, JPEG, and PNG files under 50MB without duplicate base names are allowed.`);
       }
     }
 
@@ -138,6 +192,7 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
                          file.type === 'image/png' || 
                          file.type === 'image/jpg';
       const isValidSize = file.size <= 50 * 1024 * 1024; // 50MB limit
+      const isDuplicate = isDuplicateBaseImage(file.name);
       
       if (!isValidType) {
         console.warn(`Skipped file ${file.name}: Invalid file type`);
@@ -145,16 +200,30 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
       if (!isValidSize) {
         console.warn(`Skipped file ${file.name}: File too large (${(file.size / 1024 / 1024).toFixed(2)}MB)`);
       }
+      if (isDuplicate) {
+        console.warn(`Skipped file ${file.name}: Base image already exists`);
+      }
       
-      return isValidType && isValidSize;
+      return isValidType && isValidSize && !isDuplicate;
     });
 
     const skippedCount = files.length - validFiles.length;
     if (skippedCount > 0) {
+      let skipReason = '';
+      if (files.some(f => !['image/jpeg', 'image/png', 'image/jpg'].includes(f.type))) {
+        skipReason += 'Invalid file type. ';
+      }
+      if (files.some(f => f.size > 50 * 1024 * 1024)) {
+        skipReason += 'File too large. ';
+      }
+      if (files.some(f => isDuplicateBaseImage(f.name))) {
+        skipReason += 'Base image duplicates detected. ';
+      }
+      
       if (typeof window !== 'undefined' && window.showNotification) {
-        window.showNotification(`${skippedCount} file(s) were skipped. Only JPG, JPEG, and PNG files under 50MB are allowed.`, 'error');
+        window.showNotification(`${skippedCount} file(s) were skipped. ${skipReason}Only JPG, JPEG, and PNG files under 50MB without duplicate base names are allowed.`, 'error');
       } else {
-        alert(`${skippedCount} file(s) were skipped. Only JPG, JPEG, and PNG files under 50MB are allowed.`);
+        alert(`${skippedCount} file(s) were skipped. ${skipReason}Only JPG, JPEG, and PNG files under 50MB without duplicate base names are allowed.`);
       }
     }
 
@@ -320,26 +389,55 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
               )}
               
               {/* Show existing images first */}
-              {!loadingExisting && existingPreviews.map((preview, index) => (
-                <div key={`existing-${preview.key}`} className={`${styles.previewItem} ${styles.existingImage}`}>
-                  <img 
-                    src={preview.url} 
-                    alt={`Existing ${preview.name}`} 
-                    className={styles.imagePreview}
-                    onError={(e) => {
-                      console.error(`Failed to load image: ${preview.url}`);
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'block';
-                    }}
-                  />
-                  <p className={styles.imageError} style={{ display: 'none', color: '#dc3545', fontSize: '0.8rem' }}>
-                    Failed to load image
-                  </p>
-                  <div className={styles.existingBadge}>Existing</div>
-                  <span className={styles.fileName}>{preview.name}</span>
-                  <small className={styles.imagePath}>{preview.originalPath}</small>
-                </div>
-              ))}
+              {!loadingExisting && existingPreviews.map((preview, index) => {
+                // Check if this is a base image or variation
+                const isBaseImage = !preview.name.match(/_\d+\./);
+                const baseName = preview.baseName;
+                
+                return (
+                  <div key={`existing-${preview.key}`} className={`${styles.previewItem} ${styles.existingImage}`}>
+                    <img 
+                      src={preview.url} 
+                      alt={`Existing ${preview.name}`} 
+                      className={styles.imagePreview}
+                      onError={(e) => {
+                        console.error(`Failed to load image: ${preview.url}`);
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'block';
+                      }}
+                    />
+                    <p className={styles.imageError} style={{ display: 'none', color: '#dc3545', fontSize: '0.8rem' }}>
+                      Failed to load image
+                    </p>
+                    <div className={styles.existingBadge}>Existing</div>
+                    {isBaseImage ? (
+                      <div className={styles.baseImageBadge} style={{ 
+                        background: '#28a745', 
+                        color: 'white', 
+                        padding: '2px 6px', 
+                        borderRadius: '4px', 
+                        fontSize: '0.7rem', 
+                        marginTop: '4px' 
+                      }}>
+                        Base Image
+                      </div>
+                    ) : (
+                      <div className={styles.variationBadge} style={{ 
+                        background: '#ffc107', 
+                        color: 'black', 
+                        padding: '2px 6px', 
+                        borderRadius: '4px', 
+                        fontSize: '0.7rem', 
+                        marginTop: '4px' 
+                      }}>
+                        Variation: {baseName}
+                      </div>
+                    )}
+                    <span className={styles.fileName}>{preview.name}</span>
+                    <small className={styles.imagePath}>{preview.originalPath}</small>
+                  </div>
+                );
+              })}
               
               {/* Show new images */}
               {previewUrls.map((preview, index) => (

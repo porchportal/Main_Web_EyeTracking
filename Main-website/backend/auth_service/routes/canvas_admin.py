@@ -96,6 +96,38 @@ def validate_file(file: UploadFile) -> bool:
     # Check file size (we'll check this after reading)
     return True
 
+def get_base_image_name(filename: str) -> str:
+    """Extract base image name without numeric suffixes (e.g., _1, _2, _3)"""
+    # Remove file extension
+    name_without_ext = Path(filename).stem
+    
+    # Remove numeric suffixes like _1, _2, _3, etc.
+    # This regex matches _ followed by one or more digits at the end
+    import re
+    base_name = re.sub(r'_\d+$', '', name_without_ext)
+    
+    return base_name
+
+def check_duplicate_image(user_id: str, filename: str, config: dict) -> tuple[bool, str]:
+    """Check if an image with the same base name already exists for the user"""
+    if user_id not in config:
+        return False, ""
+    
+    # Get the base name of the uploaded file
+    uploaded_base_name = get_base_image_name(filename)
+    logger.info(f"Checking for duplicates of base image: {uploaded_base_name}")
+    
+    # Check if any existing image has the same base name
+    for image_path in config[user_id]:
+        existing_filename = image_path.split('/')[-1]  # Get filename from path
+        existing_base_name = get_base_image_name(existing_filename)
+        
+        if existing_base_name == uploaded_base_name:
+            logger.info(f"Duplicate base image found: {uploaded_base_name} matches existing {existing_filename}")
+            return True, image_path
+    
+    return False, ""
+
 def save_file_to_canvas(file: UploadFile, user_id: str) -> str:
     """Save uploaded file to canvas directory"""
     try:
@@ -189,7 +221,7 @@ async def upload_canvas_images(
         for i, file in enumerate(files):
             logger.info(f"Processing file {i+1}/{len(files)}: {file.filename}")
             logger.info(f"File type: {file.content_type}")
-            logger.info(f"File size: {file.size if hasattr(file, 'size') else 'unknown'}")
+            logger.info(f"File size: {file_size if hasattr(file, 'size') else 'unknown'}")
             logger.info(f"File object: {type(file)}")
             logger.info(f"File attributes: {dir(file)}")
             
@@ -211,8 +243,42 @@ async def upload_canvas_images(
                 continue
             logger.info(f"File size check passed: {file.filename} ({file_size} bytes)")
             
+            # Check for duplicate image name
+            is_duplicate, existing_path = check_duplicate_image(user_id, file.filename, config)
+            
+            if is_duplicate:
+                existing_filename = existing_path.split('/')[-1]
+                uploaded_base_name = get_base_image_name(file.filename)
+                existing_base_name = get_base_image_name(existing_filename)
+                
+                logger.info(f"Duplicate base image detected: {uploaded_base_name} already exists for user {user_id}")
+                logger.info(f"Uploaded: {file.filename}, Existing: {existing_filename}")
+                logger.info(f"Using existing image path: {existing_path}")
+                
+                # Calculate the next image number (continue from existing count)
+                next_image_number = existing_image_count + len(uploaded_images) + 1
+                
+                # Add existing image path to config without saving new file
+                config[user_id].append(existing_path)
+                logger.info(f"Added existing image path to config: {existing_path}")
+                
+                uploaded_images.append({
+                    "filename": file.filename,
+                    "path": existing_path,
+                    "size": "duplicate - using existing",
+                    "is_duplicate": True,
+                    "base_name": uploaded_base_name,
+                    "duplicate_type": "base_image"
+                })
+                image_paths[f"image_{next_image_number}"] = existing_path
+                logger.info(f"Added duplicate to uploaded_images list: {len(uploaded_images)} total")
+                logger.info(f"Added to image_paths: image_{next_image_number} = {existing_path}")
+                
+                logger.info(f"Duplicate base image handled: {file.filename} -> {existing_filename} for user {user_id} (no new file saved)")
+                continue
+            
             try:
-                # Save file
+                # Save file (only if not duplicate)
                 logger.info(f"Attempting to save file: {file.filename}")
                 logger.info(f"File object before saving: {file}")
                 logger.info(f"File file attribute: {file.file}")
@@ -234,7 +300,8 @@ async def upload_canvas_images(
                 uploaded_images.append({
                     "filename": file.filename,
                     "path": image_path,
-                    "size": file_size
+                    "size": file_size,
+                    "is_duplicate": False
                 })
                 image_paths[f"image_{next_image_number}"] = image_path
                 logger.info(f"Added to uploaded_images list: {len(uploaded_images)} total")
@@ -251,17 +318,22 @@ async def upload_canvas_images(
         
         logger.info(f"File processing loop completed. {len(uploaded_images)} images processed successfully")
         
-        # Check if any images were uploaded
+        # Check if any images were processed
         if len(uploaded_images) == 0:
-            logger.warning("No images were uploaded successfully")
-            raise HTTPException(status_code=400, detail="No images were uploaded successfully")
+            logger.warning("No images were processed successfully")
+            raise HTTPException(status_code=400, detail="No images were processed successfully")
+        
+        # Count new uploads vs duplicates
+        new_uploads = [img for img in uploaded_images if not img.get('is_duplicate', False)]
+        duplicates = [img for img in uploaded_images if img.get('is_duplicate', False)]
         
         # Save updated config
-        logger.info(f"File processing complete. {len(uploaded_images)} images uploaded successfully")
+        logger.info(f"File processing complete. {len(uploaded_images)} images processed successfully")
+        logger.info(f"New uploads: {len(new_uploads)}, Duplicates: {len(duplicates)}")
         logger.info(f"Uploaded images: {[img['filename'] for img in uploaded_images]}")
         logger.info(f"Image paths: {image_paths}")
         logger.info(f"User {user_id} now has {len(config[user_id])} total images")
-        logger.info(f"Saving config with {len(uploaded_images)} uploaded images")
+        logger.info(f"Saving config with {len(uploaded_images)} processed images")
         logger.info(f"Final config before saving: {json.dumps(config, indent=2)}")
         if not save_config(config):
             logger.error("Failed to save configuration to local file")
@@ -283,19 +355,31 @@ async def upload_canvas_images(
         logger.info(f"Response data keys: {list(response_data.keys())}")
         logger.info(f"Response data values: {list(response_data.values())}")
         
+        # Create appropriate message based on upload results
+        if len(duplicates) > 0 and len(new_uploads) > 0:
+            message = f"Successfully processed {len(uploaded_images)} images: {len(new_uploads)} new uploads, {len(duplicates)} base image duplicates (storage optimized)"
+        elif len(duplicates) > 0:
+            message = f"Successfully processed {len(duplicates)} base image duplicates (no new files saved - storage optimized)"
+        else:
+            message = f"Successfully uploaded {len(new_uploads)} new images"
+        
         response = {
             "success": True,
-            "message": f"Successfully uploaded {len(uploaded_images)} images",
+            "message": message,
             "data": response_data,
             "uploaded_images": uploaded_images,
             "image_paths": image_paths,
-            "total_images": len(config[user_id])
+            "total_images": len(config[user_id]),
+            "new_uploads": len(new_uploads),
+            "duplicates": len(duplicates),
+            "storage_optimized": len(duplicates) > 0
         }
         logger.info(f"Sending response: {json.dumps(response, indent=2)}")
-        logger.info(f"Response status: success, message: {len(uploaded_images)} images uploaded")
+        logger.info(f"Response status: success, message: {response['message']}")
         logger.info(f"Response data field: {response['data']}")
         logger.info(f"Response uploaded_images field: {response['uploaded_images']}")
         logger.info(f"Response image_paths field: {response['image_paths']}")
+        logger.info(f"Storage optimization: {response['storage_optimized']} (new: {response['new_uploads']}, duplicates: {response['duplicates']})")
         return JSONResponse(response)
         
     except Exception as e:
@@ -390,46 +474,64 @@ async def delete_user_images(
         logger.error(f"Error deleting user images: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.delete("/image/{user_id}/{image_key}")
+@router.delete("/image/{user_id}/{image_path:path}")
 async def delete_single_image(
     user_id: str,
-    image_key: str,
+    image_path: str,
     api_key: str = Depends(verify_api_key)
 ):
-    """Delete a specific image for a user"""
+    """Delete a specific image for a user by image path"""
     try:
+        logger.info(f"Deleting image for user {user_id}: {image_path}")
         config = load_config()
         
         if user_id not in config:
+            logger.error(f"User {user_id} not found in config")
             raise HTTPException(status_code=404, detail="User not found")
         
-        # Find the image by key (e.g., image_1, image_2)
+        # Find the image by path in user's images list
         user_images = config[user_id]
-        image_index = int(image_key.replace('image_', '')) - 1
+        image_index = None
         
-        if image_index < 0 or image_index >= len(user_images):
+        for i, img_path in enumerate(user_images):
+            if img_path == f"/{image_path}" or img_path == image_path:
+                image_index = i
+                break
+        
+        if image_index is None:
+            logger.error(f"Image path {image_path} not found for user {user_id}")
             raise HTTPException(status_code=404, detail="Image not found")
         
-        image_path = user_images[image_index]
+        # Get the actual image path from config
+        actual_image_path = user_images[image_index]
+        logger.info(f"Found image at index {image_index}: {actual_image_path}")
         
         # Delete physical file
-        filename = image_path.replace('/canvas/', '')
+        filename = actual_image_path.replace('/canvas/', '')
         file_path = CANVAS_DIR / filename
+        
         if file_path.exists():
             file_path.unlink()
-            logger.info(f"Deleted file: {file_path}")
+            logger.info(f"Deleted physical file: {file_path}")
+        else:
+            logger.warning(f"Physical file not found: {file_path}")
         
         # Remove from user's images list
-        config[user_id].pop(image_index)
+        deleted_image = config[user_id].pop(image_index)
+        logger.info(f"Removed image from config: {deleted_image}")
         
         # Save updated config
         if not save_config(config):
+            logger.error("Failed to save configuration after deletion")
             raise HTTPException(status_code=500, detail="Failed to save configuration")
+        
+        logger.info(f"Successfully deleted image for user {user_id}: {deleted_image}")
         
         return JSONResponse({
             "success": True,
             "message": f"Deleted image {filename}",
-            "deleted_image": image_path
+            "deleted_image": deleted_image,
+            "remaining_images": len(config[user_id])
         })
         
     except Exception as e:

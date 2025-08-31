@@ -94,7 +94,15 @@ export default function AdminPage({ initialSettings }) {
         console.log('Auth response status:', authResponse.status);
         
         if (!authResponse.ok) {
-          console.log('Not authenticated, redirecting to login...');
+          if (authResponse.status === 401) {
+            console.log('Authentication failed: Please log in to access admin panel');
+            if (typeof window !== 'undefined' && window.showNotification) {
+              window.showNotification('Authentication failed: Please log in to access admin panel', 'error');
+            }
+            router.replace('/admin_ui/admin-login');
+          } else {
+            console.log(`Authentication failed with status ${authResponse.status}, redirecting to login...`);
+          }
           router.replace('/admin_ui/admin-login');
           return;
         }
@@ -112,9 +120,18 @@ export default function AdminPage({ initialSettings }) {
           });
 
           if (!consentResponse.ok) {
-            const errorText = await consentResponse.text();
-            console.error('Consent data response error:', errorText);
-            throw new Error(`Failed to load consent data: ${consentResponse.status} ${consentResponse.statusText}`);
+            if (consentResponse.status === 401) {
+              console.error('Authentication failed: Please log in to access admin panel');
+              if (typeof window !== 'undefined' && window.showNotification) {
+                window.showNotification('Authentication failed: Please log in to access admin panel', 'error');
+              }
+              router.replace('/admin_ui/admin-login');
+              return;
+            } else {
+              const errorText = await consentResponse.text();
+              console.error('Consent data response error:', errorText);
+              throw new Error(`Failed to load consent data: ${consentResponse.status} ${consentResponse.statusText}`);
+            }
           }
 
           const data = await consentResponse.json();
@@ -129,6 +146,9 @@ export default function AdminPage({ initialSettings }) {
         
       } catch (error) {
         console.error('Authentication check failed:', error);
+        if (typeof window !== 'undefined' && window.showNotification) {
+          window.showNotification('Authentication check failed. Please try again.', 'error');
+        }
         // For debugging, let's temporarily bypass authentication
         console.log('Bypassing authentication for debugging...');
         setIsAuthenticated(true);
@@ -462,13 +482,22 @@ export default function AdminPage({ initialSettings }) {
         });
 
         if (!consentResponse.ok) {
-          const errorData = await consentResponse.json().catch(() => ({}));
-          console.error('Local consent deletion error:', {
-            status: consentResponse.status,
-            statusText: consentResponse.statusText,
-            errorData
-          });
-          throw new Error('Failed to delete local consent file');
+          if (consentResponse.status === 401) {
+            console.error('Authentication failed: Please log in to access admin panel');
+            if (typeof window !== 'undefined' && window.showNotification) {
+              window.showNotification('Authentication failed: Please log in to access admin panel', 'error');
+            }
+            router.replace('/admin_ui/admin-login');
+            return;
+          } else {
+            const errorData = await consentResponse.json().catch(() => ({}));
+            console.error('Local consent deletion error:', {
+              status: consentResponse.status,
+              statusText: consentResponse.statusText,
+              errorData
+            });
+            throw new Error('Failed to delete local consent file');
+          }
         }
       } catch (error) {
         console.error('Error deleting local consent file:', error);
@@ -707,6 +736,62 @@ export default function AdminPage({ initialSettings }) {
           
           window.showNotification('New user - settings will be created when you save', 'success');
         }
+
+        // Additionally, check for existing canvas images for this user
+        try {
+          const canvasResponse = await fetch(`/api/admin/view-canvas-image?userId=${newUserId}`);
+          
+          if (canvasResponse.ok) {
+            const canvasData = await canvasResponse.json();
+            
+            if (canvasData.success && canvasData.images && canvasData.images.length > 0) {
+              // Convert canvas images to the expected format (image_1, image_2, etc.)
+              const canvasImages = {};
+              canvasData.images.forEach((imagePath, index) => {
+                canvasImages[`image_${index + 1}`] = imagePath;
+              });
+              
+              // Update tempSettings with canvas images
+              setTempSettings(prev => ({
+                ...prev,
+                [newUserId]: {
+                  ...prev[newUserId],
+                  image_pdf_canva: canvasImages
+                }
+              }));
+              
+              // Also update the primary image if none exists
+              if (!tempSettings[newUserId]?.image_path || 
+                  tempSettings[newUserId].image_path === "/asfgrebvxcv" || 
+                  tempSettings[newUserId].image_path === "") {
+                const firstImagePath = canvasImages['image_1'];
+                if (firstImagePath) {
+                  setTempSettings(prev => ({
+                    ...prev,
+                    [newUserId]: {
+                      ...prev[newUserId],
+                      image_path: firstImagePath,
+                      updateImage: firstImagePath.split('/').pop()
+                    }
+                  }));
+                }
+              }
+              
+              console.log(`Loaded ${canvasData.images.length} canvas images for user ${newUserId}`);
+            }
+          } else if (canvasResponse.status === 401) {
+            console.error('Authentication failed: Please log in to access admin panel');
+            if (typeof window !== 'undefined' && window.showNotification) {
+              window.showNotification('Authentication failed: Please log in to access admin panel', 'error');
+            }
+            router.replace('/admin_ui/admin-login');
+            return;
+          }
+        } catch (canvasError) {
+          console.log('No canvas images found for user or error loading canvas images:', canvasError.message);
+          // This is not a critical error, just log it
+        }
+        
       } catch (error) {
         console.error('Error loading user settings:', error);
         window.showNotification('Failed to load user settings. Using defaults.', 'error');
@@ -731,8 +816,6 @@ export default function AdminPage({ initialSettings }) {
         [newUserId]: null
       }));
     }
-
-
   };
 
   const handleImageSave = (imagePaths) => {
@@ -783,6 +866,86 @@ export default function AdminPage({ initialSettings }) {
         }
       }));
       window.showNotification('Images added successfully!');
+    }
+  };
+
+  // Function to delete canvas images
+  const handleDeleteCanvasImage = async (imageKey, imagePath) => {
+    if (!selectedUserId || !imagePath) {
+      window.showNotification('Cannot delete image: missing user ID or image path', 'error');
+      return;
+    }
+
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to delete this image?\n\n${imagePath}`)) {
+      return;
+    }
+
+    try {
+      // Extract the image path without the /canvas/ prefix for the API call
+      const cleanImagePath = imagePath.replace('/canvas/', '');
+      
+      const response = await fetch('/api/admin/canvas-delete-image', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: selectedUserId,
+          imagePath: cleanImagePath
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: Failed to delete image`);
+      }
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Remove the image from local state
+        setTempSettings(prev => {
+          const newSettings = { ...prev };
+          if (newSettings[selectedUserId]?.image_pdf_canva) {
+            const newImagePdfCanva = { ...newSettings[selectedUserId].image_pdf_canva };
+            delete newImagePdfCanva[imageKey];
+            
+            // Update the settings
+            newSettings[selectedUserId] = {
+              ...newSettings[selectedUserId],
+              image_pdf_canva: newImagePdfCanva
+            };
+            
+            // If this was the primary image, clear it
+            if (newSettings[selectedUserId].image_path === imagePath) {
+              newSettings[selectedUserId].image_path = "";
+              newSettings[selectedUserId].updateImage = "";
+            }
+          }
+          return newSettings;
+        });
+
+        // Update settings through the hook
+        if (settings && settings[selectedUserId]) {
+          const updatedSettings = { ...settings[selectedUserId] };
+          if (updatedSettings.image_pdf_canva) {
+            delete updatedSettings.image_pdf_canva[imageKey];
+          }
+          if (updatedSettings.image_path === imagePath) {
+            updatedSettings.image_path = "";
+            updatedSettings.updateImage = "";
+          }
+          updateSettings(updatedSettings, selectedUserId);
+        }
+
+        window.showNotification(`Image deleted successfully! ${result.remaining_images || 0} images remaining.`, 'success');
+      } else {
+        throw new Error(result.error || 'Failed to delete image');
+      }
+    } catch (error) {
+      console.error('Error deleting canvas image:', error);
+      window.showNotification(`Failed to delete image: ${error.message}`, 'error');
     }
   };
 
@@ -1313,113 +1476,7 @@ export default function AdminPage({ initialSettings }) {
                                   path.includes('.webp'));
                         }).length;
                       
-                      return actualImageCount > 0 ? (
-                        <div className={styles.showAllImagesContainer}>
-                          <button
-                            onClick={() => {
-                              // Create a proper modal to show all images
-                              const allImages = tempSettings[selectedUserId].image_pdf_canva;
-                              const imageEntries = Object.entries(allImages)
-                                .filter(([key, path]) => {
-                                  // Filter out non-image entries (like user IDs)
-                                  return path && 
-                                         typeof path === 'string' && 
-                                         (path.startsWith('/canvas/') || 
-                                          path.startsWith('http') || 
-                                          path.includes('.jpg') || 
-                                          path.includes('.jpeg') || 
-                                          path.includes('.png') || 
-                                          path.includes('.gif') ||
-                                          path.includes('.webp'));
-                                });
-                              
-                                                          // Get backend URL for proper image serving
-                            const backendUrl = process.env.NEXT_PUBLIC_API_URL;
-                              
-                              // Create modal content with proper styling
-                              const modalContent = document.createElement('div');
-                              modalContent.className = styles.imageModal;
-                              modalContent.style.cssText = `
-                                position: fixed;
-                                top: 0;
-                                left: 0;
-                                width: 100%;
-                                height: 100%;
-                                background: rgba(0, 0, 0, 0.8);
-                                z-index: 1000;
-                                display: flex;
-                                justify-content: center;
-                                align-items: center;
-                              `;
-                              
-                              modalContent.innerHTML = `
-                                <div style="
-                                  background: white;
-                                  padding: 20px;
-                                  border-radius: 8px;
-                                  max-width: 90%;
-                                  max-height: 90%;
-                                  overflow-y: auto;
-                                  position: relative;
-                                ">
-                                  <button onclick="this.parentElement.parentElement.remove()" style="
-                                    position: absolute;
-                                    top: 10px;
-                                    right: 10px;
-                                    background: #dc3545;
-                                    color: white;
-                                    border: none;
-                                    border-radius: 50%;
-                                    width: 30px;
-                                    height: 30px;
-                                    cursor: pointer;
-                                    font-size: 16px;
-                                  ">×</button>
-                                  <h3 style="margin-top: 0; margin-bottom: 20px;">All Images (${imageEntries.length})</h3>
-                                  <div style="
-                                    display: grid;
-                                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-                                    gap: 20px;
-                                    margin-bottom: 20px;
-                                  ">
-                                    ${imageEntries.map(([key, path]) => {
-                                      // Convert backend path to frontend accessible URL
-                                      const imageUrl = path.startsWith('/canvas/') 
-                                        ? `${backendUrl}${path}` 
-                                        : path;
-                                      
-                                      return `
-                                        <div style="
-                                          border: 1px solid #ddd;
-                                          border-radius: 8px;
-                                          padding: 10px;
-                                          text-align: center;
-                                        ">
-                                          <img src="${imageUrl}" alt="${key}" style="
-                                            width: 100%;
-                                            height: 150px;
-                                            object-fit: cover;
-                                            border-radius: 4px;
-                                            margin-bottom: 10px;
-                                          " />
-                                          <p style="margin: 0; font-weight: bold; color: #333;">${key}</p>
-                                          <p style="margin: 5px 0 0 0; font-size: 12px; color: #666; word-break: break-all;">${path}</p>
-                                        </div>
-                                      `;
-                                    }).join('')}
-                                  </div>
-                                </div>
-                              `;
-                              
-                              // Add modal to page
-                              document.body.appendChild(modalContent);
-                            }}
-                            className={styles.showAllImagesButton}
-                          >
-                            Show All Images ({actualImageCount})
-                          </button>
-                        </div>
-                      ) : null;
+                      return null;
                     })()}
                     
                     {/* Show image list in backend format */}
@@ -1447,19 +1504,39 @@ export default function AdminPage({ initialSettings }) {
                         })
                         .map(([key, path]) => {
                           // Convert backend path to frontend accessible URL
-                          const backendUrl = process.env.NEXT_PUBLIC_API_URL;
-                          const imageUrl = path.startsWith('/canvas/') 
-                            ? `${backendUrl}${path}` 
-                            : path;
+                          let imageUrl;
+                          if (path.startsWith('/canvas/')) {
+                            // For canvas images, construct the correct URL
+                            const protocol = window.location.protocol;
+                            const hostname = window.location.hostname;
+                            const currentPort = window.location.port;
+                            
+                            // If we're running on a different port than nginx, use nginx port
+                            // Otherwise, use relative URL
+                            if (currentPort && currentPort !== '80') {
+                              imageUrl = `${protocol}//${hostname}:80${path}`;
+                            } else {
+                              imageUrl = path; // Use relative URL if same port
+                            }
+                          } else {
+                            imageUrl = path;
+                          }
                           
                           return (
                             <div key={key} className={styles.imagePathItem}>
-                              <strong>{key}:</strong> {path}
-                              {path.startsWith('/canvas/') && (
-                                <span className={styles.canvasBadge}>Canvas</span>
-                              )}
-                              <br />
-                              <small style={{ color: '#666' }}>Accessible at: {imageUrl}</small>
+                              <div className={styles.imagePathContent}>
+                                <strong>{key}:</strong> {path}
+                                {path.startsWith('/canvas/') && (
+                                  <span className={styles.canvasBadge}>Canvas</span>
+                                )}
+                              </div>
+                              <button
+                                className={styles.deleteImageButton}
+                                onClick={() => handleDeleteCanvasImage(key, path)}
+                                title="Delete this image"
+                              >
+                                ×
+                              </button>
                             </div>
                           );
                         })}
@@ -1478,10 +1555,23 @@ export default function AdminPage({ initialSettings }) {
                     <p>Current Image: {tempSettings[selectedUserId].updateImage}</p>
                     {(() => {
                                                 // Convert backend path to frontend accessible URL
-                          const backendUrl = process.env.NEXT_PUBLIC_API_URL;
-                          const imageUrl = tempSettings[selectedUserId].image_path.startsWith('/canvas/') 
-                            ? `${backendUrl}${tempSettings[selectedUserId].image_path}` 
-                            : tempSettings[selectedUserId].image_path;
+                          let imageUrl;
+                          if (tempSettings[selectedUserId].image_path.startsWith('/canvas/')) {
+                            // For canvas images, construct the correct URL
+                            const protocol = window.location.protocol;
+                            const hostname = window.location.hostname;
+                            const currentPort = window.location.port;
+                            
+                            // If we're running on a different port than nginx, use nginx port
+                            // Otherwise, use relative URL
+                            if (currentPort && currentPort !== '80') {
+                              imageUrl = `${protocol}//${hostname}:80${tempSettings[selectedUserId].image_path}`;
+                            } else {
+                              imageUrl = tempSettings[selectedUserId].image_path; // Use relative URL if same port
+                            }
+                          } else {
+                            imageUrl = tempSettings[selectedUserId].image_path;
+                          }
                       
                       return (
                         <img 
@@ -1501,13 +1591,170 @@ export default function AdminPage({ initialSettings }) {
                   </div>
                 )}
               </div>
-              <div className={styles.settingItemNoBg}>
+              <div className={styles.settingItemNoBg} style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
                 <button
                   onClick={handleSaveSettings}
                   className={styles.saveButton}
                 >
                   Save Settings
                 </button>
+                
+                {/* Show "Show All Images" button if there are images */}
+                {(() => {
+                  const actualImageCount = Object.entries(tempSettings[selectedUserId]?.image_pdf_canva || {})
+                    .filter(([key, path]) => {
+                      // Filter out non-image entries (like user IDs)
+                      return path && 
+                             typeof path === 'string' && 
+                             (path.startsWith('/canvas/') || 
+                              path.startsWith('http') || 
+                              path.includes('.jpg') || 
+                              path.includes('.jpeg') || 
+                              path.includes('.png') || 
+                              path.includes('.gif') ||
+                              path.includes('.webp'));
+                    }).length;
+                  
+                  return actualImageCount > 0 ? (
+                    <button
+                      onClick={() => {
+                        // Create a proper modal to show all images
+                        const allImages = tempSettings[selectedUserId].image_pdf_canva;
+                        const imageEntries = Object.entries(allImages)
+                          .filter(([key, path]) => {
+                            // Filter out non-image entries (like user IDs)
+                            return path && 
+                                   typeof path === 'string' && 
+                                   (path.startsWith('/canvas/') || 
+                                    path.startsWith('http') || 
+                                    path.includes('.jpg') || 
+                                    path.includes('.jpeg') || 
+                                    path.includes('.png') || 
+                                    path.includes('.gif') ||
+                                    path.includes('.webp'));
+                          });
+                        
+                        // Create modal content with proper styling
+                        const modalContent = document.createElement('div');
+                        modalContent.className = styles.imageModal;
+                        modalContent.style.cssText = `
+                          position: fixed;
+                          top: 0;
+                          left: 0;
+                          width: 100%;
+                          height: 100%;
+                          background: rgba(0, 0, 0, 0.8);
+                          z-index: 1000;
+                          display: flex;
+                          justify-content: center;
+                          align-items: center;
+                        `;
+                        
+                        // Sort images by key (image_1, image_2, etc.) for proper left-to-right ordering
+                        const sortedImageEntries = imageEntries.sort(([a], [b]) => {
+                          const aNum = parseInt(a.replace('image_', ''));
+                          const bNum = parseInt(b.replace('image_', ''));
+                          return aNum - bNum;
+                        });
+                        
+                        modalContent.innerHTML = `
+                          <div style="
+                            background: white;
+                            padding: 20px;
+                            border-radius: 8px;
+                            max-width: 95%;
+                            max-height: 95%;
+                            overflow-y: auto;
+                            position: relative;
+                          ">
+                            <button onclick="this.parentElement.parentElement.remove()" style="
+                              position: absolute;
+                              top: 10px;
+                              right: 10px;
+                              background: #dc3545;
+                              color: white;
+                              border: none;
+                              border-radius: 50%;
+                              width: 30px;
+                              height: 30px;
+                              cursor: pointer;
+                              font-size: 16px;
+                              z-index: 1001;
+                            ">×</button>
+                            <h3 style="margin-top: 0; margin-bottom: 20px; text-align: center;">All Images (${sortedImageEntries.length})</h3>
+                            <div style="
+                              display: grid;
+                              grid-template-columns: repeat(5, 1fr);
+                              gap: 15px;
+                              margin-bottom: 20px;
+                              max-width: 100%;
+                            ">
+                              ${sortedImageEntries.map(([key, path]) => {
+                                // Convert backend path to frontend accessible URL
+                                let imageUrl;
+                                if (path.startsWith('/canvas/')) {
+                                  // For canvas images, construct the correct URL
+                                  const protocol = window.location.protocol;
+                                  const hostname = window.location.hostname;
+                                  const currentPort = window.location.port;
+                                  
+                                  // If we're running on a different port than nginx, use nginx port
+                                  // Otherwise, use relative URL
+                                  if (currentPort && currentPort !== '80') {
+                                    imageUrl = `${protocol}//${hostname}:80${path}`;
+                                  } else {
+                                    imageUrl = path; // Use relative URL if same port
+                                  }
+                                } else {
+                                  imageUrl = path;
+                                }
+                                
+                                // Check if this is a base image or variation
+                                const filename = path.split('/').pop();
+                                const isBaseImage = !filename.match(/_\d+\./);
+                                const baseName = filename.replace(/_\d+\./, '.');
+                                
+                                return `
+                                  <div style="
+                                    border: 1px solid #ddd;
+                                    border-radius: 8px;
+                                    padding: 8px;
+                                    text-align: center;
+                                    background: #f9f9f9;
+                                  " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                                    <img src="${imageUrl}" alt="${key}" style="
+                                      width: 100%;
+                                      height: 120px;
+                                      object-fit: cover;
+                                      border-radius: 4px;
+                                      margin-bottom: 8px;
+                                      border: 1px solid #eee;
+                                    " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                    <div style="display: none; width: 100%; height: 120px; background: #f0f0f0; border-radius: 4px; align-items: center; justify-content: center; color: #999; font-size: 12px; margin-bottom: 8px;">
+                                      Image not found
+                                  </div>
+                                    <p style="margin: 0; font-weight: bold; color: #333; font-size: 14px;">${key}</p>
+                                    <p style="margin: 3px 0 0 0; font-size: 11px; color: #666; word-break: break-all; line-height: 1.2;">${filename}</p>
+                                    ${isBaseImage ? 
+                                      '<div style="background: #28a745; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-top: 4px;">Base Image</div>' : 
+                                      '<div style="background: #ffc107; color: black; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-top: 4px;">Variation: ' + baseName + '</div>'
+                                    }
+                                  </div>
+                                `;
+                              }).join('')}
+                            </div>
+                          </div>
+                        `;
+                        
+                        // Add modal to page
+                        document.body.appendChild(modalContent);
+                      }}
+                      className={styles.showAllImagesButton}
+                    >
+                      Show All Images ({actualImageCount})
+                    </button>
+                  ) : null;
+                })()}
               </div>
             </div>
 
