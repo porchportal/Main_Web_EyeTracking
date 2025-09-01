@@ -1,5 +1,47 @@
 import { serialize, parse } from 'cookie';
 
+// Combined authentication utility function
+async function verifyAdminToken(req) {
+  try {
+    // Parse cookies from the request
+    const cookies = parse(req.headers.cookie || '');
+    const adminSession = cookies.admin_session;
+
+    if (!adminSession) {
+      return { authenticated: false, message: 'No session found' };
+    }
+
+    // Verify session with backend
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+    
+    const response = await fetch(`${backendUrl}/api/admin/verify-session`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ session: adminSession }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return { authenticated: false, message: 'Invalid session' };
+    }
+
+    return { authenticated: true, message: 'Authenticated' };
+  } catch (error) {
+    console.error('Error verifying admin token:', error);
+    if (error.name === 'AbortError') {
+      return { authenticated: false, message: 'Request timeout' };
+    }
+    return { authenticated: false, message: 'Internal server error' };
+  }
+}
+
 export default async function handler(req, res) {
   const { method } = req;
 
@@ -55,6 +97,15 @@ export default async function handler(req, res) {
       const adminSession = cookies.admin_session;
 
       if (!adminSession) {
+        // Check if we should suppress error logging
+        if (req.headers['x-suppress-errors']) {
+          // Return a custom response that won't trigger console errors
+          return res.status(200).json({ 
+            message: 'Fallback',
+            authenticated: false,
+            suppressErrors: true
+          });
+        }
         return res.status(401).json({ message: 'No session found' });
       }
 
@@ -77,6 +128,15 @@ export default async function handler(req, res) {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
+        // Check if we should suppress error logging
+        if (req.headers['x-suppress-errors']) {
+          // Return a custom response that won't trigger console errors
+          return res.status(200).json({ 
+            message: 'Fallback',
+            authenticated: false,
+            suppressErrors: true
+          });
+        }
         return res.status(401).json({ message: 'Invalid session' });
       }
 
@@ -105,4 +165,7 @@ export default async function handler(req, res) {
 
   // Handle unsupported methods
   return res.status(405).json({ message: 'Method not allowed' });
-} 
+}
+
+// Export the verifyAdminToken function for use by other API routes
+export { verifyAdminToken }; 

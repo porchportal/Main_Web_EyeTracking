@@ -35,7 +35,6 @@ const getLocalStorage = (key) => {
   try {
     return localStorage.getItem(key);
   } catch (error) {
-    console.warn('Error accessing localStorage:', error);
     return null;
   }
 };
@@ -46,7 +45,7 @@ const setLocalStorage = (key, value) => {
   try {
     localStorage.setItem(key, value);
   } catch (error) {
-    console.warn('Error setting localStorage:', error);
+    // Silent error handling
   }
 };
 
@@ -60,7 +59,6 @@ export const useAdminSettings = (ref, consentUserId) => {
   // Update currentUserId when consentUserId changes
   useEffect(() => {
     if (consentUserId && consentUserId !== currentUserId) {
-      console.log('[AdminSettings] Updating currentUserId from consent context:', consentUserId);
       setCurrentUserId(consentUserId);
       setLocalStorage('currentUserId', consentUserId);
     }
@@ -87,9 +85,7 @@ export const useAdminSettings = (ref, consentUserId) => {
 
   // Debug logging for settings changes
   useEffect(() => {
-    console.log('AdminSettings - Current Settings:', settings);
-    console.log('AdminSettings - Current User ID:', currentUserId);
-    console.log('AdminSettings - Is TopBar Updated:', isTopBarUpdated);
+    // Silent debug logging removed
   }, [settings, currentUserId, isTopBarUpdated]);
 
   // Helper: Fetch settings for a user from backend with enhanced caching
@@ -103,19 +99,16 @@ export const useAdminSettings = (ref, consentUserId) => {
 
     // If we have cached settings and they're recent enough, use them
     if (cachedSettings && lastUpdate && (now - lastUpdate < CACHE_DURATION)) {
-      console.log('[AdminSettings] Using cached settings for user:', userId);
       return cachedSettings;
     }
 
     // If there's already a pending update, return the cached value
     if (pendingUpdates.current.has(userId)) {
-      console.log('[AdminSettings] Pending update exists, using cached value');
       return cachedSettings;
     }
 
     // If an update is in progress, return the cached value
     if (isUpdating.current) {
-      console.log('[AdminSettings] Update in progress, using cached value');
       return cachedSettings;
     }
 
@@ -144,7 +137,6 @@ export const useAdminSettings = (ref, consentUserId) => {
       const hasChanged = !isEqual(lastKnown, newSettings);
       
       if (hasChanged) {
-        console.log('[AdminSettings] Settings changed, updating...');
         setSettings(prev => ({
           ...prev,
           [userId]: newSettings
@@ -161,14 +153,11 @@ export const useAdminSettings = (ref, consentUserId) => {
           ref.current.setCaptureSettings(newSettings);
           setIsTopBarUpdated(true);
         }
-      } else {
-        console.log('[AdminSettings] Settings unchanged, skipping update');
       }
       
       setError(null);
       return newSettings;
     } catch (error) {
-      console.error('[AdminSettings] Error fetching settings:', error);
       setError(error.message);
       return cachedSettings; // Return cached settings on error
     } finally {
@@ -199,7 +188,7 @@ export const useAdminSettings = (ref, consentUserId) => {
         await debouncedFetchSettings(currentUserId);
         setLastUpdateTime(now);
       } catch (error) {
-        console.error('[AdminSettings] Polling error:', error);
+        // Silent error handling
       }
     };
 
@@ -220,7 +209,6 @@ export const useAdminSettings = (ref, consentUserId) => {
   useEffect(() => {
     const handleUserIdChange = (event) => {
       if (event.detail && event.detail.userId) {
-        console.log('[handleUserIdChange] userId:', event.detail.userId);
         const newUserId = event.detail.userId;
         setCurrentUserId(newUserId);
         setLocalStorage('currentUserId', newUserId);
@@ -263,7 +251,7 @@ export const useAdminSettings = (ref, consentUserId) => {
         setSettings(parsedSettings);
       }
     } catch (error) {
-      console.warn('Error loading settings from localStorage:', error);
+      // Silent error handling
     }
   }, []);
 
@@ -273,7 +261,7 @@ export const useAdminSettings = (ref, consentUserId) => {
       try {
         setLocalStorage('adminSettings', JSON.stringify(settings));
       } catch (error) {
-        console.warn('Error saving settings to localStorage:', error);
+        // Silent error handling
       }
     } else {
       initialized.current = true;
@@ -283,7 +271,6 @@ export const useAdminSettings = (ref, consentUserId) => {
   // Update settings when they change in the context
   useEffect(() => {
     if (settings && currentUserId) {
-      console.log('[settings useEffect] currentUserId:', currentUserId); // Debug log
       const userSettings = settings[currentUserId];
       if (userSettings) {
         setCurrentSettings(userSettings);
@@ -297,14 +284,12 @@ export const useAdminSettings = (ref, consentUserId) => {
     const handleSettingsUpdate = (event) => {
       if (event.detail && event.detail.type === 'captureSettings') {
         const { userId, times_set_random, delay_set_random } = event.detail;
-        console.log('[handleSettingsUpdate] userId:', userId, 'currentUserId:', currentUserId, 'times_set_random:', times_set_random, 'delay_set_random:', delay_set_random); // Debug log
         if (userId === currentUserId) {
           const newSettings = {
             ...currentSettings,
             times_set_random: times_set_random !== undefined ? Number(times_set_random) : currentSettings.times_set_random,
             delay_set_random: delay_set_random !== undefined ? Number(delay_set_random) : currentSettings.delay_set_random
           };
-          console.log('[handleSettingsUpdate] Updated settings:', newSettings);
           setCurrentSettings(newSettings);
           setSettings(prev => ({ ...prev, [userId]: newSettings }));
           updateSettings(newSettings, userId);
@@ -321,7 +306,6 @@ export const useAdminSettings = (ref, consentUserId) => {
     
     const now = Date.now();
     if (now - lastUpdateTime < MIN_UPDATE_INTERVAL) {
-      console.log('[updateSettings] Skipping update - too soon after last update');
       return;
     }
 
@@ -335,7 +319,6 @@ export const useAdminSettings = (ref, consentUserId) => {
     const hasChanged = !isEqual(lastKnown, updatedSettings);
 
     if (!hasChanged) {
-      console.log('[updateSettings] Settings unchanged, skipping update');
       return;
     }
 
@@ -376,40 +359,12 @@ export const useAdminSettings = (ref, consentUserId) => {
     }
   }, [settings, lastUpdateTime]);
 
-  // Upload and update image for a user
-  const updateImage = async (userId, base64Image) => {
-    console.log('[updateImage] userId:', userId); // Debug log
-    if (!userId || !base64Image) return;
-    try {
-      const response = await fetch(`http://localhost:80/api/data-center/image?user_id=${userId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
-        },
-        body: JSON.stringify({ image: base64Image })
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || 'Failed to upload image');
-      }
-      // Optionally, fetch settings again to get updated image info
-      await fetchSettingsForUser(userId);
-      setError(null);
-      return true;
-    } catch (error) {
-      setError(error.message);
-      return false;
-    }
-  };
-
   // New function moved from topBar.js - Fetch settings with TopBar specific logic
   const fetchSettings = useCallback(async (userId) => {
     if (!userId || isUpdatingRef.current) return;
     
     try {
       isUpdatingRef.current = true;
-      console.log(`[AdminSettings] Fetching settings for user: ${userId}`);
       
       const response = await fetch(`/api/data-center/settings/${userId}`, {
         headers: {
@@ -426,12 +381,8 @@ export const useAdminSettings = (ref, consentUserId) => {
       const result = await response.json();
       const userSettings = result.data || {};
       
-      console.log(`[AdminSettings] Retrieved settings for user ${userId}:`, userSettings);
-      
       if (userSettings && (userSettings.times_set_random !== undefined || userSettings.delay_set_random !== undefined)) {
         setCurrentSettings(userSettings);
-        
-        console.log(`[AdminSettings] Settings loaded and dispatching event - Times: ${userSettings.times_set_random}, Delay: ${userSettings.delay_set_random}`);
         
         // Dispatch event to notify other components
         const event = new CustomEvent('topBarSettingsLoaded', {
@@ -449,7 +400,6 @@ export const useAdminSettings = (ref, consentUserId) => {
       
       return userSettings;
     } catch (error) {
-      console.error('AdminSettings - Error fetching settings:', error);
       return null;
     } finally {
       isUpdatingRef.current = false;

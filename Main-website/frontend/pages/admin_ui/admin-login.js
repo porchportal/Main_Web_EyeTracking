@@ -16,17 +16,16 @@ export default function AdminLogin() {
     setError('');
     
     try {
-      console.log('Attempting login with:', { username, password });
       const response = await fetch('/api/admin/auth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-Suppress-Errors': 'true'
         },
         body: JSON.stringify({ username, password }),
       });
 
       const data = await response.json();
-      console.log('Login response:', { status: response.status, data });
 
       if (response.ok) {
         // Successful login - server sets httpOnly cookie automatically
@@ -58,10 +57,11 @@ export default function AdminLogin() {
         <h1>Admin Login</h1>
         <form onSubmit={handleSubmit}>
           <div className={styles.formGroup}>
-            <label htmlFor="username">Username</label>
+            <label htmlFor="admin-username">Username</label>
             <input
               type="text"
-              id="username"
+              id="admin-username"
+              name="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -69,10 +69,11 @@ export default function AdminLogin() {
             />
           </div>
           <div className={styles.formGroup}>
-            <label htmlFor="password">Password</label>
+            <label htmlFor="admin-password">Password</label>
             <input
               type="password"
-              id="password"
+              id="admin-password"
+              name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required

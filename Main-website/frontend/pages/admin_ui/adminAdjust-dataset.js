@@ -18,6 +18,8 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
   const [selectedDataset, setSelectedDataset] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [datasetLoading, setDatasetLoading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState(new Set());
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
   // Filters and sorting
   const [datasetQuery, setDatasetQuery] = useState('');
   const [datasetFilterField, setDatasetFilterField] = useState('name'); // name | id | type | fileCount | timestamp
@@ -25,7 +27,6 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
   const [datasetSortOrder, setDatasetSortOrder] = useState('desc'); // asc | desc
   const [datasetNumberFilter, setDatasetNumberFilter] = useState({ mode: 'none', value: '' }); // {mode: 'gt'|'lt'|'eq'|'none', value: number}
   const [requireParameterFile, setRequireParameterFile] = useState(false);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [lastRefreshTime, setLastRefreshTime] = useState(null);
 
   // Sample data structure - replace with actual API calls
@@ -58,10 +59,10 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
 
   // Separate useEffect for refresh button clicks
   useEffect(() => {
-    if (refreshTrigger > 0 && viewMode === 'dataset' && userId) {
+    if (viewMode === 'dataset' && userId) {
       loadDatasets();
     }
-  }, [refreshTrigger, userId]); // Only reload when refresh button is clicked
+  }, [viewMode, userId]); // Only reload when switching view modes
 
   const loadPreviewData = async () => {
     setLoading(true);
@@ -149,7 +150,6 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
 
   const handleRefresh = () => {
     if (viewMode === 'dataset') {
-      setRefreshTrigger(prev => prev + 1);
       setLastRefreshTime(new Date());
       loadDatasets();
     } else {
@@ -263,8 +263,60 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
     document.body.removeChild(link);
   };
 
+  const handleFileEdit = (file) => {
+    // Handle file editing - you can implement the editing logic here
+    console.log('Editing file:', file.name);
+    window.showNotification(`Editing file: ${file.name}`, 'info');
+  };
+
+  const handleFileSelect = (file) => {
+    setSelectedFiles(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(file.name)) {
+        newSet.delete(file.name);
+      } else {
+        newSet.add(file.name);
+      }
+      return newSet;
+    });
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedFiles.size === 0) {
+      window.showNotification('No files selected for deletion', 'warning');
+      return;
+    }
+
+    const confirmDelete = confirm(`Are you sure you want to delete ${selectedFiles.size} selected file(s)?`);
+    if (confirmDelete) {
+      // Implement bulk delete logic here
+      console.log('Deleting files:', Array.from(selectedFiles));
+      window.showNotification(`Deleted ${selectedFiles.size} file(s)`, 'success');
+      setSelectedFiles(new Set());
+      setIsSelectionMode(false);
+      // Refresh the dataset to reflect changes
+      handleRefresh();
+    }
+  };
+
+  const toggleSelectionMode = () => {
+    setIsSelectionMode(!isSelectionMode);
+    if (isSelectionMode) {
+      setSelectedFiles(new Set());
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedDataset && selectedDataset.files) {
+      const allFileNames = selectedDataset.files.map(file => file.name);
+      setSelectedFiles(new Set(allFileNames));
+    }
+  };
+
+
+
   // CSV Preview Component
-  const CSVPreview = React.memo(({ userId, filename, refreshTrigger }) => {
+  const CSVPreview = React.memo(({ userId, filename }) => {
     const [csvData, setCsvData] = useState(null);
     const [csvLoading, setCsvLoading] = useState(false);
     const [csvError, setCsvError] = useState(null);
@@ -285,12 +337,12 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
           
           // Parse CSV data (simple parsing for display)
           const lines = csvText.split('\n').filter(line => line.trim());
-          const headers = lines[0].split(',').map(h => h.trim());
-          const rows = lines.slice(1).map(line => 
-            line.split(',').map(cell => cell.trim())
-          );
+          const rows = lines.map(line => {
+            const [key, value] = line.split(',').map(cell => cell.trim());
+            return { key, value };
+          });
           
-          setCsvData({ headers, rows });
+          setCsvData(rows);
         } catch (err) {
           setCsvError('Failed to load CSV data');
           console.error('Error loading CSV:', err);
@@ -302,7 +354,7 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
       if (userId && filename) {
         loadCSVData();
       }
-    }, [userId, filename, refreshTrigger]); // Added refreshTrigger dependency
+    }, [userId, filename]); // Removed refreshTrigger dependency
 
     if (csvLoading) {
       return (
@@ -329,17 +381,11 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
     return (
       <div className={styles.csvSimpleContainer}>
         <div className={styles.csvSimpleBox}>
-          <div className={styles.csvSimpleTop}>┌─────────────────────────────────────┐</div>
-          {csvData.rows.map((row, rowIndex) => (
-            <div key={rowIndex} className={styles.csvSimpleRow}>
-              {row.map((cell, cellIndex) => (
-                <div key={cellIndex} className={styles.csvSimpleLine}>
-                  │ {csvData.headers[cellIndex]}: {cell.padEnd(30 - csvData.headers[cellIndex].length)} │
-                </div>
-              ))}
+          {csvData.map((row, index) => (
+            <div key={index} className={styles.csvSimpleLine}>
+              {row.key},{row.value}
             </div>
           ))}
-          <div className={styles.csvSimpleBottom}>└─────────────────────────────────────┘</div>
         </div>
       </div>
     );
@@ -637,10 +683,49 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
               </div>
               
               <div className={styles.fileList}>
-                <h4>Files ({selectedDataset.files.length})</h4>
+                <div className={styles.fileListHeader}>
+                  <h4>Files ({selectedDataset.files.length})</h4>
+                  <div className={styles.fileListControls}>
+                    <button 
+                      className={`${styles.selectionModeButton} ${isSelectionMode ? styles.selectionModeActive : ''}`}
+                      onClick={toggleSelectionMode}
+                    >
+                      {isSelectionMode ? '✕ Cancel Selection' : '☑️ Select Files'}
+                    </button>
+                    {isSelectionMode && (
+                                              <>
+                          {selectedFiles.size < selectedDataset.files.length && (
+                            <button 
+                              className={styles.selectAllButton}
+                              onClick={handleSelectAll}
+                            >
+                              ☑️ Select All
+                            </button>
+                          )}
+                          {selectedFiles.size > 0 && (
+                            <button 
+                              className={styles.bulkDeleteButton}
+                              onClick={handleBulkDelete}
+                            >
+                              🗑️ Delete Selected ({selectedFiles.size})
+                            </button>
+                          )}
+                        </>
+                    )}
+                  </div>
+                </div>
                 <div className={styles.fileGrid}>
                   {selectedDataset.files.map((file, index) => (
-                    <div key={index} className={styles.fileItem}>
+                    <div key={index} className={`${styles.fileItem} ${selectedFiles.has(file.name) ? styles.fileItemSelected : ''}`}>
+                      {isSelectionMode && (
+                        <div className={styles.fileCheckbox}>
+                          <input
+                            type="checkbox"
+                            checked={selectedFiles.has(file.name)}
+                            onChange={() => handleFileSelect(file)}
+                          />
+                        </div>
+                      )}
                       <div className={styles.fileIcon}>
                         {file.type === 'jpg' || file.type === 'png' ? '🖼️' : file.type === 'csv' ? '📊' : '📄'}
                       </div>
@@ -653,16 +738,16 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
                       </div>
                       <div className={styles.fileActions}>
                         <button 
-                          className={styles.previewButton}
+                          className={`${styles.previewButton} ${selectedFile?.name === file.name ? styles.active : ''}`}
                           onClick={() => handleFilePreview(file)}
                         >
                           Preview
                         </button>
                         <button 
-                          className={styles.downloadButton}
-                          onClick={() => handleFileDownload(file)}
+                          className={styles.editingButton}
+                          onClick={() => handleFileEdit(file)}
                         >
-                          Download
+                          Editing
                         </button>
                       </div>
                     </div>
@@ -700,15 +785,11 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
                          </div>
                        </div>
                                            ) : selectedFile.type === 'csv' ? (
-                       <div className={styles.csvPreview}>
-                         <div className={styles.csvPreviewHeader}>
-                           <h6>CSV Data Preview</h6>
-                           <p>File: {selectedFile.name}</p>
-                         </div>
-                                         <div className={styles.csvPreviewContent}>
-                  <CSVPreview userId={userId} filename={selectedFile.name} refreshTrigger={refreshTrigger} />
-                </div>
-                       </div>
+                      <div className={styles.csvPreview}>
+                        <div className={styles.csvPreviewContent}>
+                          <CSVPreview userId={userId} filename={selectedFile.name} />
+                        </div>
+                      </div>
                      ) : (
                       <div className={styles.filePreviewFallback}>
                         <h6>File Preview</h6>
@@ -830,7 +911,9 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
         </div>
         
         <button 
-          className={styles.refreshButton}
+          className={`${styles.refreshButton} ${styles.refreshButtonAnimated} ${
+            dataTypeVisible ? styles.refreshButtonRight : styles.refreshButtonLeft
+          }`}
           onClick={handleRefresh}
           disabled={loading || datasetLoading}
         >

@@ -1,5 +1,5 @@
 // dataset_viewer&Edit.js - Admin dataset viewing and editing API
-import { verifyAdminToken } from '../../../utils/auth';
+import { verifyAdminToken } from './auth';
 
 export default async function handler(req, res) {
   // Verify admin authentication
@@ -51,11 +51,6 @@ async function getUserDatasets(req, res, userId) {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL;
     const apiKey = process.env.NEXT_PUBLIC_API_KEY;
 
-    console.log('🔍 Frontend API - getUserDatasets called');
-    console.log('📁 User ID:', userId);
-    console.log('🌐 Backend URL:', backendUrl);
-    console.log('🔑 API Key set:', !!apiKey);
-
     if (!backendUrl) {
       console.error('❌ NEXT_PUBLIC_API_URL not set');
       return res.status(500).json({ error: 'Backend URL not configured' });
@@ -67,7 +62,6 @@ async function getUserDatasets(req, res, userId) {
     }
 
     const backendEndpoint = `${backendUrl}/api/admin/dataset/user/${userId}`;
-    console.log('🌐 Calling backend endpoint:', backendEndpoint);
 
     const response = await fetch(backendEndpoint, {
       method: 'GET',
@@ -77,8 +71,6 @@ async function getUserDatasets(req, res, userId) {
       },
     });
 
-    console.log('📡 Backend response status:', response.status);
-
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
       console.error('❌ Backend error:', errorData);
@@ -86,7 +78,6 @@ async function getUserDatasets(req, res, userId) {
     }
 
     const data = await response.json();
-    console.log('✅ Datasets loaded successfully:', data);
     return res.status(200).json(data);
   } catch (error) {
     console.error('❌ Error fetching user datasets:', error);
@@ -125,12 +116,6 @@ async function getDatasetFile(req, res, userId, filename) {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL;
     const apiKey = process.env.NEXT_PUBLIC_API_KEY;
 
-    console.log('🔍 Frontend API - getDatasetFile called');
-    console.log('📁 User ID:', userId);
-    console.log('📁 Filename:', filename);
-    console.log('🌐 Backend URL:', backendUrl);
-    console.log('🔑 API Key set:', !!apiKey);
-
     if (!backendUrl) {
       console.error('❌ NEXT_PUBLIC_API_URL not set');
       return res.status(500).json({ error: 'Backend URL not configured' });
@@ -142,7 +127,6 @@ async function getDatasetFile(req, res, userId, filename) {
     }
 
     const backendEndpoint = `${backendUrl}/api/admin/dataset/file/${userId}/${filename}`;
-    console.log('🌐 Calling backend endpoint:', backendEndpoint);
 
     const response = await fetch(backendEndpoint, {
       method: 'GET',
@@ -150,9 +134,6 @@ async function getDatasetFile(req, res, userId, filename) {
         'X-API-Key': apiKey,
       },
     });
-
-    console.log('📡 Backend response status:', response.status);
-    console.log('📡 Backend response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
@@ -163,9 +144,6 @@ async function getDatasetFile(req, res, userId, filename) {
     // Forward the file response
     const buffer = await response.arrayBuffer();
     const contentType = response.headers.get('content-type') || 'application/octet-stream';
-    
-    console.log('✅ File loaded successfully, size:', buffer.byteLength, 'bytes');
-    console.log('✅ Content type:', contentType);
     
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

@@ -86,28 +86,43 @@ export default function AdminPage({ initialSettings }) {
   useEffect(() => {
     const checkAuthAndLoadData = async () => {
       try {
-        console.log('Checking authentication and loading data...');
         setLoading(true);
         
-        // Check authentication first
-        const authResponse = await fetch('/api/admin/auth');
-        console.log('Auth response status:', authResponse.status);
-        
-        if (!authResponse.ok) {
-          if (authResponse.status === 401) {
-            console.log('Authentication failed: Please log in to access admin panel');
-            if (typeof window !== 'undefined' && window.showNotification) {
-              window.showNotification('Authentication failed: Please log in to access admin panel', 'error');
+        // Check authentication first - suppress console errors
+        let authResponse;
+        try {
+          authResponse = await fetch('/api/admin/auth', {
+            // Add headers to prevent console logging
+            headers: {
+              'X-Suppress-Errors': 'true'
             }
-            router.replace('/admin_ui/admin-login');
-          } else {
-            console.log(`Authentication failed with status ${authResponse.status}, redirecting to login...`);
-          }
+          });
+        } catch (fetchError) {
+          // Network error - redirect silently
           router.replace('/admin_ui/admin-login');
           return;
         }
         
-        console.log('Authentication successful, loading consent data...');
+        if (!authResponse.ok) {
+          if (authResponse.status === 401) {
+            // Silent redirect without error notification
+            router.replace('/admin_ui/admin-login');
+            return;
+          } else {
+            // Other errors, redirect to login
+            router.replace('/admin_ui/admin-login');
+            return;
+          }
+        }
+        
+        // Check if this is a fallback response
+        const authData = await authResponse.json();
+        if (authData.suppressErrors && !authData.authenticated) {
+          // This is a fallback response, redirect silently
+          router.replace('/admin_ui/admin-login');
+          return;
+        }
+        
         setIsAuthenticated(true);
         
         // Load consent data immediately after authentication
@@ -115,16 +130,14 @@ export default function AdminPage({ initialSettings }) {
           const consentResponse = await fetch('/api/admin/consent-data', {
             headers: {
               'Content-Type': 'application/json',
-              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY,
+              'X-Suppress-Errors': 'true'
             }
           });
 
           if (!consentResponse.ok) {
             if (consentResponse.status === 401) {
-              console.error('Authentication failed: Please log in to access admin panel');
-              if (typeof window !== 'undefined' && window.showNotification) {
-                window.showNotification('Authentication failed: Please log in to access admin panel', 'error');
-              }
+              // Silent redirect without error notification
               router.replace('/admin_ui/admin-login');
               return;
             } else {
@@ -135,7 +148,6 @@ export default function AdminPage({ initialSettings }) {
           }
 
           const data = await consentResponse.json();
-          console.log('Consent data loaded:', data);
           setConsentData(Array.isArray(data) ? data : []);
         } catch (error) {
           console.error('Error loading consent data:', error);
@@ -145,15 +157,12 @@ export default function AdminPage({ initialSettings }) {
         }
         
       } catch (error) {
-        console.error('Authentication check failed:', error);
-        if (typeof window !== 'undefined' && window.showNotification) {
-          window.showNotification('Authentication check failed. Please try again.', 'error');
+        // Only log non-fetch errors
+        if (error.name !== 'TypeError' && error.message !== 'fetch') {
+          console.error('Authentication check failed:', error);
         }
-        // For debugging, let's temporarily bypass authentication
-        console.log('Bypassing authentication for debugging...');
-        setIsAuthenticated(true);
-        setLoading(false);
-        // router.push('/admin-login');
+        // Silent redirect on network errors
+        router.replace('/admin_ui/admin-login');
       }
     };
 
@@ -407,7 +416,6 @@ export default function AdminPage({ initialSettings }) {
   useEffect(() => {
     const handleAdminUpdate = (event) => {
       const { userId, profile } = event.detail;
-      console.log('Admin update received:', { userId, profile });
       
       setUserProfiles(prev => ({
         ...prev,
@@ -449,7 +457,6 @@ export default function AdminPage({ initialSettings }) {
   const handleDeleteConfirm = async () => {
     try {
       const apiKey = process.env.NEXT_PUBLIC_API_KEY;
-      console.log('Using API Key:', apiKey);
       
       // Delete user data using the consolidated endpoint
               const response = await fetch(`/api/consent/${deleteTarget}`, {
@@ -483,10 +490,7 @@ export default function AdminPage({ initialSettings }) {
 
         if (!consentResponse.ok) {
           if (consentResponse.status === 401) {
-            console.error('Authentication failed: Please log in to access admin panel');
-            if (typeof window !== 'undefined' && window.showNotification) {
-              window.showNotification('Authentication failed: Please log in to access admin panel', 'error');
-            }
+            // Silent redirect without error notification
             router.replace('/admin_ui/admin-login');
             return;
           } else {
@@ -739,7 +743,11 @@ export default function AdminPage({ initialSettings }) {
 
         // Additionally, check for existing canvas images for this user
         try {
-          const canvasResponse = await fetch(`/api/admin/view-canvas-image?userId=${newUserId}`);
+          const canvasResponse = await fetch(`/api/admin/view-canvas-image?userId=${newUserId}`, {
+            headers: {
+              'X-Suppress-Errors': 'true'
+            }
+          });
           
           if (canvasResponse.ok) {
             const canvasData = await canvasResponse.json();
@@ -777,18 +785,14 @@ export default function AdminPage({ initialSettings }) {
                 }
               }
               
-              console.log(`Loaded ${canvasData.images.length} canvas images for user ${newUserId}`);
+
             }
           } else if (canvasResponse.status === 401) {
-            console.error('Authentication failed: Please log in to access admin panel');
-            if (typeof window !== 'undefined' && window.showNotification) {
-              window.showNotification('Authentication failed: Please log in to access admin panel', 'error');
-            }
+            // Silent redirect without error notification
             router.replace('/admin_ui/admin-login');
             return;
           }
         } catch (canvasError) {
-          console.log('No canvas images found for user or error loading canvas images:', canvasError.message);
           // This is not a critical error, just log it
         }
         
@@ -1968,12 +1972,16 @@ export default function AdminPage({ initialSettings }) {
                 onClick={async () => {
                   try {
                     // Clear admin session before going home
-                    await fetch('/api/admin/auth', { method: 'DELETE' });
-                    // Navigate to home page
-                    window.location.href = '/';
+                    await fetch('/api/admin/auth', { 
+                      method: 'DELETE',
+                      headers: {
+                        'X-Suppress-Errors': 'true'
+                      }
+                    });
                   } catch (error) {
-                    console.error('Error during logout:', error);
-                    // Still navigate even if logout fails
+                    // Silent error handling - don't log to console
+                  } finally {
+                    // Always navigate to home page
                     window.location.href = '/';
                   }
                 }}

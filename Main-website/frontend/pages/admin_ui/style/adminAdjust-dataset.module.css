@@ -104,6 +104,7 @@
   margin-bottom: 2rem;
   flex-wrap: wrap;
   align-items: center;
+  position: relative;
 }
 
 .controlGroup {
@@ -125,6 +126,7 @@
   background: white;
   font-size: 0.9rem;
   min-width: 150px;
+  width: 150px;
 }
 
 .viewModeButtons {
@@ -143,6 +145,9 @@
   cursor: pointer;
   font-size: 0.9rem;
   transition: all 0.3s;
+  height: 36px;
+  min-width: 120px;
+  justify-content: center;
 }
 
 .viewModeButton:hover {
@@ -170,6 +175,12 @@
   font-size: 0.9rem;
   transition: background-color 0.3s;
   margin-top: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 36px;
+  min-width: 120px;
+  justify-content: center;
 }
 
 .refreshButton:hover {
@@ -185,6 +196,7 @@
 .dataTypeControl {
   transition: all 0.3s ease-in-out;
   overflow: hidden;
+  margin-right: 0.5rem;
 }
 
 .dataTypeVisible {
@@ -522,6 +534,20 @@
 
 .refreshButton:disabled:hover {
   background: #6c757d;
+}
+
+/* Refresh Button Animation Styles */
+.refreshButtonAnimated {
+  transition: all 0.3s ease-in-out;
+  position: relative;
+}
+
+.refreshButtonLeft {
+  transform: translateX(-165px);
+}
+
+.refreshButtonRight {
+  transform: translateX(-10px); /* Data Type width (150px) + margin (0.5rem ≈ 8px) + gap (1rem ≈ 16px) - 20px offset */
 }
 
 .lastRefreshTime {
@@ -867,6 +893,8 @@
   font-family: 'Courier New', monospace;
   font-size: 0.9rem;
   line-height: 1.4;
+  width: 100%;
+  max-width: 600px;
 }
 
 .csvSimpleTop,
@@ -889,13 +917,30 @@
 }
 
 .csvSimpleLine {
-  padding: 0.25rem 1rem;
+  padding: 0.5rem 1rem;
   color: #333;
-  white-space: pre;
+  border-bottom: 1px solid #f1f3f4;
+  transition: background-color 0.2s ease;
 }
 
 .csvSimpleLine:hover {
   background: #f8f9fa;
+}
+
+.csvSimpleLine:last-child {
+  border-bottom: none;
+}
+
+/* Preview Button Active State */
+.previewButton.active {
+  background: #218838 !important;
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.3);
+  transform: scale(1.02);
+}
+
+.previewButton.active:hover {
+  background: #1e7e34 !important;
+  box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.4);
 }
 
 /* Preview Welcome Styles */
@@ -1172,6 +1217,172 @@
 
 .downloadButton:hover {
   background: #5a6268;
+}
+
+.editingButton {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.editingButton:hover {
+  background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+}
+
+.editingButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+}
+
+/* File List Header Styles */
+.fileListHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.fileListControls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.selectionModeButton {
+  background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 140px;
+  justify-content: center;
+}
+
+.selectionModeButton:hover {
+  background: linear-gradient(135deg, #5a6268 0%, #343a40 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(108, 117, 125, 0.4);
+}
+
+.selectionModeButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
+}
+
+.selectionModeActive {
+  background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+.selectionModeActive:hover {
+  background: linear-gradient(135deg, #c82333 0%, #d63031 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+}
+
+.selectAllButton {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 140px;
+  justify-content: center;
+}
+
+.selectAllButton:hover {
+  background: linear-gradient(135deg, #218838 0%, #1ea085 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4);
+}
+
+.selectAllButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+.bulkDeleteButton {
+  background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 140px;
+  justify-content: center;
+}
+
+.bulkDeleteButton:hover {
+  background: linear-gradient(135deg, #c82333 0%, #d63031 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.4);
+}
+
+.bulkDeleteButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.3);
+}
+
+/* File Item Selection Styles */
+.fileItem {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.fileItemSelected {
+  background: #e3f2fd;
+  border-color: #2196f3;
+  box-shadow: 0 2px 8px rgba(33, 150, 243, 0.2);
+}
+
+.fileCheckbox {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 1;
+}
+
+.fileCheckbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 .previewContent {

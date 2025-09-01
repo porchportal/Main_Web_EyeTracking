@@ -23,14 +23,9 @@ BASE_CAPTURES_PATH = Path(__file__).parent.parent / "resource_security" / "publi
 def get_user_datasets(user_id: str) -> Dict[str, Any]:
     """Get all datasets for a specific user"""
     try:
-        logger.info(f"🔍 Getting datasets for user: {user_id}")
         user_dir = BASE_CAPTURES_PATH / user_id
         
-        logger.info(f"📁 User directory path: {user_dir}")
-        logger.info(f"📁 Base captures path: {BASE_CAPTURES_PATH}")
-        
         if not user_dir.exists():
-            logger.warning(f"⚠️ User directory does not exist: {user_dir}")
             return {
                 "status": "no_data",
                 "message": "Not Collect Yet",
@@ -39,14 +34,12 @@ def get_user_datasets(user_id: str) -> Dict[str, Any]:
         
         datasets = []
         files = list(user_dir.iterdir())
-        logger.info(f"📁 Found {len(files)} files in user directory")
         
         # Group files by capture number
         capture_groups = {}
         
         for file in files:
             if file.is_file():
-                logger.info(f"📄 Processing file: {file.name} (size: {file.stat().st_size} bytes)")
                 # Extract capture number from filename (e.g., webcam_001.jpg -> 001)
                 parts = file.stem.split('_')
                 if len(parts) >= 2:
@@ -55,9 +48,7 @@ def get_user_datasets(user_id: str) -> Dict[str, Any]:
                         if capture_num not in capture_groups:
                             capture_groups[capture_num] = []
                         capture_groups[capture_num].append(file)
-                        logger.info(f"📊 Added file {file.name} to capture group {capture_num}")
                     except ValueError:
-                        logger.warning(f"⚠️ Could not parse capture number from filename: {file.name}")
                         continue
         
         # Convert groups to dataset format
@@ -75,7 +66,6 @@ def get_user_datasets(user_id: str) -> Dict[str, Any]:
             
             for file in files:
                 file_size = file.stat().st_size
-                logger.info(f"📊 File {file.name}: raw size = {file_size} bytes")
                 
                 if file_size < 1024:
                     size_str = f"{file_size} B"
@@ -83,8 +73,6 @@ def get_user_datasets(user_id: str) -> Dict[str, Any]:
                     size_str = f"{file_size / 1024:.1f} KB"
                 else:
                     size_str = f"{file_size / (1024 * 1024):.1f} MB"
-                
-                logger.info(f"📊 File {file.name}: formatted size = {size_str}")
                 
                 file_info = {
                     "name": file.name,
@@ -98,12 +86,6 @@ def get_user_datasets(user_id: str) -> Dict[str, Any]:
         
         # Sort datasets by capture number
         datasets.sort(key=lambda x: x["id"])
-        
-        logger.info(f"✅ Created {len(datasets)} datasets for user {user_id}")
-        for dataset in datasets:
-            logger.info(f"📊 Dataset {dataset['id']}: {len(dataset['files'])} files")
-            for file_info in dataset['files']:
-                logger.info(f"   📄 {file_info['name']} ({file_info['size']})")
         
         return {
             "status": "success",
@@ -152,7 +134,6 @@ async def get_user_dataset_list(
 ):
     """Get all datasets for a specific user"""
     try:
-        logger.info(f"🔍 Admin requesting datasets for user: {user_id}")
         result = get_user_datasets(user_id)
         return JSONResponse(content=result)
     except HTTPException:
@@ -167,7 +148,6 @@ async def get_all_datasets(
 ):
     """Get datasets for all users"""
     try:
-        logger.info("🔍 Admin requesting datasets for all users")
         result = get_all_users_datasets()
         return JSONResponse(content=result)
     except HTTPException:
@@ -184,26 +164,18 @@ async def get_dataset_file(
 ):
     """Get a specific file from a user's dataset"""
     try:
-        logger.info(f"🔍 Admin requesting file: {filename} for user: {user_id}")
         file_path = BASE_CAPTURES_PATH / user_id / filename
         
-        logger.info(f"📁 Full file path: {file_path}")
-        logger.info(f"📁 Base captures path: {BASE_CAPTURES_PATH}")
-        logger.info(f"📁 User directory: {BASE_CAPTURES_PATH / user_id}")
-        
         if not file_path.exists():
-            logger.error(f"❌ File not found: {file_path}")
             raise HTTPException(status_code=404, detail=f"File not found: {filename}")
         
         if not file_path.is_file():
-            logger.error(f"❌ Not a file: {file_path}")
             raise HTTPException(status_code=400, detail="Not a file")
         
         # Security check: ensure the file is within the user's directory
         try:
             file_path.resolve().relative_to(BASE_CAPTURES_PATH / user_id)
         except ValueError:
-            logger.error(f"❌ Access denied: {file_path}")
             raise HTTPException(status_code=403, detail="Access denied")
         
         # Determine content type based on file extension
@@ -216,8 +188,6 @@ async def get_dataset_file(
             content_type = 'text/csv'
         elif filename.lower().endswith('.json'):
             content_type = 'application/json'
-        
-        logger.info(f"✅ Serving file: {filename} with content-type: {content_type}")
         
         return FileResponse(
             path=str(file_path),
@@ -239,8 +209,6 @@ async def delete_dataset(
 ):
     """Delete a specific dataset for a user"""
     try:
-        logger.info(f"🗑️ Admin deleting dataset {dataset_id} for user: {user_id}")
-        
         user_dir = BASE_CAPTURES_PATH / user_id
         
         if not user_dir.exists():
@@ -290,8 +258,6 @@ async def delete_user_all_datasets(
 ):
     """Delete all datasets for a user"""
     try:
-        logger.info(f"🗑️ Admin deleting all datasets for user: {user_id}")
-        
         user_dir = BASE_CAPTURES_PATH / user_id
         
         if not user_dir.exists():
