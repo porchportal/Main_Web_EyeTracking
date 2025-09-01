@@ -12,21 +12,65 @@ export default async function handler(req, res) {
       });
     }
 
+    // Get environment variables
+    const backendUrl = process.env.BACKEND_URL;
+    const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+
+    if (!backendUrl) {
+      console.error('BACKEND_URL environment variable is not set');
+      return res.status(500).json({ 
+        error: 'Backend URL not configured' 
+      });
+    }
+
+    if (!apiKey) {
+      console.error('NEXT_PUBLIC_API_KEY environment variable is not set');
+      return res.status(500).json({ 
+        error: 'API key not configured' 
+      });
+    }
+
+    // URL encode the image path to handle special characters
+    const encodedImagePath = encodeURIComponent(imagePath);
+    
+    console.log('Environment check:', {
+      BACKEND_URL: backendUrl ? 'Set' : 'Not set',
+      API_KEY: apiKey ? 'Set' : 'Not set'
+    });
+    
+    console.log('Deleting canvas image:', {
+      userId,
+      imagePath,
+      encodedImagePath,
+      backendUrl: `${backendUrl}/api/canvas-admin/image/${userId}/${encodedImagePath}`
+    });
+
     // Call the backend canvas admin service to delete the image
-    const response = await fetch(`${process.env.BACKEND_URL || 'http://localhost:8000'}/api/canvas-admin/image/${userId}/${imagePath}`, {
+    const response = await fetch(`${backendUrl}/api/canvas-admin/image/${userId}/${encodedImagePath}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'your-api-key-here'
+        'X-API-Key': apiKey
       }
     });
 
+    console.log('Backend response status:', response.status);
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (parseError) {
+        errorData = { error: 'Failed to parse error response' };
+      }
+
       console.error('Backend delete error:', {
         status: response.status,
         statusText: response.statusText,
-        errorData
+        errorData,
+        backendUrl,
+        userId,
+        imagePath
       });
       
       if (response.status === 404) {
@@ -35,15 +79,22 @@ export default async function handler(req, res) {
         });
       }
       
-      throw new Error(`Backend error: ${response.status} ${response.statusText}`);
+      throw new Error(`Backend error: ${response.status} ${response.statusText} - ${errorData.detail || errorData.error || 'Unknown error'}`);
     }
 
     const result = await response.json();
     
+    console.log('Successfully deleted image:', {
+      userId,
+      imagePath,
+      result
+    });
+    
     return res.status(200).json({
       success: true,
       message: result.message || 'Image deleted successfully',
-      deletedImage: result.deleted_image
+      deletedImage: result.deleted_image,
+      remainingImages: result.remaining_images
     });
 
   } catch (error) {

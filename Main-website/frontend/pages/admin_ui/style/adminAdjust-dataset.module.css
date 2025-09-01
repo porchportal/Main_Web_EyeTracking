@@ -1,0 +1,1360 @@
+/* Admin Adjust Dataset Section Styles */
+.dataPreviewSection {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  margin: 2rem auto;
+  padding: 2rem;
+  border: 1px solid #e9ecef;
+  animation: slideIn 0.3s ease-out;
+  transform-origin: top;
+  max-width: 1500px;
+  width: 100%;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+.dataPreviewSection::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dataPreviewSection.closing {
+  animation: slideOut 0.3s ease-in;
+}
+
+@keyframes slideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+}
+
+.previewHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f8f9fa;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 1rem 1.5rem;
+  margin: -2rem -2rem 1.5rem -2rem;
+  border-radius: 12px 12px 0 0;
+}
+
+.previewHeader h2 {
+  font-size: 1.5rem;
+  color: #333;
+  margin: 0;
+  font-weight: 700;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.closeButton {
+  background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  cursor: pointer;
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+  font-weight: bold;
+}
+
+.closeButton:hover {
+  background: linear-gradient(135deg, #c82333 0%, #dc3545 100%);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.4);
+}
+
+.previewControls {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.controlGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.controlGroup label {
+  font-weight: 600;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.previewSelect {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  font-size: 0.9rem;
+  min-width: 150px;
+}
+
+.viewModeButtons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.viewModeButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s;
+}
+
+.viewModeButton:hover {
+  background: #f8f9fa;
+  border-color: #007bff;
+}
+
+.viewModeButtonActive {
+  background: #007bff !important;
+  color: white;
+  border-color: #007bff !important;
+}
+
+.viewModeIcon {
+  font-size: 1rem;
+}
+
+.refreshButton {
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background-color 0.3s;
+  margin-top: 1.5rem;
+}
+
+.refreshButton:hover {
+  background: #0056b3;
+}
+
+.refreshButton:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+/* Data Type Control Animation Styles */
+.dataTypeControl {
+  transition: all 0.3s ease-in-out;
+  overflow: hidden;
+}
+
+.dataTypeVisible {
+  opacity: 1;
+  max-height: 100px;
+  transform: translateY(0);
+}
+
+.dataTypeHidden {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-10px);
+  pointer-events: none;
+}
+
+.previewContent {
+  min-height: 300px;
+}
+
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: #666;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.errorState {
+  text-align: center;
+  padding: 2rem;
+  color: #dc3545;
+}
+
+.errorState button {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+/* Summary View Styles */
+.previewSummary {
+  margin-top: 1rem;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.summaryCard {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid #e9ecef;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.summaryIcon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.summaryContent h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 600;
+}
+
+.summaryContent p {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.lastUpdated {
+  margin-top: 1rem;
+  text-align: center;
+  color: #666;
+  font-size: 0.9rem;
+}
+
+/* Detailed View Styles */
+.previewDetailed {
+  margin-top: 1rem;
+}
+
+.detailedTable {
+  overflow-x: auto;
+}
+
+.detailedTable table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.detailedTable th,
+.detailedTable td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.detailedTable th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.detailedTable td {
+  font-size: 0.85rem;
+  color: #333;
+}
+
+.detailedTable tr:hover {
+  background: #f8f9fa;
+}
+
+.statusBadge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.statusBadgeCompleted {
+  background: #d4edda;
+  color: #155724;
+}
+
+.actionButton {
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.8rem;
+  margin-right: 0.5rem;
+  transition: background-color 0.3s;
+}
+
+.actionButton:hover {
+  background: #0056b3;
+}
+
+/* Statistics View Styles */
+.previewStatistics {
+  margin-top: 1rem;
+}
+
+.statisticsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+.statCard {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 1.5rem;
+  border: 1px solid #e9ecef;
+}
+
+.statCard h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.statChart {
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.chartPlaceholder {
+  color: #666;
+  font-style: italic;
+  text-align: center;
+}
+
+.statList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.statList li {
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.statList li:last-child {
+  border-bottom: none;
+}
+
+.statValue {
+  text-align: center;
+}
+
+.statNumber {
+  display: block;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #007bff;
+}
+
+.statLabel {
+  display: block;
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0.5rem;
+}
+
+/* Dataset View Styles */
+.datasetView {
+  display: flex;
+  gap: 2rem;
+  height: 600px;
+  margin-top: 1rem;
+}
+
+.datasetSidebar {
+  width: 350px;
+  min-width: 300px;
+  max-width: 400px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.datasetList {
+  height: 100%;
+  overflow-y: auto;
+}
+
+.datasetList h3 {
+  margin: 0;
+  padding: 1rem;
+  background: #e9ecef;
+  border-bottom: 1px solid #dee2e6;
+  font-size: 1rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.datasetControlsBar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e9ecef;
+  background: #fdfdfd;
+  overflow-x: hidden;
+}
+
+.datasetSearchGroup {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.datasetRefreshGroup {
+  display: flex;
+  align-items: center;
+  margin-left: 1rem;
+}
+
+.refreshButton {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.refreshButton:hover {
+  background: #0056b3;
+}
+
+.refreshButton:active {
+  background: #004085;
+}
+
+.refreshButton:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.refreshButton:disabled:hover {
+  background: #6c757d;
+}
+
+.lastRefreshTime {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-top: 0.25rem;
+  text-align: center;
+  font-style: italic;
+}
+
+.datasetSearchInput {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+.datasetSearchSelect {
+  min-width: 160px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  font-size: 0.9rem;
+}
+
+.datasetSortGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+}
+
+.datasetSortSelect {
+  min-width: 140px;
+  max-width: 160px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.datasetSortOrderButton {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.datasetNumberFilter {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.datasetNumMode,
+.datasetNumInput {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: white;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.datasetFlags {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.checkboxInline {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: #444;
+}
+
+ .checkboxInline input[type="checkbox"] {
+   width: 14px;
+   height: 14px;
+ }
+
+/* File Preview Styles */
+.filePreviewContainer {
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  padding: 1.5rem;
+  min-height: 300px;
+}
+
+.filePreviewHeader {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.filePreviewHeader h5 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.1rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.filePreviewMeta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.filePreviewMeta span {
+  background: #e9ecef;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.imagePreview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  position: relative;
+}
+
+.imagePreview img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 4px;
+}
+
+.imagePreviewFallback {
+  color: #666;
+  font-style: italic;
+  text-align: center;
+  font-size: 1rem;
+  display: none;
+}
+
+.csvPreview {
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+  padding: 1.5rem;
+}
+
+.csvPreviewHeader {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.csvPreviewHeader h6 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.csvPreviewHeader p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.csvPreviewContent {
+  text-align: center;
+  color: #666;
+}
+
+.csvPreviewContent p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.filePreviewFallback {
+  text-align: center;
+  color: #666;
+  padding: 2rem;
+}
+
+.filePreviewFallback h6 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #333;
+  font-weight: 600;
+}
+
+ .filePreviewFallback p {
+   margin: 0.5rem 0;
+   font-size: 0.9rem;
+ }
+
+/* Responsive Design for Dataset Controls */
+@media (max-width: 768px) {
+  .datasetSidebar {
+    width: 100%;
+    min-width: unset;
+    max-width: unset;
+  }
+  
+  .datasetControlsBar {
+    padding: 0.5rem;
+  }
+  
+  .datasetSortGroup {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .datasetNumberFilter {
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
+  
+  .datasetFlags {
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
+}
+
+/* CSV Preview Styles */
+.csvLoading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: #666;
+}
+
+.csvError {
+  text-align: center;
+  padding: 2rem;
+  color: #dc3545;
+}
+
+.csvError button {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.csvDataContainer {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+}
+
+.csvDataContent {
+  padding: 1.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.csvDataRow {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+  border: 1px solid #e9ecef;
+}
+
+.csvDataRow:last-child {
+  margin-bottom: 0;
+}
+
+.csvDataCell {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.csvDataCell:last-child {
+  border-bottom: none;
+}
+
+.csvDataLabel {
+  font-weight: 600;
+  color: #555;
+  font-size: 0.9rem;
+  min-width: 120px;
+}
+
+.csvDataValue {
+  color: #333;
+  font-size: 0.9rem;
+  font-family: 'Courier New', monospace;
+  background: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
+}
+
+.csvDataNote {
+  padding: 1rem;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+ .csvDataNote p {
+   margin: 0.25rem 0;
+ }
+
+/* Simple CSV Display Styles */
+.csvSimpleContainer {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.csvSimpleBox {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.csvSimpleTop,
+.csvSimpleBottom {
+  background: #f8f9fa;
+  padding: 0.5rem 1rem;
+  text-align: center;
+  color: #666;
+  font-weight: 600;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.csvSimpleBottom {
+  border-bottom: none;
+  border-top: 1px solid #e9ecef;
+}
+
+.csvSimpleRow {
+  padding: 0.5rem 0;
+}
+
+.csvSimpleLine {
+  padding: 0.25rem 1rem;
+  color: #333;
+  white-space: pre;
+}
+
+.csvSimpleLine:hover {
+  background: #f8f9fa;
+}
+
+/* Preview Welcome Styles */
+.previewWelcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+  color: #666;
+}
+
+.previewWelcomeIcon {
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.6;
+}
+
+.previewWelcome h5 {
+  margin: 0 0 1rem 0;
+  font-size: 1.3rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.previewWelcome p {
+  margin: 0.5rem 0;
+  font-size: 1rem;
+  color: #666;
+}
+
+.previewInstructions {
+  margin-top: 2rem;
+  text-align: left;
+  max-width: 400px;
+}
+
+.previewInstructions p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  color: #666;
+  line-height: 1.4;
+}
+
+.previewInstructions strong {
+  color: #333;
+  font-weight: 600;
+}
+
+.datasetItem {
+  padding: 1rem;
+  border-bottom: 1px solid #e9ecef;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: white;
+}
+
+.datasetItem:hover {
+  background: #f8f9fa;
+  transform: translateX(4px);
+}
+
+.datasetItemActive {
+  background: #e3f2fd !important;
+  border-left: 4px solid #007bff;
+  transform: translateX(4px);
+}
+
+.datasetHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.datasetName {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+  flex: 1;
+  margin-right: 0.5rem;
+}
+
+.datasetStatus {
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.datasetStatusCompleted {
+  background: #d4edda;
+  color: #155724;
+}
+
+.datasetInfo {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.datasetType {
+  background: #e9ecef;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.datasetTime {
+  color: #999;
+}
+
+.datasetFiles {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: #999;
+}
+
+.fileCount {
+  font-weight: 500;
+}
+
+.datasetDuration {
+  color: #666;
+}
+
+.datasetPreview {
+  flex: 1;
+  background: white;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.previewContainer {
+  height: 100%;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.previewContainer .previewHeader {
+  margin: -1.5rem -1.5rem 1.5rem -1.5rem;
+  padding: 1rem 1.5rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  border-radius: 0;
+}
+
+.previewContainer .previewHeader h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.previewMeta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.previewMeta span {
+  background: #e9ecef;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.fileList {
+  margin-bottom: 2rem;
+}
+
+.fileList h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.fileGrid {
+  display: grid;
+  gap: 1rem;
+}
+
+.fileItem {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
+}
+
+.fileItem:hover {
+  background: #e9ecef;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.fileIcon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.fileInfo {
+  flex: 1;
+}
+
+.fileName {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.fileMeta {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.fileType {
+  background: #007bff;
+  color: white;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.fileSize {
+  color: #999;
+}
+
+.fileActions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.previewButton,
+.downloadButton {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.previewButton {
+  background: #28a745;
+  color: white;
+}
+
+.previewButton:hover {
+  background: #218838;
+}
+
+.downloadButton {
+  background: #6c757d;
+  color: white;
+}
+
+.downloadButton:hover {
+  background: #5a6268;
+}
+
+.previewContent {
+  margin-top: 1rem;
+}
+
+.previewContent h4 {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.previewPlaceholder {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  min-height: 300px;
+}
+
+.previewImage {
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  position: relative;
+}
+
+.previewImage img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 6px;
+}
+
+.previewFallback {
+  color: #666;
+  font-style: italic;
+  text-align: center;
+  font-size: 0.9rem;
+  display: none;
+}
+
+.previewData {
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+  padding: 1rem;
+}
+
+.previewData h5 {
+  margin: 0 0 1rem 0;
+  font-size: 0.9rem;
+  color: #333;
+  font-weight: 600;
+}
+
+.dataTable {
+  overflow-x: auto;
+}
+
+.dataTable table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.dataTable th,
+.dataTable td {
+  padding: 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid #e9ecef;
+  font-size: 0.8rem;
+}
+
+.dataTable th {
+  background: #e9ecef;
+  font-weight: 600;
+  color: #555;
+}
+
+.dataTable td {
+  color: #333;
+}
+
+.dataTable tr:hover {
+  background: #f8f9fa;
+}
+
+.noSelection {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #666;
+  font-style: italic;
+  font-size: 1rem;
+}
+
+.noDataState {
+  text-align: center;
+  padding: 4rem 2rem;
+  background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+  border-radius: 12px;
+  border: 2px solid #e2e8f0;
+  margin: 2rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.noDataIcon {
+  font-size: 4rem;
+  margin-bottom: 1.5rem;
+  opacity: 0.6;
+}
+
+.noDataState h3 {
+  color: #4a5568;
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
+
+.noDataState p {
+  color: #718096;
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* Responsive Design for Data Preview */
+@media (max-width: 1600px) {
+  .dataPreviewSection {
+    max-width: 95%;
+    margin: 2rem auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .dataPreviewSection {
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+  
+  .previewControls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .controlGroup {
+    width: 100%;
+  }
+  
+  .previewSelect {
+    width: 100%;
+  }
+  
+  .viewModeButtons {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .datasetView {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .datasetSidebar {
+    width: 100%;
+    height: 300px;
+  }
+
+  .previewPlaceholder {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}

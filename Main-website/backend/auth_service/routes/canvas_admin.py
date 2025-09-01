@@ -390,6 +390,10 @@ async def delete_single_image(
 ):
     """Delete a specific image for a user by image path"""
     try:
+        # URL decode the image path
+        import urllib.parse
+        decoded_image_path = urllib.parse.unquote(image_path)
+        
         config = load_config()
         
         if user_id not in config:
@@ -400,13 +404,18 @@ async def delete_single_image(
         user_images = config[user_id]
         image_index = None
         
+        logger.info(f"Looking for image path: {decoded_image_path}")
+        logger.info(f"Available images for user {user_id}: {user_images}")
+        
         for i, img_path in enumerate(user_images):
-            if img_path == f"/{image_path}" or img_path == image_path:
+            logger.info(f"Comparing: '{img_path}' with '{decoded_image_path}' and '/{decoded_image_path}'")
+            if img_path == f"/{decoded_image_path}" or img_path == decoded_image_path:
                 image_index = i
+                logger.info(f"Found match at index {i}")
                 break
         
         if image_index is None:
-            logger.error(f"Image path {image_path} not found for user {user_id}")
+            logger.error(f"Image path {decoded_image_path} not found for user {user_id}")
             raise HTTPException(status_code=404, detail="Image not found")
         
         # Get the actual image path from config

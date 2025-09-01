@@ -10,7 +10,7 @@ import fs from 'fs';
 import path from 'path';
 import DragDropPriorityList from './adminDrag&Drop';
 import AdminCanvaConfig from './adminCanvaConfig';
-import DataPreview from './adjust-preview';
+import AdminAdjustDataset from './adminAdjust-dataset';
 import NotiMessage from './notiMessage';
 import { useRouter } from 'next/router';
 
@@ -882,9 +882,7 @@ export default function AdminPage({ initialSettings }) {
     }
 
     try {
-      // Extract the image path without the /canvas/ prefix for the API call
-      const cleanImagePath = imagePath.replace('/canvas/', '');
-      
+      // Send the full image path to the API (backend will handle the /canvas/ prefix)
       const response = await fetch('/api/admin/canvas-delete-image', {
         method: 'DELETE',
         headers: {
@@ -892,7 +890,7 @@ export default function AdminPage({ initialSettings }) {
         },
         body: JSON.stringify({
           userId: selectedUserId,
-          imagePath: cleanImagePath
+          imagePath: imagePath
         })
       });
 
@@ -1525,7 +1523,7 @@ export default function AdminPage({ initialSettings }) {
                           return (
                             <div key={key} className={styles.imagePathItem}>
                               <div className={styles.imagePathContent}>
-                                <strong>{key}:</strong> {path}
+                                <strong>{key}:</strong> {path.startsWith('/canvas/') ? path.replace('/canvas/', '/') : path}
                                 {path.startsWith('/canvas/') && (
                                   <span className={styles.canvasBadge}>Canvas</span>
                                 )}
@@ -1591,170 +1589,187 @@ export default function AdminPage({ initialSettings }) {
                   </div>
                 )}
               </div>
-              <div className={styles.settingItemNoBg} style={{ display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
+              <div className={styles.settingItemNoBg} style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}>
                 <button
-                  onClick={handleSaveSettings}
-                  className={styles.saveButton}
+                  onClick={() => {
+                    // Handle reorder priorities functionality
+                    if (typeof window !== 'undefined' && window.showNotification) {
+                      window.showNotification('Reorder Priorities functionality coming soon!', 'info');
+                    } else {
+                      alert('Reorder Priorities functionality coming soon!');
+                    }
+                  }}
+                  className={styles.reorderButton}
+                  disabled={!selectedUserId}
                 >
-                  Save Settings
+                  🔄 Reorder Priorities
                 </button>
                 
-                {/* Show "Show All Images" button if there are images */}
-                {(() => {
-                  const actualImageCount = Object.entries(tempSettings[selectedUserId]?.image_pdf_canva || {})
-                    .filter(([key, path]) => {
-                      // Filter out non-image entries (like user IDs)
-                      return path && 
-                             typeof path === 'string' && 
-                             (path.startsWith('/canvas/') || 
-                              path.startsWith('http') || 
-                              path.includes('.jpg') || 
-                              path.includes('.jpeg') || 
-                              path.includes('.png') || 
-                              path.includes('.gif') ||
-                              path.includes('.webp'));
-                    }).length;
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <button
+                    onClick={handleSaveSettings}
+                    className={styles.saveButton}
+                  >
+                    Save Settings
+                  </button>
                   
-                  return actualImageCount > 0 ? (
-                    <button
-                      onClick={() => {
-                        // Create a proper modal to show all images
-                        const allImages = tempSettings[selectedUserId].image_pdf_canva;
-                        const imageEntries = Object.entries(allImages)
-                          .filter(([key, path]) => {
-                            // Filter out non-image entries (like user IDs)
-                            return path && 
-                                   typeof path === 'string' && 
-                                   (path.startsWith('/canvas/') || 
-                                    path.startsWith('http') || 
-                                    path.includes('.jpg') || 
-                                    path.includes('.jpeg') || 
-                                    path.includes('.png') || 
-                                    path.includes('.gif') ||
-                                    path.includes('.webp'));
+                  {/* Show "Show All Images" button if there are images */}
+                  {(() => {
+                    const actualImageCount = Object.entries(tempSettings[selectedUserId]?.image_pdf_canva || {})
+                      .filter(([key, path]) => {
+                        // Filter out non-image entries (like user IDs)
+                        return path && 
+                               typeof path === 'string' && 
+                               (path.startsWith('/canvas/') || 
+                                path.startsWith('http') || 
+                                path.includes('.jpg') || 
+                                path.includes('.jpeg') || 
+                                path.includes('.png') || 
+                                path.includes('.gif') ||
+                                path.includes('.webp'));
+                      }).length;
+                    
+                    return actualImageCount > 0 ? (
+                      <button
+                        onClick={() => {
+                          // Create a proper modal to show all images
+                          const allImages = tempSettings[selectedUserId].image_pdf_canva;
+                          const imageEntries = Object.entries(allImages)
+                            .filter(([key, path]) => {
+                              // Filter out non-image entries (like user IDs)
+                              return path && 
+                                     typeof path === 'string' && 
+                                     (path.startsWith('/canvas/') || 
+                                      path.startsWith('http') || 
+                                      path.includes('.jpg') || 
+                                      path.includes('.jpeg') || 
+                                      path.includes('.png') || 
+                                      path.includes('.gif') ||
+                                      path.includes('.webp'));
+                            });
+                          
+                          // Create modal content with proper styling
+                          const modalContent = document.createElement('div');
+                          modalContent.className = styles.imageModal;
+                          modalContent.style.cssText = `
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                            background: rgba(0, 0, 0, 0.8);
+                            z-index: 1000;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                          `;
+                          
+                          // Sort images by key (image_1, image_2, etc.) for proper left-to-right ordering
+                          const sortedImageEntries = imageEntries.sort(([a], [b]) => {
+                            const aNum = parseInt(a.replace('image_', ''));
+                            const bNum = parseInt(b.replace('image_', ''));
+                            return aNum - bNum;
                           });
-                        
-                        // Create modal content with proper styling
-                        const modalContent = document.createElement('div');
-                        modalContent.className = styles.imageModal;
-                        modalContent.style.cssText = `
-                          position: fixed;
-                          top: 0;
-                          left: 0;
-                          width: 100%;
-                          height: 100%;
-                          background: rgba(0, 0, 0, 0.8);
-                          z-index: 1000;
-                          display: flex;
-                          justify-content: center;
-                          align-items: center;
-                        `;
-                        
-                        // Sort images by key (image_1, image_2, etc.) for proper left-to-right ordering
-                        const sortedImageEntries = imageEntries.sort(([a], [b]) => {
-                          const aNum = parseInt(a.replace('image_', ''));
-                          const bNum = parseInt(b.replace('image_', ''));
-                          return aNum - bNum;
-                        });
-                        
-                        modalContent.innerHTML = `
-                          <div style="
-                            background: white;
-                            padding: 20px;
-                            border-radius: 8px;
-                            max-width: 95%;
-                            max-height: 95%;
-                            overflow-y: auto;
-                            position: relative;
-                          ">
-                            <button onclick="this.parentElement.parentElement.remove()" style="
-                              position: absolute;
-                              top: 10px;
-                              right: 10px;
-                              background: #dc3545;
-                              color: white;
-                              border: none;
-                              border-radius: 50%;
-                              width: 30px;
-                              height: 30px;
-                              cursor: pointer;
-                              font-size: 16px;
-                              z-index: 1001;
-                            ">×</button>
-                            <h3 style="margin-top: 0; margin-bottom: 20px; text-align: center;">All Images (${sortedImageEntries.length})</h3>
+                          
+                          modalContent.innerHTML = `
                             <div style="
-                              display: grid;
-                              grid-template-columns: repeat(5, 1fr);
-                              gap: 15px;
-                              margin-bottom: 20px;
-                              max-width: 100%;
+                              background: white;
+                              padding: 20px;
+                              border-radius: 8px;
+                              max-width: 95%;
+                              max-height: 95%;
+                              overflow-y: auto;
+                              position: relative;
                             ">
-                              ${sortedImageEntries.map(([key, path]) => {
-                                // Convert backend path to frontend accessible URL
-                                let imageUrl;
-                                if (path.startsWith('/canvas/')) {
-                                  // For canvas images, construct the correct URL
-                                  const protocol = window.location.protocol;
-                                  const hostname = window.location.hostname;
-                                  const currentPort = window.location.port;
-                                  
-                                  // If we're running on a different port than nginx, use nginx port
-                                  // Otherwise, use relative URL
-                                  if (currentPort && currentPort !== '80') {
-                                    imageUrl = `${protocol}//${hostname}:80${path}`;
-                                  } else {
-                                    imageUrl = path; // Use relative URL if same port
-                                  }
-                                } else {
-                                  imageUrl = path;
-                                }
-                                
-                                // Check if this is a base image or variation
-                                const filename = path.split('/').pop();
-                                const isBaseImage = !filename.match(/_\d+\./);
-                                const baseName = filename.replace(/_\d+\./, '.');
-                                
-                                return `
-                                  <div style="
-                                    border: 1px solid #ddd;
-                                    border-radius: 8px;
-                                    padding: 8px;
-                                    text-align: center;
-                                    background: #f9f9f9;
-                                  " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                                    <img src="${imageUrl}" alt="${key}" style="
-                                      width: 100%;
-                                      height: 120px;
-                                      object-fit: cover;
-                                      border-radius: 4px;
-                                      margin-bottom: 8px;
-                                      border: 1px solid #eee;
-                                    " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-                                    <div style="display: none; width: 100%; height: 120px; background: #f0f0f0; border-radius: 4px; align-items: center; justify-content: center; color: #999; font-size: 12px; margin-bottom: 8px;">
-                                      Image not found
-                                  </div>
-                                    <p style="margin: 0; font-weight: bold; color: #333; font-size: 14px;">${key}</p>
-                                    <p style="margin: 3px 0 0 0; font-size: 11px; color: #666; word-break: break-all; line-height: 1.2;">${filename}</p>
-                                    ${isBaseImage ? 
-                                      '<div style="background: #28a745; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-top: 4px;">Base Image</div>' : 
-                                      '<div style="background: #ffc107; color: black; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-top: 4px;">Variation: ' + baseName + '</div>'
+                              <button onclick="this.parentElement.parentElement.remove()" style="
+                                position: absolute;
+                                top: 10px;
+                                right: 10px;
+                                background: #dc3545;
+                                color: white;
+                                border: none;
+                                border-radius: 50%;
+                                width: 30px;
+                                height: 30px;
+                                cursor: pointer;
+                                font-size: 16px;
+                                z-index: 1001;
+                              ">×</button>
+                              <h3 style="margin-top: 0; margin-bottom: 20px; text-align: center;">All Images (${sortedImageEntries.length})</h3>
+                              <div style="
+                                display: grid;
+                                grid-template-columns: repeat(5, 1fr);
+                                gap: 15px;
+                                margin-bottom: 20px;
+                                max-width: 100%;
+                              ">
+                                ${sortedImageEntries.map(([key, path]) => {
+                                  // Convert backend path to frontend accessible URL
+                                  let imageUrl;
+                                  if (path.startsWith('/canvas/')) {
+                                    // For canvas images, construct the correct URL
+                                    const protocol = window.location.protocol;
+                                    const hostname = window.location.hostname;
+                                    const currentPort = window.location.port;
+                                    
+                                    // If we're running on a different port than nginx, use nginx port
+                                    // Otherwise, use relative URL
+                                    if (currentPort && currentPort !== '80') {
+                                      imageUrl = `${protocol}//${hostname}:80${path}`;
+                                    } else {
+                                      imageUrl = path; // Use relative URL if same port
                                     }
-                                  </div>
-                                `;
-                              }).join('')}
+                                  } else {
+                                    imageUrl = path;
+                                  }
+                                  
+                                  // Check if this is a base image or variation
+                                  const filename = path.split('/').pop();
+                                  const isBaseImage = !filename.match(/_\d+\./);
+                                  const baseName = filename.replace(/_\d+\./, '.');
+                                  
+                                  return `
+                                    <div style="
+                                      border: 1px solid #ddd;
+                                      border-radius: 8px;
+                                      padding: 8px;
+                                      text-align: center;
+                                      background: #f9f9f9;
+                                    " onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                                      <img src="${imageUrl}" alt="${key}" style="
+                                        width: 100%;
+                                        height: 120px;
+                                        object-fit: cover;
+                                        border-radius: 4px;
+                                        margin-bottom: 8px;
+                                        border: 1px solid #eee;
+                                      " onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+                                      <div style="display: none; width: 100%; height: 120px; background: #f0f0f0; border-radius: 4px; align-items: center; justify-content: center; color: #999; font-size: 12px; margin-bottom: 8px;">
+                                        Image not found
+                                    </div>
+                                      <p style="margin: 0; font-weight: bold; color: #333; font-size: 14px;">${key}</p>
+                                      <p style="margin: 3px 0 0 0; font-size: 11px; color: #666; word-break: break-all; line-height: 1.2;">${filename}</p>
+                                      ${isBaseImage ? 
+                                        '<div style="background: #28a745; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-top: 4px;">Base Image</div>' : 
+                                        '<div style="background: #ffc107; color: black; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-top: 4px;">Variation: ' + baseName + '</div>'
+                                      }
+                                    </div>
+                                  `;
+                                }).join('')}
+                              </div>
                             </div>
-                          </div>
-                        `;
-                        
-                        // Add modal to page
-                        document.body.appendChild(modalContent);
-                      }}
-                      className={styles.showAllImagesButton}
-                    >
-                      Show All Images ({actualImageCount})
-                    </button>
-                  ) : null;
-                })()}
+                          `;
+                          
+                          // Add modal to page
+                          document.body.appendChild(modalContent);
+                        }}
+                        className={styles.showAllImagesButton}
+                      >
+                        Show All Images ({actualImageCount})
+                      </button>
+                    ) : null;
+                  })()}
+                </div>
               </div>
             </div>
 
@@ -1890,7 +1905,7 @@ export default function AdminPage({ initialSettings }) {
 
           {/* Data Preview Section */}
           {showDataPreview && (
-            <DataPreview
+            <AdminAdjustDataset
               userId={selectedUserId}
               onClose={() => setShowDataPreview(false)}
             />

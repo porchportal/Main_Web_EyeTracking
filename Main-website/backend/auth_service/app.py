@@ -35,6 +35,7 @@ from routes.canvas_admin import router as canvas_admin_router
 from routes.consent import router as consent_router
 from routes.backup import router as backup_router
 from routes.user_captures import router as user_captures_router
+from routes.adminDatasetViewerEdit import router as admin_dataset_router
 
 # Import response models
 from model_preference.response import HealthResponse
@@ -343,6 +344,7 @@ app.include_router(admin_updates_router)
 app.include_router(canvas_admin_router)
 app.include_router(backup_router)
 app.include_router(user_captures_router)
+app.include_router(admin_dataset_router)
 
 # Admin authentication route
 class AdminLogin(BaseModel):

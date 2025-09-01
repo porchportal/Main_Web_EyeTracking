@@ -430,11 +430,10 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
                         fontSize: '0.7rem', 
                         marginTop: '4px' 
                       }}>
-                        Variation: {baseName}
+                        Variation
                       </div>
                     )}
                     <span className={styles.fileName}>{preview.name}</span>
-                    <small className={styles.imagePath}>{preview.originalPath}</small>
                   </div>
                 );
               })}

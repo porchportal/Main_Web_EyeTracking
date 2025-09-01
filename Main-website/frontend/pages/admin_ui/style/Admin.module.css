@@ -582,6 +582,7 @@
   border: 1px solid #e9ecef;
   width: 100%;
   box-sizing: border-box;
+  min-width: 400px;
 }
 
 .div5 {
@@ -719,6 +720,34 @@
 
 .saveButton:active {
   background-color: #3d8b40;
+}
+
+/* Reorder Button */
+.reorderButton {
+  background-color: #ffc107;
+  color: #212529;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.3s;
+  margin-top: 10px;
+}
+
+.reorderButton:hover {
+  background-color: #e0a800;
+}
+
+.reorderButton:active {
+  background-color: #d39e00;
+}
+
+.reorderButton:disabled {
+  background-color: #e9ecef;
+  color: #6c757d;
+  cursor: not-allowed;
 }
 
 /* Current Order Display */
@@ -1375,6 +1404,7 @@
 
   .div4 {
     grid-row: 4;
+    min-width: 350px;
   }
 
   .div5 {
@@ -1417,6 +1447,18 @@
   .settingsSection {
     margin: 1rem 0;
     padding: 1.5rem;
+  }
+
+  /* Button Layout Responsive */
+  .settingItemNoBg {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .settingItemNoBg button {
+    width: 100%;
+    margin-top: 5px;
   }
 
   .settingsSubScroll {
