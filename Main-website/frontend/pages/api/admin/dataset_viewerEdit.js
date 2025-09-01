@@ -26,7 +26,10 @@ export default async function handler(req, res) {
         }
 
       case 'DELETE':
-        if (user_id && dataset_id) {
+        if (user_id && filename) {
+          // Delete specific file
+          return await deleteDatasetFile(req, res, user_id, filename);
+        } else if (user_id && dataset_id) {
           // Delete specific dataset
           return await deleteDataset(req, res, user_id, dataset_id);
         } else if (user_id) {
@@ -36,8 +39,16 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'Missing user_id parameter' });
         }
 
+      case 'PUT':
+        if (user_id && filename) {
+          // Update specific file (for CSV editing)
+          return await updateDatasetFile(req, res, user_id, filename);
+        } else {
+          return res.status(400).json({ error: 'Missing user_id or filename parameter' });
+        }
+
       default:
-        res.setHeader('Allow', ['GET', 'DELETE']);
+        res.setHeader('Allow', ['GET', 'DELETE', 'PUT']);
         return res.status(405).json({ error: `Method ${method} Not Allowed` });
     }
   } catch (error) {
@@ -177,6 +188,88 @@ async function deleteDataset(req, res, userId, datasetId) {
   } catch (error) {
     console.error('Error deleting dataset:', error);
     return res.status(500).json({ error: 'Failed to delete dataset' });
+  }
+}
+
+async function deleteDatasetFile(req, res, userId, filename) {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+    const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+
+    if (!backendUrl) {
+      console.error('❌ NEXT_PUBLIC_API_URL not set');
+      return res.status(500).json({ error: 'Backend URL not configured' });
+    }
+
+    if (!apiKey) {
+      console.error('❌ NEXT_PUBLIC_API_KEY not set');
+      return res.status(500).json({ error: 'API key not configured' });
+    }
+
+    const backendEndpoint = `${backendUrl}/api/admin/dataset/file/${userId}/${filename}`;
+
+    const response = await fetch(backendEndpoint, {
+      method: 'DELETE',
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      console.error('❌ Backend error:', errorData);
+      return res.status(response.status).json(errorData);
+    }
+
+    const data = await response.json();
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error('❌ Error deleting dataset file:', error);
+    return res.status(500).json({ error: 'Failed to delete dataset file', details: error.message });
+  }
+}
+
+async function updateDatasetFile(req, res, userId, filename) {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+    const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+
+    if (!backendUrl) {
+      console.error('❌ NEXT_PUBLIC_API_URL not set');
+      return res.status(500).json({ error: 'Backend URL not configured' });
+    }
+
+    if (!apiKey) {
+      console.error('❌ NEXT_PUBLIC_API_KEY not set');
+      return res.status(500).json({ error: 'API key not configured' });
+    }
+
+    const backendEndpoint = `${backendUrl}/api/admin/dataset/edit-file/${userId}/${filename}`;
+
+    // Get the file content from the request body
+    const fileContent = req.body;
+
+    const response = await fetch(backendEndpoint, {
+      method: 'PUT',
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'text/csv',
+      },
+      body: fileContent,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      console.error('❌ Backend error:', errorData);
+      return res.status(response.status).json(errorData);
+    }
+
+    const data = await response.json();
+    return res.status(200).json(data);
+  } catch (error) {
+    console.error('❌ Error updating dataset file:', error);
+    return res.status(500).json({ error: 'Failed to update dataset file', details: error.message });
   }
 }
 

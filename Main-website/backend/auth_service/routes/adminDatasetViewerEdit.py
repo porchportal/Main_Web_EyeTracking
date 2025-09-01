@@ -1,5 +1,5 @@
 # routes/adminDatasetViewer&Edit.py - Admin dataset viewing and editing
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Body
 from fastapi.responses import JSONResponse, FileResponse
 import os
 import json
@@ -199,6 +199,89 @@ async def get_dataset_file(
         raise
     except Exception as error:
         logger.error(f"Error serving file {filename} for user {user_id}: {error}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.put("/edit-file/{user_id}/{filename:path}")
+async def update_dataset_file(
+    user_id: str,
+    filename: str,
+    file_content: str = Body(...),
+    api_key: str = Depends(verify_api_key)
+):
+    """Update a specific file in a user's dataset (for CSV editing)"""
+    logger.info(f"PUT request received for file: {filename} for user: {user_id}")
+    try:
+        file_path = BASE_CAPTURES_PATH / user_id / filename
+        logger.info(f"File path: {file_path}")
+        logger.info(f"File exists: {file_path.exists()}")
+        
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail=f"File not found: {filename}")
+        
+        if not file_path.is_file():
+            raise HTTPException(status_code=400, detail="Not a file")
+        
+        # Security check: ensure the file is within the user's directory
+        try:
+            file_path.resolve().relative_to(BASE_CAPTURES_PATH / user_id)
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Only allow CSV files to be updated
+        if not filename.lower().endswith('.csv'):
+            raise HTTPException(status_code=400, detail="Only CSV files can be updated")
+        
+        # Write the new content to the file
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(file_content)
+        
+        return JSONResponse(content={
+            "status": "success",
+            "message": f"Updated file {filename}",
+            "updated_file": filename
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error(f"Error updating file {filename} for user {user_id}: {error}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.delete("/file/{user_id}/{filename:path}")
+async def delete_dataset_file(
+    user_id: str,
+    filename: str,
+    api_key: str = Depends(verify_api_key)
+):
+    """Delete a specific file from a user's dataset"""
+    try:
+        file_path = BASE_CAPTURES_PATH / user_id / filename
+        
+        if not file_path.exists():
+            raise HTTPException(status_code=404, detail=f"File not found: {filename}")
+        
+        if not file_path.is_file():
+            raise HTTPException(status_code=400, detail="Not a file")
+        
+        # Security check: ensure the file is within the user's directory
+        try:
+            file_path.resolve().relative_to(BASE_CAPTURES_PATH / user_id)
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Delete the file
+        file_path.unlink()
+        
+        return JSONResponse(content={
+            "status": "success",
+            "message": f"Deleted file {filename}",
+            "deleted_file": filename
+        })
+        
+    except HTTPException:
+        raise
+    except Exception as error:
+        logger.error(f"Error deleting file {filename} for user {user_id}: {error}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.delete("/user/{user_id}/dataset/{dataset_id}")

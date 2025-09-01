@@ -1,7 +1,7 @@
 // adminAdjust-dataset.js
 // Admin Adjust Dataset component for adjusting dataset
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styles from './style/adminAdjust-dataset.module.css';
 
 const AdminAdjustDataset = ({ userId, onClose }) => {
@@ -20,6 +20,25 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
   const [datasetLoading, setDatasetLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [csvEditMode, setCsvEditMode] = useState(false);
+  const [csvEditData, setCsvEditData] = useState([]);
+  
+  // CSV data cache to prevent unnecessary reloads
+  const csvDataCache = useRef(new Map());
+  
+  // Prevent unnecessary re-renders by memoizing stable references
+  const stableUserId = useRef(userId);
+  const stableSelectedFile = useRef(selectedFile);
+  
+  // Update stable references only when they actually change
+  useEffect(() => {
+    stableUserId.current = userId;
+  }, [userId]);
+  
+  useEffect(() => {
+    stableSelectedFile.current = selectedFile;
+  }, [selectedFile]);
+  
   // Filters and sorting
   const [datasetQuery, setDatasetQuery] = useState('');
   const [datasetFilterField, setDatasetFilterField] = useState('name'); // name | id | type | fileCount | timestamp
@@ -28,7 +47,11 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
   const [datasetNumberFilter, setDatasetNumberFilter] = useState({ mode: 'none', value: '' }); // {mode: 'gt'|'lt'|'eq'|'none', value: number}
   const [requireParameterFile, setRequireParameterFile] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState(null);
-
+    const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Debounced refresh to prevent rapid successive refreshes
+  const refreshTimeoutRef = useRef(null);
+  
   // Sample data structure - replace with actual API calls
   const dataTypes = [
     { value: 'all', label: 'All Data' },
@@ -47,6 +70,15 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
     if (userId) {
       loadPreviewData();
     }
+    
+    // Clear CSV cache when userId changes
+    return () => {
+      csvDataCache.current.clear();
+      // Clear any pending refresh timeout
+      if (refreshTimeoutRef.current) {
+        clearTimeout(refreshTimeoutRef.current);
+      }
+    };
   }, [userId, selectedDataType]);
 
   useEffect(() => {
@@ -55,14 +87,7 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
       setError(null);
       loadDatasets();
     }
-  }, [viewMode, userId]); // Added viewMode back to trigger when switching views
-
-  // Separate useEffect for refresh button clicks
-  useEffect(() => {
-    if (viewMode === 'dataset' && userId) {
-      loadDatasets();
-    }
-  }, [viewMode, userId]); // Only reload when switching view modes
+  }, [viewMode, userId]); // Only trigger when switching view modes or userId changes
 
   const loadPreviewData = async () => {
     setLoading(true);
@@ -140,6 +165,9 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
       } else {
         throw new Error(data.message || 'Failed to load datasets');
       }
+      
+      // Clear CSV cache when datasets are refreshed to ensure fresh data
+      csvDataCache.current.clear();
     } catch (err) {
       setError('Failed to load datasets');
       console.error('Error loading datasets:', err);
@@ -149,16 +177,41 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
   };
 
   const handleRefresh = () => {
-    if (viewMode === 'dataset') {
-      setLastRefreshTime(new Date());
-      loadDatasets();
-    } else {
-      loadPreviewData();
+    if (isRefreshing) return; // Prevent multiple simultaneous refreshes
+    
+    // Clear any existing timeout
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
     }
+    
+    // Debounce the refresh to prevent rapid successive calls
+    refreshTimeoutRef.current = setTimeout(() => {
+      if (viewMode === 'dataset') {
+        setIsRefreshing(true);
+        setLastRefreshTime(new Date());
+        // Only clear cache and reload if explicitly requested
+        csvDataCache.current.clear();
+        loadDatasets().finally(() => {
+          setIsRefreshing(false);
+        });
+      } else {
+        setIsRefreshing(true);
+        loadPreviewData().finally(() => {
+          setIsRefreshing(false);
+        });
+      }
+    }, 300); // 300ms debounce delay
   };
 
   const handleClose = () => {
     setIsClosing(true);
+    
+    // Clear any pending timeouts and cache
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+    csvDataCache.current.clear();
+    
     setTimeout(() => {
       onClose();
     }, 300); // Match CSS transition duration
@@ -250,6 +303,9 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
   const handleFilePreview = (file) => {
     // Set the selected file for preview
     setSelectedFile(file);
+    
+    // Clear CSV edit mode when switching files
+    setCsvEditMode(false);
   };
 
   const handleFileDownload = (file) => {
@@ -264,9 +320,53 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
   };
 
   const handleFileEdit = (file) => {
-    // Handle file editing - you can implement the editing logic here
-    console.log('Editing file:', file.name);
-    window.showNotification(`Editing file: ${file.name}`, 'info');
+    if (file.type === 'csv') {
+      // For CSV files, open the CSV editor
+      setSelectedFile(file);
+      setCsvEditMode(true);
+    } else {
+      // For other file types, show info message
+      window.showNotification(`Editing not available for ${file.type.toUpperCase()} files`, 'info');
+    }
+  };
+
+  const handleFileDelete = async (file) => {
+    const confirmDelete = confirm(`Are you sure you want to delete ${file.name}?`);
+    if (!confirmDelete) return;
+
+    try {
+      setDatasetLoading(true);
+      
+      const response = await fetch(`/api/admin/dataset_viewerEdit?user_id=${userId}&filename=${encodeURIComponent(file.name)}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        throw new Error(`Failed to delete ${file.name}: ${errorData.detail || 'Unknown error'}`);
+      }
+      
+              // Show success message
+        window.showNotification(`Successfully deleted ${file.name}`, 'success');
+        
+        // Clear file selection if this was the selected file
+        if (selectedFile?.name === file.name) {
+          setSelectedFile(null);
+        }
+        
+        // Clear the cache for this file
+        const cacheKey = `${userId}_${file.name}`;
+        csvDataCache.current.delete(cacheKey);
+        
+        // Refresh the dataset to reflect changes
+        await loadDatasets();
+      
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      window.showNotification(`Error deleting file: ${error.message}`, 'error');
+    } finally {
+      setDatasetLoading(false);
+    }
   };
 
   const handleFileSelect = (file) => {
@@ -281,21 +381,67 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
     });
   };
 
-  const handleBulkDelete = () => {
+  const handleBulkDelete = async () => {
     if (selectedFiles.size === 0) {
       window.showNotification('No files selected for deletion', 'warning');
       return;
     }
 
     const confirmDelete = confirm(`Are you sure you want to delete ${selectedFiles.size} selected file(s)?`);
-    if (confirmDelete) {
-      // Implement bulk delete logic here
-      console.log('Deleting files:', Array.from(selectedFiles));
-      window.showNotification(`Deleted ${selectedFiles.size} file(s)`, 'success');
+    if (!confirmDelete) return;
+
+    try {
+      // Show loading state
+      setDatasetLoading(true);
+      
+      // Delete each selected file
+      const deletePromises = Array.from(selectedFiles).map(async (fileName) => {
+        const response = await fetch(`/api/admin/dataset_viewerEdit?user_id=${userId}&filename=${encodeURIComponent(fileName)}`, {
+          method: 'DELETE',
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+          throw new Error(`Failed to delete ${fileName}: ${errorData.detail || 'Unknown error'}`);
+        }
+        
+        return fileName;
+      });
+
+      // Wait for all deletions to complete
+      const deletedFiles = await Promise.all(deletePromises);
+      
+      // Show success message
+      window.showNotification(`Successfully deleted ${deletedFiles.length} file(s)`, 'success');
+      
+      // Clear selection and exit selection mode
       setSelectedFiles(new Set());
       setIsSelectionMode(false);
+      
+      // Clear cache for all deleted files
+      deletedFiles.forEach(fileName => {
+        const cacheKey = `${userId}_${fileName}`;
+        csvDataCache.current.delete(cacheKey);
+      });
+      
+      // Check if the current dataset is now empty
+      if (selectedDataset && selectedDataset.files) {
+        const remainingFiles = selectedDataset.files.filter(file => !deletedFiles.includes(file.name));
+        if (remainingFiles.length === 0) {
+          // Dataset is now empty, clear selection
+          setSelectedDataset(null);
+          setSelectedFile(null);
+        }
+      }
+      
       // Refresh the dataset to reflect changes
-      handleRefresh();
+      await loadDatasets();
+      
+    } catch (error) {
+      console.error('Error during bulk delete:', error);
+      window.showNotification(`Error during deletion: ${error.message}`, 'error');
+    } finally {
+      setDatasetLoading(false);
     }
   };
 
@@ -320,8 +466,26 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
     const [csvData, setCsvData] = useState(null);
     const [csvLoading, setCsvLoading] = useState(false);
     const [csvError, setCsvError] = useState(null);
+    
+    // Create a cache key for this specific file
+    const cacheKey = `${userId}_${filename}`;
+    
+    // Check if we already have this data cached
+    const cachedData = csvDataCache.current.get(cacheKey);
+    
+    // Use ref to track if component is mounted
+    const isMounted = useRef(true);
 
     useEffect(() => {
+      // If we have cached data, use it immediately
+      if (cachedData) {
+        setCsvData(cachedData);
+        return;
+      }
+
+      // Prevent loading if already loading
+      if (csvLoading) return;
+
       const loadCSVData = async () => {
         setCsvLoading(true);
         setCsvError(null);
@@ -342,21 +506,200 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
             return { key, value };
           });
           
-          setCsvData(rows);
+          // Cache the parsed data
+          csvDataCache.current.set(cacheKey, rows);
+          
+          // Only update state if component is still mounted
+          if (isMounted.current) {
+            setCsvData(rows);
+          }
         } catch (err) {
-          setCsvError('Failed to load CSV data');
-          console.error('Error loading CSV:', err);
+          if (isMounted.current) {
+            setCsvError('Failed to load CSV data');
+            console.error('Error loading CSV:', err);
+          }
         } finally {
-          setCsvLoading(false);
+          if (isMounted.current) {
+            setCsvLoading(false);
+          }
         }
       };
 
       if (userId && filename) {
         loadCSVData();
       }
-    }, [userId, filename]); // Removed refreshTrigger dependency
+      
+      // Cleanup function
+      return () => {
+        isMounted.current = false;
+      };
+    }, [userId, filename, csvLoading]); // Added csvLoading to prevent multiple simultaneous requests
+    
+    // Memoize the component to prevent unnecessary re-renders
+    const memoizedComponent = React.useMemo(() => {
+      if (csvLoading) {
+        return (
+          <div className={styles.csvLoading}>
+            <div className={styles.spinner}></div>
+            <p>Loading CSV data...</p>
+          </div>
+        );
+      }
 
-    if (csvLoading) {
+      if (csvError) {
+        return (
+          <div className={styles.csvError}>
+            <p>❌ {csvError}</p>
+            <button onClick={() => window.location.reload()}>Retry</button>
+          </div>
+        );
+      }
+
+      if (!csvData) {
+        return <p>No CSV data available</p>;
+      }
+
+      return (
+        <div className={styles.csvSimpleContainer}>
+          <div className={styles.csvSimpleBox}>
+            {csvData.map((row, index) => (
+              <div key={index} className={styles.csvSimpleLine}>
+                {row.key},{row.value}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }, [csvData, csvLoading, csvError]);
+
+    return memoizedComponent;
+  });
+
+  // CSV Editor Component
+  const CSVEditor = React.memo(({ userId, filename, onSave, onCancel }) => {
+    const [editData, setEditData] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
+    
+    // Create a cache key for this specific file
+    const cacheKey = `${userId}_${filename}`;
+    
+    // Check if we already have this data cached
+    const cachedData = csvDataCache.current.get(cacheKey);
+    
+    // Use ref to track if component is mounted
+    const isMounted = useRef(true);
+
+    useEffect(() => {
+      // If we have cached data, use it immediately
+      if (cachedData) {
+        setEditData(cachedData);
+        return;
+      }
+
+      const loadCSVData = async () => {
+        setLoading(true);
+        setError(null);
+        
+        try {
+          const response = await fetch(`/api/admin/dataset_viewerEdit?user_id=${userId}&filename=${encodeURIComponent(filename)}`);
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          const csvText = await response.text();
+          
+          // Parse CSV data for editing
+          const lines = csvText.split('\n').filter(line => line.trim());
+          const rows = lines.map(line => {
+            const [key, value] = line.split(',').map(cell => cell.trim());
+            return { key, value };
+          });
+          
+          // Cache the parsed data
+          csvDataCache.current.set(cacheKey, rows);
+          
+          // Only update state if component is still mounted
+          if (isMounted.current) {
+            setEditData(rows);
+          }
+        } catch (err) {
+          if (isMounted.current) {
+            setError('Failed to load CSV data');
+            console.error('Error loading CSV:', err);
+          }
+        } finally {
+          if (isMounted.current) {
+            setLoading(false);
+          }
+        }
+      };
+
+      if (userId && filename) {
+        loadCSVData();
+      }
+      
+      // Cleanup function
+      return () => {
+        isMounted.current = false;
+      };
+    }, [userId, filename]); // Only depend on userId and filename
+
+    const handleRowChange = (index, field, value) => {
+      const newData = [...editData];
+      newData[index] = { ...newData[index], [field]: value };
+      setEditData(newData);
+    };
+
+    const addRow = () => {
+      setEditData([...editData, { key: '', value: '' }]);
+    };
+
+    const removeRow = (index) => {
+      const newData = editData.filter((_, i) => i !== index);
+      setEditData(newData);
+    };
+
+    const handleSave = async () => {
+      try {
+        setLoading(true);
+        
+        // Convert back to CSV format
+        const csvContent = editData
+          .filter(row => row.key.trim() && row.value.trim())
+          .map(row => `${row.key},${row.value}`)
+          .join('\n');
+        
+        // Save to backend
+        const response = await fetch(`/api/admin/dataset_viewerEdit?user_id=${userId}&filename=${encodeURIComponent(filename)}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'text/csv',
+          },
+          body: csvContent
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to save CSV file');
+        }
+        
+        window.showNotification('CSV file saved successfully', 'success');
+        
+        // Clear the cache for this file so it will reload fresh data
+        const cacheKey = `${userId}_${filename}`;
+        csvDataCache.current.delete(cacheKey);
+        
+        onSave();
+      } catch (error) {
+        console.error('Error saving CSV:', error);
+        window.showNotification(`Error saving CSV: ${error.message}`, 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (loading) {
       return (
         <div className={styles.csvLoading}>
           <div className={styles.spinner}></div>
@@ -365,27 +708,78 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
       );
     }
 
-    if (csvError) {
+    if (error) {
       return (
         <div className={styles.csvError}>
-          <p>❌ {csvError}</p>
+          <p>❌ {error}</p>
           <button onClick={() => window.location.reload()}>Retry</button>
         </div>
       );
     }
 
-    if (!csvData) {
-      return <p>No CSV data available</p>;
-    }
-
     return (
-      <div className={styles.csvSimpleContainer}>
-        <div className={styles.csvSimpleBox}>
-          {csvData.map((row, index) => (
-            <div key={index} className={styles.csvSimpleLine}>
-              {row.key},{row.value}
+      <div className={styles.csvEditorContainer}>
+        <div className={styles.csvEditorHeader}>
+          <h5>Edit CSV: {filename}</h5>
+          <div className={styles.csvEditorControls}>
+            <button 
+              className={styles.csvEditorButton}
+              onClick={addRow}
+              title="Add new row"
+            >
+              ➕ Add Row
+            </button>
+            <button 
+              className={styles.csvEditorButton}
+              onClick={handleSave}
+              disabled={loading}
+              title="Save changes"
+            >
+              💾 Save
+            </button>
+            <button 
+              className={styles.csvEditorButton}
+              onClick={onCancel}
+              title="Cancel editing"
+            >
+              ✕ Cancel
+            </button>
+          </div>
+        </div>
+        
+        <div className={styles.csvEditorContent}>
+          <div className={styles.csvEditorTable}>
+            <div className={styles.csvEditorRow}>
+              <div className={styles.csvEditorCell}>Key</div>
+              <div className={styles.csvEditorCell}>Value</div>
+              <div className={styles.csvEditorCell}>Actions</div>
             </div>
-          ))}
+            {editData.map((row, index) => (
+              <div key={index} className={styles.csvEditorRow}>
+                <input
+                  className={styles.csvEditorInput}
+                  type="text"
+                  value={row.key}
+                  onChange={(e) => handleRowChange(index, 'key', e.target.value)}
+                  placeholder="Enter key"
+                />
+                <input
+                  className={styles.csvEditorInput}
+                  type="text"
+                  value={row.value}
+                  onChange={(e) => handleRowChange(index, 'value', e.target.value)}
+                  placeholder="Enter value"
+                />
+                <button
+                  className={styles.csvEditorRemoveButton}
+                  onClick={() => removeRow(index)}
+                  title="Remove this row"
+                >
+                  🗑️
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     );
@@ -743,11 +1137,19 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
                         >
                           Preview
                         </button>
+
                         <button 
                           className={styles.editingButton}
                           onClick={() => handleFileEdit(file)}
                         >
                           Editing
+                        </button>
+                        <button 
+                          className={styles.deleteButton}
+                          onClick={() => handleFileDelete(file)}
+                          title="Delete this file"
+                        >
+                          🗑️
                         </button>
                       </div>
                     </div>
@@ -786,9 +1188,31 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
                        </div>
                                            ) : selectedFile.type === 'csv' ? (
                       <div className={styles.csvPreview}>
-                        <div className={styles.csvPreviewContent}>
-                          <CSVPreview userId={userId} filename={selectedFile.name} />
-                        </div>
+                        {csvEditMode ? (
+                          <div className={styles.csvPreviewContent}>
+                            <CSVEditor 
+                              userId={userId} 
+                              filename={selectedFile.name}
+                              onSave={() => {
+                                setCsvEditMode(false);
+                                loadDatasets(); // Refresh to show updated data
+                              }}
+                              onCancel={() => setCsvEditMode(false)}
+                            />
+                          </div>
+                        ) : (
+                          <div className={styles.csvPreviewContent}>
+                            <CSVPreview userId={userId} filename={selectedFile.name} />
+                            <div className={styles.csvPreviewActions}>
+                              <button 
+                                className={styles.csvEditButton}
+                                onClick={() => setCsvEditMode(true)}
+                              >
+                                ✏️ Edit CSV
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                      ) : (
                       <div className={styles.filePreviewFallback}>
@@ -806,7 +1230,7 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
                        <p>Select a file from the dataset to preview its contents</p>
                        <div className={styles.previewInstructions}>
                          <p>• Click <strong>Preview</strong> on any file to view its contents</p>
-                         <p>• Use <strong>Download</strong> to save files to your device</p>
+                         <p>• Click <strong>Editing</strong> on CSV files to modify their content</p>
                          <p>• Supported formats: Images (JPG/PNG), CSV data files</p>
                        </div>
                      </div>
@@ -915,9 +1339,9 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
             dataTypeVisible ? styles.refreshButtonRight : styles.refreshButtonLeft
           }`}
           onClick={handleRefresh}
-          disabled={loading || datasetLoading}
+          disabled={loading || datasetLoading || isRefreshing}
         >
-          {loading || datasetLoading ? 'Refreshing...' : 'Refresh Data'}
+          {loading || datasetLoading || isRefreshing ? 'Refreshing...' : 'Refresh Data'}
         </button>
       </div>
       

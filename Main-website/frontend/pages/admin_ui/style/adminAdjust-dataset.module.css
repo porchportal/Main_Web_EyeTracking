@@ -1191,7 +1191,8 @@
 }
 
 .previewButton,
-.downloadButton {
+.downloadButton,
+.deleteButton {
   padding: 0.4rem 0.8rem;
   border: none;
   border-radius: 4px;
@@ -1217,6 +1218,155 @@
 
 .downloadButton:hover {
   background: #5a6268;
+}
+
+.deleteButton {
+  background: #dc3545;
+  color: white;
+  padding: 0.4rem 0.6rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  min-width: 2.5rem;
+  text-align: center;
+}
+
+.deleteButton:hover {
+  background: #c82333;
+}
+
+/* CSV Editor Styles */
+.csvEditorContainer {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.csvEditorHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.csvEditorHeader h5 {
+  margin: 0;
+  color: #495057;
+}
+
+.csvEditorControls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.csvEditorButton {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  background: #007bff;
+  color: white;
+}
+
+.csvEditorButton:hover {
+  background: #0056b3;
+}
+
+.csvEditorButton:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.csvEditorContent {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.csvEditorTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.csvEditorRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.csvEditorRow:first-child {
+  font-weight: 600;
+  background: #e9ecef;
+  border-radius: 4px;
+}
+
+.csvEditorCell {
+  padding: 0.25rem;
+}
+
+.csvEditorInput {
+  width: 100%;
+  padding: 0.4rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+.csvEditorInput:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.csvEditorRemoveButton {
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+  font-size: 0.7rem;
+  transition: all 0.3s ease;
+}
+
+.csvEditorRemoveButton:hover {
+  background: #c82333;
+}
+
+.csvPreviewActions {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.csvEditButton {
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+.csvEditButton:hover {
+  background: #218838;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(40, 167, 69, 0.4);
 }
 
 .editingButton {
