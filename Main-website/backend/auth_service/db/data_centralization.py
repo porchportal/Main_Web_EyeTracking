@@ -48,7 +48,7 @@ class UserSettings(BaseModel):
     # order_click: str = ""
 
     # --- assets (multiple paths) ---
-    image_background_paths: List[str] = Field(default_factory=list)
+    image_background_paths: List[str] = Field(default_factory=lambda: ["[1]-/backgrounds/default.jpg"])
 
     # --- system control ---
     public_data_access: bool = False

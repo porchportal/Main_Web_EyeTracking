@@ -12,6 +12,7 @@ import DragDropPriorityList from './adminDrag&Drop';
 import AdminCanvaConfig from './adminCanvaConfig';
 import AdminAdjustDataset from './adminAdjust-dataset';
 import NotiMessage from './notiMessage';
+import CanvasImageOrder from './CanvasImageOrder';
 import { useRouter } from 'next/router';
 
 
@@ -81,6 +82,12 @@ export default function AdminPage({ initialSettings }) {
   const [systemControlsVisible, setSystemControlsVisible] = useState(false);
   const [systemControlsAnimating, setSystemControlsAnimating] = useState(false);
   const [showDataPreview, setShowDataPreview] = useState(false);
+  const [showCanvasImageOrder, setShowCanvasImageOrder] = useState(false);
+
+  // Debug effect to track modal state changes
+  useEffect(() => {
+    console.log('showCanvasImageOrder state changed:', showCanvasImageOrder);
+  }, [showCanvasImageOrder]);
 
   // Check authentication on page load
   useEffect(() => {
@@ -873,6 +880,89 @@ export default function AdminPage({ initialSettings }) {
     }
   };
 
+  // Function to handle canvas image order save
+  const handleCanvasImageOrderSave = async (newOrderObject, imageBackgroundPaths) => {
+    if (!selectedUserId || selectedUserId === 'default') {
+      throw new Error('Please select a user ID before saving image order!');
+    }
+
+    try {
+      // Convert the new order object to the format expected by the backend
+      // The new format includes times, but we need to maintain backward compatibility
+      const convertedOrderObject = {};
+      Object.entries(newOrderObject).forEach(([key, value]) => {
+        if (typeof value === 'object' && value.path) {
+          // New format with times property
+          convertedOrderObject[key] = value.path;
+          // Store times separately if needed
+          convertedOrderObject[`${key}_times`] = value.times || 1;
+        } else {
+          // Backward compatibility - just the path
+          convertedOrderObject[key] = value;
+        }
+      });
+
+      // Update local state with the new order and image_background_paths
+      setTempSettings(prev => ({
+        ...prev,
+        [selectedUserId]: {
+          ...prev[selectedUserId],
+          image_pdf_canva: convertedOrderObject,
+          image_background_paths: imageBackgroundPaths || []
+        }
+      }));
+
+      // Save to data center
+      const currentSettings = tempSettings[selectedUserId] || {};
+      const updatedSettings = {
+        ...currentSettings,
+        image_pdf_canva: convertedOrderObject,
+        image_background_paths: imageBackgroundPaths || []
+      };
+
+      const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updatedSettings)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save image order to data center');
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to save image order');
+      }
+
+      // Update settings through the hook
+      updateSettings(updatedSettings, selectedUserId);
+
+      // Dispatch event for components to listen to
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('imageOrderUpdate', {
+          detail: {
+            type: 'imageOrder',
+            userId: selectedUserId,
+            imageOrder: convertedOrderObject,
+            imageBackgroundPaths: imageBackgroundPaths
+          }
+        });
+        window.dispatchEvent(event);
+      }
+
+      // Log the saved image_background_paths for debugging
+      console.log('Saved image_background_paths:', imageBackgroundPaths);
+
+    } catch (error) {
+      console.error('Error saving canvas image order:', error);
+      throw error;
+    }
+  };
+
   // Function to delete canvas images
   const handleDeleteCanvasImage = async (imageKey, imagePath) => {
     if (!selectedUserId || !imagePath) {
@@ -1543,6 +1633,27 @@ export default function AdminPage({ initialSettings }) {
                           );
                         })}
                     </div>
+                    
+                    {/* Show image_background_paths array format */}
+                    {tempSettings[selectedUserId]?.image_background_paths && 
+                     Array.isArray(tempSettings[selectedUserId].image_background_paths) && 
+                     tempSettings[selectedUserId].image_background_paths.length > 0 && (
+                      <div className={styles.imageList} style={{ marginTop: '15px', padding: '10px', backgroundColor: '#f8f9fa', borderRadius: '5px' }}>
+                        <p style={{ fontWeight: 'bold', color: '#495057', marginBottom: '10px' }}>
+                          image_background_paths Array:
+                        </p>
+                        {tempSettings[selectedUserId].image_background_paths.map((path, index) => (
+                          <div key={index} style={{ 
+                            padding: '5px 0', 
+                            borderBottom: index < tempSettings[selectedUserId].image_background_paths.length - 1 ? '1px solid #dee2e6' : 'none',
+                            fontFamily: 'monospace',
+                            fontSize: '13px'
+                          }}>
+                            <strong>{index}:</strong> "{path}"
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 
@@ -1594,27 +1705,40 @@ export default function AdminPage({ initialSettings }) {
                 )}
               </div>
               <div className={styles.settingItemNoBg} style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'flex-start' }}>
-                <button
-                  onClick={() => {
-                    // Handle reorder priorities functionality
-                    if (typeof window !== 'undefined' && window.showNotification) {
-                      window.showNotification('Reorder Priorities functionality coming soon!', 'info');
-                    } else {
-                      alert('Reorder Priorities functionality coming soon!');
-                    }
-                  }}
-                  className={styles.reorderButton}
-                  disabled={!selectedUserId}
-                >
-                  🔄 Reorder Priorities
-                </button>
-                
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                   <button
-                    onClick={handleSaveSettings}
+                    onClick={() => {
+                      // Debug logging
+                      console.log('Save Settings clicked');
+                      console.log('selectedUserId:', selectedUserId);
+                      console.log('tempSettings[selectedUserId]:', tempSettings[selectedUserId]);
+                      console.log('image_pdf_canva:', tempSettings[selectedUserId]?.image_pdf_canva);
+                      
+                      // Check if there are canvas images to reorder
+                      const hasCanvasImages = tempSettings[selectedUserId]?.image_pdf_canva && 
+                        typeof tempSettings[selectedUserId].image_pdf_canva === 'object' && 
+                        Object.keys(tempSettings[selectedUserId].image_pdf_canva).length > 0;
+                      
+                      console.log('hasCanvasImages:', hasCanvasImages);
+                      
+                      if (hasCanvasImages) {
+                        // Show canvas image order modal
+                        console.log('Opening CanvasImageOrder modal');
+                        setShowCanvasImageOrder(true);
+                      } else {
+                        // No canvas images, just save settings normally
+                        console.log('No canvas images, saving settings normally');
+                        handleSaveSettings();
+                      }
+                    }}
                     className={styles.saveButton}
+                    disabled={!selectedUserId}
                   >
-                    Save Settings
+                    {tempSettings[selectedUserId]?.image_pdf_canva && 
+                     typeof tempSettings[selectedUserId].image_pdf_canva === 'object' && 
+                     Object.keys(tempSettings[selectedUserId].image_pdf_canva).length > 0 
+                     ? 'Reorder & Save Images' 
+                     : 'Save Settings'}
                   </button>
                   
                   {/* Show "Show All Images" button if there are images */}
@@ -1852,6 +1976,17 @@ export default function AdminPage({ initialSettings }) {
             onClose={() => setShowCanvaConfig(false)}
             userId={selectedUserId}
             existingImages={tempSettings[selectedUserId]?.image_pdf_canva || {}}
+          />
+        )}
+
+        {/* Canvas Image Order Modal */}
+        {showCanvasImageOrder && (
+          <CanvasImageOrder
+            isOpen={showCanvasImageOrder}
+            onClose={() => setShowCanvasImageOrder(false)}
+            userId={selectedUserId}
+            currentImages={tempSettings[selectedUserId]?.image_pdf_canva || {}}
+            onOrderSave={handleCanvasImageOrderSave}
           />
         )}
 
