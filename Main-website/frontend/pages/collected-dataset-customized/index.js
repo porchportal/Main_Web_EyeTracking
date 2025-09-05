@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle, us
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
 import TopBar from './components-gui/topBar';
-import DisplayResponse from './components-gui/displayResponse';
+import DisplayResponse from './components-gui/displayResponse.jsx';
 import NotificationMessage from './components-gui/noti_message';
 import { useCanvasImage } from './components-gui/CanvasImage';
 import { showCapturePreview, drawRedDot, getRandomPosition, createCountdownElement, runCountdown } from '../../components/collected-dataset-customized/Action/countSave.jsx';
