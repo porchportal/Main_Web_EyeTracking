@@ -13,8 +13,6 @@ const CanvasImageOrder = ({
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Debug logging
-  console.log('CanvasImageOrder props:', { isOpen, userId, currentImages });
 
   // Initialize image order when component opens or images change
   useEffect(() => {
@@ -229,15 +227,10 @@ const CanvasImageOrder = ({
                 // Convert backend path to frontend accessible URL
                 let imageUrl;
                 if (image.path.startsWith('/canvas/')) {
-                  const protocol = window.location.protocol;
-                  const hostname = window.location.hostname;
-                  const currentPort = window.location.port;
-                  
-                  if (currentPort && currentPort !== '80') {
-                    imageUrl = `${protocol}//${hostname}:80${image.path}`;
-                  } else {
-                    imageUrl = image.path;
-                  }
+                  // For canvas images, construct the correct URL using backend API
+                  const filename = image.path.replace('/canvas/', '');
+                  // Use the backend API endpoint to serve canvas images
+                  imageUrl = `/api/admin/canvas-image/${filename}`;
                 } else {
                   imageUrl = image.path;
                 }

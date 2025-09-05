@@ -179,10 +179,23 @@ export default function AdminPage({ initialSettings }) {
   // Add this effect to sync settings with adminSettings hook
   useEffect(() => {
     if (selectedUserId && settings[selectedUserId]) {
-      setTempSettings(prev => ({
-        ...prev,
-        [selectedUserId]: settings[selectedUserId]
-      }));
+      setTempSettings(prev => {
+        const currentUserSettings = prev[selectedUserId] || {};
+        const newSettings = settings[selectedUserId];
+        
+        // Preserve canvas images when syncing settings
+        return {
+          ...prev,
+          [selectedUserId]: {
+            ...newSettings,
+            // Preserve canvas images if they exist
+            image_pdf_canva: currentUserSettings.image_pdf_canva || newSettings.image_pdf_canva,
+            image_path: currentUserSettings.image_path || newSettings.image_path,
+            updateImage: currentUserSettings.updateImage || newSettings.updateImage,
+            image_background_paths: currentUserSettings.image_background_paths || newSettings.image_background_paths
+          }
+        };
+      });
     }
   }, [settings, selectedUserId]);
 
@@ -229,8 +242,10 @@ export default function AdminPage({ initialSettings }) {
         [selectedUserId]: settingsToSave
       }));
 
-      // Update settings through the hook
-      updateSettings(settingsToSave, selectedUserId);
+      // Don't call updateSettings here as it will fetch fresh data from backend
+      // which doesn't include canvas images, causing them to disappear
+      // The tempSettings already contains the canvas images, so they will be preserved
+      // updateSettings(selectedUserId);
 
       // Show success notification
       window.showNotification('Settings saved successfully to data center!', 'success');
@@ -527,7 +542,7 @@ export default function AdminPage({ initialSettings }) {
 
       // Remove from settings context if it exists
       if (settings && settings[deleteTarget]) {
-        updateSettings(null, deleteTarget);
+        updateSettings(deleteTarget);
       }
 
       // Clear any related cookies for this user
@@ -701,6 +716,8 @@ export default function AdminPage({ initialSettings }) {
   // Update the user selection handler
   const handleUserSelect = async (e) => {
     const newUserId = e.target.value;
+    console.log('User selected:', newUserId);
+    console.log('Available users from consent data:', consentData.map(d => d.userId));
     setSelectedUserId(newUserId);
     
     if (newUserId) {
@@ -713,9 +730,14 @@ export default function AdminPage({ initialSettings }) {
           }
         });
 
+        let userSettings = {};
+        
         if (response.ok) {
           const result = await response.json();
-          const userSettings = result.data || {};
+          userSettings = result.data || {};
+          
+          console.log('Data center settings loaded for user:', newUserId, userSettings);
+          console.log('image_background_paths from data center:', userSettings.image_background_paths);
           
           // Update tempSettings with data center data (backend already provides defaults)
           setTempSettings(prev => ({
@@ -724,7 +746,7 @@ export default function AdminPage({ initialSettings }) {
           }));
 
           // Update settings through the hook
-          updateSettings(userSettings, newUserId);
+          updateSettings(newUserId);
           
           // Update system control states
           setPublicAccessEnabled(userSettings.public_data_access || false);
@@ -739,7 +761,7 @@ export default function AdminPage({ initialSettings }) {
           }));
           
           // Update settings through the hook (will be populated when user interacts)
-          updateSettings({}, newUserId);
+          updateSettings(newUserId);
           
           // Initialize system controls to false for new users
           setPublicAccessEnabled(false);
@@ -766,33 +788,103 @@ export default function AdminPage({ initialSettings }) {
                 canvasImages[`image_${index + 1}`] = imagePath;
               });
               
-              // Update tempSettings with canvas images
-              setTempSettings(prev => ({
-                ...prev,
-                [newUserId]: {
-                  ...prev[newUserId],
-                  image_pdf_canva: canvasImages
-                }
-              }));
-              
-              // Also update the primary image if none exists
-              if (!tempSettings[newUserId]?.image_path || 
-                  tempSettings[newUserId].image_path === "/asfgrebvxcv" || 
-                  tempSettings[newUserId].image_path === "") {
-                const firstImagePath = canvasImages['image_1'];
-                if (firstImagePath) {
-                  setTempSettings(prev => ({
-                    ...prev,
-                    [newUserId]: {
-                      ...prev[newUserId],
-                      image_path: firstImagePath,
-                      updateImage: firstImagePath.split('/').pop()
+              // Merge canvas images with data center image_background_paths if available
+              let mergedCanvasImages = { ...canvasImages };
+              console.log('Admin.js: Original canvas images:', canvasImages);
+              console.log('Admin.js: image_background_paths:', userSettings.image_background_paths);
+              if (userSettings.image_background_paths && Array.isArray(userSettings.image_background_paths)) {
+                // Parse image_background_paths to extract times and merge with canvas images
+                userSettings.image_background_paths.forEach((pathWithTimes, index) => {
+                  if (pathWithTimes && typeof pathWithTimes === 'string') {
+                    // Parse format like "[10]-/Overall_porch.png" or "[10]-/canvas/Overall_porch.png"
+                    const match = pathWithTimes.match(/^\[(\d+)\]-(.+)$/);
+                    if (match) {
+                      const times = parseInt(match[1], 10);
+                      let imagePath = match[2];
+                      
+                      // Ensure the path has the /canvas/ prefix if it's a canvas image
+                      if (!imagePath.startsWith('/canvas/') && !imagePath.startsWith('http')) {
+                        imagePath = `/canvas${imagePath}`;
+                      }
+                      
+                      const imageKey = `image_${index + 1}`;
+                      
+                      // Update the canvas image with times information
+                      mergedCanvasImages[imageKey] = imagePath;
+                      mergedCanvasImages[`${imageKey}_times`] = times;
                     }
-                  }));
-                }
+                  }
+                });
               }
               
-
+              console.log('Admin.js: Final merged canvas images:', mergedCanvasImages);
+              
+              // Update tempSettings with canvas images in a single state update
+              setTempSettings(prev => {
+                const updatedSettings = {
+                  ...prev,
+                  [newUserId]: {
+                    ...userSettings,
+                    image_pdf_canva: mergedCanvasImages,
+                    // Also update the primary image if none exists
+                    image_path: userSettings.image_path && 
+                               userSettings.image_path !== "/asfgrebvxcv" && 
+                               userSettings.image_path !== "" 
+                               ? userSettings.image_path 
+                               : mergedCanvasImages['image_1'] || "",
+                    updateImage: userSettings.updateImage && 
+                                userSettings.updateImage !== "" 
+                                ? userSettings.updateImage 
+                                : (mergedCanvasImages['image_1'] ? mergedCanvasImages['image_1'].split('/').pop() : "")
+                  }
+                };
+                return updatedSettings;
+              });
+              
+              console.log('Canvas images loaded for user:', newUserId, mergedCanvasImages);
+              window.showNotification(`Canvas images loaded: ${canvasData.images.length} images found`, 'success');
+            } else {
+              console.log('No canvas images found for user:', newUserId);
+              
+              // Check if we have image_background_paths from data center even without canvas images
+              if (userSettings.image_background_paths && Array.isArray(userSettings.image_background_paths) && userSettings.image_background_paths.length > 0) {
+                // Convert image_background_paths to canvas images format
+                const canvasImagesFromDataCenter = {};
+                userSettings.image_background_paths.forEach((pathWithTimes, index) => {
+                  if (pathWithTimes && typeof pathWithTimes === 'string') {
+                    // Parse format like "[10]-/Overall_porch.png" or "[10]-/canvas/Overall_porch.png"
+                    const match = pathWithTimes.match(/^\[(\d+)\]-(.+)$/);
+                    if (match) {
+                      const times = parseInt(match[1], 10);
+                      let imagePath = match[2];
+                      
+                      // Ensure the path has the /canvas/ prefix if it's a canvas image
+                      if (!imagePath.startsWith('/canvas/') && !imagePath.startsWith('http')) {
+                        imagePath = `/canvas${imagePath}`;
+                      }
+                      
+                      const imageKey = `image_${index + 1}`;
+                      
+                      canvasImagesFromDataCenter[imageKey] = imagePath;
+                      canvasImagesFromDataCenter[`${imageKey}_times`] = times;
+                    }
+                  }
+                });
+                
+                // Update tempSettings with data center canvas images
+                setTempSettings(prev => ({
+                  ...prev,
+                  [newUserId]: {
+                    ...userSettings,
+                    image_pdf_canva: canvasImagesFromDataCenter
+                  }
+                }));
+                
+                console.log('Canvas images loaded from data center for user:', newUserId, canvasImagesFromDataCenter);
+                window.showNotification(`Canvas images loaded from data center: ${userSettings.image_background_paths.length} images found`, 'success');
+              } else {
+                window.showNotification('No canvas images found for this user', 'info');
+              }
             }
           } else if (canvasResponse.status === 401) {
             // Silent redirect without error notification
@@ -800,6 +892,7 @@ export default function AdminPage({ initialSettings }) {
             return;
           }
         } catch (canvasError) {
+          console.error('Error loading canvas images:', canvasError);
           // This is not a critical error, just log it
         }
         
@@ -814,7 +907,7 @@ export default function AdminPage({ initialSettings }) {
         }));
         
         // Update settings through the hook (will be populated when user interacts)
-        updateSettings({}, newUserId);
+        updateSettings(newUserId);
         
         // Initialize system controls to false on error
         setPublicAccessEnabled(false);
@@ -938,8 +1031,10 @@ export default function AdminPage({ initialSettings }) {
         throw new Error(result.message || 'Failed to save image order');
       }
 
-      // Update settings through the hook
-      updateSettings(updatedSettings, selectedUserId);
+      // Don't call updateSettings here as it will fetch fresh data from backend
+      // which doesn't include canvas images, causing them to disappear
+      // The tempSettings already contains the canvas images, so they will be preserved
+      // updateSettings(selectedUserId);
 
       // Dispatch event for components to listen to
       if (typeof window !== 'undefined') {
@@ -1028,7 +1123,7 @@ export default function AdminPage({ initialSettings }) {
             updatedSettings.image_path = "";
             updatedSettings.updateImage = "";
           }
-          updateSettings(updatedSettings, selectedUserId);
+          updateSettings(selectedUserId);
         }
 
         window.showNotification(`Image deleted successfully! ${result.remaining_images || 0} images remaining.`, 'success');
@@ -1083,6 +1178,62 @@ export default function AdminPage({ initialSettings }) {
             <p><small>{debugInfo}</small></p>
           </div>
         )}
+
+        {/* Debug Test Button for Canvas Images */}
+        <div style={{ margin: '10px 0', padding: '10px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '5px' }}>
+          <h4>Debug Canvas Images</h4>
+          <button 
+            onClick={async () => {
+              try {
+                const testUserId = 'f084cf66-3b92-427d-8071-28f74288719c';
+                console.log('🧪 Testing canvas images for user:', testUserId);
+                
+                const response = await fetch(`/api/admin/view-canvas-image?userId=${testUserId}`);
+                const data = await response.json();
+                
+                console.log('🧪 Test result:', data);
+                
+                if (data.success && data.images) {
+                  window.showNotification(`Test successful: Found ${data.images.length} images for ${testUserId}`, 'success');
+                } else {
+                  window.showNotification(`Test failed: ${data.error || 'No images found'}`, 'error');
+                }
+              } catch (error) {
+                console.error('🧪 Test error:', error);
+                window.showNotification(`Test error: ${error.message}`, 'error');
+              }
+            }}
+            style={{ 
+              padding: '8px 16px', 
+              backgroundColor: '#28a745', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '4px',
+              cursor: 'pointer',
+              marginRight: '10px'
+            }}
+          >
+            Test Canvas API
+          </button>
+          
+          <button 
+            onClick={() => {
+              console.log('🔍 Current tempSettings:', tempSettings);
+              console.log('🔍 Selected user ID:', selectedUserId);
+              console.log('🔍 Selected user settings:', tempSettings[selectedUserId]);
+            }}
+            style={{ 
+              padding: '8px 16px', 
+              backgroundColor: '#007bff', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Log Current State
+          </button>
+        </div>
   
 
   
@@ -1512,10 +1663,10 @@ export default function AdminPage({ initialSettings }) {
                   Choose Canvas Images
                 </button>
                 
-                {/* Show current images */}
+                {/* Show current images or no images message */}
                 {tempSettings[selectedUserId]?.image_pdf_canva && 
                  typeof tempSettings[selectedUserId].image_pdf_canva === 'object' && 
-                 Object.keys(tempSettings[selectedUserId].image_pdf_canva).length > 0 && (
+                 Object.keys(tempSettings[selectedUserId].image_pdf_canva).length > 0 ? (
                   <div className={styles.currentImages}>
                     <p>Canvas Images ({Object.entries(tempSettings[selectedUserId].image_pdf_canva)
                       .filter(([key, path]) => {
@@ -1598,20 +1749,14 @@ export default function AdminPage({ initialSettings }) {
                           // Convert backend path to frontend accessible URL
                           let imageUrl;
                           if (path.startsWith('/canvas/')) {
-                            // For canvas images, construct the correct URL
-                            const protocol = window.location.protocol;
-                            const hostname = window.location.hostname;
-                            const currentPort = window.location.port;
-                            
-                            // If we're running on a different port than nginx, use nginx port
-                            // Otherwise, use relative URL
-                            if (currentPort && currentPort !== '80') {
-                              imageUrl = `${protocol}//${hostname}:80${path}`;
-                            } else {
-                              imageUrl = path; // Use relative URL if same port
-                            }
+                            // For canvas images, construct the correct URL using backend API
+                            const filename = path.replace('/canvas/', '');
+                            // Use the backend API endpoint to serve canvas images
+                            imageUrl = `/api/admin/canvas-image/${filename}`;
+                            console.log('Admin.js: Canvas image URL:', imageUrl, 'from path:', path);
                           } else {
                             imageUrl = path;
+                            console.log('Admin.js: Direct path URL:', imageUrl);
                           }
                           
                           return (
@@ -1655,6 +1800,11 @@ export default function AdminPage({ initialSettings }) {
                       </div>
                     )}
                   </div>
+                ) : (
+                  <div className={styles.noImagesMessage}>
+                    <p>No canvas images uploaded yet for this user.</p>
+                    <p>Click "Choose Canvas Images" to upload images.</p>
+                  </div>
                 )}
                 
                 {/* Fallback for single image (backward compatibility) */}
@@ -1670,20 +1820,14 @@ export default function AdminPage({ initialSettings }) {
                                                 // Convert backend path to frontend accessible URL
                           let imageUrl;
                           if (tempSettings[selectedUserId].image_path.startsWith('/canvas/')) {
-                            // For canvas images, construct the correct URL
-                            const protocol = window.location.protocol;
-                            const hostname = window.location.hostname;
-                            const currentPort = window.location.port;
-                            
-                            // If we're running on a different port than nginx, use nginx port
-                            // Otherwise, use relative URL
-                            if (currentPort && currentPort !== '80') {
-                              imageUrl = `${protocol}//${hostname}:80${tempSettings[selectedUserId].image_path}`;
-                            } else {
-                              imageUrl = tempSettings[selectedUserId].image_path; // Use relative URL if same port
-                            }
+                            // For canvas images, construct the correct URL using backend API
+                            const filename = tempSettings[selectedUserId].image_path.replace('/canvas/', '');
+                            // Use the backend API endpoint to serve canvas images
+                            imageUrl = `/api/admin/canvas-image/${filename}`;
+                            console.log('Admin.js: Current image URL:', imageUrl, 'from path:', tempSettings[selectedUserId].image_path);
                           } else {
                             imageUrl = tempSettings[selectedUserId].image_path;
+                            console.log('Admin.js: Current image direct URL:', imageUrl);
                           }
                       
                       return (
@@ -1835,20 +1979,14 @@ export default function AdminPage({ initialSettings }) {
                                   // Convert backend path to frontend accessible URL
                                   let imageUrl;
                                   if (path.startsWith('/canvas/')) {
-                                    // For canvas images, construct the correct URL
-                                    const protocol = window.location.protocol;
-                                    const hostname = window.location.hostname;
-                                    const currentPort = window.location.port;
-                                    
-                                    // If we're running on a different port than nginx, use nginx port
-                                    // Otherwise, use relative URL
-                                    if (currentPort && currentPort !== '80') {
-                                      imageUrl = `${protocol}//${hostname}:80${path}`;
-                                    } else {
-                                      imageUrl = path; // Use relative URL if same port
-                                    }
+                                    // For canvas images, construct the correct URL using backend API
+                                    const filename = path.replace('/canvas/', '');
+                                    // Use the backend API endpoint to serve canvas images
+                                    imageUrl = `/api/admin/canvas-image/${filename}`;
+                                    console.log('Admin.js: Modal image URL:', imageUrl, 'from path:', path);
                                   } else {
                                     imageUrl = path;
+                                    console.log('Admin.js: Modal direct URL:', imageUrl);
                                   }
                                   
                                   // Check if this is a base image or variation

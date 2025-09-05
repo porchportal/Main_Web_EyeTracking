@@ -67,19 +67,10 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
                 // Use the correct URL structure for canvas images
                 let imageUrl;
                 if (path.startsWith('/canvas/')) {
-                  // For canvas images, construct the correct URL
-                  // Try to use the same hostname as the current page but with nginx port
-                  const protocol = window.location.protocol;
-                  const hostname = window.location.hostname;
-                  const currentPort = window.location.port;
-                  
-                  // If we're running on a different port than nginx, use nginx port
-                  // Otherwise, use relative URL
-                  if (currentPort && currentPort !== '80') {
-                    imageUrl = `${protocol}//${hostname}:80${path}`;
-                  } else {
-                    imageUrl = path; // Use relative URL if same port
-                  }
+                  // For canvas images, construct the correct URL using backend API
+                  const filename = path.replace('/canvas/', '');
+                  // Use the backend API endpoint to serve canvas images
+                  imageUrl = `/api/admin/canvas-image/${filename}`;
                 } else if (path.startsWith('http')) {
                   imageUrl = path;
                 } else {
