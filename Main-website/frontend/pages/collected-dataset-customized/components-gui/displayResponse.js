@@ -5,7 +5,7 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
   const [animationState, setAnimationState] = useState(isVisible ? 'visible' : 'hidden');
   
   // State for canvas dimensions
-  const [canvasDimensions, setCanvasDimensions] = useState({ width: '---', height: '---' });
+  const [canvasDimensions, setCanvasDimensions] = useState({ width: 0, height: 0 });
   
   // Update animation state when visibility changes
   useEffect(() => {
@@ -15,15 +15,53 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
   // Function to get canvas dimensions
   const getCanvasDimensions = () => {
     if (typeof window !== 'undefined') {
+      // Try to get the main canvas first
+      const mainCanvas = document.querySelector('#main-canvas');
+      if (mainCanvas) {
+        const width = mainCanvas.width;
+        const height = mainCanvas.height;
+        
+        // Only return dimensions if they're not the default 300x150
+        if (width > 300 && height > 150) {
+          return { width, height };
+        }
+        
+        // If canvas has default dimensions, try offsetWidth/offsetHeight
+        const offsetWidth = mainCanvas.offsetWidth;
+        const offsetHeight = mainCanvas.offsetHeight;
+        
+        if (offsetWidth > 300 && offsetHeight > 150) {
+          return { width: offsetWidth, height: offsetHeight };
+        }
+        
+        // If still default dimensions, return 0
+        return { width: 0, height: 0 };
+      }
+      
+      // Fallback to tracking canvas
       const canvas = document.querySelector('#tracking-canvas');
       if (canvas) {
-        return {
-          width: canvas.width || canvas.offsetWidth,
-          height: canvas.height || canvas.offsetHeight
-        };
+        const width = canvas.width;
+        const height = canvas.height;
+        
+        // Only return dimensions if they're not the default 300x150
+        if (width > 300 && height > 150) {
+          return { width, height };
+        }
+        
+        // If canvas has default dimensions, try offsetWidth/offsetHeight
+        const offsetWidth = canvas.offsetWidth;
+        const offsetHeight = canvas.offsetHeight;
+        
+        if (offsetWidth > 300 && offsetHeight > 150) {
+          return { width: offsetWidth, height: offsetHeight };
+        }
+        
+        // If still default dimensions, return 0
+        return { width: 0, height: 0 };
       }
     }
-    return { width: '---', height: '---' };
+    return { width: 0, height: 0 };
   };
   
   // Update canvas dimensions periodically
@@ -53,8 +91,9 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
   }, []);
   
   // Format values with units and handle missing values
-  const formattedWidth = canvasDimensions.width !== '---' ? canvasDimensions.width : (width || '---');
-  const formattedHeight = canvasDimensions.height !== '---' ? canvasDimensions.height : (height || '---');
+  // Only show actual canvas dimensions, not fallback values or default 300x150
+  const formattedWidth = (canvasDimensions.width > 0 && canvasDimensions.width !== 300) ? canvasDimensions.width : (width > 0 && width !== 300 ? width : 0);
+  const formattedHeight = (canvasDimensions.height > 0 && canvasDimensions.height !== 150) ? canvasDimensions.height : (height > 0 && height !== 150 ? height : 0);
   const formattedDistance = distance || '---';
   
   return (
@@ -78,7 +117,8 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
           : 'translateX(50px)',
         pointerEvents: animationState === 'visible' ? 'auto' : 'none',
         zIndex: 20,
-        display: animationState === 'hidden' ? 'none' : 'block'
+        display: animationState === 'hidden' ? 'none' : 'block',
+        width: '240px'
       }}
     >
       <div 

@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import TopBar from './components-gui/topBar';
 import DisplayResponse from './components-gui/displayResponse';
 import NotificationMessage from './components-gui/noti_message';
+import { useCanvasImage } from './components-gui/CanvasImage';
 import { showCapturePreview, drawRedDot, getRandomPosition, createCountdownElement, runCountdown } from '../../components/collected-dataset-customized/Action/countSave.jsx';
 import { captureImagesAtUserPoint } from '../../components/collected-dataset-customized/Helper/user_savefile';
 import { generateCalibrationPoints } from '../../components/collected-dataset-customized/Action/CalibratePoints.jsx';
@@ -199,7 +200,7 @@ class GlobalCanvasManager {
     canvas.width = windowWidth;
     canvas.height = windowHeight;
 
-    // Initialize with yellow background
+    // Initialize with yellow background (will be overridden by canvas image manager if needed)
     this.clearCanvas(canvas);
   }
 
@@ -208,10 +209,26 @@ class GlobalCanvasManager {
     const targetCanvas = canvas || this.getCanvas();
     if (!targetCanvas) return;
     
-    const ctx = targetCanvas.getContext('2d');
-    ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-    ctx.fillStyle = 'yellow';
-    ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+    // If we have a canvas image manager, use it to set yellow background
+    if (this.canvasImageManager) {
+      this.canvasImageManager.setYellowBackground();
+    } else {
+      // Fallback to direct canvas manipulation
+      const ctx = targetCanvas.getContext('2d');
+      ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+      ctx.fillStyle = 'yellow';
+      ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+    }
+  }
+
+  // Set canvas image manager reference
+  setCanvasImageManager(manager) {
+    this.canvasImageManager = manager;
+  }
+
+  // Get canvas image manager
+  getCanvasImageManager() {
+    return this.canvasImageManager;
   }
 
   // Set up global references
@@ -241,7 +258,14 @@ class GlobalCanvasManager {
 
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    this.clearCanvas(canvas);
+    
+    // If we have a canvas image manager, let it handle the resize
+    if (this.canvasImageManager) {
+      this.canvasImageManager.handleResize();
+    } else {
+      // Fallback to clearing canvas with yellow background
+      this.clearCanvas(canvas);
+    }
   }
 
   // Show UI elements (used by action handlers)
@@ -330,7 +354,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const [availableCameras, setAvailableCameras] = useState([]);
   const [selectedCameras, setSelectedCameras] = useState([]);
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0, percentage: 100 });
-  const [metrics, setMetrics] = useState({ width: '---', height: '---', distance: '---' });
+  const [metrics, setMetrics] = useState({ width: 0, height: 0, distance: '---' });
   const [captureCounter, setCaptureCounter] = useState(1);
   const [captureFolder, setCaptureFolder] = useState('');
   const [currentUserId, setCurrentUserId] = useState('default');
@@ -634,6 +658,14 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     return manager;
   }, []);
 
+  // Canvas image management hook
+  const canvas = canvasManager.getCanvas();
+  const {
+    canvasImageManager,
+    showNotification: showCanvasNotification,
+    notificationMessage: canvasNotificationMessage
+  } = useCanvasImage(canvas, currentUserId, settings, adminCurrentUserId);
+
   // Simplified canvas utilities - only essential functions
   const canvasUtils = useMemo(() => ({
     // Get or create canvas
@@ -655,20 +687,27 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     }
   }), [canvasManager]);
 
-  // Make canvas utilities globally available
+  // Make canvas utilities globally available and integrate canvas image manager
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.canvasUtils = canvasUtils;
       window.canvasManager = canvasManager;
+      
+      // Integrate canvas image manager with canvas manager
+      if (canvasImageManager) {
+        canvasManager.setCanvasImageManager(canvasImageManager);
+        window.canvasImageManager = canvasImageManager;
+      }
     }
     
     return () => {
       if (typeof window !== 'undefined') {
         delete window.canvasUtils;
         delete window.canvasManager;
+        delete window.canvasImageManager;
       }
     };
-  }, [canvasUtils, canvasManager]);
+  }, [canvasUtils, canvasManager, canvasImageManager]);
 
   // Set hydrated state after mount and fetch initial settings
   useEffect(() => {
@@ -923,7 +962,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     }
   }, [isHydrated]);
 
-  // Update window size
+  // Update window size and canvas dimensions
   useEffect(() => {
     const updateDimensions = () => {
       if (previewAreaRef.current) {
@@ -931,7 +970,26 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         const height = previewAreaRef.current.offsetHeight;
         const screenPercentage = (window.innerWidth / window.screen.width) * 100;
         
-        setMetrics(prev => ({ ...prev, width, height }));
+        // Get actual canvas dimensions
+        const canvas = canvasManager.getCanvas();
+        const canvasWidth = canvas ? canvas.width : 0;
+        const canvasHeight = canvas ? canvas.height : 0;
+        
+        // Only update metrics if we have valid canvas dimensions
+        if (canvasWidth > 0 && canvasHeight > 0) {
+          setMetrics(prev => ({ 
+            ...prev, 
+            width: canvasWidth, 
+            height: canvasHeight 
+          }));
+        } else {
+          // Keep current metrics or set to 0 if no valid canvas
+          setMetrics(prev => ({ 
+            ...prev, 
+            width: prev.width > 0 ? prev.width : 0, 
+            height: prev.height > 0 ? prev.height : 0 
+          }));
+        }
         setWindowSize({
           width: window.innerWidth,
           height: window.innerHeight,
@@ -970,6 +1028,17 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       canvas.style.width = '100vw';
       canvas.style.height = '100vh';
       canvas.style.zIndex = '0';
+      
+      // Set canvas dimensions to actual window size
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      
+      // Update metrics with actual canvas dimensions
+      setMetrics(prev => ({
+        ...prev,
+        width: canvas.width,
+        height: canvas.height
+      }));
     }
     
     return () => {
@@ -1767,6 +1836,18 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             z-index: 0 !important;
             background-color: yellow !important;
           }
+          
+          /* Canvas notification animation */
+          @keyframes slideInFromRight {
+            from {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
         `}</style>
       </Head>
       
@@ -1781,6 +1862,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         cameraNotificationMessage={cameraNotificationMessage}
         showCountdown={showCountdown}
         countdownValue={countdownValue}
+        showCanvasNotification={showCanvasNotification}
+        canvasNotificationMessage={canvasNotificationMessage}
       />
 
       {isLoading ? (
@@ -1963,8 +2046,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           {isHydrated && (
             <DisplayResponse 
               key={`metrics-${showMetrics}`}
-              width={canvasManager.getDimensions().width} 
-              height={canvasManager.getDimensions().height} 
+              width={metrics.width} 
+              height={metrics.height} 
               distance={metrics.distance}
               isVisible={showMetrics}
             />
