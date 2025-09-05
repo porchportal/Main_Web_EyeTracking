@@ -790,8 +790,6 @@ export default function AdminPage({ initialSettings }) {
               
               // Merge canvas images with data center image_background_paths if available
               let mergedCanvasImages = { ...canvasImages };
-              console.log('Admin.js: Original canvas images:', canvasImages);
-              console.log('Admin.js: image_background_paths:', userSettings.image_background_paths);
               if (userSettings.image_background_paths && Array.isArray(userSettings.image_background_paths)) {
                 // Parse image_background_paths to extract times and merge with canvas images
                 userSettings.image_background_paths.forEach((pathWithTimes, index) => {
@@ -817,8 +815,6 @@ export default function AdminPage({ initialSettings }) {
                 });
               }
               
-              console.log('Admin.js: Final merged canvas images:', mergedCanvasImages);
-              
               // Update tempSettings with canvas images in a single state update
               setTempSettings(prev => {
                 const updatedSettings = {
@@ -841,11 +837,8 @@ export default function AdminPage({ initialSettings }) {
                 return updatedSettings;
               });
               
-              console.log('Canvas images loaded for user:', newUserId, mergedCanvasImages);
               window.showNotification(`Canvas images loaded: ${canvasData.images.length} images found`, 'success');
             } else {
-              console.log('No canvas images found for user:', newUserId);
-              
               // Check if we have image_background_paths from data center even without canvas images
               if (userSettings.image_background_paths && Array.isArray(userSettings.image_background_paths) && userSettings.image_background_paths.length > 0) {
                 // Convert image_background_paths to canvas images format
@@ -880,7 +873,6 @@ export default function AdminPage({ initialSettings }) {
                   }
                 }));
                 
-                console.log('Canvas images loaded from data center for user:', newUserId, canvasImagesFromDataCenter);
                 window.showNotification(`Canvas images loaded from data center: ${userSettings.image_background_paths.length} images found`, 'success');
               } else {
                 window.showNotification('No canvas images found for this user', 'info');
@@ -1179,61 +1171,6 @@ export default function AdminPage({ initialSettings }) {
           </div>
         )}
 
-        {/* Debug Test Button for Canvas Images */}
-        <div style={{ margin: '10px 0', padding: '10px', backgroundColor: '#f8f9fa', border: '1px solid #dee2e6', borderRadius: '5px' }}>
-          <h4>Debug Canvas Images</h4>
-          <button 
-            onClick={async () => {
-              try {
-                const testUserId = 'f084cf66-3b92-427d-8071-28f74288719c';
-                console.log('🧪 Testing canvas images for user:', testUserId);
-                
-                const response = await fetch(`/api/admin/view-canvas-image?userId=${testUserId}`);
-                const data = await response.json();
-                
-                console.log('🧪 Test result:', data);
-                
-                if (data.success && data.images) {
-                  window.showNotification(`Test successful: Found ${data.images.length} images for ${testUserId}`, 'success');
-                } else {
-                  window.showNotification(`Test failed: ${data.error || 'No images found'}`, 'error');
-                }
-              } catch (error) {
-                console.error('🧪 Test error:', error);
-                window.showNotification(`Test error: ${error.message}`, 'error');
-              }
-            }}
-            style={{ 
-              padding: '8px 16px', 
-              backgroundColor: '#28a745', 
-              color: 'white', 
-              border: 'none', 
-              borderRadius: '4px',
-              cursor: 'pointer',
-              marginRight: '10px'
-            }}
-          >
-            Test Canvas API
-          </button>
-          
-          <button 
-            onClick={() => {
-              console.log('🔍 Current tempSettings:', tempSettings);
-              console.log('🔍 Selected user ID:', selectedUserId);
-              console.log('🔍 Selected user settings:', tempSettings[selectedUserId]);
-            }}
-            style={{ 
-              padding: '8px 16px', 
-              backgroundColor: '#007bff', 
-              color: 'white', 
-              border: 'none', 
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            Log Current State
-          </button>
-        </div>
   
 
   
@@ -1670,9 +1607,10 @@ export default function AdminPage({ initialSettings }) {
                   <div className={styles.currentImages}>
                     <p>Canvas Images ({Object.entries(tempSettings[selectedUserId].image_pdf_canva)
                       .filter(([key, path]) => {
-                        // Filter out non-image entries (like user IDs)
+                        // Filter out non-image entries (like user IDs) and default backgrounds
                         return path && 
                                typeof path === 'string' && 
+                               !path.includes('/backgrounds/default.jpg') && // Exclude default background
                                (path.startsWith('/canvas/') || 
                                 path.startsWith('http') || 
                                 path.includes('.jpg') || 
@@ -1682,34 +1620,16 @@ export default function AdminPage({ initialSettings }) {
                                 path.includes('.webp'));
                       }).length}):</p>
                     
-                    {/* Show image previews grid */}
-                    {/* <div className={styles.imagePreviewGrid}>
-                      {Object.entries(tempSettings[selectedUserId].image_pdf_canva).map(([key, path], index) => (
-                        <div key={key} className={styles.imagePreviewItem}>
-                          <img 
-                            src={path} 
-                            alt={`Image ${index + 1}`} 
-                            className={styles.imagePreviewThumbnail}
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextSibling.style.display = 'block';
-                            }}
-                          />
-                          <p className={styles.imageError} style={{ display: 'none', color: '#dc3545', fontSize: '0.8rem' }}>
-                            Image not found
-                          </p>
-                          <p className={styles.imagePreviewName}>{key}</p>
-                        </div>
-                      ))}
-                    </div> */}
+
                     
                     {/* Show "Show All Images" button if more than 1 image */}
                     {(() => {
                       const actualImageCount = Object.entries(tempSettings[selectedUserId].image_pdf_canva)
                         .filter(([key, path]) => {
-                          // Filter out non-image entries (like user IDs)
+                          // Filter out non-image entries (like user IDs) and default backgrounds
                           return path && 
                                  typeof path === 'string' && 
+                                 !path.includes('/backgrounds/default.jpg') && // Exclude default background
                                  (path.startsWith('/canvas/') || 
                                   path.startsWith('http') || 
                                   path.includes('.jpg') || 
@@ -1727,10 +1647,11 @@ export default function AdminPage({ initialSettings }) {
                       <p>Canvas Image Paths:</p>
                       {Object.entries(tempSettings[selectedUserId].image_pdf_canva)
                         .filter(([key, path]) => {
-                          // Filter out non-image entries (like user IDs)
+                          // Filter out non-image entries (like user IDs) and default backgrounds
                           // Only show entries that have image-like paths
                           return path && 
                                  typeof path === 'string' && 
+                                 !path.includes('/backgrounds/default.jpg') && // Exclude default background
                                  (path.startsWith('/canvas/') || 
                                   path.startsWith('http') || 
                                   path.includes('.jpg') || 
@@ -1753,10 +1674,8 @@ export default function AdminPage({ initialSettings }) {
                             const filename = path.replace('/canvas/', '');
                             // Use the backend API endpoint to serve canvas images
                             imageUrl = `/api/admin/canvas-image/${filename}`;
-                            console.log('Admin.js: Canvas image URL:', imageUrl, 'from path:', path);
                           } else {
                             imageUrl = path;
-                            console.log('Admin.js: Direct path URL:', imageUrl);
                           }
                           
                           return (
@@ -1824,10 +1743,8 @@ export default function AdminPage({ initialSettings }) {
                             const filename = tempSettings[selectedUserId].image_path.replace('/canvas/', '');
                             // Use the backend API endpoint to serve canvas images
                             imageUrl = `/api/admin/canvas-image/${filename}`;
-                            console.log('Admin.js: Current image URL:', imageUrl, 'from path:', tempSettings[selectedUserId].image_path);
                           } else {
                             imageUrl = tempSettings[selectedUserId].image_path;
-                            console.log('Admin.js: Current image direct URL:', imageUrl);
                           }
                       
                       return (
@@ -1889,9 +1806,10 @@ export default function AdminPage({ initialSettings }) {
                   {(() => {
                     const actualImageCount = Object.entries(tempSettings[selectedUserId]?.image_pdf_canva || {})
                       .filter(([key, path]) => {
-                        // Filter out non-image entries (like user IDs)
+                        // Filter out non-image entries (like user IDs) and default backgrounds
                         return path && 
                                typeof path === 'string' && 
+                               !path.includes('/backgrounds/default.jpg') && // Exclude default background
                                (path.startsWith('/canvas/') || 
                                 path.startsWith('http') || 
                                 path.includes('.jpg') || 
@@ -1908,9 +1826,10 @@ export default function AdminPage({ initialSettings }) {
                           const allImages = tempSettings[selectedUserId].image_pdf_canva;
                           const imageEntries = Object.entries(allImages)
                             .filter(([key, path]) => {
-                              // Filter out non-image entries (like user IDs)
+                              // Filter out non-image entries (like user IDs) and default backgrounds
                               return path && 
                                      typeof path === 'string' && 
+                                     !path.includes('/backgrounds/default.jpg') && // Exclude default background
                                      (path.startsWith('/canvas/') || 
                                       path.startsWith('http') || 
                                       path.includes('.jpg') || 
@@ -1983,10 +1902,8 @@ export default function AdminPage({ initialSettings }) {
                                     const filename = path.replace('/canvas/', '');
                                     // Use the backend API endpoint to serve canvas images
                                     imageUrl = `/api/admin/canvas-image/${filename}`;
-                                    console.log('Admin.js: Modal image URL:', imageUrl, 'from path:', path);
                                   } else {
                                     imageUrl = path;
-                                    console.log('Admin.js: Modal direct URL:', imageUrl);
                                   }
                                   
                                   // Check if this is a base image or variation
