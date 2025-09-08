@@ -440,6 +440,46 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const [calibrationHandler, setCalibrationHandler] = useState(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
+  
+  // Track clicked buttons for OrderRequire component
+  const [clickedButtons, setClickedButtons] = useState(new Set());
+  
+  // Function to track button clicks
+  const trackButtonClick = useCallback((buttonName) => {
+    setClickedButtons(prev => {
+      const newSet = new Set([...prev, buttonName]);
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('clickedButtons', JSON.stringify(Array.from(newSet)));
+      }
+      return newSet;
+    });
+  }, []);
+  
+  // Function to clear clicked buttons (useful for resetting progress)
+  const clearClickedButtons = useCallback(() => {
+    setClickedButtons(new Set());
+    // Clear from localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('clickedButtons');
+    }
+  }, []);
+  
+  // Function to load clicked buttons from localStorage
+  const loadClickedButtonsFromStorage = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('clickedButtons');
+        if (stored) {
+          const buttonArray = JSON.parse(stored);
+          return new Set(buttonArray);
+        }
+      } catch (error) {
+        console.warn('Error loading clicked buttons from localStorage:', error);
+      }
+    }
+    return new Set();
+  }, []);
 
   // Refs
   const previewAreaRef = useRef(null);
@@ -843,6 +883,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     if (typeof window !== 'undefined') {
       localStorage.removeItem('cameraActivated');
       localStorage.removeItem('cameraActivationTime');
+      
+      // Load clicked buttons from localStorage
+      const storedClickedButtons = loadClickedButtonsFromStorage();
+      setClickedButtons(storedClickedButtons);
     }
     
     // Restore camera state (which will deactivate camera)
@@ -895,7 +939,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         }
       }
     };
-  }, [currentUserId, fetchSettingsFromMongoDB, checkCameraActivation, restoreCameraState, getAvailableCameras, canvasManager]);
+  }, [currentUserId, fetchSettingsFromMongoDB, checkCameraActivation, restoreCameraState, getAvailableCameras, canvasManager, loadClickedButtonsFromStorage]);
 
   // Handle page visibility changes
   useEffect(() => {
@@ -953,6 +997,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       if (typeof window !== 'undefined') {
         localStorage.removeItem('cameraActivated');
         localStorage.removeItem('cameraActivationTime');
+        // Note: clickedButtons are preserved in localStorage for next session
       }
     };
 
@@ -1432,6 +1477,40 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           currentUserId: currentUserId
         })
       };
+      
+      // Make button tracking functions globally accessible
+      window.buttonTracking = {
+        getClickedButtons: () => Array.from(clickedButtons),
+        clearClickedButtons: clearClickedButtons,
+        trackButtonClick: trackButtonClick,
+        loadFromStorage: loadClickedButtonsFromStorage,
+        saveToStorage: (buttons) => {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('clickedButtons', JSON.stringify(Array.from(buttons)));
+          }
+        },
+        clearStorage: () => {
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('clickedButtons');
+          }
+        },
+        resetProgress: () => {
+          // Clear both state and localStorage
+          clearClickedButtons();
+          console.log('Button progress reset - all checkmarks cleared');
+        },
+        getStorageInfo: () => {
+          if (typeof window !== 'undefined') {
+            const stored = localStorage.getItem('clickedButtons');
+            return {
+              hasStoredData: !!stored,
+              storedButtons: stored ? JSON.parse(stored) : [],
+              currentButtons: Array.from(clickedButtons)
+            };
+          }
+          return null;
+        }
+      };
 
 
 
@@ -1556,11 +1635,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         delete window.globalCanvasManager;
         delete window.canvasUtils;
         delete window.mongoDBSettings;
+        delete window.buttonTracking;
         delete window.cameraStateManager;
         delete window.canvasImageDebug;
       }
     };
-  }, [canvasManager, canvasUtils, fetchSettingsFromMongoDB, saveSettingsToMongoDB, randomTimes, delaySeconds, currentUserId, isCameraActivated, isCountdownActive, checkCameraActivation, setCameraActivation, showCameraRequiredNotification, clearCameraActivation]);
+  }, [canvasManager, canvasUtils, fetchSettingsFromMongoDB, saveSettingsToMongoDB, randomTimes, delaySeconds, currentUserId, isCameraActivated, isCountdownActive, checkCameraActivation, setCameraActivation, showCameraRequiredNotification, clearCameraActivation, clickedButtons, clearClickedButtons, trackButtonClick, loadClickedButtonsFromStorage]);
 
   // Make TopBar control functions available globally
   useEffect(() => {
@@ -1950,6 +2030,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     setCountdownValue(null);
     setShowCanvas(true);
     setCurrentDot(null);
+    
+    // Clear clicked buttons tracking
+    clearClickedButtons();
   };
 
   const handleToggleCamera = useCallback(() => {
@@ -1991,6 +2074,18 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
   // Add a proper action handler for camera preview
   const handleActionClick = useCallback((actionType, ...args) => {
+    // Track button clicks for OrderRequire component
+    const buttonNameMap = {
+      'preview': 'Show preview',
+      'randomDot': 'Random Dot',
+      'setRandom': 'Set Random',
+      'calibrate': 'Set Calibrate'
+    };
+    
+    if (buttonNameMap[actionType]) {
+      trackButtonClick(buttonNameMap[actionType]);
+    }
+    
     switch (actionType) {
       case 'preview':
         const shouldShow = args[0] !== undefined ? args[0] : !showCamera;
@@ -2044,7 +2139,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         // Silent handling for unknown actions
         break;
     }
-  }, [showCamera, showMetrics, showTopBar, handleRandomDot, handleSetRandom, handleSetCalibrate, handleClearAll, setCameraActivation, openCameraSelector]);
+  }, [showCamera, showMetrics, showTopBar, handleRandomDot, handleSetRandom, handleSetCalibrate, handleClearAll, setCameraActivation, openCameraSelector, trackButtonClick]);
 
   // Camera permission handlers
   const handlePermissionAccepted = () => {
@@ -2178,6 +2273,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                 isCameraActive={isCameraActive}
                 isCameraActivated={isCameraActivated}
                 selectedCamerasCount={selectedCameras.length}
+                clickedButtons={clickedButtons}
               />
             </div>
           )}

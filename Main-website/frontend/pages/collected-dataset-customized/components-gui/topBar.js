@@ -37,7 +37,8 @@ const TopBar = ({
   showMetrics = true,
   isCameraActive = false,
   isCameraActivated = false,
-  selectedCamerasCount = 0
+  selectedCamerasCount = 0,
+  clickedButtons = new Set()
 }) => {
   const router = useRouter();
   const [canvasStatus, setCanvasStatus] = useState(isCanvasVisible);
@@ -557,6 +558,7 @@ const TopBar = ({
         orderRequireMessage={orderRequireMessage}
         orderRequireList={orderRequireList}
         isManualShow={isManualShow}
+        clickedButtons={clickedButtons}
       />
       
       <style jsx>{`

@@ -5,7 +5,8 @@ const OrderRequire = ({
   showOrderRequire,
   orderRequireMessage,
   orderRequireList = [],
-  isManualShow = false // New prop to indicate if this is a manual show (user clicked button)
+  isManualShow = false, // New prop to indicate if this is a manual show (user clicked button)
+  clickedButtons = new Set() // Track which buttons have been clicked
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [animationState, setAnimationState] = useState('hidden');
@@ -151,6 +152,16 @@ const OrderRequire = ({
                 (Manual)
               </span>
             )}
+            {clickedButtons.size > 0 && (
+              <span style={{ 
+                fontSize: '10px', 
+                color: '#00ff00', 
+                marginLeft: '8px',
+                fontStyle: 'italic'
+              }}>
+                💾 Saved
+              </span>
+            )}
           </span>
           <div 
             className="notification-indicator"
@@ -177,30 +188,36 @@ const OrderRequire = ({
                 maxHeight: '200px',
                 overflowY: 'auto'
               }}>
-                {orderRequireList.map((item, index) => (
-                  <li key={index} style={{ 
-                    marginBottom: '6px',
-                    fontSize: '13px',
-                    color: '#ffffff'
-                  }}>
-                    <span style={{ 
-                      display: 'inline-block',
-                      width: '20px',
-                      height: '20px',
-                      backgroundColor: '#4CAF50',
-                      color: 'white',
-                      borderRadius: '50%',
-                      textAlign: 'center',
-                      lineHeight: '20px',
-                      fontSize: '10px',
-                      fontWeight: 'bold',
-                      marginRight: '8px'
+                {orderRequireList.map((item, index) => {
+                  const isClicked = clickedButtons.has(item);
+                  return (
+                    <li key={index} style={{ 
+                      marginBottom: '6px',
+                      fontSize: '13px',
+                      color: isClicked ? '#90EE90' : '#ffffff', // Green text for clicked items
+                      textDecoration: isClicked ? 'line-through' : 'none', // Strike through for clicked items
+                      opacity: isClicked ? 0.8 : 1
                     }}>
-                      {index + 1}
-                    </span>
-                    {item}
-                  </li>
-                ))}
+                      <span style={{ 
+                        display: 'inline-block',
+                        width: '20px',
+                        height: '20px',
+                        backgroundColor: isClicked ? '#00ff00' : '#4CAF50', // Green background for clicked items
+                        color: 'white',
+                        borderRadius: '50%',
+                        textAlign: 'center',
+                        lineHeight: '20px',
+                        fontSize: isClicked ? '12px' : '10px',
+                        fontWeight: 'bold',
+                        marginRight: '8px',
+                        boxShadow: isClicked ? '0 0 5px rgba(0, 255, 0, 0.8)' : 'none' // Glow effect for clicked items
+                      }}>
+                        {isClicked ? '✓' : index + 1}
+                      </span>
+                      {item}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           )}

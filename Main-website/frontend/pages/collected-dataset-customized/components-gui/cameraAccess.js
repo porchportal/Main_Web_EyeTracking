@@ -778,7 +778,7 @@ const CameraAccessComponent = ({
         borderRadius: '8px',
         boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
         overflow: 'hidden',
-        zIndex: 1000,
+        zIndex: 25,
         display: isHidden ? 'none' : 'block'
       }}
     >
@@ -936,7 +936,7 @@ const CameraAccess = dynamic(
         justifyContent: 'center',
         alignItems: 'center',
         textAlign: 'center',
-        zIndex: 999
+        zIndex: 25
       }}>
         <div style={{ fontSize: '48px', marginBottom: '15px' }}>📷</div>
         <p style={{ fontSize: '16px', fontWeight: 'bold', color: '#0066cc' }}>
