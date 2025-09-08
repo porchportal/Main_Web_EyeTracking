@@ -30,37 +30,22 @@ class CanvasImageManager {
     return true;
   }
 
-  // Set yellow background (default) - this creates the base layer
-  setYellowBackground() {
+  // Clear canvas without setting yellow background (yellow is handled in index.js)
+  clearCanvas() {
     if (!this.canvas) return;
     
     const ctx = this.optimizedContext || this.canvas.getContext('2d');
     
-    // Clear canvas completely first
+    // Clear canvas completely
     ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    
-    // Set yellow background as base layer
-    ctx.fillStyle = 'yellow';
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     
     // Reset current image since we're clearing everything
     this.currentImage = null;
   }
 
-  // Set yellow background layer only (without clearing image)
-  setYellowBackgroundLayer() {
-    if (!this.canvas) return;
-    
-    const ctx = this.optimizedContext || this.canvas.getContext('2d');
-    
-    // Set yellow background as base layer (don't clear existing content)
-    ctx.fillStyle = 'yellow';
-    ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-  }
-
   // Force clear canvas and reset image state
   forceClearCanvas() {
-    this.setYellowBackground();
+    this.clearCanvas();
     this.currentImage = null;
   }
 
@@ -136,9 +121,7 @@ class CanvasImageManager {
             
             // Draw on canvas with a small delay to ensure everything is ready
             setTimeout(() => {
-              // First set yellow background layer
-              this.setYellowBackgroundLayer();
-              // Then draw image on top
+              // Draw image on canvas (yellow background is handled in index.js)
               this.drawImageOnCanvas(img);
               this.currentImage = imagePath;
             }, 100);
@@ -162,9 +145,7 @@ class CanvasImageManager {
             
             // Draw on canvas
             setTimeout(() => {
-              // First set yellow background layer
-              this.setYellowBackgroundLayer();
-              // Then draw image on top
+              // Draw image on canvas (yellow background is handled in index.js)
               this.drawImageOnCanvas(fallbackImg);
               this.currentImage = imagePath;
             }, 100);
@@ -173,8 +154,8 @@ class CanvasImageManager {
           };
           
           fallbackImg.onerror = (fallbackError) => {
-            // Fallback to yellow background on image load error
-            this.setYellowBackground();
+            // Clear canvas on image load error (yellow background is handled in index.js)
+            this.clearCanvas();
             if (onError) {
               onError(`Failed to load image: ${imagePath}`);
             }
@@ -190,7 +171,7 @@ class CanvasImageManager {
         // Add timeout to prevent hanging
         setTimeout(() => {
           if (!img.complete) {
-            this.setYellowBackground();
+            this.clearCanvas();
             if (onError) {
               onError(`Image load timeout: ${imagePath}`);
             }
@@ -199,8 +180,8 @@ class CanvasImageManager {
         }, 10000); // 10 second timeout
       });
     } catch (error) {
-      // Fallback to yellow background on error
-      this.setYellowBackground();
+      // Clear canvas on error (yellow background is handled in index.js)
+      this.clearCanvas();
       if (onError) {
         onError(`Error loading image: ${error.message}`);
       }
@@ -267,7 +248,7 @@ class CanvasImageManager {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     
-    // Draw the image centered on the canvas (on top of yellow background)
+    // Draw the image centered on the canvas
     ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
     
     // Add a visible border around the image area for debugging
@@ -367,8 +348,8 @@ class CanvasImageManager {
     }
 
     if (!enableBackgroundChange) {
-      // Set yellow background if background change is disabled - NO IMAGE LOADING
-      this.setYellowBackground();
+      // Clear canvas if background change is disabled - NO IMAGE LOADING
+      this.clearCanvas();
       this.currentImage = null; // Ensure no image is set
       return;
     }
@@ -391,8 +372,8 @@ class CanvasImageManager {
         onNotification('Using default background image. Please configure custom images in admin settings.');
       }
       
-      // Set yellow background as fallback
-      this.setYellowBackground();
+      // Clear canvas as fallback (yellow background is handled in index.js)
+      this.clearCanvas();
       return;
     }
 
@@ -413,8 +394,8 @@ class CanvasImageManager {
         onNotification('No valid background images available. Canvas will remain yellow.');
       }
       
-      // Set yellow background as fallback
-      this.setYellowBackground();
+      // Clear canvas as fallback (yellow background is handled in index.js)
+      this.clearCanvas();
       return;
     }
 
@@ -435,8 +416,8 @@ class CanvasImageManager {
     });
 
     if (!success) {
-      // Fallback to yellow background if image loading failed
-      this.setYellowBackground();
+      // Clear canvas if image loading failed (yellow background is handled in index.js)
+      this.clearCanvas();
     }
   }
 
@@ -455,8 +436,58 @@ class CanvasImageManager {
     return this.currentImage !== null;
   }
 
+  // Force redraw current image (useful for debugging and ensuring image is restored)
+  forceRedrawCurrentImage() {
+    if (!this.currentImage || !this.canvas) {
+      return false;
+    }
+    
+    const cachedImage = this.imageCache.get(this.currentImage);
+    if (cachedImage) {
+      this.drawImageOnCanvas(cachedImage);
+      return true;
+    } else {
+      // If no cached image, try to reload it
+      return this.setImageBackground(this.currentImage);
+    }
+  }
+
+  // Debug function to get current state
+  getDebugInfo() {
+    return {
+      currentImage: this.currentImage,
+      hasImage: this.hasImageBackground(),
+      cacheSize: this.imageCache.size,
+      canvasDimensions: this.canvas ? `${this.canvas.width}x${this.canvas.height}` : 'No canvas',
+      isInitialized: this.isInitialized,
+      cachedImages: Array.from(this.imageCache.keys())
+    };
+  }
+
+  // Force check MongoDB settings for image restoration
+  forceCheckMongoDBSettings(settings, userId) {
+    if (!this.currentImage && settings && userId) {
+      this.handleCanvasBackgroundFromSettings(settings, userId);
+    }
+  }
+
+  // Handle tab visibility changes - preserve image state
+  handleTabVisibilityChange(isVisible) {
+    if (isVisible) {
+      // Tab became visible - restore image if we had one
+      if (this.currentImage && this.canvas) {
+        // Small delay to ensure canvas is ready
+        setTimeout(() => {
+          this.forceRedrawCurrentImage();
+        }, 50);
+      }
+    }
+    // When tab becomes hidden, we don't need to do anything special
+    // The image state is preserved in memory
+  }
+
   // Resize handler for canvas
-  handleResize() {
+  handleResize(settings = null, userId = null) {
     if (!this.canvas) return;
 
     const newWidth = window.innerWidth;
@@ -467,6 +498,10 @@ class CanvasImageManager {
       return;
     }
 
+    // Store current image before resize
+    const currentImagePath = this.currentImage;
+    const cachedImage = currentImagePath ? this.imageCache.get(currentImagePath) : null;
+
     // Update canvas dimensions to match window size
     this.canvas.width = newWidth;
     this.canvas.height = newHeight;
@@ -474,21 +509,76 @@ class CanvasImageManager {
     // Ensure canvas is visible and properly layered after resize
     this.ensureCanvasVisibility();
 
-    // If we have an image background, redraw it with new dimensions
-    if (this.currentImage) {
-      const cachedImage = this.imageCache.get(this.currentImage);
+    // Always redraw the image if we have one, regardless of cache status
+    if (currentImagePath) {
       if (cachedImage) {
-        // First set yellow background layer
-        this.setYellowBackgroundLayer();
-        // Then redraw image on top with new dimensions
+        // Use cached image for immediate redraw
         this.drawImageOnCanvas(cachedImage);
+        this.currentImage = currentImagePath; // Ensure current image is set
       } else {
-        // Fallback to yellow background
-        this.setYellowBackground();
+        // If no cached image, reload the image
+        this.setImageBackground(currentImagePath).then((success) => {
+          if (!success) {
+            this.clearCanvas();
+          }
+        });
       }
     } else {
-      // No image, just set yellow background
-      this.setYellowBackground();
+      // No current image - check if we should load from MongoDB settings
+      if (settings && userId) {
+        this.handleCanvasBackgroundFromSettings(settings, userId);
+      } else {
+        // No image, clear canvas (yellow background is handled in index.js)
+        this.clearCanvas();
+      }
+    }
+  }
+
+  // Handle canvas background from MongoDB settings (for resize restoration)
+  async handleCanvasBackgroundFromSettings(settings, userId) {
+    if (!settings || !userId) {
+      return;
+    }
+
+    let userSettings = settings[userId];
+    
+    // If no settings found for the specific user, try to find any available user settings
+    if (!userSettings) {
+      const availableUserIds = Object.keys(settings);
+      if (availableUserIds.length > 0) {
+        const firstUserId = availableUserIds[0];
+        userSettings = settings[firstUserId];
+      }
+    }
+    
+    if (!userSettings) {
+      this.clearCanvas();
+      return;
+    }
+
+    const enableBackgroundChange = userSettings.enable_background_change || false;
+    const imageBackgroundPaths = userSettings.image_background_paths || [];
+
+    if (!enableBackgroundChange) {
+      this.clearCanvas();
+      return;
+    }
+
+    if (!imageBackgroundPaths || imageBackgroundPaths.length === 0) {
+      this.clearCanvas();
+      return;
+    }
+
+    // Try to get the first image path
+    const firstImagePath = this.getFirstImagePath(imageBackgroundPaths);
+    if (!firstImagePath) {
+      this.clearCanvas();
+      return;
+    }
+
+    const success = await this.setImageBackground(firstImagePath);
+    if (!success) {
+      this.clearCanvas();
     }
   }
 
@@ -547,13 +637,11 @@ export const useCanvasImage = (canvas, userId, settings, adminUserId = null) => 
         const enableBackgroundChange = userSettings?.enable_background_change || false;
         
         if (enableBackgroundChange) {
-          // First set yellow background layer
-          canvasImageManager.setYellowBackgroundLayer();
-          // Then load image on top
+          // Load image on canvas (yellow background is handled in index.js)
           canvasImageManager.setImageBackground('/Overall_porch.png');
         } else {
-          // Background change is disabled, only set yellow background
-          canvasImageManager.setYellowBackground();
+          // Background change is disabled, clear canvas (yellow background is handled in index.js)
+          canvasImageManager.clearCanvas();
         }
       }, 500);
     }
@@ -580,8 +668,8 @@ export const useCanvasImage = (canvas, userId, settings, adminUserId = null) => 
     const userSettings = settings[effectiveUserId];
 
     if (!userSettings) {
-      // No settings for user, set yellow background only (no image loading)
-      canvasImageManager.setYellowBackground();
+      // No settings for user, clear canvas (yellow background is handled in index.js)
+      canvasImageManager.clearCanvas();
       return;
     }
 
@@ -590,16 +678,16 @@ export const useCanvasImage = (canvas, userId, settings, adminUserId = null) => 
 
     // Check if background change is enabled
     if (!enableBackgroundChange) {
-      // Background change is disabled, only set yellow background (no image loading)
-      canvasImageManager.setYellowBackground();
+      // Background change is disabled, clear canvas (yellow background is handled in index.js)
+      canvasImageManager.clearCanvas();
       canvasImageManager.currentImage = null; // Ensure no image is set
       return;
     }
 
     // Background change is enabled, check if we have image paths
     if (!imageBackgroundPaths || imageBackgroundPaths.length === 0) {
-      // No image paths available, set yellow background only
-      canvasImageManager.setYellowBackground();
+      // No image paths available, clear canvas (yellow background is handled in index.js)
+      canvasImageManager.clearCanvas();
       return;
     }
 
@@ -622,7 +710,6 @@ export const useCanvasImage = (canvas, userId, settings, adminUserId = null) => 
       const enableBackgroundChange = userSettings?.enable_background_change || false;
       
       if (enableBackgroundChange && !canvasImageManager.currentImage) {
-        canvasImageManager.setYellowBackgroundLayer();
         canvasImageManager.setImageBackground('/Overall_porch.png');
       }
     }, 3000);
@@ -653,12 +740,16 @@ export const useCanvasImage = (canvas, userId, settings, adminUserId = null) => 
     canvasImageManager,
     showNotification,
     notificationMessage,
-    setYellowBackground: () => canvasImageManager.setYellowBackground(),
-    setYellowBackgroundLayer: () => canvasImageManager.setYellowBackgroundLayer(),
+    clearCanvas: () => canvasImageManager.clearCanvas(),
     setImageBackground: (imagePath) => canvasImageManager.setImageBackground(imagePath),
     getCurrentImage: () => canvasImageManager.getCurrentImage(),
     hasImageBackground: () => canvasImageManager.hasImageBackground(),
-    forceClearCanvas: () => canvasImageManager.forceClearCanvas()
+    forceClearCanvas: () => canvasImageManager.forceClearCanvas(),
+    forceRedrawCurrentImage: () => canvasImageManager.forceRedrawCurrentImage(),
+    getDebugInfo: () => canvasImageManager.getDebugInfo(),
+    handleResize: (settings, userId) => canvasImageManager.handleResize(settings, userId),
+    forceCheckMongoDBSettings: (settings, userId) => canvasImageManager.forceCheckMongoDBSettings(settings, userId),
+    handleTabVisibilityChange: (isVisible) => canvasImageManager.handleTabVisibilityChange(isVisible)
   };
 };
 
@@ -836,13 +927,11 @@ export const useCanvasImageWithOverlay = (canvas, userId, settings, adminUserId 
         const enableBackgroundChange = userSettings?.enable_background_change || false;
         
         if (enableBackgroundChange) {
-          // First set yellow background layer
-          canvasImageManager.setYellowBackgroundLayer();
-          // Then load image on top
+          // Load image on canvas (yellow background is handled in index.js)
           canvasImageManager.setImageBackground('/Overall_porch.png');
         } else {
-          // Background change is disabled, only set yellow background
-          canvasImageManager.setYellowBackground();
+          // Background change is disabled, clear canvas (yellow background is handled in index.js)
+          canvasImageManager.clearCanvas();
         }
       }, 100);
     }
@@ -869,8 +958,11 @@ export const useCanvasImageWithOverlay = (canvas, userId, settings, adminUserId 
     const userSettings = settings[effectiveUserId];
 
     if (!userSettings) {
-      // No settings for user, no overlay image (background change disabled by default)
+      // No settings for user, clear canvas (yellow background is handled in index.js)
       setOverlayImagePath(null);
+      if (canvasImageManager) {
+        canvasImageManager.clearCanvas();
+      }
       return;
     }
 
@@ -883,7 +975,7 @@ export const useCanvasImageWithOverlay = (canvas, userId, settings, adminUserId 
       setOverlayImagePath(null);
       // Also clear any existing image from canvas
       if (canvasImageManager) {
-        canvasImageManager.setYellowBackground();
+        canvasImageManager.clearCanvas();
         canvasImageManager.currentImage = null;
       }
       return;
@@ -961,11 +1053,16 @@ export const useCanvasImageWithOverlay = (canvas, userId, settings, adminUserId 
     showOverlay,
     setOverlayImagePath,
     setShowOverlay,
-    setYellowBackground: () => canvasImageManager.setYellowBackground(),
+    clearCanvas: () => canvasImageManager.clearCanvas(),
     setImageOverlay: (imagePath) => canvasImageManager.setImageOverlay(imagePath),
     clearImageOverlay: () => canvasImageManager.clearImageOverlay(),
     getOverlayImagePath: () => canvasImageManager.getOverlayImagePath(),
-    forceClearCanvas: () => canvasImageManager.forceClearCanvas()
+    forceClearCanvas: () => canvasImageManager.forceClearCanvas(),
+    forceRedrawCurrentImage: () => canvasImageManager.forceRedrawCurrentImage(),
+    getDebugInfo: () => canvasImageManager.getDebugInfo(),
+    handleResize: (settings, userId) => canvasImageManager.handleResize(settings, userId),
+    forceCheckMongoDBSettings: (settings, userId) => canvasImageManager.forceCheckMongoDBSettings(settings, userId),
+    handleTabVisibilityChange: (isVisible) => canvasImageManager.handleTabVisibilityChange(isVisible)
   };
 };
 

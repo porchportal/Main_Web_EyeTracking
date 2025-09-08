@@ -220,31 +220,47 @@ class GlobalCanvasManager {
     this.clearCanvas(canvas);
   }
 
+  // Restore canvas after tab visibility change
+  restoreCanvas() {
+    const canvas = this.getCanvas();
+    if (!canvas) return null;
+
+    // Ensure canvas is properly set up
+    this.setupCanvas(canvas);
+    
+    // Add to body if not already there
+    if (!canvas.parentNode) {
+      document.body.appendChild(canvas);
+    }
+
+    // Ensure canvas has proper positioning
+    canvas.style.zIndex = '10';
+    canvas.style.position = 'fixed';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.pointerEvents = 'none';
+
+    return canvas;
+  }
+
   // Clear canvas with yellow background
   clearCanvas(canvas = null) {
     const targetCanvas = canvas || this.getCanvas();
     if (!targetCanvas) return;
     
-    // If we have a canvas image manager, check if it has an image
-    if (this.canvasImageManager) {
-      // Only clear to yellow background if no image is currently set
-      if (!this.canvasImageManager.currentImage) {
-        this.canvasImageManager.setYellowBackground();
-      } else {
-        // If there's an image, redraw it instead of clearing
-        const cachedImage = this.canvasImageManager.imageCache.get(this.canvasImageManager.currentImage);
-        if (cachedImage) {
-          this.canvasImageManager.drawImageOnCanvas(cachedImage);
-        } else {
-          this.canvasImageManager.setYellowBackground();
-        }
+    // Always set yellow background in index.js
+    const ctx = targetCanvas.getContext('2d');
+    ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
+    ctx.fillStyle = 'yellow';
+    ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+    
+    // If we have a canvas image manager, check if it has an image to redraw
+    if (this.canvasImageManager && this.canvasImageManager.currentImage) {
+      const cachedImage = this.canvasImageManager.imageCache.get(this.canvasImageManager.currentImage);
+      if (cachedImage) {
+        // Redraw the image on top of yellow background
+        this.canvasImageManager.drawImageOnCanvas(cachedImage);
       }
-    } else {
-      // Fallback to direct canvas manipulation
-      const ctx = targetCanvas.getContext('2d');
-      ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-      ctx.fillStyle = 'yellow';
-      ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
     }
   }
 
@@ -256,6 +272,12 @@ class GlobalCanvasManager {
   // Get canvas image manager
   getCanvasImageManager() {
     return this.canvasImageManager;
+  }
+
+  // Set settings and userId for resize operations
+  setSettingsAndUserId(settings, userId) {
+    this.settings = settings;
+    this.userId = userId;
   }
 
   // Set up global references
@@ -283,15 +305,24 @@ class GlobalCanvasManager {
     const canvas = this.getCanvas();
     if (!canvas) return;
 
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const newWidth = window.innerWidth;
+    const newHeight = window.innerHeight;
+
+    // Update canvas dimensions
+    canvas.width = newWidth;
+    canvas.height = newHeight;
     
-    // If we have a canvas image manager, let it handle the resize
+    // Always set yellow background first
+    this.clearCanvas(canvas);
+    
+    // If we have a canvas image manager, let it handle the image redraw
     if (this.canvasImageManager) {
-      this.canvasImageManager.handleResize();
-    } else {
-      // Fallback to clearing canvas with yellow background
-      this.clearCanvas(canvas);
+      // Pass settings and userId to the resize handler for MongoDB image restoration
+      if (this.settings && this.userId) {
+        this.canvasImageManager.handleResize(this.settings, this.userId);
+      } else {
+        this.canvasImageManager.handleResize();
+      }
     }
   }
 
@@ -682,7 +713,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     overlayImagePath,
     showOverlay,
     setOverlayImagePath,
-    setShowOverlay
+    setShowOverlay,
+    handleResize: handleCanvasImageResize,
+    forceCheckMongoDBSettings,
+    handleTabVisibilityChange
   } = useCanvasImageWithOverlay(canvas, currentUserId, settings, adminCurrentUserId);
 
   // Simplified canvas utilities - only essential functions
@@ -715,6 +749,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         // Integrate canvas image manager with canvas manager
         if (canvasImageManager) {
           canvasManager.setCanvasImageManager(canvasImageManager);
+          // Set settings and userId for resize operations
+          canvasManager.setSettingsAndUserId(settings, currentUserId);
           window.canvasImageManager = canvasImageManager;
           
           // Add a debounced resize event listener to ensure it's triggered
@@ -723,7 +759,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(() => {
               if (canvasImageManager && canvasImageManager.handleResize) {
-                canvasImageManager.handleResize();
+                // Pass settings and userId for MongoDB image restoration
+                canvasImageManager.handleResize(settings, currentUserId);
               }
             }, 100); // Debounce resize events by 100ms
           };
@@ -740,8 +777,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             if (enableBackgroundChange) {
               canvasImageManager.setImageBackground('/Overall_porch.png');
             } else {
-              // Background change is disabled, only set yellow background - NO IMAGE LOADING
-              canvasImageManager.setYellowBackground();
+              // Background change is disabled, clear canvas (yellow background is handled in index.js)
+              canvasImageManager.clearCanvas();
               canvasImageManager.currentImage = null; // Ensure no image is set
             }
           }, 1000);
@@ -775,6 +812,23 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       }
     };
   }, [canvasUtils, canvasManager, canvasImageManager]);
+
+  // Update canvas manager settings and userId when they change
+  useEffect(() => {
+    if (canvasManager && settings && currentUserId) {
+      canvasManager.setSettingsAndUserId(settings, currentUserId);
+    }
+  }, [canvasManager, settings, currentUserId]);
+
+  // Force check MongoDB settings for image restoration when settings are loaded
+  useEffect(() => {
+    if (canvasImageManager && settings && currentUserId && isHydrated) {
+      // Small delay to ensure everything is initialized
+      setTimeout(() => {
+        forceCheckMongoDBSettings(settings, currentUserId);
+      }, 1000);
+    }
+  }, [canvasImageManager, settings, currentUserId, isHydrated, forceCheckMongoDBSettings]);
 
   // Set hydrated state after mount and fetch initial settings
   useEffect(() => {
@@ -847,13 +901,46 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        // Set page as inactive
+        // Set page as inactive but don't cleanup canvas - preserve state
         setIsPageActive(false);
-        // Page is hidden, cleanup any resources
-        cleanupPageStyles();
+        
+        // Notify canvas image manager that tab became hidden
+        if (handleTabVisibilityChange) {
+          handleTabVisibilityChange(false);
+        }
       } else {
-        // Page is visible again, set as active
+        // Page is visible again, set as active and restore canvas if needed
         setIsPageActive(true);
+        
+        // Restore canvas and image if they were lost
+        setTimeout(() => {
+          if (canvasManager && canvasImageManager) {
+            // Restore canvas
+            const canvas = canvasManager.restoreCanvas();
+            if (canvas) {
+              // Re-initialize canvas image manager with the restored canvas
+              canvasImageManager.initialize(canvas);
+              
+              // Notify canvas image manager that tab became visible
+              if (handleTabVisibilityChange) {
+                handleTabVisibilityChange(true);
+              }
+              
+              // Restore the image if we had one
+              const currentImage = canvasImageManager.getCurrentImage();
+              if (currentImage) {
+                // Force redraw the current image
+                canvasImageManager.forceRedrawCurrentImage();
+              } else if (settings && currentUserId) {
+                // Try to restore from MongoDB settings
+                canvasImageManager.forceCheckMongoDBSettings(settings, currentUserId);
+              } else {
+                // Just set yellow background
+                canvasManager.clearCanvas();
+              }
+            }
+          }
+        }, 100);
       }
     };
 
@@ -908,12 +995,47 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       }
     };
 
+    // Handle window focus/blur as backup for tab switching
+    const handleWindowFocus = () => {
+      if (!document.hidden) {
+        // Window gained focus - restore canvas and image
+        setTimeout(() => {
+          if (canvasManager && canvasImageManager) {
+            const canvas = canvasManager.restoreCanvas();
+            if (canvas) {
+              canvasImageManager.initialize(canvas);
+              if (handleTabVisibilityChange) {
+                handleTabVisibilityChange(true);
+              }
+              const currentImage = canvasImageManager.getCurrentImage();
+              if (currentImage) {
+                canvasImageManager.forceRedrawCurrentImage();
+              } else if (settings && currentUserId) {
+                canvasImageManager.forceCheckMongoDBSettings(settings, currentUserId);
+              }
+            }
+          }
+        }, 100);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      // Window lost focus - notify canvas image manager
+      if (handleTabVisibilityChange) {
+        handleTabVisibilityChange(false);
+      }
+    };
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('blur', handleWindowBlur);
     
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('blur', handleWindowBlur);
       // Cleanup on unmount
       cleanupPageStyles();
     };
@@ -1071,7 +1193,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           // Also trigger canvas image manager resize if available
           const canvasImageManager = canvasManager.getCanvasImageManager();
           if (canvasImageManager && canvasImageManager.handleResize) {
-            canvasImageManager.handleResize();
+            // Pass settings and userId for MongoDB image restoration
+            canvasImageManager.handleResize(settings, currentUserId);
           }
         }
       }
@@ -1100,15 +1223,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         const userSettings = settings?.[currentUserId];
         const enableBackgroundChange = userSettings?.enable_background_change || false;
         
-        if (enableBackgroundChange) {
-          // Background change is enabled, clear to yellow background
-          canvasManager.clearCanvas(canvas);
-        } else {
-          // Background change is disabled, just set yellow background - NO IMAGE LOADING
-          canvasManager.clearCanvas(canvas);
-          if (canvasImageManager) {
-            canvasImageManager.currentImage = null; // Ensure no image is set
-          }
+        // Always set yellow background in index.js
+        canvasManager.clearCanvas(canvas);
+        
+        if (!enableBackgroundChange && canvasImageManager) {
+          // Background change is disabled, ensure no image is set
+          canvasImageManager.currentImage = null;
         }
       }
       // Ensure canvas is properly positioned and centered
@@ -1364,6 +1484,70 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           const videoElement = window.cameraStateManager.getVideoElement();
         }
       };
+
+      // Make canvas image management globally accessible for debugging
+      window.canvasImageDebug = {
+        forceRedrawImage: () => {
+          if (canvasImageManager && canvasImageManager.forceRedrawCurrentImage) {
+            const success = canvasImageManager.forceRedrawCurrentImage();
+            return success;
+          }
+          return false;
+        },
+        getCurrentImage: () => {
+          if (canvasImageManager) {
+            return canvasImageManager.getCurrentImage();
+          }
+          return null;
+        },
+        hasImage: () => {
+          if (canvasImageManager) {
+            return canvasImageManager.hasImageBackground();
+          }
+          return false;
+        },
+        getDebugInfo: () => {
+          if (canvasImageManager) {
+            const debugInfo = canvasImageManager.getDebugInfo();
+            return debugInfo;
+          }
+          return null;
+        },
+        clearCache: () => {
+          if (canvasImageManager) {
+            canvasImageManager.clearCache();
+          }
+        },
+        reloadCurrentImage: () => {
+          if (canvasImageManager && canvasImageManager.getCurrentImage()) {
+            const currentImage = canvasImageManager.getCurrentImage();
+            return canvasImageManager.setImageBackground(currentImage);
+          }
+          return false;
+        },
+        testResize: () => {
+          if (canvasManager && canvasManager.handleResize) {
+            canvasManager.handleResize();
+          }
+        },
+        restoreFromMongoDB: () => {
+          if (canvasImageManager && canvasImageManager.handleCanvasBackgroundFromSettings) {
+            return canvasImageManager.handleCanvasBackgroundFromSettings(settings, currentUserId);
+          }
+          return false;
+        },
+        forceCheckMongoDBSettings: () => {
+          if (forceCheckMongoDBSettings) {
+            return forceCheckMongoDBSettings(settings, currentUserId);
+          }
+          return false;
+        },
+        updateSettings: (newSettings, newUserId) => {
+          if (canvasManager && canvasManager.setSettingsAndUserId) {
+            canvasManager.setSettingsAndUserId(newSettings, newUserId);
+          }
+        }
+      };
     }
     
     return () => {
@@ -1373,6 +1557,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         delete window.canvasUtils;
         delete window.mongoDBSettings;
         delete window.cameraStateManager;
+        delete window.canvasImageDebug;
       }
     };
   }, [canvasManager, canvasUtils, fetchSettingsFromMongoDB, saveSettingsToMongoDB, randomTimes, delaySeconds, currentUserId, isCameraActivated, isCountdownActive, checkCameraActivation, setCameraActivation, showCameraRequiredNotification, clearCameraActivation]);
@@ -1461,19 +1646,16 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     try {
       // Clear canvas before starting the main process (preserve image if exists)
       if (!canvasImageManager || !canvasImageManager.currentImage) {
-        // Check if background change is enabled before clearing
+        // Always set yellow background in index.js
+        canvasManager.clearCanvas();
+        
+        // Check if background change is disabled
         const userSettings = settings?.[currentUserId];
         const enableBackgroundChange = userSettings?.enable_background_change || false;
         
-        if (enableBackgroundChange) {
-          // Background change is enabled, clear to yellow background
-          canvasManager.clearCanvas();
-        } else {
-          // Background change is disabled, just set yellow background - NO IMAGE LOADING
-          canvasManager.clearCanvas();
-          if (canvasImageManager) {
-            canvasImageManager.currentImage = null; // Ensure no image is set
-          }
+        if (!enableBackgroundChange && canvasImageManager) {
+          // Background change is disabled, ensure no image is set
+          canvasImageManager.currentImage = null;
         }
       }
       
@@ -1752,22 +1934,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
   const handleClearAll = () => {
     // Clear canvas content (force clear even if image exists)
+    // Always set yellow background in index.js
+    canvasManager.clearCanvas();
+    
     if (canvasImageManager) {
-      // Check if background change is enabled before clearing
-      const userSettings = settings?.[currentUserId];
-      const enableBackgroundChange = userSettings?.enable_background_change || false;
-      
-      if (enableBackgroundChange) {
-        // Background change is enabled, clear to yellow background
-        canvasImageManager.setYellowBackground();
-        canvasImageManager.currentImage = null;
-      } else {
-        // Background change is disabled, just set yellow background - NO IMAGE LOADING
-        canvasImageManager.setYellowBackground();
-        canvasImageManager.currentImage = null; // Ensure no image is set
-      }
-    } else {
-      canvasManager.clearCanvas();
+      // Clear any image from canvas image manager
+      canvasImageManager.clearCanvas();
+      canvasImageManager.currentImage = null;
     }
     
     // Reset states
