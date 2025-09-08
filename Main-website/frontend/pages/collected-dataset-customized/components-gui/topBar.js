@@ -47,6 +47,7 @@ const TopBar = ({
   const [showOrderRequire, setShowOrderRequire] = useState(false);
   const [orderRequireMessage, setOrderRequireMessage] = useState('');
   const [orderRequireList, setOrderRequireList] = useState([]);
+  const [isManualShow, setIsManualShow] = useState(false);
 
   // Get canvas function - use existing canvas from global manager
   const getCanvas = () => {
@@ -160,6 +161,35 @@ const TopBar = ({
     window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
     return () => window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
   }, [currentSettings, debouncedSaveSettings]);
+
+  // Disable automatic show on page refresh to prevent flash
+  // Only show when user manually clicks the button
+  
+  // Commented out automatic show to prevent flash on page refresh
+  // useEffect(() => {
+  //   if (currentSettings && currentSettings.buttons_order && currentSettings.buttons_order.trim() !== '' && !hasAutoShown) {
+  //     console.log('Auto-showing button sequence. Settings:', currentSettings.buttons_order);
+  //     // Parse buttons_order from settings
+  //     const buttonsOrder = currentSettings.buttons_order;
+  //     const buttonSteps = buttonsOrder.split('→').map(step => {
+  //       return step.replace(/\(#\d+\)/g, '').trim();
+  //     });
+  //     const buttonsList = buttonSteps.filter(step => step.length > 0);
+      
+  //     if (buttonsList.length > 0) {
+  //       setOrderRequireMessage('Button Click Sequence');
+  //       setOrderRequireList(buttonsList);
+  //       setShowOrderRequire(true);
+  //       setIsManualShow(false); // This is an automatic show
+  //       setHasAutoShown(true);
+        
+  //       // Auto-hide after 5 seconds only on initial load
+  //       setTimeout(() => {
+  //         setShowOrderRequire(false);
+  //       }, 5000);
+  //     }
+  //   }
+  // }, [currentSettings, hasAutoShown]);
   
   const handleButtonClick = (actionType) => {
     // Check camera activation for action buttons that require camera
@@ -215,16 +245,38 @@ const TopBar = ({
       // If already showing, hide it
       setShowOrderRequire(false);
     } else {
-      // If not showing, show it with content
-      setOrderRequireMessage('Canvas Image Order & Requirements');
-      setOrderRequireList([
-        'Configure image background paths in admin settings',
-        'Set enable_background_change to true to load images',
-        'Images will be displayed in the order specified',
-        'Use Order/Requirement button to access configuration',
-        'Default images will be used if no custom images are set'
-      ]);
+      // If not showing, show it with content from buttons_order
+      setOrderRequireMessage('Button Click Sequence');
+      
+      // Parse buttons_order from settings
+      let buttonsList = [];
+      if (currentSettings && currentSettings.buttons_order) {
+        // Parse the buttons_order string like "Show preview (#1) → Set Calibrate (#2) → Random Dot (#3)"
+        const buttonsOrder = currentSettings.buttons_order;
+        
+        // Split by arrow and extract button names
+        const buttonSteps = buttonsOrder.split('→').map(step => {
+          // Remove numbering like (#1), (#2), etc. and trim whitespace
+          return step.replace(/\(#\d+\)/g, '').trim();
+        });
+        
+        buttonsList = buttonSteps.filter(step => step.length > 0);
+      }
+      
+      // Fallback to default list if no buttons_order is configured
+      if (buttonsList.length === 0) {
+        buttonsList = [
+          'Configure button sequence in admin settings',
+          'Set buttons_order to define click sequence',
+          'Buttons will be displayed in the order specified',
+          'Use Order/Requirement button to view sequence',
+          'Default sequence will be used if not configured'
+        ];
+      }
+      
+      setOrderRequireList(buttonsList);
       setShowOrderRequire(true);
+      setIsManualShow(true); // This is a manual show (user clicked button)
     }
   };
 
@@ -504,6 +556,7 @@ const TopBar = ({
         showOrderRequire={showOrderRequire}
         orderRequireMessage={orderRequireMessage}
         orderRequireList={orderRequireList}
+        isManualShow={isManualShow}
       />
       
       <style jsx>{`

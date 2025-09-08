@@ -4,22 +4,93 @@ const OrderRequire = ({
   isHydrated,
   showOrderRequire,
   orderRequireMessage,
-  orderRequireList = []
+  orderRequireList = [],
+  isManualShow = false // New prop to indicate if this is a manual show (user clicked button)
 }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [animationState, setAnimationState] = useState('hidden');
 
   useEffect(() => {
     if (showOrderRequire) {
       setIsVisible(true);
-      // Auto-hide after 8 seconds
-      const timer = setTimeout(() => {
-        setIsVisible(false);
-      }, 8000);
-      return () => clearTimeout(timer);
+      setAnimationState('visible');
+      
+      // Only auto-hide if this is NOT a manual show (user clicked button)
+      // If it's a manual show, let the user control when to hide it
+      if (!isManualShow) {
+        // Auto-hide after 8 seconds only for automatic shows
+        const timer = setTimeout(() => {
+          setAnimationState('hidden');
+          setTimeout(() => setIsVisible(false), 300); // Wait for animation to complete
+        }, 8000);
+        return () => clearTimeout(timer);
+      }
     } else {
-      setIsVisible(false);
+      setAnimationState('hidden');
+      setTimeout(() => setIsVisible(false), 300); // Wait for animation to complete
     }
-  }, [showOrderRequire]);
+  }, [showOrderRequire, isManualShow]);
+
+  // Check if Canvas Metrics is visible to adjust positioning
+  const isCanvasMetricsVisible = () => {
+    if (typeof window !== 'undefined') {
+      const metricsDisplay = document.querySelector('.metrics-display');
+      if (!metricsDisplay) return false;
+      
+      // Check if element is visible by checking computed styles
+      const computedStyle = window.getComputedStyle(metricsDisplay);
+      const isDisplayed = computedStyle.display !== 'none';
+      const isOpaque = parseFloat(computedStyle.opacity) > 0;
+      const isVisible = computedStyle.visibility !== 'hidden';
+      
+      return isDisplayed && isOpaque && isVisible;
+    }
+    return false;
+  };
+
+  const [canvasMetricsVisible, setCanvasMetricsVisible] = useState(false);
+
+  useEffect(() => {
+    const checkMetricsVisibility = () => {
+      const isVisible = isCanvasMetricsVisible();
+      setCanvasMetricsVisible(prev => {
+        // Only update state if the value actually changed to prevent unnecessary re-renders
+        if (prev !== isVisible) {
+          return isVisible;
+        }
+        return prev;
+      });
+    };
+
+    // Initial check
+    checkMetricsVisibility();
+
+    // Use MutationObserver to watch for changes in the metrics display
+    let observer;
+    if (typeof window !== 'undefined') {
+      const metricsDisplay = document.querySelector('.metrics-display');
+      if (metricsDisplay) {
+        observer = new MutationObserver(() => {
+          checkMetricsVisibility();
+        });
+        
+        observer.observe(metricsDisplay, {
+          attributes: true,
+          attributeFilter: ['style', 'class']
+        });
+      }
+    }
+
+    // Fallback interval for cases where MutationObserver doesn't catch changes
+    const interval = setInterval(checkMetricsVisibility, 1000);
+    
+    return () => {
+      if (observer) {
+        observer.disconnect();
+      }
+      clearInterval(interval);
+    };
+  }, []);
 
   if (!isHydrated || !isVisible) {
     return null;
@@ -27,30 +98,31 @@ const OrderRequire = ({
 
   return (
     <>
-      {/* Order & Requirements notification - positioned on top right */}
+      {/* Button Sequence notification - positioned on top right */}
       <div 
-        className="order-require-banner" 
+        className={`order-require-banner ${animationState}`}
         style={{
           position: 'fixed',
           right: '20px',
-          top: '140px', // Position below topbar
-          backgroundColor: 'rgba(255, 152, 0, 0.9)',
+          top: canvasMetricsVisible ? '240px' : '140px', // Stack below Canvas Metrics if visible
+          backgroundColor: 'rgba(0, 102, 204, 0.8)', // Match displayResponse color
           color: 'white',
-          padding: '15px 20px',
-          borderRadius: '12px',
+          padding: '10px 15px', // Match displayResponse padding
+          borderRadius: '8px', // Match displayResponse border radius
           fontSize: '14px',
-          fontFamily: 'Arial, sans-serif',
-          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.3)',
-          transition: 'all 0.3s ease',
-          opacity: isVisible ? 1 : 0,
-          transform: isVisible ? 'translateX(0)' : 'translateX(100%)',
-          pointerEvents: 'auto',
-          zIndex: 30,
-          display: 'block',
-          width: '320px',
-          maxHeight: '400px',
-          overflowY: 'auto',
-          animation: isVisible ? 'slideInFromRight 0.4s ease-out' : 'slideOutToRight 0.3s ease-in'
+          fontFamily: 'monospace', // Match displayResponse font
+          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)', // Match displayResponse shadow
+          transition: 'all 0.3s ease, top 0.5s ease', // Smooth transition for position changes
+          opacity: animationState === 'visible' ? 1 : 0,
+          transform: animationState === 'visible' 
+            ? 'translateX(0)' 
+            : 'translateX(50px)', // Match displayResponse transform
+          pointerEvents: animationState === 'visible' ? 'auto' : 'none',
+          zIndex: 20, // Lower than original to not interfere
+          display: animationState === 'hidden' ? 'none' : 'block',
+          width: '240px', // Match displayResponse width
+          maxHeight: '300px',
+          overflowY: 'auto'
         }}
       >
         <div 
@@ -59,64 +131,46 @@ const OrderRequire = ({
             display: 'flex',
             justifyContent: 'space-between',
             alignItems: 'center',
-            marginBottom: '12px',
-            borderBottom: '2px solid rgba(255, 255, 255, 0.4)',
-            paddingBottom: '8px'
+            marginBottom: '8px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.3)',
+            paddingBottom: '5px'
           }}
         >
           <span style={{ 
             fontWeight: 'bold', 
-            fontSize: '16px',
-            textShadow: '0 1px 2px rgba(0, 0, 0, 0.3)'
+            fontSize: '14px'
           }}>
-            📋 Order & Requirements
+            🔄 Button Sequence
+            {isManualShow && (
+              <span style={{ 
+                fontSize: '10px', 
+                color: '#90EE90', 
+                marginLeft: '8px',
+                fontStyle: 'italic'
+              }}>
+                (Manual)
+              </span>
+            )}
           </span>
           <div 
             className="notification-indicator"
             style={{ 
-              width: '12px', 
-              height: '12px', 
+              width: '10px', 
+              height: '10px', 
               borderRadius: '50%', 
               backgroundColor: '#00ff00',
-              boxShadow: '0 0 8px rgba(0, 255, 0, 0.8)',
-              animation: 'pulse 2s infinite'
+              boxShadow: '0 0 5px rgba(0, 255, 0, 0.8)'
             }} 
           />
         </div>
         
         <div 
           className="notification-content"
-          style={{ lineHeight: '1.6' }}
+          style={{ lineHeight: '1.5' }}
         >
-          {/* Main message */}
-          {orderRequireMessage && (
-            <div style={{ marginBottom: '12px' }}>
-              <p style={{ 
-                margin: '0 0 8px 0',
-                fontWeight: '500',
-                color: '#fff3cd'
-              }}>
-                <span style={{ display: 'inline-block', width: '80px', fontWeight: 'bold' }}>Status:</span> 
-                <span style={{ fontWeight: 'bold' }}>
-                  {orderRequireMessage}
-                </span>
-              </p>
-            </div>
-          )}
-
-          {/* Requirements list */}
+          {/* Requirements list only */}
           {orderRequireList && orderRequireList.length > 0 && (
-            <div style={{ marginTop: '12px' }}>
-              <h4 style={{ 
-                margin: '0 0 8px 0', 
-                fontSize: '14px',
-                fontWeight: 'bold',
-                color: '#fff3cd',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.3)',
-                paddingBottom: '4px'
-              }}>
-                📝 Requirements List:
-              </h4>
+            <div>
               <ul style={{ 
                 margin: '0', 
                 paddingLeft: '20px',
@@ -151,19 +205,15 @@ const OrderRequire = ({
             </div>
           )}
 
-          {/* Default message if no specific content */}
-          {!orderRequireMessage && (!orderRequireList || orderRequireList.length === 0) && (
+          {/* Default message if no requirements */}
+          {(!orderRequireList || orderRequireList.length === 0) && (
             <div style={{ 
               textAlign: 'center',
               padding: '20px 0',
               color: '#fff3cd'
             }}>
               <p style={{ margin: '0', fontSize: '13px' }}>
-                📋 No specific requirements configured.
-                <br />
-                <span style={{ fontSize: '12px', opacity: 0.8 }}>
-                  Configure your order requirements in admin settings.
-                </span>
+                🔄 No button sequence configured.
               </p>
             </div>
           )}
@@ -181,7 +231,10 @@ const OrderRequire = ({
         }}
         onMouseEnter={(e) => e.target.style.color = 'white'}
         onMouseLeave={(e) => e.target.style.color = 'rgba(255, 255, 255, 0.7)'}
-        onClick={() => setIsVisible(false)}
+        onClick={() => {
+          setAnimationState('hidden');
+          setTimeout(() => setIsVisible(false), 300);
+        }}
         >
           ×
         </div>
@@ -189,40 +242,6 @@ const OrderRequire = ({
 
       {/* CSS Animations */}
       <style jsx>{`
-        @keyframes slideInFromRight {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-
-        @keyframes slideOutToRight {
-          from {
-            transform: translateX(0);
-            opacity: 1;
-          }
-          to {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-        }
-
-        @keyframes pulse {
-          0% {
-            box-shadow: 0 0 8px rgba(0, 255, 0, 0.8);
-          }
-          50% {
-            box-shadow: 0 0 15px rgba(0, 255, 0, 1);
-          }
-          100% {
-            box-shadow: 0 0 8px rgba(0, 255, 0, 0.8);
-          }
-        }
-
         .order-require-banner::-webkit-scrollbar {
           width: 6px;
         }
