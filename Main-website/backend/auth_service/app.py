@@ -32,6 +32,7 @@ from routes import preview
 from routes.data_center_routes import router as data_center_router
 from routes.admin_updates import router as admin_updates_router
 from routes.canvas_admin import router as canvas_admin_router
+from routes.canvas_use import router as canvas_use_router
 from routes.consent import router as consent_router
 from routes.backup import router as backup_router
 from routes.user_captures import router as user_captures_router
@@ -342,6 +343,7 @@ async def update_user_preferences(user_id: str, preferences: UserProfileUpdate):
 app.include_router(data_center_router)
 app.include_router(admin_updates_router)
 app.include_router(canvas_admin_router)
+app.include_router(canvas_use_router)
 app.include_router(backup_router)
 app.include_router(user_captures_router)
 app.include_router(admin_dataset_router)
