@@ -271,14 +271,9 @@ class CanvasImageManager {
     ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
     
     // Add a visible border around the image area for debugging
-    ctx.strokeStyle = 'red';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'green';
+    ctx.lineWidth = 1;
     ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
-    
-    // Add text to confirm drawing
-    ctx.fillStyle = 'black';
-    ctx.font = '20px Arial';
-    ctx.fillText('IMAGE LOADED', drawX + 10, drawY + 30);
     
     // Ensure canvas allows pointer events to pass through
     if (this.canvas) {
@@ -372,8 +367,9 @@ class CanvasImageManager {
     }
 
     if (!enableBackgroundChange) {
-      // Set yellow background if background change is disabled
+      // Set yellow background if background change is disabled - NO IMAGE LOADING
       this.setYellowBackground();
+      this.currentImage = null; // Ensure no image is set
       return;
     }
 
@@ -596,6 +592,7 @@ export const useCanvasImage = (canvas, userId, settings, adminUserId = null) => 
     if (!enableBackgroundChange) {
       // Background change is disabled, only set yellow background (no image loading)
       canvasImageManager.setYellowBackground();
+      canvasImageManager.currentImage = null; // Ensure no image is set
       return;
     }
 
@@ -758,14 +755,9 @@ const ImageOverlay = ({ canvas, imagePath, isVisible = true }) => {
     ctx.drawImage(imageElement, drawX, drawY, drawWidth, drawHeight);
     
     // Add a visible border around the image area for debugging
-    ctx.strokeStyle = 'red';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'green';
+    ctx.lineWidth = 1;
     ctx.strokeRect(drawX, drawY, drawWidth, drawHeight);
-    
-    // Add text to confirm drawing
-    ctx.fillStyle = 'black';
-    ctx.font = '20px Arial';
-    ctx.fillText('IMAGE OVERLAY LOADED', drawX + 10, drawY + 30);
     
     // Restore context state
     ctx.restore();
@@ -889,6 +881,11 @@ export const useCanvasImageWithOverlay = (canvas, userId, settings, adminUserId 
     if (!enableBackgroundChange) {
       // Background change is disabled, no overlay image
       setOverlayImagePath(null);
+      // Also clear any existing image from canvas
+      if (canvasImageManager) {
+        canvasImageManager.setYellowBackground();
+        canvasImageManager.currentImage = null;
+      }
       return;
     }
 

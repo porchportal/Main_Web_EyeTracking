@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import Image from 'next/image';
 import { useAdminSettings } from './adminSettings';
 import { getOrCreateUserId } from '../../../utils/consentManager';
+import OrderRequire from './Order&require';
 
 // Improved debounce function
 const debounce = (func, wait) => {
@@ -42,6 +43,10 @@ const TopBar = ({
   const [canvasStatus, setCanvasStatus] = useState(isCanvasVisible);
   const { settings, updateSettings, fetchSettings, currentSettings, isLoading } = useAdminSettings();
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [enableBackgroundChange, setEnableBackgroundChange] = useState(false);
+  const [showOrderRequire, setShowOrderRequire] = useState(false);
+  const [orderRequireMessage, setOrderRequireMessage] = useState('');
+  const [orderRequireList, setOrderRequireList] = useState([]);
 
   // Get canvas function - use existing canvas from global manager
   const getCanvas = () => {
@@ -104,6 +109,17 @@ const TopBar = ({
     };
     initializeUserId();
   }, [fetchSettings]);
+
+  // Update enableBackgroundChange when settings change
+  useEffect(() => {
+    if (currentUserId && settings && settings[currentUserId]) {
+      const userSettings = settings[currentUserId];
+      const backgroundChangeEnabled = userSettings.enable_background_change || false;
+      setEnableBackgroundChange(backgroundChangeEnabled);
+    } else {
+      setEnableBackgroundChange(false);
+    }
+  }, [currentUserId, settings]);
 
   // Update canvas status when prop changes
   useEffect(() => {
@@ -191,6 +207,25 @@ const TopBar = ({
 
   const handleGoBack = () => {
     router.push('/');
+  };
+
+  const handleOrderRequirement = () => {
+    // Toggle order requirements notification
+    if (showOrderRequire) {
+      // If already showing, hide it
+      setShowOrderRequire(false);
+    } else {
+      // If not showing, show it with content
+      setOrderRequireMessage('Canvas Image Order & Requirements');
+      setOrderRequireList([
+        'Configure image background paths in admin settings',
+        'Set enable_background_change to true to load images',
+        'Images will be displayed in the order specified',
+        'Use Order/Requirement button to access configuration',
+        'Default images will be used if no custom images are set'
+      ]);
+      setShowOrderRequire(true);
+    }
   };
 
   const statusMessage = `TopBar ${isTopBarShown ? 'shown' : 'hidden'}, Canvas: ${canvasStatus ? 'Visible' : 'Hidden'}`;
@@ -349,6 +384,7 @@ const TopBar = ({
               >
                 Show Preview
               </button>
+              
               <button 
                 className="btn camera-select-btn"
                 onClick={() => handleButtonClick('selectCamera')}
@@ -377,6 +413,25 @@ const TopBar = ({
                 </span>
               </button>
             </div>
+            
+            {/* Order/Requirement button row - only show when enable_background_change is true, same y-axis as Clear All and Back buttons */}
+            {enableBackgroundChange && (
+              <div className="button-row" style={{ 
+                marginTop: '2px',
+                marginRight: '10px',
+                display: 'flex',
+                justifyContent: 'center',
+                gap: '10px'
+              }}>
+                <button 
+                  className="btn order-requirement-btn"
+                  onClick={handleOrderRequirement}
+                  title="Configure canvas image order and requirements"
+                >
+                  Order/Requirement
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -442,6 +497,14 @@ const TopBar = ({
 
         </div>
       </div>
+      
+      {/* Order & Requirements Component */}
+      <OrderRequire
+        isHydrated={true}
+        showOrderRequire={showOrderRequire}
+        orderRequireMessage={orderRequireMessage}
+        orderRequireList={orderRequireList}
+      />
       
       <style jsx>{`
         .active-toggle {

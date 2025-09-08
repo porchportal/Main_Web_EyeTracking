@@ -740,8 +740,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             if (enableBackgroundChange) {
               canvasImageManager.setImageBackground('/Overall_porch.png');
             } else {
-              // Background change is disabled, only set yellow background
+              // Background change is disabled, only set yellow background - NO IMAGE LOADING
               canvasImageManager.setYellowBackground();
+              canvasImageManager.currentImage = null; // Ensure no image is set
             }
           }, 1000);
 
@@ -1103,8 +1104,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           // Background change is enabled, clear to yellow background
           canvasManager.clearCanvas(canvas);
         } else {
-          // Background change is disabled, just set yellow background
+          // Background change is disabled, just set yellow background - NO IMAGE LOADING
           canvasManager.clearCanvas(canvas);
+          if (canvasImageManager) {
+            canvasImageManager.currentImage = null; // Ensure no image is set
+          }
         }
       }
       // Ensure canvas is properly positioned and centered
@@ -1465,8 +1469,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           // Background change is enabled, clear to yellow background
           canvasManager.clearCanvas();
         } else {
-          // Background change is disabled, just set yellow background
+          // Background change is disabled, just set yellow background - NO IMAGE LOADING
           canvasManager.clearCanvas();
+          if (canvasImageManager) {
+            canvasImageManager.currentImage = null; // Ensure no image is set
+          }
         }
       }
       
@@ -1755,8 +1762,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         canvasImageManager.setYellowBackground();
         canvasImageManager.currentImage = null;
       } else {
-        // Background change is disabled, just set yellow background
+        // Background change is disabled, just set yellow background - NO IMAGE LOADING
         canvasImageManager.setYellowBackground();
+        canvasImageManager.currentImage = null; // Ensure no image is set
       }
     } else {
       canvasManager.clearCanvas();
