@@ -1,0 +1,417 @@
+/* OrderRequire Component Styles */
+
+/* Main banner container */
+.orderRequireBanner {
+  position: fixed;
+  right: 20px;
+  background-color: rgba(0, 102, 204, 0.8);
+  color: white;
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: monospace;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease, top 0.5s ease;
+  pointer-events: auto;
+  z-index: 30;
+  display: block;
+  width: 280px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.orderRequireBanner.visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.orderRequireBanner.hidden {
+  opacity: 0;
+  transform: translateX(50px);
+  pointer-events: none;
+  display: none;
+}
+
+.orderRequireBanner.withCanvasMetrics {
+  top: 240px;
+}
+
+.orderRequireBanner.withoutCanvasMetrics {
+  top: 140px;
+}
+
+/* Notification header */
+.notificationHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  padding-bottom: 5px;
+}
+
+.headerTitle {
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.manualIndicator {
+  font-size: 10px;
+  color: #90EE90;
+  margin-left: 8px;
+  font-style: italic;
+}
+
+.savedIndicator {
+  font-size: 10px;
+  color: #00ff00;
+  margin-left: 8px;
+  font-style: italic;
+}
+
+.notificationIndicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #00ff00;
+  box-shadow: 0 0 5px rgba(0, 255, 0, 0.8);
+}
+
+/* Notification content */
+.notificationContent {
+  line-height: 1.5;
+}
+
+/* Requirements list */
+.requirementsList {
+  margin: 0;
+  padding-left: 20px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.requirementItem {
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #ffffff;
+  opacity: 1;
+}
+
+.requirementItem.clicked {
+  color: #90EE90;
+  text-decoration: line-through;
+  opacity: 0.8;
+}
+
+.requirementNumber {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  background-color: #4CAF50;
+  color: white;
+  border-radius: 50%;
+  text-align: center;
+  line-height: 20px;
+  font-size: 10px;
+  font-weight: bold;
+  margin-right: 8px;
+  box-shadow: none;
+}
+
+.requirementNumber.clicked {
+  background-color: #00ff00;
+  font-size: 12px;
+  box-shadow: 0 0 5px rgba(0, 255, 0, 0.8);
+}
+
+/* Image display section */
+.imageDisplaySection {
+  margin-top: 15px;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
+  padding-top: 10px;
+}
+
+.imageSectionTitle {
+  font-size: 12px;
+  color: #90EE90;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+.imageListContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Image row */
+.imageRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  pointer-events: auto;
+  position: relative;
+  z-index: 1;
+}
+
+.imageRow:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: rgba(0, 255, 0, 0.3);
+}
+
+.imageRow.expanded {
+  background-color: rgba(0, 255, 0, 0.1);
+  border-color: rgba(0, 255, 0, 0.3);
+}
+
+.imageRow.expanded:hover {
+  background-color: rgba(0, 255, 0, 0.1);
+  border-color: rgba(0, 255, 0, 0.3);
+}
+
+/* Image thumbnail */
+.imageThumbnail {
+  position: relative;
+  width: 60px;
+  height: 40px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  flex-shrink: 0;
+}
+
+.imageThumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.imagePlaceholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #333;
+  color: white;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Image info */
+.imageInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Path name */
+.pathName {
+  font-size: 12px;
+  color: #ffffff;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pathNameText {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+.expandIcon {
+  font-size: 10px;
+  color: #00ff00;
+  transition: transform 0.3s ease;
+}
+
+.collapseIcon {
+  font-size: 10px;
+  color: #90EE90;
+  transition: transform 0.3s ease;
+}
+
+/* Times number */
+.timesNumber {
+  font-size: 11px;
+  color: #90EE90;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.timesBadge {
+  background-color: rgba(0, 255, 0, 0.2);
+  color: #00ff00;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+}
+
+/* Progress indicator */
+.progressIndicator {
+  display: block;
+  margin-top: 2px;
+  font-size: 10px;
+  color: #00ff00;
+  font-weight: bold;
+  text-align: center;
+  background-color: rgba(0, 255, 0, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+/* Current image highlighting */
+.currentImage {
+  background-color: rgba(255, 215, 0, 0.2) !important;
+  border: 2px solid #ffd700 !important;
+  border-radius: 6px;
+}
+
+.currentImageInfo {
+  display: block;
+  font-size: 11px;
+  color: #ffd700;
+  font-weight: bold;
+  margin-top: 2px;
+  background-color: rgba(255, 215, 0, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.currentImageName {
+  color: #ffffff;
+  font-weight: normal;
+}
+
+/* Expanded path display */
+.expandedPathContainer {
+  margin-top: 10px;
+  padding: 8px;
+  background-color: rgba(0, 255, 0, 0.1);
+  border: 1px solid rgba(0, 255, 0, 0.3);
+  border-radius: 6px;
+  animation: slideDown 0.3s ease-out;
+}
+
+.expandedPathHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.expandedPathTitle {
+  font-size: 11px;
+  color: #00ff00;
+  font-weight: bold;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+}
+
+.closeButton:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.expandedPathContent {
+  font-size: 10px;
+  color: #ffffff;
+  font-family: monospace;
+  word-break: break-all;
+  line-height: 1.4;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Default message */
+.defaultMessage {
+  text-align: center;
+  padding: 20px 0;
+  color: #fff3cd;
+}
+
+.defaultMessageText {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* Close button */
+.closeButtonContainer {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  cursor: pointer;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 0.2s ease;
+}
+
+.closeButtonContainer:hover {
+  color: white;
+}
+
+/* Scrollbar styles */
+.orderRequireBanner::-webkit-scrollbar {
+  width: 6px;
+}
+
+.orderRequireBanner::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.orderRequireBanner::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.orderRequireBanner::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Animations */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 200px;
+  }
+}

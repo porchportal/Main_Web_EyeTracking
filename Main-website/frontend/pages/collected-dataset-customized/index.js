@@ -444,8 +444,44 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   // Track clicked buttons for OrderRequire component
   const [clickedButtons, setClickedButtons] = useState(new Set());
   
+  // Global canvas manager instance - initialize only once
+  const canvasManager = useMemo(() => {
+    // Create a singleton canvas manager
+    if (typeof window !== 'undefined' && window.globalCanvasManager) {
+      return window.globalCanvasManager;
+    }
+    
+    const manager = new GlobalCanvasManager();
+    
+    // Store globally for other components to use
+    if (typeof window !== 'undefined') {
+      window.globalCanvasManager = manager;
+    }
+    
+    return manager;
+  }, []);
+  
+  // Canvas image management hook with overlay support
+  const canvas = canvasManager.getCanvas();
+  const {
+    canvasImageManager,
+    showNotification: showCanvasNotification,
+    notificationMessage: canvasNotificationMessage,
+    overlayImagePath,
+    showOverlay,
+    setOverlayImagePath,
+    setShowOverlay,
+    handleResize: handleCanvasImageResize,
+    forceCheckMongoDBSettings,
+    handleTabVisibilityChange,
+    setOnImageComplete,
+    getCurrentImageIndex,
+    moveToNextImage,
+    resetToFirstImage
+  } = useCanvasImageWithOverlay(canvas, currentUserId, settings, adminCurrentUserId);
+  
   // Function to track button clicks
-  const trackButtonClick = useCallback((buttonName) => {
+  const trackButtonClick = useCallback(async (buttonName) => {
     setClickedButtons(prev => {
       const newSet = new Set([...prev, buttonName]);
       // Save to localStorage
@@ -454,7 +490,14 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       }
       return newSet;
     });
-  }, []);
+    
+    // Also track in CanvasImage manager
+    if (canvasImageManager && canvasImageManager.trackButtonClick) {
+      const userSettings = settings?.[currentUserId];
+      const imageBackgroundPaths = userSettings?.image_background_paths || [];
+      await canvasImageManager.trackButtonClick(buttonName, imageBackgroundPaths);
+    }
+  }, [canvasImageManager, settings, currentUserId]);
   
   // Function to clear clicked buttons (useful for resetting progress)
   const clearClickedButtons = useCallback(() => {
@@ -463,7 +506,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     if (typeof window !== 'undefined') {
       localStorage.removeItem('clickedButtons');
     }
-  }, []);
+    
+    // Also reset CanvasImage manager
+    if (canvasImageManager && canvasImageManager.resetButtonClickCount) {
+      canvasImageManager.resetButtonClickCount();
+    }
+  }, [canvasImageManager]);
   
   // Function to load clicked buttons from localStorage
   const loadClickedButtonsFromStorage = useCallback(() => {
@@ -480,6 +528,20 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     }
     return new Set();
   }, []);
+
+  // Function to get progress info from canvas image manager
+  const getProgressInfo = useCallback(() => {
+    if (canvasImageManager && canvasImageManager.getProgressInfo) {
+      return canvasImageManager.getProgressInfo();
+    }
+    return {
+      buttonClickCount: 0,
+      currentImageTimes: 1,
+      currentImageIndex: 0,
+      totalImages: 0,
+      currentImagePath: null
+    };
+  }, [canvasImageManager]);
 
   // Refs
   const previewAreaRef = useRef(null);
@@ -727,37 +789,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   }, []);
   
 
-  // Global canvas manager instance - initialize only once
-  const canvasManager = useMemo(() => {
-    // Create a singleton canvas manager
-    if (typeof window !== 'undefined' && window.globalCanvasManager) {
-      return window.globalCanvasManager;
-    }
-    
-    const manager = new GlobalCanvasManager();
-    
-    // Store globally for other components to use
-    if (typeof window !== 'undefined') {
-      window.globalCanvasManager = manager;
-    }
-    
-    return manager;
-  }, []);
 
-  // Canvas image management hook with overlay support
-  const canvas = canvasManager.getCanvas();
-  const {
-    canvasImageManager,
-    showNotification: showCanvasNotification,
-    notificationMessage: canvasNotificationMessage,
-    overlayImagePath,
-    showOverlay,
-    setOverlayImagePath,
-    setShowOverlay,
-    handleResize: handleCanvasImageResize,
-    forceCheckMongoDBSettings,
-    handleTabVisibilityChange
-  } = useCanvasImageWithOverlay(canvas, currentUserId, settings, adminCurrentUserId);
 
   // Simplified canvas utilities - only essential functions
   const canvasUtils = useMemo(() => ({
@@ -792,6 +824,24 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           // Set settings and userId for resize operations
           canvasManager.setSettingsAndUserId(settings, currentUserId);
           window.canvasImageManager = canvasImageManager;
+          
+          // Set up image completion callback
+          if (setOnImageComplete) {
+            setOnImageComplete((eventType, data) => {
+              if (eventType === 'image_switched') {
+                console.log('Image switched:', data);
+                setProcessStatus(`Switched to image ${data.currentIndex + 1}: ${data.imagePath.split('/').pop()}`);
+                
+                // Update overlay image path if using overlay
+                if (setOverlayImagePath) {
+                  setOverlayImagePath(data.imagePath);
+                }
+              } else if (eventType === 'all_complete') {
+                console.log('All images completed!');
+                setProcessStatus('All images completed! 🎉');
+              }
+            });
+          }
           
           // Add a debounced resize event listener to ensure it's triggered
           let resizeTimeout;
@@ -2274,6 +2324,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                 isCameraActivated={isCameraActivated}
                 selectedCamerasCount={selectedCameras.length}
                 clickedButtons={clickedButtons}
+                buttonClickCount={getProgressInfo().buttonClickCount}
+                currentImageTimes={getProgressInfo().currentImageTimes}
+                currentImageIndex={getProgressInfo().currentImageIndex}
+                totalImages={getProgressInfo().totalImages}
+                currentImagePath={getProgressInfo().currentImagePath}
               />
             </div>
           )}

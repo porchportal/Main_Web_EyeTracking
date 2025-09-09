@@ -38,7 +38,12 @@ const TopBar = ({
   isCameraActive = false,
   isCameraActivated = false,
   selectedCamerasCount = 0,
-  clickedButtons = new Set()
+  clickedButtons = new Set(),
+  buttonClickCount = 0,
+  currentImageTimes = 1,
+  currentImageIndex = 0,
+  totalImages = 1,
+  currentImagePath = null
 }) => {
   const router = useRouter();
   const [canvasStatus, setCanvasStatus] = useState(isCanvasVisible);
@@ -559,6 +564,13 @@ const TopBar = ({
         orderRequireList={orderRequireList}
         isManualShow={isManualShow}
         clickedButtons={clickedButtons}
+        imageBackgroundPaths={currentSettings?.image_background_paths || []}
+        currentUserId={currentUserId}
+        buttonClickCount={buttonClickCount}
+        currentImageTimes={currentImageTimes}
+        currentImageIndex={currentImageIndex}
+        totalImages={totalImages}
+        currentImagePath={currentImagePath}
       />
       
       <style jsx>{`

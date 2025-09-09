@@ -1,4 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { 
+  saveProgressToStorage, 
+  loadProgressFromStorage, 
+  clearProgressFromStorage,
+  isProgressDataStale 
+} from './count&mark.js';
 
 class CanvasImageManager {
   constructor() {
@@ -9,6 +15,12 @@ class CanvasImageManager {
     this.imageCache = new Map();
     this.lastUserId = null;
     this.lastNotificationTime = null;
+    this.buttonClickCount = 0; // Track total button clicks
+    this.currentImageTimes = 1; // Times for current image
+    this.parsedImages = []; // Store parsed images with times
+    this.userId = null; // Current user ID for localStorage
+    this.currentImageIndex = 0; // Current image index in the array
+    this.onImageComplete = null; // Callback for when image is complete
   }
 
   // Initialize the canvas image manager
@@ -289,6 +301,266 @@ class CanvasImageManager {
     return firstPath;
   }
 
+  // Parse image path to extract times number and path
+  parseImagePath(imagePath) {
+    if (!imagePath || typeof imagePath !== 'string') {
+      return { times: 1, path: imagePath, originalPath: imagePath };
+    }
+    
+    // Parse the format "[times]-path"
+    if (imagePath.includes('-')) {
+      const pathMatch = imagePath.match(/^\[(\d+)\]-(.+)$/);
+      if (pathMatch) {
+        return {
+          times: parseInt(pathMatch[1], 10),
+          path: pathMatch[2],
+          originalPath: imagePath
+        };
+      }
+    }
+    
+    // Fallback for simple paths
+    return {
+      times: 1,
+      path: imagePath,
+      originalPath: imagePath
+    };
+  }
+
+  // Get all parsed images with times information
+  getAllParsedImages(imageBackgroundPaths) {
+    if (!imageBackgroundPaths || !Array.isArray(imageBackgroundPaths)) {
+      return [];
+    }
+    
+    return imageBackgroundPaths.map((path, index) => {
+      const parsed = this.parseImagePath(path);
+      return {
+        ...parsed,
+        index: index
+      };
+    });
+  }
+
+  // Set user ID for localStorage operations
+  setUserId(userId) {
+    this.userId = userId;
+  }
+
+  // Set callback for when image is complete
+  setOnImageComplete(callback) {
+    this.onImageComplete = callback;
+  }
+
+  // Get current image index
+  getCurrentImageIndex() {
+    return this.currentImageIndex;
+  }
+
+  // Set current image index
+  setCurrentImageIndex(index) {
+    if (index >= 0 && index < this.parsedImages.length) {
+      this.currentImageIndex = index;
+      this.currentImageTimes = this.parsedImages[index].times;
+      this.buttonClickCount = 0; // Reset button count for new image
+      this.saveProgressToStorage();
+      console.log(`Switched to image index ${index}, times: ${this.currentImageTimes}`);
+    }
+  }
+
+  // Check if current image is complete
+  isCurrentImageComplete() {
+    return this.buttonClickCount >= this.currentImageTimes;
+  }
+
+  // Move to next image if current is complete
+  async moveToNextImage() {
+    if (!this.isCurrentImageComplete()) {
+      return false; // Current image not complete yet
+    }
+
+    const nextIndex = this.currentImageIndex + 1;
+    if (nextIndex >= this.parsedImages.length) {
+      console.log('All images completed!');
+      // All images are complete
+      if (this.onImageComplete) {
+        this.onImageComplete('all_complete');
+      }
+      return false;
+    }
+
+    // Move to next image
+    this.setCurrentImageIndex(nextIndex);
+    const nextImage = this.parsedImages[nextIndex];
+    
+    // Load the next image
+    const success = await this.setImageBackground(nextImage.path);
+    if (success) {
+      console.log(`Switched to next image: ${nextImage.path}`);
+      if (this.onImageComplete) {
+        this.onImageComplete('image_switched', {
+          previousIndex: this.currentImageIndex - 1,
+          currentIndex: this.currentImageIndex,
+          imagePath: nextImage.path,
+          times: nextImage.times
+        });
+      }
+      return true;
+    } else {
+      console.error(`Failed to load next image: ${nextImage.path}`);
+      return false;
+    }
+  }
+
+  // Reset to first image
+  async resetToFirstImage() {
+    if (this.parsedImages.length === 0) {
+      return false;
+    }
+
+    this.setCurrentImageIndex(0);
+    const firstImage = this.parsedImages[0];
+    
+    // Load the first image
+    const success = await this.setImageBackground(firstImage.path);
+    if (success) {
+      console.log(`Reset to first image: ${firstImage.path}`);
+      return true;
+    } else {
+      console.error(`Failed to load first image: ${firstImage.path}`);
+      return false;
+    }
+  }
+
+  // Track button click and update progress
+  async trackButtonClick(buttonName, imageBackgroundPaths = null) {
+    // Increment button click count
+    this.buttonClickCount++;
+    
+    // Update parsed images if provided
+    if (imageBackgroundPaths) {
+      this.parsedImages = this.getAllParsedImages(imageBackgroundPaths);
+      
+      // Update current image times if we have parsed images
+      if (this.parsedImages.length > 0) {
+        this.currentImageTimes = this.parsedImages[this.currentImageIndex].times;
+      }
+    }
+    
+    // Save progress to localStorage
+    this.saveProgressToStorage();
+    
+    console.log(`Button clicked: ${buttonName}, Total clicks: ${this.buttonClickCount}, Current image times: ${this.currentImageTimes}`);
+    
+    // Check if current image is complete and move to next image
+    if (this.isCurrentImageComplete()) {
+      console.log(`Image ${this.currentImageIndex + 1} completed! Moving to next image...`);
+      await this.moveToNextImage();
+    }
+  }
+
+  // Get current progress information
+  getProgressInfo() {
+    return {
+      buttonClickCount: this.buttonClickCount,
+      currentImageTimes: this.currentImageTimes,
+      progress: this.currentImageTimes > 0 ? `${this.buttonClickCount}/${this.currentImageTimes}` : '0/0',
+      isComplete: this.buttonClickCount >= this.currentImageTimes,
+      parsedImages: this.parsedImages,
+      currentImageIndex: this.currentImageIndex,
+      totalImages: this.parsedImages.length,
+      currentImagePath: this.parsedImages[this.currentImageIndex]?.path || null
+    };
+  }
+
+  // Save progress to localStorage
+  saveProgressToStorage() {
+    const progressData = {
+      buttonClickCount: this.buttonClickCount,
+      currentImageTimes: this.currentImageTimes,
+      parsedImages: this.parsedImages,
+      currentImageIndex: this.currentImageIndex,
+      timestamp: Date.now()
+    };
+    
+    if (typeof window !== 'undefined') {
+      try {
+        const storageKey = this.userId ? `progress_${this.userId}` : 'progress';
+        localStorage.setItem(storageKey, JSON.stringify(progressData));
+        console.log('Saved progress to localStorage:', progressData);
+      } catch (error) {
+        console.error('Error saving progress to localStorage:', error);
+      }
+    }
+  }
+
+  // Load progress from localStorage
+  loadProgressFromStorage() {
+    const progressData = loadProgressFromStorage(this.userId);
+    
+    // Check if data is stale (older than 24 hours)
+    if (isProgressDataStale(progressData, 24)) {
+      console.log('Progress data is stale, resetting to default');
+      this.buttonClickCount = 0;
+      this.currentImageTimes = 1;
+      this.parsedImages = [];
+      this.currentImageIndex = 0;
+      return;
+    }
+    
+    // Restore progress data
+    this.buttonClickCount = progressData.buttonClickCount || 0;
+    this.currentImageTimes = progressData.currentImageTimes || 1;
+    this.parsedImages = progressData.parsedImages || [];
+    this.currentImageIndex = progressData.currentImageIndex || 0;
+    
+    // Ensure current image index is valid
+    if (this.currentImageIndex >= this.parsedImages.length) {
+      this.currentImageIndex = 0;
+    }
+    
+    // Update current image times based on current index
+    if (this.parsedImages.length > 0 && this.currentImageIndex < this.parsedImages.length) {
+      this.currentImageTimes = this.parsedImages[this.currentImageIndex].times;
+    }
+    
+    console.log('Loaded progress from localStorage:', {
+      buttonClickCount: this.buttonClickCount,
+      currentImageTimes: this.currentImageTimes,
+      parsedImagesCount: this.parsedImages.length,
+      currentImageIndex: this.currentImageIndex
+    });
+  }
+
+  // Reset button click count
+  resetButtonClickCount() {
+    this.buttonClickCount = 0;
+    this.saveProgressToStorage(); // Save the reset state
+    console.log('Button click count reset');
+  }
+
+  // Update image background paths and reset progress
+  updateImageBackgroundPaths(imageBackgroundPaths) {
+    this.parsedImages = this.getAllParsedImages(imageBackgroundPaths);
+    
+    // Reset to first image when paths change
+    this.currentImageIndex = 0;
+    
+    if (this.parsedImages.length > 0) {
+      this.currentImageTimes = this.parsedImages[0].times;
+    } else {
+      this.currentImageTimes = 1;
+    }
+    
+    // Reset button click count when image paths change
+    this.buttonClickCount = 0;
+    
+    // Save the reset progress to localStorage
+    this.saveProgressToStorage();
+    
+    console.log('Updated image background paths:', this.parsedImages);
+  }
+
   // Validate image path
   isValidImagePath(imagePath) {
     if (!imagePath || typeof imagePath !== 'string') {
@@ -346,6 +618,9 @@ class CanvasImageManager {
     if (!this.isInitialized) {
       return;
     }
+
+    // Update parsed images and reset progress when background paths change
+    this.updateImageBackgroundPaths(imageBackgroundPaths);
 
     if (!enableBackgroundChange) {
       // Clear canvas if background change is disabled - NO IMAGE LOADING
@@ -630,6 +905,12 @@ export const useCanvasImage = (canvas, userId, settings, adminUserId = null) => 
     if (canvas && !canvasImageManager.isInitialized) {
       canvasImageManager.initialize(canvas);
       
+      // Set user ID for localStorage operations
+      canvasImageManager.setUserId(effectiveUserId);
+      
+      // Load progress from localStorage
+      canvasImageManager.loadProgressFromStorage();
+      
       // Only load default image if background change is enabled
       setTimeout(() => {
         // Check if background change is enabled before loading default image
@@ -749,7 +1030,24 @@ export const useCanvasImage = (canvas, userId, settings, adminUserId = null) => 
     getDebugInfo: () => canvasImageManager.getDebugInfo(),
     handleResize: (settings, userId) => canvasImageManager.handleResize(settings, userId),
     forceCheckMongoDBSettings: (settings, userId) => canvasImageManager.forceCheckMongoDBSettings(settings, userId),
-    handleTabVisibilityChange: (isVisible) => canvasImageManager.handleTabVisibilityChange(isVisible)
+    handleTabVisibilityChange: (isVisible) => canvasImageManager.handleTabVisibilityChange(isVisible),
+    // New button tracking functionality
+    trackButtonClick: (buttonName, imageBackgroundPaths) => canvasImageManager.trackButtonClick(buttonName, imageBackgroundPaths),
+    getProgressInfo: () => canvasImageManager.getProgressInfo(),
+    resetButtonClickCount: () => canvasImageManager.resetButtonClickCount(),
+    updateImageBackgroundPaths: (imageBackgroundPaths) => canvasImageManager.updateImageBackgroundPaths(imageBackgroundPaths),
+    getAllParsedImages: (imageBackgroundPaths) => canvasImageManager.getAllParsedImages(imageBackgroundPaths),
+    // Progress localStorage functionality
+    saveProgressToStorage: () => canvasImageManager.saveProgressToStorage(),
+    loadProgressFromStorage: () => canvasImageManager.loadProgressFromStorage(),
+    setUserId: (userId) => canvasImageManager.setUserId(userId),
+    // Image switching functionality
+    setOnImageComplete: (callback) => canvasImageManager.setOnImageComplete(callback),
+    getCurrentImageIndex: () => canvasImageManager.getCurrentImageIndex(),
+    setCurrentImageIndex: (index) => canvasImageManager.setCurrentImageIndex(index),
+    isCurrentImageComplete: () => canvasImageManager.isCurrentImageComplete(),
+    moveToNextImage: () => canvasImageManager.moveToNextImage(),
+    resetToFirstImage: () => canvasImageManager.resetToFirstImage()
   };
 };
 
@@ -920,6 +1218,12 @@ export const useCanvasImageWithOverlay = (canvas, userId, settings, adminUserId 
     if (canvas && !canvasImageManager.isInitialized) {
       canvasImageManager.initialize(canvas);
       
+      // Set user ID for localStorage operations
+      canvasImageManager.setUserId(effectiveUserId);
+      
+      // Load progress from localStorage
+      canvasImageManager.loadProgressFromStorage();
+      
       // Only load default image if background change is enabled
       setTimeout(() => {
         // Check if background change is enabled before loading default image
@@ -1062,7 +1366,24 @@ export const useCanvasImageWithOverlay = (canvas, userId, settings, adminUserId 
     getDebugInfo: () => canvasImageManager.getDebugInfo(),
     handleResize: (settings, userId) => canvasImageManager.handleResize(settings, userId),
     forceCheckMongoDBSettings: (settings, userId) => canvasImageManager.forceCheckMongoDBSettings(settings, userId),
-    handleTabVisibilityChange: (isVisible) => canvasImageManager.handleTabVisibilityChange(isVisible)
+    handleTabVisibilityChange: (isVisible) => canvasImageManager.handleTabVisibilityChange(isVisible),
+    // New button tracking functionality
+    trackButtonClick: (buttonName, imageBackgroundPaths) => canvasImageManager.trackButtonClick(buttonName, imageBackgroundPaths),
+    getProgressInfo: () => canvasImageManager.getProgressInfo(),
+    resetButtonClickCount: () => canvasImageManager.resetButtonClickCount(),
+    updateImageBackgroundPaths: (imageBackgroundPaths) => canvasImageManager.updateImageBackgroundPaths(imageBackgroundPaths),
+    getAllParsedImages: (imageBackgroundPaths) => canvasImageManager.getAllParsedImages(imageBackgroundPaths),
+    // Progress localStorage functionality
+    saveProgressToStorage: () => canvasImageManager.saveProgressToStorage(),
+    loadProgressFromStorage: () => canvasImageManager.loadProgressFromStorage(),
+    setUserId: (userId) => canvasImageManager.setUserId(userId),
+    // Image switching functionality
+    setOnImageComplete: (callback) => canvasImageManager.setOnImageComplete(callback),
+    getCurrentImageIndex: () => canvasImageManager.getCurrentImageIndex(),
+    setCurrentImageIndex: (index) => canvasImageManager.setCurrentImageIndex(index),
+    isCurrentImageComplete: () => canvasImageManager.isCurrentImageComplete(),
+    moveToNextImage: () => canvasImageManager.moveToNextImage(),
+    resetToFirstImage: () => canvasImageManager.resetToFirstImage()
   };
 };
 

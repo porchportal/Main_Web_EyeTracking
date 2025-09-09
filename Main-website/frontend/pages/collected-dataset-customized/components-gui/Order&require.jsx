@@ -1,4 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import styles from '../styles/Order&require.module.css';
+import { 
+  parseImagePaths, 
+  getImageUrl, 
+  getCheckMarkStatus, 
+  getProgressStatus,
+  CheckMarkRenderer,
+  ProgressRenderer,
+  saveProgressToStorage,
+  loadProgressFromStorage,
+  clearProgressFromStorage,
+  isProgressDataStale
+} from './count&mark.js';
 
 const OrderRequire = ({
   isHydrated,
@@ -6,10 +19,68 @@ const OrderRequire = ({
   orderRequireMessage,
   orderRequireList = [],
   isManualShow = false, // New prop to indicate if this is a manual show (user clicked button)
-  clickedButtons = new Set() // Track which buttons have been clicked
+  clickedButtons = new Set(), // Track which buttons have been clicked
+  imageBackgroundPaths = [], // Array of image paths from MongoDB
+  currentUserId = null, // Current user ID for settings access
+  buttonClickCount = 0, // Total button clicks from CanvasImage
+  currentImageTimes = 1, // Times for current image from CanvasImage
+  currentImageIndex = 0, // Current image index
+  totalImages = 1, // Total number of images
+  currentImagePath = null // Current image path
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [animationState, setAnimationState] = useState('hidden');
+  const [parsedImages, setParsedImages] = useState([]);
+  const [expandedPath, setExpandedPath] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+
+  // Function to handle path name click
+  const handlePathClick = (imagePath, index) => {
+    console.log('Path clicked:', imagePath, 'Index:', index); // Debug log
+    if (expandedPath === index) {
+      // If already expanded, collapse it
+      setExpandedPath(null);
+      setIsExpanded(false);
+    } else {
+      // Expand the clicked path
+      setExpandedPath(index);
+      setIsExpanded(true);
+    }
+  };
+
+  // Function to close expanded path
+  const closeExpandedPath = () => {
+    setExpandedPath(null);
+    setIsExpanded(false);
+  };
+
+  // Update parsed images when imageBackgroundPaths change
+  useEffect(() => {
+    const parsed = parseImagePaths(imageBackgroundPaths);
+    console.log('Parsed images:', parsed); // Debug log
+    setParsedImages(parsed);
+  }, [imageBackgroundPaths]);
+
+  // Load progress from localStorage when component mounts or userId changes
+  useEffect(() => {
+    if (currentUserId && isHydrated) {
+      const progressData = loadProgressFromStorage(currentUserId);
+      
+      // Check if data is stale (older than 24 hours)
+      if (isProgressDataStale(progressData, 24)) {
+        console.log('Progress data is stale, not loading from localStorage');
+        return;
+      }
+      
+      // Update progress if we have valid data
+      if (progressData.buttonClickCount > 0 || progressData.parsedImages.length > 0) {
+        console.log('Loaded progress from localStorage for user:', currentUserId, progressData);
+        // Note: The actual progress values are managed by CanvasImage manager
+        // This is just for logging and potential UI updates
+      }
+    }
+  }, [currentUserId, isHydrated]);
 
   useEffect(() => {
     if (showOrderRequire) {
@@ -94,126 +165,55 @@ const OrderRequire = ({
   }, []);
 
   if (!isHydrated || !isVisible) {
+    console.log('OrderRequire not visible - isHydrated:', isHydrated, 'isVisible:', isVisible);
     return null;
   }
+
+  console.log('OrderRequire is visible and rendering');
+  console.log('Props received:', { 
+    imageBackgroundPaths, 
+    parsedImagesLength: parsedImages.length,
+    clickedButtonsSize: clickedButtons.size 
+  });
 
   return (
     <>
       {/* Button Sequence notification - positioned on top right */}
       <div 
-        className={`order-require-banner ${animationState}`}
-        style={{
-          position: 'fixed',
-          right: '20px',
-          top: canvasMetricsVisible ? '240px' : '140px', // Stack below Canvas Metrics if visible
-          backgroundColor: 'rgba(0, 102, 204, 0.8)', // Match displayResponse color
-          color: 'white',
-          padding: '10px 15px', // Match displayResponse padding
-          borderRadius: '8px', // Match displayResponse border radius
-          fontSize: '14px',
-          fontFamily: 'monospace', // Match displayResponse font
-          boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)', // Match displayResponse shadow
-          transition: 'all 0.3s ease, top 0.5s ease', // Smooth transition for position changes
-          opacity: animationState === 'visible' ? 1 : 0,
-          transform: animationState === 'visible' 
-            ? 'translateX(0)' 
-            : 'translateX(50px)', // Match displayResponse transform
-          pointerEvents: animationState === 'visible' ? 'auto' : 'none',
-          zIndex: 20, // Lower than original to not interfere
-          display: animationState === 'hidden' ? 'none' : 'block',
-          width: '240px', // Match displayResponse width
-          maxHeight: '300px',
-          overflowY: 'auto'
-        }}
+        className={`${styles.orderRequireBanner} ${styles[animationState]} ${canvasMetricsVisible ? styles.withCanvasMetrics : styles.withoutCanvasMetrics}`}
       >
-        <div 
-          className="notification-header"
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '8px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.3)',
-            paddingBottom: '5px'
-          }}
-        >
-          <span style={{ 
-            fontWeight: 'bold', 
-            fontSize: '14px'
-          }}>
+        <div className={styles.notificationHeader}>
+          <span className={styles.headerTitle}>
             🔄 Button Sequence
             {isManualShow && (
-              <span style={{ 
-                fontSize: '10px', 
-                color: '#90EE90', 
-                marginLeft: '8px',
-                fontStyle: 'italic'
-              }}>
+              <span className={styles.manualIndicator}>
                 (Manual)
               </span>
             )}
             {clickedButtons.size > 0 && (
-              <span style={{ 
-                fontSize: '10px', 
-                color: '#00ff00', 
-                marginLeft: '8px',
-                fontStyle: 'italic'
-              }}>
+              <span className={styles.savedIndicator}>
                 💾 Saved
               </span>
             )}
           </span>
-          <div 
-            className="notification-indicator"
-            style={{ 
-              width: '10px', 
-              height: '10px', 
-              borderRadius: '50%', 
-              backgroundColor: '#00ff00',
-              boxShadow: '0 0 5px rgba(0, 255, 0, 0.8)'
-            }} 
-          />
+          <div className={styles.notificationIndicator} />
         </div>
         
-        <div 
-          className="notification-content"
-          style={{ lineHeight: '1.5' }}
-        >
+        <div className={styles.notificationContent}>
           {/* Requirements list only */}
           {orderRequireList && orderRequireList.length > 0 && (
             <div>
-              <ul style={{ 
-                margin: '0', 
-                paddingLeft: '20px',
-                maxHeight: '200px',
-                overflowY: 'auto'
-              }}>
+              <ul className={styles.requirementsList}>
                 {orderRequireList.map((item, index) => {
-                  const isClicked = clickedButtons.has(item);
+                  const { isClicked, className: markClassName } = getCheckMarkStatus(item, clickedButtons, index);
                   return (
-                    <li key={index} style={{ 
-                      marginBottom: '6px',
-                      fontSize: '13px',
-                      color: isClicked ? '#90EE90' : '#ffffff', // Green text for clicked items
-                      textDecoration: isClicked ? 'line-through' : 'none', // Strike through for clicked items
-                      opacity: isClicked ? 0.8 : 1
-                    }}>
-                      <span style={{ 
-                        display: 'inline-block',
-                        width: '20px',
-                        height: '20px',
-                        backgroundColor: isClicked ? '#00ff00' : '#4CAF50', // Green background for clicked items
-                        color: 'white',
-                        borderRadius: '50%',
-                        textAlign: 'center',
-                        lineHeight: '20px',
-                        fontSize: isClicked ? '12px' : '10px',
-                        fontWeight: 'bold',
-                        marginRight: '8px',
-                        boxShadow: isClicked ? '0 0 5px rgba(0, 255, 0, 0.8)' : 'none' // Glow effect for clicked items
-                      }}>
-                        {isClicked ? '✓' : index + 1}
-                      </span>
+                    <li key={index} className={`${styles.requirementItem} ${isClicked ? styles.clicked : ''}`}>
+                      <CheckMarkRenderer
+                        item={item}
+                        index={index}
+                        clickedButtons={clickedButtons}
+                        className={`${styles.requirementNumber} ${markClassName ? styles.clicked : ''}`}
+                      />
                       {item}
                     </li>
                   );
@@ -222,14 +222,135 @@ const OrderRequire = ({
             </div>
           )}
 
+          {/* Image display section */}
+          {parsedImages.length > 0 && (
+            <div className={styles.imageDisplaySection}>
+              <div className={styles.imageSectionTitle}>
+                <span>📸 Background Images ({parsedImages.length})</span>
+                {totalImages > 1 && (
+                  <span className={styles.currentImageInfo}>
+                    Current: {currentImageIndex + 1}/{totalImages}
+                    {currentImagePath && (
+                      <span className={styles.currentImageName}>
+                        - {currentImagePath.split('/').pop()}
+                      </span>
+                    )}
+                  </span>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('TEST BUTTON CLICKED!');
+                    alert('Test button works!');
+                  }}
+                  style={{
+                    background: 'rgba(0, 255, 0, 0.2)',
+                    border: '1px solid #00ff00',
+                    color: '#00ff00',
+                    padding: '2px 6px',
+                    borderRadius: '3px',
+                    fontSize: '10px',
+                    cursor: 'pointer',
+                    marginLeft: '10px'
+                  }}
+                >
+                  TEST
+                </button>
+              </div>
+              <div className={styles.imageListContainer}>
+                {parsedImages.map((image, index) => (
+                  <div
+                    key={index}
+                    className={`${styles.imageRow} ${expandedPath === index ? styles.expanded : ''} ${index === currentImageIndex ? styles.currentImage : ''}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      console.log('Row clicked - Index:', index, 'Path:', image.path); // Debug log
+                      handlePathClick(image.path, index);
+                    }}
+                  >
+                    {/* Image thumbnail */}
+                    <div className={styles.imageThumbnail}>
+                      <img
+                        src={getImageUrl(image.path)}
+                        alt={`Background ${index + 1}`}
+                        onError={(e) => {
+                          // Show placeholder if image fails to load
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                        onLoad={(e) => {
+                          // Hide placeholder when image loads successfully
+                          e.target.nextSibling.style.display = 'none';
+                        }}
+                      />
+                      <div className={styles.imagePlaceholder}>
+                        📷
+                      </div>
+                    </div>
+                    
+                    {/* Image info */}
+                    <div className={styles.imageInfo}>
+                      {/* Path name */}
+                      <div className={styles.pathName} title={`Click to ${expandedPath === index ? 'collapse' : 'expand'} full path`}>
+                        <span className={styles.pathNameText}>
+                          {image.path.split('/').pop() || image.path}
+                        </span>
+                        {expandedPath === index && (
+                          <span className={styles.expandIcon}>
+                            ▼
+                          </span>
+                        )}
+                        {expandedPath !== index && (
+                          <span className={styles.collapseIcon}>
+                            ▶
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Times number with progress */}
+                      <div className={styles.timesNumber}>
+                        <ProgressRenderer
+                          buttonClickCount={buttonClickCount}
+                          imageTimes={image.times}
+                          isFirstImage={index === 0}
+                          className={styles.timesBadge}
+                          progressClassName={styles.progressIndicator}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Expanded path display */}
+              {isExpanded && expandedPath !== null && (
+                <div className={styles.expandedPathContainer}>
+                  <div className={styles.expandedPathHeader}>
+                    <span className={styles.expandedPathTitle}>
+                      Full Path:
+                    </span>
+                    <button
+                      onClick={closeExpandedPath}
+                      className={styles.closeButton}
+                      title="Close expanded path"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className={styles.expandedPathContent}>
+                    {parsedImages[expandedPath]?.path || ''}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Default message if no requirements */}
           {(!orderRequireList || orderRequireList.length === 0) && (
-            <div style={{ 
-              textAlign: 'center',
-              padding: '20px 0',
-              color: '#fff3cd'
-            }}>
-              <p style={{ margin: '0', fontSize: '13px' }}>
+            <div className={styles.defaultMessage}>
+              <p className={styles.defaultMessageText}>
                 🔄 No button sequence configured.
               </p>
             </div>
@@ -237,46 +358,17 @@ const OrderRequire = ({
         </div>
 
         {/* Close button */}
-        <div style={{
-          position: 'absolute',
-          top: '8px',
-          right: '8px',
-          cursor: 'pointer',
-          fontSize: '18px',
-          color: 'rgba(255, 255, 255, 0.7)',
-          transition: 'color 0.2s ease'
-        }}
-        onMouseEnter={(e) => e.target.style.color = 'white'}
-        onMouseLeave={(e) => e.target.style.color = 'rgba(255, 255, 255, 0.7)'}
-        onClick={() => {
-          setAnimationState('hidden');
-          setTimeout(() => setIsVisible(false), 300);
-        }}
+        <div 
+          className={styles.closeButtonContainer}
+          onClick={() => {
+            setAnimationState('hidden');
+            setTimeout(() => setIsVisible(false), 300);
+          }}
         >
           ×
         </div>
       </div>
 
-      {/* CSS Animations */}
-      <style jsx>{`
-        .order-require-banner::-webkit-scrollbar {
-          width: 6px;
-        }
-
-        .order-require-banner::-webkit-scrollbar-track {
-          background: rgba(255, 255, 255, 0.1);
-          border-radius: 3px;
-        }
-
-        .order-require-banner::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.3);
-          border-radius: 3px;
-        }
-
-        .order-require-banner::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.5);
-        }
-      `}</style>
     </>
   );
 };
