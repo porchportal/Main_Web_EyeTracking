@@ -364,7 +364,7 @@ class CanvasImageManager {
       this.currentImageTimes = this.parsedImages[index].times;
       this.buttonClickCount = 0; // Reset button count for new image
       this.saveProgressToStorage();
-      console.log(`Switched to image index ${index}, times: ${this.currentImageTimes}`);
+      console.log(`Switched to image index ${index}, times: ${this.currentImageTimes}, button count reset to 0`);
     }
   }
 
@@ -375,13 +375,18 @@ class CanvasImageManager {
 
   // Move to next image if current is complete
   async moveToNextImage() {
+    console.log(`🔍 moveToNextImage called - Current index: ${this.currentImageIndex}, Total images: ${this.parsedImages.length}`);
+    
     if (!this.isCurrentImageComplete()) {
+      console.log(`❌ Current image not complete yet: ${this.buttonClickCount}/${this.currentImageTimes}`);
       return false; // Current image not complete yet
     }
 
     const nextIndex = this.currentImageIndex + 1;
+    console.log(`📈 Next index would be: ${nextIndex}`);
+    
     if (nextIndex >= this.parsedImages.length) {
-      console.log('All images completed!');
+      console.log('🏁 All images completed!');
       // All images are complete
       if (this.onImageComplete) {
         this.onImageComplete('all_complete');
@@ -390,13 +395,16 @@ class CanvasImageManager {
     }
 
     // Move to next image
+    console.log(`🔄 Setting current image index to: ${nextIndex}`);
     this.setCurrentImageIndex(nextIndex);
     const nextImage = this.parsedImages[nextIndex];
+    
+    console.log(`📸 Moving to image ${nextIndex + 1}: ${nextImage.path} (times: ${nextImage.times})`);
     
     // Load the next image
     const success = await this.setImageBackground(nextImage.path);
     if (success) {
-      console.log(`Switched to next image: ${nextImage.path}`);
+      console.log(`✅ Successfully switched to next image: ${nextImage.path}`);
       if (this.onImageComplete) {
         this.onImageComplete('image_switched', {
           previousIndex: this.currentImageIndex - 1,
@@ -407,7 +415,7 @@ class CanvasImageManager {
       }
       return true;
     } else {
-      console.error(`Failed to load next image: ${nextImage.path}`);
+      console.error(`❌ Failed to load next image: ${nextImage.path}`);
       return false;
     }
   }
@@ -450,12 +458,26 @@ class CanvasImageManager {
     // Save progress to localStorage
     this.saveProgressToStorage();
     
-    console.log(`Button clicked: ${buttonName}, Total clicks: ${this.buttonClickCount}, Current image times: ${this.currentImageTimes}`);
+    console.log(`🔄 Button clicked: ${buttonName}, Total clicks: ${this.buttonClickCount}, Current image times: ${this.currentImageTimes}`);
+    console.log(`📊 Current image index: ${this.currentImageIndex}, Total images: ${this.parsedImages.length}`);
     
     // Check if current image is complete and move to next image
     if (this.isCurrentImageComplete()) {
-      console.log(`Image ${this.currentImageIndex + 1} completed! Moving to next image...`);
-      await this.moveToNextImage();
+      console.log(`✅ Image ${this.currentImageIndex + 1} completed! Moving to next image...`);
+      console.log(`📋 Parsed images available:`, this.parsedImages.map((img, idx) => `${idx}: ${img.path} (${img.times} times)`));
+      
+      const movedToNext = await this.moveToNextImage();
+      
+      if (movedToNext) {
+        // Reset button click count for the new image
+        this.buttonClickCount = 0;
+        this.saveProgressToStorage();
+        console.log(`🎯 Successfully switched to image ${this.currentImageIndex + 1}, reset button count to 0`);
+      } else {
+        console.log(`❌ Failed to switch to next image`);
+      }
+    } else {
+      console.log(`⏳ Image not complete yet: ${this.buttonClickCount}/${this.currentImageTimes}`);
     }
   }
 
@@ -673,6 +695,14 @@ class CanvasImageManager {
       this.clearCanvas();
       return;
     }
+
+    // Set user ID for localStorage operations
+    if (userId) {
+      this.setUserId(userId);
+    }
+
+    // Load progress from localStorage to restore state
+    this.loadProgressFromStorage();
 
     // Try to load the first image
     const success = await this.setImageBackground(firstImagePath, (error) => {

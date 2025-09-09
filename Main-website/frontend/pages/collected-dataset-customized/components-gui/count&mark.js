@@ -388,6 +388,71 @@ export const getAllProgressKeys = () => {
   return keys;
 };
 
+/**
+ * Clear all localStorage data related to button clicks and progress
+ * @param {string} userId - User ID for user-specific storage
+ * @returns {Object} - { success: boolean, clearedKeys: Array, message: string }
+ */
+export const clearAllStateData = (userId = null) => {
+  if (typeof window === 'undefined') {
+    return {
+      success: false,
+      clearedKeys: [],
+      message: 'localStorage not available (server-side)'
+    };
+  }
+  
+  try {
+    const clearedKeys = [];
+    
+    // Clear clicked buttons data
+    const clickedButtonsKey = userId ? `clickedButtons_${userId}` : 'clickedButtons';
+    if (localStorage.getItem(clickedButtonsKey)) {
+      localStorage.removeItem(clickedButtonsKey);
+      clearedKeys.push(clickedButtonsKey);
+    }
+    
+    // Clear progress data
+    const progressKey = userId ? `progress_${userId}` : 'progress';
+    if (localStorage.getItem(progressKey)) {
+      localStorage.removeItem(progressKey);
+      clearedKeys.push(progressKey);
+    }
+    
+    // Clear any other related keys (fallback for any missed keys)
+    const allKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('clickedButtons') || key.startsWith('progress'))) {
+        allKeys.push(key);
+      }
+    }
+    
+    // Remove any remaining related keys
+    allKeys.forEach(key => {
+      if (!clearedKeys.includes(key)) {
+        localStorage.removeItem(key);
+        clearedKeys.push(key);
+      }
+    });
+    
+    console.log('Cleared all state data from localStorage:', clearedKeys);
+    
+    return {
+      success: true,
+      clearedKeys,
+      message: `Successfully cleared ${clearedKeys.length} localStorage entries`
+    };
+  } catch (error) {
+    console.error('Error clearing state data from localStorage:', error);
+    return {
+      success: false,
+      clearedKeys: [],
+      message: `Error clearing localStorage: ${error.message}`
+    };
+  }
+};
+
 // ============================================================================
 // PROGRESS CALCULATION UTILITIES
 // ============================================================================
@@ -427,6 +492,495 @@ export const getProgressSummary = (parsedImages, totalButtonClicks) => {
 };
 
 // ============================================================================
+// BUTTON COMPLETION COUNTER
+// ============================================================================
+
+/**
+ * Track button completion and increment counter
+ * @param {string} buttonName - Name of the completed button
+ * @param {string} userId - User ID for user-specific storage
+ * @returns {Object} - { success: boolean, newCount: number, message: string }
+ */
+export const trackButtonCompletion = (buttonName, userId = null) => {
+  if (typeof window === 'undefined') {
+    return {
+      success: false,
+      newCount: 0,
+      message: 'localStorage not available (server-side)'
+    };
+  }
+  
+  try {
+    const storageKey = userId ? `buttonCompletion_${userId}` : 'buttonCompletion';
+    const stored = localStorage.getItem(storageKey);
+    
+    let completionData = stored ? JSON.parse(stored) : {};
+    
+    // Initialize button count if it doesn't exist
+    if (!completionData[buttonName]) {
+      completionData[buttonName] = 0;
+    }
+    
+    // Increment the counter
+    completionData[buttonName] += 1;
+    completionData.lastUpdated = Date.now();
+    
+    // Save back to localStorage
+    localStorage.setItem(storageKey, JSON.stringify(completionData));
+    
+    console.log(`Button completion tracked: ${buttonName} - Count: ${completionData[buttonName]}`);
+    
+    return {
+      success: true,
+      newCount: completionData[buttonName],
+      message: `${buttonName} completion count: ${completionData[buttonName]}`
+    };
+  } catch (error) {
+    console.error('Error tracking button completion:', error);
+    return {
+      success: false,
+      newCount: 0,
+      message: `Error tracking completion: ${error.message}`
+    };
+  }
+};
+
+/**
+ * Get button completion count
+ * @param {string} buttonName - Name of the button
+ * @param {string} userId - User ID for user-specific storage
+ * @returns {number} - Current completion count
+ */
+export const getButtonCompletionCount = (buttonName, userId = null) => {
+  if (typeof window === 'undefined') return 0;
+  
+  try {
+    const storageKey = userId ? `buttonCompletion_${userId}` : 'buttonCompletion';
+    const stored = localStorage.getItem(storageKey);
+    
+    if (stored) {
+      const completionData = JSON.parse(stored);
+      return completionData[buttonName] || 0;
+    }
+  } catch (error) {
+    console.error('Error getting button completion count:', error);
+  }
+  
+  return 0;
+};
+
+/**
+ * Get all button completion counts
+ * @param {string} userId - User ID for user-specific storage
+ * @returns {Object} - Object with all button completion counts
+ */
+export const getAllButtonCompletionCounts = (userId = null) => {
+  if (typeof window === 'undefined') return {};
+  
+  try {
+    const storageKey = userId ? `buttonCompletion_${userId}` : 'buttonCompletion';
+    const stored = localStorage.getItem(storageKey);
+    
+    if (stored) {
+      const completionData = JSON.parse(stored);
+      // Remove lastUpdated from the returned object
+      const { lastUpdated, ...counts } = completionData;
+      return counts;
+    }
+  } catch (error) {
+    console.error('Error getting all button completion counts:', error);
+  }
+  
+  return {};
+};
+
+/**
+ * Clear button completion counts
+ * @param {string} userId - User ID for user-specific storage
+ * @returns {Object} - { success: boolean, message: string }
+ */
+export const clearButtonCompletionCounts = (userId = null) => {
+  if (typeof window === 'undefined') {
+    return {
+      success: false,
+      message: 'localStorage not available (server-side)'
+    };
+  }
+  
+  try {
+    const storageKey = userId ? `buttonCompletion_${userId}` : 'buttonCompletion';
+    localStorage.removeItem(storageKey);
+    
+    console.log('Button completion counts cleared');
+    
+    return {
+      success: true,
+      message: 'Button completion counts cleared successfully'
+    };
+  } catch (error) {
+    console.error('Error clearing button completion counts:', error);
+    return {
+      success: false,
+      message: `Error clearing completion counts: ${error.message}`
+    };
+  }
+};
+
+/**
+ * Clear all state data including button completion counts
+ * @param {string} userId - User ID for user-specific storage
+ * @returns {Object} - { success: boolean, clearedKeys: Array, message: string }
+ */
+export const clearAllStateDataWithCompletion = (userId = null) => {
+  if (typeof window === 'undefined') {
+    return {
+      success: false,
+      clearedKeys: [],
+      message: 'localStorage not available (server-side)'
+    };
+  }
+  
+  try {
+    const clearedKeys = [];
+    
+    // Clear clicked buttons data
+    const clickedButtonsKey = userId ? `clickedButtons_${userId}` : 'clickedButtons';
+    if (localStorage.getItem(clickedButtonsKey)) {
+      localStorage.removeItem(clickedButtonsKey);
+      clearedKeys.push(clickedButtonsKey);
+    }
+    
+    // Clear progress data
+    const progressKey = userId ? `progress_${userId}` : 'progress';
+    if (localStorage.getItem(progressKey)) {
+      localStorage.removeItem(progressKey);
+      clearedKeys.push(progressKey);
+    }
+    
+    // Clear button completion data
+    const completionKey = userId ? `buttonCompletion_${userId}` : 'buttonCompletion';
+    if (localStorage.getItem(completionKey)) {
+      localStorage.removeItem(completionKey);
+      clearedKeys.push(completionKey);
+    }
+    
+    // Clear button counter data
+    const counterKey = userId ? `buttonCounter_${userId}` : 'buttonCounter';
+    if (localStorage.getItem(counterKey)) {
+      localStorage.removeItem(counterKey);
+      clearedKeys.push(counterKey);
+    }
+    
+    // Clear any other related keys (fallback for any missed keys)
+    const allKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('clickedButtons') || key.startsWith('progress') || key.startsWith('buttonCompletion') || key.startsWith('buttonCounter'))) {
+        allKeys.push(key);
+      }
+    }
+    
+    // Remove any remaining related keys
+    allKeys.forEach(key => {
+      if (!clearedKeys.includes(key)) {
+        localStorage.removeItem(key);
+        clearedKeys.push(key);
+      }
+    });
+    
+    console.log('Cleared all state data including completion counts from localStorage:', clearedKeys);
+    
+    return {
+      success: true,
+      clearedKeys,
+      message: `Successfully cleared ${clearedKeys.length} localStorage entries including completion counts`
+    };
+  } catch (error) {
+    console.error('Error clearing state data with completion from localStorage:', error);
+    return {
+      success: false,
+      clearedKeys: [],
+      message: `Error clearing localStorage: ${error.message}`
+    };
+  }
+};
+
+// ============================================================================
+// BUTTON COMPLETION COUNTER
+// ============================================================================
+
+/**
+ * Counter function to track button completions
+ * @param {number} number - Number to add to the counter (default: 1)
+ * @param {string} userId - User ID for user-specific storage
+ * @param {number} imageIndex - Image index for per-image counting (optional)
+ * @returns {Object} - { success: boolean, newCount: number, message: string }
+ */
+export const counter = (number = 1, userId = null, imageIndex = null) => {
+  if (typeof window === 'undefined') {
+    return {
+      success: false,
+      newCount: 0,
+      message: 'localStorage not available (server-side)'
+    };
+  }
+  
+  try {
+    // Create storage key based on whether we're tracking per-image or globally
+    let storageKey;
+    if (imageIndex !== null) {
+      storageKey = userId ? `buttonCounter_${userId}_image_${imageIndex}` : `buttonCounter_image_${imageIndex}`;
+    } else {
+      storageKey = userId ? `buttonCounter_${userId}` : 'buttonCounter';
+    }
+    
+    const stored = localStorage.getItem(storageKey);
+    
+    let currentCount = stored ? parseInt(stored, 10) : 0;
+    
+    // Add the number to current count
+    currentCount += number;
+    
+    // Save back to localStorage
+    localStorage.setItem(storageKey, currentCount.toString());
+    
+    // Enhanced logging to debug the issue
+    console.log(`🔢 COUNTER DEBUG:`, {
+      function: 'counter',
+      number: number,
+      userId: userId,
+      imageIndex: imageIndex,
+      storageKey: storageKey,
+      previousCount: stored ? parseInt(stored, 10) : 0,
+      newCount: currentCount,
+      stackTrace: new Error().stack
+    });
+    
+    return {
+      success: true,
+      newCount: currentCount,
+      message: `Counter updated: +${number} = ${currentCount}${imageIndex !== null ? ` (Image ${imageIndex + 1})` : ''}`
+    };
+  } catch (error) {
+    console.error('Error updating button counter:', error);
+    return {
+      success: false,
+      newCount: 0,
+      message: `Error updating counter: ${error.message}`
+    };
+  }
+};
+
+/**
+ * Get current button counter value
+ * @param {string} userId - User ID for user-specific storage
+ * @returns {number} - Current counter value
+ */
+export const getButtonCounter = (userId = null) => {
+  if (typeof window === 'undefined') return 0;
+  
+  try {
+    const storageKey = userId ? `buttonCounter_${userId}` : 'buttonCounter';
+    const stored = localStorage.getItem(storageKey);
+    return stored ? parseInt(stored, 10) : 0;
+  } catch (error) {
+    console.error('Error getting button counter:', error);
+    return 0;
+  }
+};
+
+/**
+ * Reset button counter to 0
+ * @param {string} userId - User ID for user-specific storage
+ * @returns {Object} - { success: boolean, message: string }
+ */
+export const resetButtonCounter = (userId = null) => {
+  if (typeof window === 'undefined') {
+    return {
+      success: false,
+      message: 'localStorage not available (server-side)'
+    };
+  }
+  
+  try {
+    const storageKey = userId ? `buttonCounter_${userId}` : 'buttonCounter';
+    localStorage.removeItem(storageKey);
+    
+    console.log('Button counter reset to 0');
+    
+    return {
+      success: true,
+      message: 'Button counter reset successfully'
+    };
+  } catch (error) {
+    console.error('Error resetting button counter:', error);
+    return {
+      success: false,
+      message: `Error resetting counter: ${error.message}`
+    };
+  }
+};
+
+/**
+ * Get counter for specific image
+ * @param {number} imageIndex - Image index
+ * @param {string} userId - User ID for user-specific storage
+ * @returns {number} - Current counter value for the image
+ */
+export const getImageCounter = (imageIndex, userId = null) => {
+  if (typeof window === 'undefined') return 0;
+  
+  try {
+    const storageKey = userId ? `buttonCounter_${userId}_image_${imageIndex}` : `buttonCounter_image_${imageIndex}`;
+    const stored = localStorage.getItem(storageKey);
+    return stored ? parseInt(stored, 10) : 0;
+  } catch (error) {
+    console.error('Error getting image counter:', error);
+    return 0;
+  }
+};
+
+/**
+ * Get all image counters
+ * @param {string} userId - User ID for user-specific storage
+ * @returns {Object} - Object with image counters
+ */
+export const getAllImageCounters = (userId = null) => {
+  if (typeof window === 'undefined') return {};
+  
+  try {
+    const counters = {};
+    const prefix = userId ? `buttonCounter_${userId}_image_` : 'buttonCounter_image_';
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(prefix)) {
+        const imageIndex = key.replace(prefix, '');
+        const count = localStorage.getItem(key);
+        counters[imageIndex] = parseInt(count, 10) || 0;
+      }
+    }
+    
+    return counters;
+  } catch (error) {
+    console.error('Error getting all image counters:', error);
+    return {};
+  }
+};
+
+/**
+ * Reset counter for specific image
+ * @param {number} imageIndex - Image index
+ * @param {string} userId - User ID for user-specific storage
+ * @returns {Object} - { success: boolean, message: string }
+ */
+export const resetImageCounter = (imageIndex, userId = null) => {
+  if (typeof window === 'undefined') {
+    return {
+      success: false,
+      message: 'localStorage not available (server-side)'
+    };
+  }
+  
+  try {
+    const storageKey = userId ? `buttonCounter_${userId}_image_${imageIndex}` : `buttonCounter_image_${imageIndex}`;
+    localStorage.removeItem(storageKey);
+    
+    console.log(`Image counter for image ${imageIndex + 1} reset to 0`);
+    
+    return {
+      success: true,
+      message: `Image counter for image ${imageIndex + 1} reset successfully`
+    };
+  } catch (error) {
+    console.error('Error resetting image counter:', error);
+    return {
+      success: false,
+      message: `Error resetting image counter: ${error.message}`
+    };
+  }
+};
+
+/**
+ * Reset all image counters
+ * @param {string} userId - User ID for user-specific storage
+ * @returns {Object} - { success: boolean, message: string }
+ */
+export const resetAllImageCounters = (userId = null) => {
+  if (typeof window === 'undefined') {
+    return {
+      success: false,
+      message: 'localStorage not available (server-side)'
+    };
+  }
+  
+  try {
+    const prefix = userId ? `buttonCounter_${userId}_image_` : 'buttonCounter_image_';
+    const keysToRemove = [];
+    
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(prefix)) {
+        keysToRemove.push(key);
+      }
+    }
+    
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    console.log(`Reset ${keysToRemove.length} image counters`);
+    
+    return {
+      success: true,
+      message: `Reset ${keysToRemove.length} image counters successfully`
+    };
+  } catch (error) {
+    console.error('Error resetting all image counters:', error);
+    return {
+      success: false,
+      message: `Error resetting image counters: ${error.message}`
+    };
+  }
+};
+
+/**
+ * Debug function to get all button-related localStorage data
+ * @param {string} userId - User ID for user-specific storage
+ * @returns {Object} - All button-related localStorage data
+ */
+export const debugButtonStorage = (userId = null) => {
+  if (typeof window === 'undefined') {
+    return { error: 'localStorage not available (server-side)' };
+  }
+  
+  try {
+    const debugData = {
+      userId: userId,
+      timestamp: new Date().toISOString(),
+      localStorage: {}
+    };
+    
+    // Get all localStorage keys
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (
+        key.startsWith('clickedButtons') || 
+        key.startsWith('progress') || 
+        key.startsWith('buttonCompletion') || 
+        key.startsWith('buttonCounter')
+      )) {
+        debugData.localStorage[key] = localStorage.getItem(key);
+      }
+    }
+    
+    console.log('🔍 BUTTON STORAGE DEBUG:', debugData);
+    return debugData;
+  } catch (error) {
+    console.error('Error debugging button storage:', error);
+    return { error: error.message };
+  }
+};
+
+// ============================================================================
 // EXPORT ALL UTILITIES
 // ============================================================================
 
@@ -460,8 +1014,26 @@ export default {
   clearProgressFromStorage,
   isProgressDataStale,
   getAllProgressKeys,
+  clearAllStateData,
   
   // Progress calculation functions
   calculateOverallProgress,
-  getProgressSummary
+  getProgressSummary,
+  
+  // Button completion counter functions
+  trackButtonCompletion,
+  getButtonCompletionCount,
+  getAllButtonCompletionCounts,
+  clearButtonCompletionCounts,
+  clearAllStateDataWithCompletion,
+  
+  // Button counter functions
+  counter,
+  getButtonCounter,
+  resetButtonCounter,
+  getImageCounter,
+  getAllImageCounters,
+  resetImageCounter,
+  resetAllImageCounters,
+  debugButtonStorage
 };

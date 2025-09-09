@@ -10,7 +10,8 @@ import {
   saveProgressToStorage,
   loadProgressFromStorage,
   clearProgressFromStorage,
-  isProgressDataStale
+  isProgressDataStale,
+  clearAllStateDataWithCompletion
 } from './count&mark.js';
 
 const OrderRequire = ({
@@ -54,6 +55,26 @@ const OrderRequire = ({
     setExpandedPath(null);
     setIsExpanded(false);
   };
+
+  // Function to clear all state data (can be called from parent component)
+  const clearAllState = () => {
+    const result = clearAllStateDataWithCompletion(currentUserId);
+    console.log('OrderRequire - Clear state result:', result);
+    return result;
+  };
+
+  // Expose clearAllState function to parent component via useEffect
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.clearOrderRequireState = clearAllState;
+    }
+    
+    return () => {
+      if (typeof window !== 'undefined') {
+        delete window.clearOrderRequireState;
+      }
+    };
+  }, [currentUserId]);
 
   // Update parsed images when imageBackgroundPaths change
   useEffect(() => {

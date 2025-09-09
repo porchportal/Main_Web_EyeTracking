@@ -11,6 +11,7 @@ import { generateCalibrationPoints } from '../../components/collected-dataset-cu
 import { useConsent } from '../../components/consent_ui/ConsentContext';
 import { useRouter } from 'next/router';
 import { useAdminSettings } from './components-gui/adminSettings';
+import { counter, debugButtonStorage, getAllImageCounters, resetAllImageCounters } from './components-gui/count&mark.js';
 import styles from './styles/main-canvas.module.css';
 
 // Dynamically import the camera component with SSR disabled
@@ -491,8 +492,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       return newSet;
     });
     
-    // Also track in CanvasImage manager
-    if (canvasImageManager && canvasImageManager.trackButtonClick) {
+    // Also track in CanvasImage manager (but exclude 'Show preview' from counter)
+    if (canvasImageManager && canvasImageManager.trackButtonClick && buttonName !== 'Show preview') {
       const userSettings = settings?.[currentUserId];
       const imageBackgroundPaths = userSettings?.image_background_paths || [];
       await canvasImageManager.trackButtonClick(buttonName, imageBackgroundPaths);
@@ -1559,6 +1560,201 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             };
           }
           return null;
+        },
+        // Add counter debugging functions
+        debugStorage: () => debugButtonStorage(currentUserId),
+        getCounter: (imageIndex = null) => {
+          if (imageIndex !== null) {
+            const storageKey = currentUserId ? `buttonCounter_${currentUserId}_image_${imageIndex}` : `buttonCounter_image_${imageIndex}`;
+            return localStorage.getItem(storageKey) || '0';
+          } else {
+            const storageKey = currentUserId ? `buttonCounter_${currentUserId}` : 'buttonCounter';
+            return localStorage.getItem(storageKey) || '0';
+          }
+        },
+        getAllImageCounters: () => getAllImageCounters(currentUserId),
+        resetCounter: (imageIndex = null) => {
+          if (imageIndex !== null) {
+            const storageKey = currentUserId ? `buttonCounter_${currentUserId}_image_${imageIndex}` : `buttonCounter_image_${imageIndex}`;
+            localStorage.removeItem(storageKey);
+            console.log(`Button counter for image ${imageIndex + 1} reset to 0`);
+          } else {
+            const storageKey = currentUserId ? `buttonCounter_${currentUserId}` : 'buttonCounter';
+            localStorage.removeItem(storageKey);
+            console.log('Global button counter reset to 0');
+          }
+        },
+        resetAllImageCounters: () => resetAllImageCounters(currentUserId),
+        
+        // Test image switching functionality
+        testImageSwitching: async () => {
+          console.log('🧪 Testing image switching functionality...');
+          
+          if (!canvasImageManager) {
+            console.error('CanvasImageManager not available');
+            return;
+          }
+          
+          // Test data similar to your MongoDB example
+          const testImagePaths = [
+            "[56]-/Overall_porch.png",
+            "[56]-/istockphoto-517188688-612x612.jpg"
+          ];
+          
+          console.log('📋 Test data:', testImagePaths);
+          
+          // Parse the images
+          const parsedImages = canvasImageManager.getAllParsedImages(testImagePaths);
+          console.log('📊 Parsed images:', parsedImages);
+          
+          // Set up the canvas with test data
+          canvasImageManager.updateImageBackgroundPaths(testImagePaths);
+          
+          // Get current state
+          const progressInfo = canvasImageManager.getProgressInfo();
+          console.log('📈 Current progress:', progressInfo);
+          
+          // Simulate button clicks to complete first image
+          console.log('🔄 Simulating button clicks to complete first image...');
+          
+          for (let i = 0; i < 56; i++) {
+            await canvasImageManager.trackButtonClick('Test Random Dot', testImagePaths);
+            
+            const currentProgress = canvasImageManager.getProgressInfo();
+            console.log(`Click ${i + 1}/56: ${currentProgress.progress}`);
+            
+            // Check if we switched to next image
+            if (canvasImageManager.getCurrentImageIndex() > 0) {
+              console.log('✅ Successfully switched to second image!');
+              break;
+            }
+          }
+          
+          // Final state
+          const finalProgress = canvasImageManager.getProgressInfo();
+          console.log('🎯 Final progress:', finalProgress);
+          
+          return {
+            success: true,
+            message: 'Image switching test completed',
+            finalProgress
+          };
+        },
+        
+        // Quick test to simulate completion of first image
+        quickTestImageSwitch: async () => {
+          console.log('⚡ Quick test: Simulating first image completion...');
+          
+          if (!canvasImageManager) {
+            console.error('CanvasImageManager not available');
+            return;
+          }
+          
+          // Test data
+          const testImagePaths = [
+            "[56]-/Overall_porch.png",
+            "[56]-/istockphoto-517188688-612x612.jpg"
+          ];
+          
+          // Set up canvas
+          canvasImageManager.updateImageBackgroundPaths(testImagePaths);
+          
+          // Set button count to just below completion (55/56)
+          canvasImageManager.buttonClickCount = 55;
+          canvasImageManager.currentImageTimes = 56;
+          canvasImageManager.saveProgressToStorage();
+          
+          console.log('📊 Before switch:', canvasImageManager.getProgressInfo());
+          
+          // Trigger one more button click to complete first image
+          await canvasImageManager.trackButtonClick('Test Random Dot', testImagePaths);
+          
+          console.log('📊 After switch:', canvasImageManager.getProgressInfo());
+          
+          return {
+            success: true,
+            message: 'Quick test completed',
+            currentImageIndex: canvasImageManager.getCurrentImageIndex(),
+            progress: canvasImageManager.getProgressInfo()
+          };
+        },
+        
+        // Check current image state
+        checkImageState: () => {
+          if (!canvasImageManager) {
+            console.error('CanvasImageManager not available');
+            return;
+          }
+          
+          const progressInfo = canvasImageManager.getProgressInfo();
+          const currentImage = canvasImageManager.getCurrentImage();
+          
+          console.log('🔍 Current Image State:');
+          console.log('  - Current Image Index:', progressInfo.currentImageIndex);
+          console.log('  - Total Images:', progressInfo.totalImages);
+          console.log('  - Current Image Path:', progressInfo.currentImagePath);
+          console.log('  - Button Click Count:', progressInfo.buttonClickCount);
+          console.log('  - Current Image Times:', progressInfo.currentImageTimes);
+          console.log('  - Progress:', progressInfo.progress);
+          console.log('  - Is Complete:', progressInfo.isComplete);
+          console.log('  - Canvas Current Image:', currentImage);
+          
+          return {
+            currentImageIndex: progressInfo.currentImageIndex,
+            totalImages: progressInfo.totalImages,
+            currentImagePath: progressInfo.currentImagePath,
+            buttonClickCount: progressInfo.buttonClickCount,
+            currentImageTimes: progressInfo.currentImageTimes,
+            progress: progressInfo.progress,
+            isComplete: progressInfo.isComplete,
+            canvasCurrentImage: currentImage
+          };
+        },
+        
+        // Force switch to specific image (for testing)
+        forceSwitchToImage: async (imageIndex) => {
+          if (!canvasImageManager) {
+            console.error('CanvasImageManager not available');
+            return;
+          }
+          
+          console.log(`🔄 Force switching to image ${imageIndex + 1}...`);
+          
+          // Set the image index
+          canvasImageManager.setCurrentImageIndex(imageIndex);
+          
+          // Get the image data
+          const progressInfo = canvasImageManager.getProgressInfo();
+          const targetImage = progressInfo.parsedImages[imageIndex];
+          
+          if (targetImage) {
+            console.log(`📸 Loading image: ${targetImage.path} (times: ${targetImage.times})`);
+            
+            // Load the image
+            const success = await canvasImageManager.setImageBackground(targetImage.path);
+            
+            if (success) {
+              console.log(`✅ Successfully switched to image ${imageIndex + 1}`);
+              return {
+                success: true,
+                message: `Switched to image ${imageIndex + 1}`,
+                imagePath: targetImage.path,
+                times: targetImage.times
+              };
+            } else {
+              console.error(`❌ Failed to load image ${imageIndex + 1}`);
+              return {
+                success: false,
+                message: `Failed to load image ${imageIndex + 1}`
+              };
+            }
+          } else {
+            console.error(`❌ Image ${imageIndex + 1} not found`);
+            return {
+              success: false,
+              message: `Image ${imageIndex + 1} not found`
+            };
+          }
         }
       };
 
@@ -1833,6 +2029,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       });
       
       await randomDotAction.handleRandomDot();
+      
+      // Increment counter after successful completion (per image)
+      const currentImageIndex = canvasImageManager ? canvasImageManager.getCurrentImageIndex() : 0;
+      const counterResult = counter(1, currentUserId, currentImageIndex);
+      if (counterResult.success) {
+        console.log(`Random Dot completed - Counter: ${counterResult.newCount} (Image ${currentImageIndex + 1})`);
+      }
     } catch (error) {
       console.error('Random dot error:', error);
       setProcessStatus(`Error: ${error.message}`);
@@ -1946,6 +2149,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       });
       
       await setRandomAction.handleAction();
+      
+      // Increment counter after successful completion (per image)
+      const currentImageIndex = canvasImageManager ? canvasImageManager.getCurrentImageIndex() : 0;
+      const counterResult = counter(1, currentUserId, currentImageIndex);
+      if (counterResult.success) {
+        console.log(`Set Random completed - Counter: ${counterResult.newCount} (Image ${currentImageIndex + 1})`);
+      }
     } catch (error) {
       console.error("Random sequence error:", error);
       setProcessStatus(`Random sequence failed: ${error.message}`);
@@ -2055,6 +2265,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       });
       
       await setCalibrateAction.handleSetCalibrate();
+      
+      // Increment counter after successful completion (per image)
+      const currentImageIndex = canvasImageManager ? canvasImageManager.getCurrentImageIndex() : 0;
+      const counterResult = counter(1, currentUserId, currentImageIndex);
+      if (counterResult.success) {
+        console.log(`Set Calibrate completed - Counter: ${counterResult.newCount} (Image ${currentImageIndex + 1})`);
+      }
     } catch (error) {
       console.error("Calibration error:", error);
       setProcessStatus(`Calibration error: ${error.message}`);
@@ -2132,6 +2349,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       'calibrate': 'Set Calibrate'
     };
     
+    // Track all buttons for checkmarks, but exclude 'preview' from counter
     if (buttonNameMap[actionType]) {
       trackButtonClick(buttonNameMap[actionType]);
     }

@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { useAdminSettings } from './adminSettings';
 import { getOrCreateUserId } from '../../../utils/consentManager';
 import OrderRequire from './Order&require';
+import { clearAllStateDataWithCompletion } from './count&mark.js';
 
 // Improved debounce function
 const debounce = (func, wait) => {
@@ -286,6 +287,24 @@ const TopBar = ({
     }
   };
 
+  const handleClearState = () => {
+    // Clear all localStorage data related to button clicks, progress, and completion counts
+    const result = clearAllStateDataWithCompletion(currentUserId);
+    
+    if (result.success) {
+      // Show success notification
+      alert(`✅ Clear State Successful!\n\n${result.message}\n\nCleared keys: ${result.clearedKeys.join(', ')}`);
+      
+      // Trigger a page refresh to reset all state
+      if (typeof window !== 'undefined') {
+        window.location.reload();
+      }
+    } else {
+      // Show error notification
+      alert(`❌ Clear State Failed!\n\n${result.message}`);
+    }
+  };
+
   const statusMessage = `TopBar ${isTopBarShown ? 'shown' : 'hidden'}, Canvas: ${canvasStatus ? 'Visible' : 'Hidden'}`;
 
     return (
@@ -472,7 +491,7 @@ const TopBar = ({
               </button>
             </div>
             
-            {/* Order/Requirement button row - only show when enable_background_change is true, same y-axis as Clear All and Back buttons */}
+            {/* Order/Requirement and Clear State button row - only show when enable_background_change is true, same y-axis as Clear All and Back buttons */}
             {enableBackgroundChange && (
               <div className="button-row" style={{ 
                 marginTop: '2px',
@@ -487,6 +506,18 @@ const TopBar = ({
                   title="Configure canvas image order and requirements"
                 >
                   Order/Requirement
+                </button>
+                <button 
+                  className="btn clear-state-btn"
+                  onClick={handleClearState}
+                  title="Clear all localStorage data (button clicks and progress)"
+                  style={{
+                    backgroundColor: '#ff6b6b',
+                    color: 'white',
+                    border: '1px solid #ff5252'
+                  }}
+                >
+                  Clear State
                 </button>
               </div>
             )}
