@@ -13,7 +13,8 @@ const nextConfig = {
   
   // Environment variables for backend configuration
   env: {
-    BACKEND_URL: process.env.BACKEND_URL,
+    BACKEND_URL: process.env.BACKEND_URL || 'http://nginx',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://nginx',
     NEXT_PUBLIC_API_KEY: process.env.NEXT_PUBLIC_API_KEY,
     NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL
   }

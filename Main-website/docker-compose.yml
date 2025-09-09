@@ -9,7 +9,7 @@ services:
     depends_on:
       - auth_service
       - image_service
-      - video_service
+      # - video_service
     networks:
       - app-network
 
@@ -26,17 +26,17 @@ services:
       - app-network
 
 
-  video_service:
-    build: 
-      context: ./backend
-      dockerfile: video_service/Dockerfile
-    container_name: backend_video_service
-    ports:
-      - "8011:8011"
-    environment:
-      - PORT=8011
-    networks:
-      - app-network
+  # video_service:
+  #   build: 
+  #     context: ./backend
+  #     dockerfile: video_service/Dockerfile
+  #   container_name: backend_video_service
+  #   ports:
+  #     - "8011:8011"
+  #   environment:
+  #     - PORT=8011
+  #   networks:
+  #     - app-network
 
 
   auth_service:
@@ -73,10 +73,13 @@ services:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
       - WATCHPACK_POLLING=true
+      - BACKEND_URL=http://nginx
+      - NEXT_PUBLIC_API_URL=http://nginx
     env_file:
       - ./frontend/.env.frontend
     depends_on:
       - auth_service
+      - nginx
     networks:
       - app-network
 
