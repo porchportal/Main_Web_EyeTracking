@@ -7,7 +7,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+    // Use direct backend service URL for server-side calls
+    const backendUrl = process.env.AUTH_SERVICE_URL;
 
     // GET - Retrieve user settings
     if (method === 'GET') {

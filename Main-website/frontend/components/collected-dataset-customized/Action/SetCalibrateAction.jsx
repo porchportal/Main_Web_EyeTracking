@@ -9,7 +9,6 @@ import { getRandomPosition } from './countSave.jsx';
 class SetCalibrateAction {
   constructor(options) {
     this.canvasRef = options.canvasRef;
-    this.toggleTopBar = options.toggleTopBar;
     this.setIsCapturing = options.setIsCapturing;
     this.setProcessStatus = options.setProcessStatus;
     this.setCurrentDot = options.setCurrentDot;
@@ -138,17 +137,7 @@ class SetCalibrateAction {
     
     console.log(`[SetCalibrateAction] Using passed settings - Times: ${times}, Delay: ${delay}`);
     
-    // Hide the TopBar before starting calibration
-    // Use the same TopBar control pattern as index.js
-    if (typeof window !== 'undefined' && window.toggleTopBar) {
-      console.log('SetCalibrateAction: Using global window.toggleTopBar(false)...');
-      window.toggleTopBar(false);
-      console.log('SetCalibrateAction: TopBar hidden via global window.toggleTopBar');
-    } else if (typeof this.toggleTopBar === 'function') {
-      console.log('SetCalibrateAction: Using passed toggleTopBar(false)...');
-      this.toggleTopBar(false);
-      console.log('SetCalibrateAction: TopBar hidden via passed toggleTopBar function');
-    }
+    // TopBar hiding is now handled in index.js
     
     // Set capturing state if function exists
     if (typeof this.setIsCapturing === 'function') {
@@ -246,7 +235,6 @@ class SetCalibrateAction {
                 captureCounter: this.captureCounter,
                 setCaptureCounter: this.setCaptureCounter,
                 setProcessStatus: this.setProcessStatus,
-                toggleTopBar: this.toggleTopBar,
                 onStatusUpdate: this.onStatusUpdate,
                 captureFolder: 'eye_tracking_captures'
               });

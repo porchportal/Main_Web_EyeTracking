@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     }
 
     // Get environment variables
-    const backendUrl = process.env.BACKEND_URL;
+    const backendUrl = process.env.AUTH_SERVICE_URL;
     const apiKey = process.env.NEXT_PUBLIC_API_KEY;
 
     if (!backendUrl) {

@@ -57,7 +57,7 @@ export const saveImageToUserServer = async (imageData, filename, type, captureGr
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
       },
       body: JSON.stringify(requestBody)
     });
@@ -112,7 +112,7 @@ export const saveCSVToUserServer = async (csvData, filename, captureGroup = null
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
       },
       body: JSON.stringify({ 
         imageData: dataUrl, 
@@ -155,7 +155,7 @@ export const getUserCaptureStatus = async () => {
     const response = await fetch(`/api/user-captures/status/${userId}`, {
       method: 'GET',
       headers: {
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
       }
     });
     
@@ -185,7 +185,7 @@ export const clearUserCaptures = async () => {
     const response = await fetch(`/api/user-captures/clear/${userId}`, {
       method: 'DELETE',
       headers: {
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
       }
     });
     

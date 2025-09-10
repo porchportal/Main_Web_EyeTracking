@@ -4,14 +4,21 @@ services:
     container_name: backend_nginx
     ports:
       - "80:80"
+      - "443:443"
+      - "8443:8443"
     volumes:
       - ./backend/config/nginx.conf:/etc/nginx/nginx.conf
+      - ./backend/config/ssl:/etc/nginx/ssl:ro
     depends_on:
-      - auth_service
-      - image_service
-      # - video_service
+      auth_service:
+        condition: service_healthy
+      image_service:
+        condition: service_started
+      frontend:
+        condition: service_healthy
     networks:
       - app-network
+    restart: unless-stopped
 
   image_service:
     build: 
@@ -24,6 +31,13 @@ services:
       - PORT=8010
     networks:
       - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 
   # video_service:
@@ -52,9 +66,17 @@ services:
     env_file:
       - ./backend/.env.backend
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     networks:
       - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8108/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   frontend:
     build:
@@ -69,19 +91,20 @@ services:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
-    environment:
-      - NODE_ENV=development
-      - NEXT_TELEMETRY_DISABLED=1
-      - WATCHPACK_POLLING=true
-      - BACKEND_URL=http://nginx
-      - NEXT_PUBLIC_API_URL=http://nginx
     env_file:
       - ./frontend/.env.frontend
     depends_on:
-      - auth_service
-      - nginx
+      auth_service:
+        condition: service_healthy
     networks:
       - app-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3010"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   mongodb:
     image: mongo:latest

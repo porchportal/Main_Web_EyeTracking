@@ -12,7 +12,6 @@ class SetRandomAction {
     this.canvasRef = config.canvasRef;
     this.onStatusUpdate = config.onStatusUpdate;
     this.setCaptureCounter = config.setCaptureCounter;
-    this.toggleTopBar = config.toggleTopBar;
     this.captureCounter = config.captureCounter || 1;
     this.triggerCameraAccess = config.triggerCameraAccess;
     this.setIsCapturing = config.setIsCapturing;
@@ -100,13 +99,7 @@ class SetRandomAction {
       const times = this.times;
       const delay = this.delay;
       
-      // Hide UI during capture process
-      // Use the same TopBar control pattern as index.js
-      if (typeof window !== 'undefined' && window.toggleTopBar) {
-        window.toggleTopBar(false);
-      } else if (this.toggleTopBar) {
-        this.toggleTopBar(false);
-      }
+      // TopBar hiding is now handled in index.js
       
       // Set capturing state if function exists
       if (typeof this.setIsCapturing === 'function') {
@@ -148,7 +141,6 @@ class SetRandomAction {
             captureCounter: this.captureCounter,
             setCaptureCounter: this.setCaptureCounter,
             setProcessStatus: this.setProcessStatus,
-            toggleTopBar: this.toggleTopBar,
             onStatusUpdate: (status) => {
               // Update UI based on status
               if (status.processStatus) {

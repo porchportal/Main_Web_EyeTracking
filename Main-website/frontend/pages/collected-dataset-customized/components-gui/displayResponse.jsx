@@ -118,7 +118,9 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
         pointerEvents: animationState === 'visible' ? 'auto' : 'none',
         zIndex: 20,
         display: animationState === 'hidden' ? 'none' : 'block',
-        width: '240px'
+        width: '240px',
+        border: 'none',
+        outline: 'none'
       }}
     >
       <div 

@@ -11,7 +11,6 @@ import {
 class RandomDotAction {
   constructor(options) {
     this.canvasRef = options.canvasRef;
-    this.toggleTopBar = options.toggleTopBar;
     this.setIsCapturing = options.setIsCapturing;
     this.setProcessStatus = options.setProcessStatus;
     this.setCurrentDot = options.setCurrentDot;
@@ -69,14 +68,7 @@ class RandomDotAction {
       }
     });
     
-    // Hide the TopBar before showing dot
-    if (typeof window !== 'undefined' && window.toggleTopBar) {
-      window.toggleTopBar(false);
-    } else if (typeof this.toggleTopBar === 'function') {
-      this.toggleTopBar(false);
-    } else {
-      console.warn('RandomDotAction: No toggleTopBar function available to hide TopBar');
-    }
+    // TopBar hiding is now handled in index.js
     
     // Set capturing state if function exists
     if (typeof this.setIsCapturing === 'function') {
@@ -124,7 +116,6 @@ class RandomDotAction {
             saveImageToServer: this.saveImageToServer,
             setCaptureCounter: this.setCaptureCounter,
             setProcessStatus: this.setProcessStatus,
-            toggleTopBar: this.toggleTopBar,
             onStatusUpdate: this.onStatusUpdate,
             captureFolder: 'eye_tracking_captures'
           });

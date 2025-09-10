@@ -59,7 +59,7 @@ export default async function handler(req, res) {
 
 async function getUserDatasets(req, res, userId) {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+    const backendUrl = process.env.AUTH_SERVICE_URL;
     const apiKey = process.env.NEXT_PUBLIC_API_KEY;
 
     if (!backendUrl) {
@@ -98,7 +98,7 @@ async function getUserDatasets(req, res, userId) {
 
 async function getAllDatasets(req, res) {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+    const backendUrl = process.env.AUTH_SERVICE_URL;
     const apiKey = process.env.NEXT_PUBLIC_API_KEY;
 
     const response = await fetch(`${backendUrl}/api/admin/dataset/all`, {
@@ -124,7 +124,7 @@ async function getAllDatasets(req, res) {
 
 async function getDatasetFile(req, res, userId, filename) {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+    const backendUrl = process.env.AUTH_SERVICE_URL;
     const apiKey = process.env.NEXT_PUBLIC_API_KEY;
 
     if (!backendUrl) {
@@ -167,7 +167,7 @@ async function getDatasetFile(req, res, userId, filename) {
 
 async function deleteDataset(req, res, userId, datasetId) {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+    const backendUrl = process.env.AUTH_SERVICE_URL;
     const apiKey = process.env.NEXT_PUBLIC_API_KEY;
 
     const response = await fetch(`${backendUrl}/api/admin/dataset/user/${userId}/dataset/${datasetId}`, {
@@ -193,7 +193,7 @@ async function deleteDataset(req, res, userId, datasetId) {
 
 async function deleteDatasetFile(req, res, userId, filename) {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+    const backendUrl = process.env.AUTH_SERVICE_URL;
     const apiKey = process.env.NEXT_PUBLIC_API_KEY;
 
     if (!backendUrl) {
@@ -232,7 +232,7 @@ async function deleteDatasetFile(req, res, userId, filename) {
 
 async function updateDatasetFile(req, res, userId, filename) {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+    const backendUrl = process.env.AUTH_SERVICE_URL;
     const apiKey = process.env.NEXT_PUBLIC_API_KEY;
 
     if (!backendUrl) {
@@ -275,7 +275,7 @@ async function updateDatasetFile(req, res, userId, filename) {
 
 async function deleteUserAllDatasets(req, res, userId) {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL ;
+    const backendUrl = process.env.AUTH_SERVICE_URL;
     const apiKey = process.env.NEXT_PUBLIC_API_KEY ;
 
     const response = await fetch(`${backendUrl}/api/admin/dataset/user/${userId}`, {

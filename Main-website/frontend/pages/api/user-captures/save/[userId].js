@@ -2,14 +2,15 @@
 import fs from 'fs';
 import path from 'path';
 
-const BACKEND_URL = process.env.BACKEND_URL;
+// Use direct backend URL instead of nginx proxy to avoid circular routing
+const BACKEND_URL = process.env.AUTH_SERVICE_URL;
 
 // Debug environment variables
 console.log('🔧 Environment variables in save API:', {
-  BACKEND_URL: process.env.BACKEND_URL,
+  AUTH_SERVICE_URL: process.env.AUTH_SERVICE_URL,
   NEXT_PUBLIC_API_KEY: process.env.NEXT_PUBLIC_API_KEY,
   NODE_ENV: process.env.NODE_ENV,
-  fallbackUsed: !process.env.BACKEND_URL
+  fallbackUsed: !process.env.AUTH_SERVICE_URL
 });
 
 export default async function handler(req, res) {
@@ -41,8 +42,9 @@ export default async function handler(req, res) {
       });
     }
 
+    // Use direct backend URL to avoid nginx circular routing
     const backendUrl = `${BACKEND_URL}/api/user-captures/save/${userId}`;
-    console.log('📤 Forwarding to backend via nginx:', backendUrl);
+    console.log('📤 Forwarding to backend directly:', backendUrl);
 
     const requestBody = {
       imageData,
@@ -53,7 +55,7 @@ export default async function handler(req, res) {
 
     console.log('📤 Backend request body keys:', Object.keys(requestBody));
 
-    // Forward the request to the backend via nginx
+    // Forward the request directly to the backend
     const backendResponse = await fetch(backendUrl, {
       method: 'POST',
       headers: {

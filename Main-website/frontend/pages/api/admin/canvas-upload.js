@@ -47,8 +47,8 @@ export default async function handler(req, res) {
     }
 
     // Get the backend URL and API key from environment variables
-    const backendUrl = process.env.BACKEND_URL;
-         const apiKey = process.env.NEXT_PUBLIC_API_KEY;
+    const backendUrl = process.env.AUTH_SERVICE_URL;
+    const apiKey = process.env.NEXT_PUBLIC_API_KEY;
 
     // Prepare form data for backend using form-data package
     const FormData = require('form-data');

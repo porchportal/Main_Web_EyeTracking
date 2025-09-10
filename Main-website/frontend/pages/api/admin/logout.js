@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     const sessionToken = cookies.admin_session;
 
     // Call backend logout endpoint
-    const backendUrl = process.env.BACKEND_URL;
+    const backendUrl = process.env.AUTH_SERVICE_URL;
     const response = await fetch(`${backendUrl}/api/admin/logout`, {
       method: 'POST',
       headers: {

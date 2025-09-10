@@ -1,0 +1,533 @@
+/* Camera UI Module CSS - All camera-related styles */
+
+/* ===== CAMERA CONTAINER STYLES ===== */
+.cameraContainer {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 30vw;
+  height: 30vh;
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  z-index: 25;
+  display: block;
+  min-width: 300px;
+  min-height: 200px;
+}
+
+.cameraContainer.dualCamera {
+  width: 30vw;
+  height: 30vh;
+}
+
+.cameraContainer.hidden {
+  display: none;
+}
+
+/* ===== CAMERA PREVIEW CONTAINER STYLES ===== */
+.cameraPreviewContainer {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  z-index: 25;
+  max-width: 90vw;
+  max-height: 90vh;
+  align-items: center;
+  justify-content: center;
+}
+
+.cameraPreviewContainer.singleCamera {
+  flex-direction: column;
+}
+
+.cameraPreviewContainer.dualCamera {
+  flex-direction: column;
+  gap: 15px;
+}
+
+/* ===== VIDEO ELEMENT STYLES ===== */
+.cameraVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  opacity: 1;
+  z-index: 1;
+  transition: opacity 0.3s ease;
+}
+
+.cameraVideo.notReady {
+  opacity: 0.5;
+}
+
+/* ===== CANVAS OVERLAY STYLES ===== */
+.cameraCanvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+  display: block;
+}
+
+.cameraCanvas.hidden {
+  display: none;
+}
+
+/* ===== CAMERA LABEL STYLES ===== */
+.cameraLabel {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: bold;
+  z-index: 3;
+}
+
+/* ===== CONTROL BUTTONS STYLES ===== */
+.cameraControls {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 10px;
+  z-index: 3;
+}
+
+.cameraButton {
+  padding: 8px 12px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  z-index: 3;
+}
+
+.cameraButton:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.cameraButton.linkButton {
+  background-color: rgba(0, 255, 0, 0.7);
+}
+
+.cameraButton.linkButton:hover {
+  background-color: rgba(0, 255, 0, 0.8);
+}
+
+.cameraButton.unlinkButton {
+  background-color: rgba(255, 0, 0, 0.7);
+}
+
+.cameraButton.unlinkButton:hover {
+  background-color: rgba(255, 0, 0, 0.8);
+}
+
+/* ===== LOADING INDICATOR STYLES ===== */
+.cameraLoading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 20px;
+  background-color: rgba(0, 0, 0, 0.8);
+  color: white;
+  border-radius: 8px;
+  z-index: 4;
+  text-align: center;
+}
+
+.cameraLoadingIcon {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.cameraLoadingText {
+  font-size: 14px;
+}
+
+/* ===== HTTPS NOTICE STYLES ===== */
+.cameraHttpsNotice {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 20px;
+  background-color: rgba(255, 165, 0, 0.9);
+  color: white;
+  border-radius: 8px;
+  z-index: 4;
+  text-align: center;
+  max-width: 300px;
+}
+
+.cameraHttpsIcon {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.cameraHttpsTitle {
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.cameraHttpsMessage {
+  font-size: 14px;
+  margin-bottom: 15px;
+}
+
+.cameraHttpsButton {
+  padding: 10px 20px;
+  background-color: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.cameraHttpsButton:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* ===== STATUS INDICATOR STYLES ===== */
+.cameraStatus {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  padding: 4px 8px;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 4px;
+  font-size: 10px;
+  z-index: 3;
+}
+
+/* ===== LOADING PLACEHOLDER STYLES ===== */
+.cameraLoadingPlaceholder {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 480px;
+  height: 360px;
+  background: #f0f8ff;
+  border: 2px solid #0066cc;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  z-index: 25;
+}
+
+.cameraLoadingPlaceholderIcon {
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+
+.cameraLoadingPlaceholderText {
+  font-size: 16px;
+  font-weight: bold;
+  color: #0066cc;
+}
+
+/* ===== CAMERA COMPONENT STYLES ===== */
+.cameraComponent {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  aspect-ratio: 16/9;
+  background: black;
+  border: 2px solid #0066cc;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+  z-index: 999;
+}
+
+.cameraComponent video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* Mirror the video */
+}
+
+/* ===== CAMERA CONTAINER STYLES ===== */
+.cameraContainerOld {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #000;
+  z-index: 20;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* ===== CAMERA PERMISSION POPUP STYLES ===== */
+.cameraPermissionPopup {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.cameraPermissionDialog {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  max-width: 400px;
+  text-align: center;
+}
+
+.cameraPermissionTitle {
+  font-size: 18px;
+  margin-top: 0;
+  margin-bottom: 15px;
+  color: #0066cc;
+}
+
+.cameraPermissionMessage {
+  margin-bottom: 20px;
+  line-height: 1.5;
+  color: #444;
+}
+
+.cameraPermissionButtons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+.cameraPermissionButtons .cameraBtn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.cameraPermissionButtons .cameraBtn:first-child {
+  background-color: #f0f0f0;
+  color: #444;
+}
+
+.cameraPermissionButtons .cameraBtn:last-child {
+  background-color: #0066cc;
+  color: white;
+}
+
+.cameraPermissionButtons .cameraBtn:hover {
+  opacity: 0.9;
+}
+
+/* ===== BACKEND ERROR BANNER STYLES ===== */
+.cameraBackendErrorBanner {
+  background-color: #fff3cd;
+  color: #856404;
+  padding: 8px 16px;
+  text-align: center;
+  font-size: 14px;
+}
+
+.cameraErrorIcon {
+  margin-right: 8px;
+}
+
+/* ===== PREVIEW AREA STYLES ===== */
+.cameraPreviewArea {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.cameraPreviewMessage {
+  text-align: center;
+  max-width: 600px;
+  padding: 20px;
+}
+
+.cameraSizeIndicator {
+  font-size: 14px;
+  color: #666;
+  margin-top: 5px;
+}
+
+/* ===== CAMERA ACTION BUTTONS STYLES ===== */
+.cameraActionButtonsContainer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin: 0 auto;
+}
+
+/* ===== RESTORE BUTTON STYLES ===== */
+.cameraRestoreButtonContainer {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  z-index: 100;
+}
+
+.cameraRestoreBtn {
+  background-color: #0066cc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ===== CAMERA PLACEHOLDER STYLES ===== */
+.cameraPlaceholderSquare {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.cameraPlaceholderIcon {
+  font-size: 1.5rem;
+}
+
+/* ===== ANIMATIONS ===== */
+.cameraPulseAnimation {
+  animation: cameraPulse 2s infinite;
+}
+
+@keyframes cameraPulse {
+  0% {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 0.6;
+    transform: scale(0.95);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 768px) {
+  .cameraComponent {
+    max-width: 90vw;
+    aspect-ratio: 4/3;
+  }
+  
+  .cameraContainer {
+    width: 85vw;
+    height: 35vh;
+    min-width: 280px;
+    min-height: 180px;
+  }
+  
+  .cameraContainer.dualCamera {
+    width: 85vw;
+    height: 35vh;
+  }
+  
+  .cameraPreviewContainer {
+    max-width: 95vw;
+    max-height: 95vh;
+    gap: 10px;
+  }
+  
+  .cameraPreviewContainer.dualCamera {
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .cameraContainer {
+    width: 90vw;
+    height: 30vh;
+    min-width: 250px;
+    min-height: 150px;
+  }
+  
+  .cameraContainer.dualCamera {
+    width: 90vw;
+    height: 30vh;
+  }
+  
+  .cameraPreviewContainer {
+    max-width: 98vw;
+    max-height: 98vh;
+    gap: 8px;
+  }
+  
+  .cameraPreviewContainer.dualCamera {
+    gap: 6px;
+  }
+  
+  .cameraLoadingPlaceholder {
+    width: 90vw;
+    height: 60vh;
+    max-width: 400px;
+    max-height: 300px;
+  }
+}
+
+/* ===== WINDOW SIZE RESPONSIVE CLASSES ===== */
+.windowSizeTiny .cameraPreviewMessage {
+  font-size: 12px;
+}
+
+.windowSizeSmall .cameraPreviewMessage {
+  font-size: 14px;
+}
+
+.windowSizeMedium .cameraPreviewMessage {
+  font-size: 16px;
+}
+
+.windowSizeLarge .cameraPreviewMessage {
+  font-size: 18px;
+}

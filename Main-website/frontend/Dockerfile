@@ -4,7 +4,7 @@ FROM node:22-alpine
 WORKDIR /app
 
 # Install dependencies for better performance
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat wget
 
 # Copy package manifests
 COPY package*.json ./

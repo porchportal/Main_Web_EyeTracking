@@ -305,8 +305,8 @@ export default function UserProfileSidebar() {
           {isConnected && (
             <div className={styles.statusItem}>
               <span className={styles.statusLabel}>Authentication:</span>
-              <span className={`${styles.statusValue} ${authValid ? styles.statusActive : styles.statusInactive}`}>
-                {authValid ? 'Valid' : 'Invalid'}
+              <span className={`${styles.statusValue} ${isConnected ? styles.statusActive : styles.statusInactive}`}>
+                {isConnected ? 'Valid' : 'Invalid'}
               </span>
             </div>
           )}

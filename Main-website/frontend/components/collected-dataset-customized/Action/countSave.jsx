@@ -1,6 +1,7 @@
 // Fixed countSave.jsx - Resolving redrawInterval reference error
 // Shared functionality for countdown and image capture processes
 import React from 'react';
+import html2canvas from 'html2canvas';
 import { captureImagesAtUserPoint } from '../Helper/user_savefile';
 
 /**
@@ -12,6 +13,59 @@ const getCanvas = () => {
     return window.globalCanvasManager.getCanvas();
   }
   return document.querySelector('#main-canvas');
+};
+
+/**
+ * Capture the entire screen using html2canvas
+ * @returns {Promise<string>} Base64 data URL of the screen capture
+ */
+const captureScreenWithHtml2Canvas = async () => {
+  try {
+    console.log('📸 Starting html2canvas screen capture...');
+    
+    // Configure html2canvas options for better capture
+    const options = {
+      useCORS: true,
+      allowTaint: true,
+      scale: 1, // Use 1:1 scale for better quality
+      logging: false,
+      backgroundColor: '#ffffff',
+      removeContainer: true,
+      foreignObjectRendering: true,
+      // Capture the entire viewport
+      width: window.innerWidth,
+      height: window.innerHeight,
+      scrollX: 0,
+      scrollY: 0
+    };
+
+    console.log('📸 html2canvas options:', options);
+    
+    // Capture the entire document body
+    const canvas = await html2canvas(document.body, options);
+    
+    // Convert to data URL
+    const dataURL = canvas.toDataURL('image/png', 1.0);
+    
+    console.log('✅ html2canvas capture successful:', {
+      canvasWidth: canvas.width,
+      canvasHeight: canvas.height,
+      dataURLLength: dataURL.length
+    });
+    
+    return dataURL;
+  } catch (error) {
+    console.error('❌ html2canvas capture failed:', error);
+    
+    // Fallback to canvas capture if html2canvas fails
+    console.log('🔄 Falling back to canvas capture...');
+    const canvas = getCanvas();
+    if (canvas) {
+      return canvas.toDataURL('image/png');
+    }
+    
+    throw new Error(`Screen capture failed: ${error.message}`);
+  }
 };
 
 /**
@@ -87,7 +141,7 @@ export const createCountdownElement = (position, canvasRect) => {
     font-size: 13px;
     font-weight: bold;
     text-shadow: 0 0 4px white, 0 0 6px white, 0 0 8px white;
-    z-index: 30;
+    z-index: 9999;
     background-color: rgba(255, 255, 255, 0.98);
     border: 1px solid red;
     border-radius: 50%;
@@ -140,7 +194,7 @@ export const createCountdownElement = (position, canvasRect) => {
     height: 10px;
     background-color: blue;
     border-radius: 50%;
-    z-index: 20;
+    z-index: 9998;
     pointer-events: none;
   `;
   document.body.appendChild(indicator);
@@ -192,7 +246,7 @@ export const showCapturePreview = (screenImage, webcamImage, point) => {
     background-color: rgba(0, 0, 0, 0.8);
     padding: 20px;
     border-radius: 8px;
-    z-index: 1000;
+    z-index: 10000;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     min-width: 300px;
   `;
@@ -615,87 +669,173 @@ const getHighestResolutionConstraints = async () => {
 };
 
 /**
- * Capture images at a specific point
+ * Enhanced capture function using html2canvas for screen capture
+ * @param {Object} options - Capture options
+ * @returns {Promise} - Promise that resolves with the capture result
+ */
+export const captureImagesWithHtml2Canvas = async (options) => {
+  const {
+    canvasRef,
+    position,
+    captureCounter, 
+    setCaptureCounter,
+    setProcessStatus,
+    captureFolder = 'eye_tracking_captures'
+  } = options;
+
+  if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
+    console.warn('[captureImagesWithHtml2Canvas] Invalid position object:', position);
+    setProcessStatus?.('Error: Invalid capture position');
+    return null;
+  }
+
+  try {
+    console.log('🎯 Starting enhanced capture with html2canvas...');
+    
+    // Use the existing video element from cameraAccess.js if available
+    const videoElement = window.videoElement || document.querySelector('video');
+    
+    if (videoElement && videoElement.srcObject) {
+      console.log('Using existing video stream from cameraAccess.js');
+      const videoTrack = videoElement.srcObject.getVideoTracks()[0];
+      if (videoTrack) {
+        const settings = videoTrack.getSettings();
+        console.log('Current camera settings:', settings);
+      }
+    } else {
+      console.log('No existing video stream found, getting new stream...');
+      // Get highest resolution constraints
+      const constraints = await getHighestResolutionConstraints();
+      console.log('Using camera constraints:', constraints);
+      
+      // Get a new stream with the highest resolution
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const videoTrack = stream.getVideoTracks()[0];
+      const settings = videoTrack.getSettings();
+      console.log('Actual camera settings:', settings);
+      
+      // Update video element with new stream
+      if (videoElement) {
+        videoElement.srcObject = stream;
+        await videoElement.play();
+      }
+    }
+    
+    // Capture screen using html2canvas
+    console.log('📸 Capturing screen with html2canvas...');
+    const screenImage = await captureScreenWithHtml2Canvas();
+    
+    // Capture webcam using existing method
+    console.log('📷 Capturing webcam...');
+    let webcamImage = null;
+    if (videoElement) {
+      try {
+        // Create a temporary canvas to capture webcam
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        // Set canvas size to video dimensions
+        tempCanvas.width = videoElement.videoWidth || 640;
+        tempCanvas.height = videoElement.videoHeight || 480;
+        
+        // Draw video frame to canvas - remove horizontal mirroring for capture
+        tempCtx.save();
+        tempCtx.scale(-1, 1); // Mirror horizontally to counteract the display mirroring
+        tempCtx.translate(-tempCanvas.width, 0); // Move to correct position after scaling
+        tempCtx.drawImage(videoElement, 0, 0, tempCanvas.width, tempCanvas.height);
+        tempCtx.restore();
+        
+        // Get high-resolution image
+        webcamImage = tempCanvas.toDataURL('image/jpeg', 0.95);
+        console.log('✅ Webcam capture successful');
+        
+        // Clean up temporary canvas
+        tempCanvas.remove();
+      } catch (webcamError) {
+        console.error("❌ Error capturing webcam:", webcamError);
+      }
+    }
+    
+    // Create capture group ID
+    const captureGroupId = `capture-${Date.now()}-${Date.now()}`;
+    
+    // Create parameter data
+    const csvData = [
+      "name,value",
+      `dot_x,${position.x}`,
+      `dot_y,${position.y}`,
+      `canvas_width,${window.innerWidth}`,
+      `canvas_height,${window.innerHeight}`,
+      `window_width,${window.innerWidth}`,
+      `window_height,${window.innerHeight}`,
+      `webcam_resolution_width,${videoElement?.videoWidth || 640}`,
+      `webcam_resolution_height,${videoElement?.videoHeight || 480}`,
+      `timestamp,${new Date().toISOString()}`,
+      `group_id,${captureGroupId}`,
+      `capture_method,html2canvas`
+    ].join('\n');
+    
+    // Save files using user_savefile functions
+    const { saveImageToUserServer, saveCSVToUserServer } = await import('../Helper/user_savefile');
+    
+    console.log('💾 Saving files...');
+    
+    // Save parameter file
+    const paramResult = await saveCSVToUserServer(csvData, 'parameter_001.csv', captureGroupId);
+    const captureNumber = paramResult?.number || 1;
+    
+    // Save screen image
+    const screenResult = await saveImageToUserServer(screenImage, 'screen_001.jpg', 'screen', captureGroupId);
+    
+    // Save webcam image if available
+    let webcamResult = null;
+    if (webcamImage) {
+      webcamResult = await saveImageToUserServer(webcamImage, 'webcam_001.jpg', 'webcam', captureGroupId);
+    }
+    
+    // Show preview
+    showCapturePreview(screenImage, webcamImage, position);
+    
+    // Increment counter
+    if (setCaptureCounter) {
+      setCaptureCounter(prevCount => prevCount + 1);
+    }
+    
+    console.log('✅ Enhanced capture completed successfully');
+    
+    return {
+      screenImage: screenImage,
+      webcamImage: webcamImage,
+      success: true,
+      captureId: captureGroupId,
+      captureNumber: captureNumber,
+      results: {
+        parameter: paramResult,
+        screen: screenResult,
+        webcam: webcamResult
+      }
+    };
+  } catch (err) {
+    console.error('[captureImagesWithHtml2Canvas] Unexpected error:', err);
+    setProcessStatus?.(`Error: ${err.message}`);
+    return {
+      screenImage: '',
+      webcamImage: '',
+      success: false,
+      error: err.message
+    };
+  }
+};
+
+/**
+ * Capture images at a specific point (legacy function for backward compatibility)
  * @param {Object} options - Capture options
  * @returns {Promise} - Promise that resolves with the capture result
  */
 export const captureImages = async (options) => {
-    const {
-      canvasRef,
-      position,
-      captureCounter, 
-      setCaptureCounter,
-      setProcessStatus,
-      toggleTopBar,
-      captureFolder = 'eye_tracking_captures'
-    } = options;
-  
-    if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
-      console.warn('[captureImages] Invalid position object:', position);
-      setProcessStatus?.('Error: Invalid capture position');
-      return null;
-    }
-  
-    try {
-      // Use the existing video element from cameraAccess.js if available
-      const videoElement = window.videoElement || document.querySelector('video');
-      
-      if (videoElement && videoElement.srcObject) {
-        console.log('Using existing video stream from cameraAccess.js');
-        const videoTrack = videoElement.srcObject.getVideoTracks()[0];
-        if (videoTrack) {
-          const settings = videoTrack.getSettings();
-          console.log('Current camera settings:', settings);
-        }
-      } else {
-        console.log('No existing video stream found, getting new stream...');
-        // Get highest resolution constraints
-        const constraints = await getHighestResolutionConstraints();
-        console.log('Using camera constraints:', constraints);
-        
-        // Get a new stream with the highest resolution
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        const videoTrack = stream.getVideoTracks()[0];
-        const settings = videoTrack.getSettings();
-        console.log('Actual camera settings:', settings);
-        
-        // Update video element with new stream
-        if (videoElement) {
-          videoElement.srcObject = stream;
-          await videoElement.play();
-        }
-      }
-      
-      // Call the captureImagesAtUserPoint with all necessary parameters
-      const result = await captureImagesAtUserPoint({
-        point: position,
-        captureCount: captureCounter,
-        canvasRef, 
-        setCaptureCount: setCaptureCounter,
-        showCapturePreview
-      });
-  
-      console.log('Capture successful with ID:', result.captureId);
-      
-      return {
-        screenImage: result?.screenImage || '',
-        webcamImage: result?.webcamImage || '',
-        success: true,
-        captureId: result?.captureId,
-        userId: result?.userId,
-        captureNumber: result?.captureNumber
-      };
-    } catch (err) {
-      console.error('[captureImages] Unexpected error:', err);
-      setProcessStatus?.(`Error: ${err.message}`);
-      return {
-        screenImage: '',
-        webcamImage: '',
-        success: false,
-        error: err.message
-      };
-    }
-  };
+  // Use the enhanced capture function by default
+  return await captureImagesWithHtml2Canvas(options);
+};
 
 /**
  * Generate a random dot position within the canvas
@@ -727,7 +867,6 @@ export const calibrationCapture = async (options) => {
       captureCounter,
       setCaptureCounter,
       setProcessStatus,
-      toggleTopBar,
       captureFolder = 'eye_tracking_captures',
       pointIndex,
       totalPoints
@@ -837,7 +976,6 @@ export const captureAndPreviewProcess = async (options) => {
     captureCounter,
     setCaptureCounter,
     setProcessStatus,
-    toggleTopBar,
     onStatusUpdate,
     captureFolder
   } = options;
@@ -901,7 +1039,7 @@ export const captureAndPreviewProcess = async (options) => {
       font-size: 13px;
       font-weight: bold;
       text-shadow: 0 0 4px white, 0 0 6px white, 0 0 8px white;
-      z-index: 30;
+      z-index: 9999;
       background-color: rgba(255, 255, 255, 0.98);
       border: 1px solid red;
       border-radius: 50%;
@@ -970,14 +1108,14 @@ export const captureAndPreviewProcess = async (options) => {
       console.warn('No video element found for capture');
     }
 
-    // Use captureImagesAtUserPoint from user_savefile.js
-    console.log('Starting image capture...');
-    const captureResult = await captureImagesAtUserPoint({
-      point: position,
-      captureCount: captureCounter,
+    // Use enhanced capture with html2canvas
+    console.log('Starting enhanced image capture with html2canvas...');
+    const captureResult = await captureImagesWithHtml2Canvas({
+      position: position,
+      captureCounter: captureCounter,
       canvasRef,
-      setCaptureCount: setCaptureCounter,
-      showCapturePreview: true // Force preview to be shown
+      setCaptureCounter: setCaptureCounter,
+      setProcessStatus: setProcessStatus
     });
 
     console.log('Image capture completed:', captureResult);

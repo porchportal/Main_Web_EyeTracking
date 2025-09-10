@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   try {
     // First check backend connection
-         const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+         const backendUrl = process.env.INTERNAL_API_URL || process.env.BACKEND_URL || 'http://nginx';
     const url = new URL(backendUrl);
     
     // Check if backend is available

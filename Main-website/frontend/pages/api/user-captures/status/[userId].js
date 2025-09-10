@@ -1,5 +1,6 @@
 // pages/api/user-captures/status/[userId].js
-const BACKEND_URL = process.env.BACKEND_URL;
+// Use direct backend URL instead of nginx proxy to avoid circular routing
+const BACKEND_URL = process.env.AUTH_SERVICE_URL;
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

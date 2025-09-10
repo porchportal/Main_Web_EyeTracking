@@ -11,8 +11,8 @@ async function verifyAdminToken(req) {
       return { authenticated: false, message: 'No session found' };
     }
 
-    // Verify session with backend
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    // Verify session with backend - use direct backend service URL
+    const backendUrl = process.env.AUTH_SERVICE_URL;
     
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
@@ -50,8 +50,8 @@ export default async function handler(req, res) {
     const { username, password } = req.body;
 
     try {
-      // Use the nginx proxy URL since that's what the frontend is configured to use
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+      // Use direct backend service URL for server-side calls
+      const backendUrl = process.env.AUTH_SERVICE_URL;
       
       // Add timeout to prevent hanging requests
       const controller = new AbortController();
@@ -109,8 +109,8 @@ export default async function handler(req, res) {
         return res.status(401).json({ message: 'No session found' });
       }
 
-      // Verify session with backend through nginx proxy
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL;
+      // Verify session with backend - use direct backend service URL
+      const backendUrl = process.env.AUTH_SERVICE_URL;
       
       // Add timeout to prevent hanging requests
       const controller = new AbortController();

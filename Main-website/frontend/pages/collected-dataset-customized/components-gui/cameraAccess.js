@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { getHighestResolutionConstraints } from '../../../components/collected-dataset-customized/Helper/savefile';
+import styles from '../styles/camera-ui.module.css';
 
 // Create the main camera component
 const CameraAccessComponent = ({ 
@@ -12,7 +13,9 @@ const CameraAccessComponent = ({
   showHeadPose = false,
   showBoundingBox = false,
   showMask = false,
-  showParameters = false
+  showParameters = false,
+  selectedCameras = [],
+  cameraIndex = 0
 }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -32,6 +35,27 @@ const CameraAccessComponent = ({
   const [isLinked, setIsLinked] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   
+  // Check if we should redirect to camera port for HTTPS
+  const shouldUseCameraPort = () => {
+    if (typeof window === 'undefined') return false;
+    const isSecure = window.location.protocol === 'https:';
+    const currentPort = window.location.port;
+    // Only redirect if we're on HTTPS and not already on camera port
+    // But don't redirect for main application routes - only for camera-specific functionality
+    return isSecure && currentPort !== '8443' && window.location.pathname.includes('/camera');
+  };
+  
+  // Redirect to camera port if needed (only for camera-specific routes)
+  const redirectToCameraPort = () => {
+    if (shouldUseCameraPort()) {
+      const hostname = window.location.hostname;
+      const newUrl = `https://${hostname}:8443${window.location.pathname}${window.location.search}`;
+      window.location.href = newUrl;
+      return true;
+    }
+    return false;
+  };
+  
   // WebSocket connection
   const connectWebSocket = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -40,8 +64,26 @@ const CameraAccessComponent = ({
 
     setWsStatus('connecting');
     try {
-      // Connect to FastAPI WebSocket endpoint
-      const wsUrl = process.env.NEXT_PUBLIC_WS_URL;
+      // Determine WebSocket URL based on current protocol and port
+      const isSecure = window.location.protocol === 'https:';
+      const currentPort = window.location.port;
+      const hostname = window.location.hostname;
+      
+      let wsUrl;
+      if (isSecure) {
+        // Use WSS for HTTPS connections
+        if (currentPort === '8443') {
+          // Camera-specific port
+          wsUrl = `wss://${hostname}:8443`;
+        } else {
+          // Main HTTPS port
+          wsUrl = `wss://${hostname}:443`;
+        }
+      } else {
+        // Fallback to environment variable for development
+        wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8108';
+      }
+      
       const ws = new WebSocket(`${wsUrl}/ws/video`);
       wsRef.current = ws;
 
@@ -201,6 +243,11 @@ const CameraAccessComponent = ({
     setIsVideoReady(false);
     setIsStarting(true);
 
+    // Check if we need to redirect to camera port for HTTPS
+    if (redirectToCameraPort()) {
+      return;
+    }
+
     // Clear any existing processing intervals
     if (processingInterval.current) {
       clearInterval(processingInterval.current);
@@ -289,10 +336,11 @@ const CameraAccessComponent = ({
       const isSecure = window.location.protocol === 'https:' || 
                       window.location.hostname === 'localhost' || 
                       window.location.hostname === '127.0.0.1' ||
+                      window.location.hostname === '0.0.0.0' ||
                       process.env.NODE_ENV === 'development';
       
       if (!isSecure) {
-        throw new Error(`Camera access requires HTTPS or localhost. Current protocol: ${window.location.protocol}, hostname: ${window.location.hostname}`);
+        throw new Error(`Camera access requires HTTPS or localhost. Current protocol: ${window.location.protocol}, hostname: ${window.location.hostname}. Please access via https://${window.location.hostname}:8443 for camera access.`);
       }
 
       // 6. Enhanced Permission Handling
@@ -315,8 +363,16 @@ const CameraAccessComponent = ({
         throw new Error('Camera access has been permanently denied. Please update your browser settings to allow camera access.');
       }
 
-      // 8. Get Camera Constraints
+      // 8. Get Camera Constraints with selected camera
       const constraints = await getHighestResolutionConstraints();
+      
+      // Add deviceId constraint if a specific camera is selected
+      if (selectedCameras && selectedCameras.length > 0 && cameraIndex < selectedCameras.length) {
+        constraints.video = {
+          ...constraints.video,
+          deviceId: { exact: selectedCameras[cameraIndex] }
+        };
+      }
 
       // 9. Add Fallback Constraints
       const fallbackConstraints = {
@@ -328,6 +384,11 @@ const CameraAccessComponent = ({
         },
         audio: false
       };
+      
+      // Add deviceId to fallback if a specific camera is selected
+      if (selectedCameras && selectedCameras.length > 0 && cameraIndex < selectedCameras.length) {
+        fallbackConstraints.video.deviceId = { exact: selectedCameras[cameraIndex] };
+      }
 
       // 10. Try to Access Camera with Permission Handling
       let mediaStream;
@@ -527,7 +588,7 @@ const CameraAccessComponent = ({
       isMounted = false;
       stopCamera();
     };
-  }, [isShowing, isHidden]);
+  }, [isShowing, isHidden, selectedCameras, cameraIndex]);
 
   // Setup FPS counter
   useEffect(() => {
@@ -767,32 +828,17 @@ const CameraAccessComponent = ({
   return (
     <div 
       ref={containerRef}
-      style={{ 
-        position: 'fixed',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: '30vw',
-        height: '30vh',
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-        overflow: 'hidden',
-        zIndex: 25,
-        display: isHidden ? 'none' : 'block'
+      className={`${styles.cameraContainer} ${selectedCameras.length > 1 ? styles.dualCamera : ''} ${isHidden ? styles.hidden : ''}`}
+      style={{
+        position: 'relative',
+        transform: 'none',
+        top: 'auto',
+        left: 'auto'
       }}
     >
       <video
         ref={videoRef}
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          transform: 'scaleX(-1)',
-          opacity: isVideoReady ? 1 : 0.5,
-          zIndex: 1,
-          transition: 'opacity 0.3s ease'
-        }}
+        className={`${styles.cameraVideo} ${!isVideoReady ? styles.notReady : ''}`}
         playsInline
         muted
         autoPlay={false}
@@ -816,37 +862,17 @@ const CameraAccessComponent = ({
       />
       <canvas
         ref={canvasRef}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          zIndex: 2,
-          pointerEvents: 'none',
-          display: isLinked ? 'block' : 'none'
-        }}
+        className={`${styles.cameraCanvas} ${!isLinked ? styles.hidden : ''}`}
       />
-      <div style={{
-        position: 'absolute',
-        top: '10px',
-        right: '10px',
-        display: 'flex',
-        gap: '10px',
-        zIndex: 3
-      }}>
+      {/* Camera label */}
+      <div className={styles.cameraLabel}>
+        Camera {cameraIndex + 1}
+      </div>
+      
+      <div className={styles.cameraControls}>
         <button
           onClick={onClose}
-          style={{
-            padding: '8px 12px',
-            backgroundColor: 'rgba(0, 0, 0, 0.7)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            transition: 'background-color 0.3s ease',
-            zIndex: 3
-          }}
+          className={styles.cameraButton}
         >
           Close
         </button>
@@ -859,16 +885,7 @@ const CameraAccessComponent = ({
               connectWebSocket();
             }
           }}
-          style={{
-            padding: '8px 12px',
-            backgroundColor: isLinked ? 'rgba(255, 0, 0, 0.7)' : 'rgba(0, 255, 0, 0.7)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            transition: 'background-color 0.3s ease',
-            zIndex: 3
-          }}
+          className={`${styles.cameraButton} ${isLinked ? styles.unlinkButton : styles.linkButton}`}
         >
           {isLinked ? 'Unlink' : 'Link'}
         </button>
@@ -876,20 +893,30 @@ const CameraAccessComponent = ({
 
       {/* Loading indicator */}
       {isStarting && (
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          padding: '20px',
-          backgroundColor: 'rgba(0, 0, 0, 0.8)',
-          color: 'white',
-          borderRadius: '8px',
-          zIndex: 4,
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '24px', marginBottom: '10px' }}>📷</div>
-          <div>Starting camera...</div>
+        <div className={styles.cameraLoading}>
+          <div className={styles.cameraLoadingIcon}>📷</div>
+          <div className={styles.cameraLoadingText}>Starting camera...</div>
+        </div>
+      )}
+
+      {/* HTTPS Camera Access Notice - Only show for camera-specific routes */}
+      {shouldUseCameraPort() && (
+        <div className={styles.cameraHttpsNotice}>
+          <div className={styles.cameraHttpsIcon}>🔒</div>
+          <div className={styles.cameraHttpsTitle}>Camera Access Required</div>
+          <div className={styles.cameraHttpsMessage}>
+            For security, camera access requires HTTPS on port 8443.
+          </div>
+          <button
+            onClick={() => {
+              const hostname = window.location.hostname;
+              const newUrl = `https://${hostname}:8443${window.location.pathname}${window.location.search}`;
+              window.location.href = newUrl;
+            }}
+            className={styles.cameraHttpsButton}
+          >
+            Access Camera Port
+          </button>
         </div>
       )}
 
@@ -898,18 +925,8 @@ const CameraAccessComponent = ({
 
 
       {/* Status indicator */}
-      <div style={{
-        position: 'absolute',
-        bottom: '10px',
-        left: '10px',
-        padding: '4px 8px',
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
-        color: 'white',
-        borderRadius: '4px',
-        fontSize: '10px',
-        zIndex: 3
-      }}>
-        {isVideoReady ? 'Camera Ready' : isStarting ? 'Starting...' : 'Camera Off'}
+      <div className={styles.cameraStatus}>
+        {isVideoReady ? `Camera ${cameraIndex + 1} Ready` : isStarting ? 'Starting...' : 'Camera Off'}
       </div>
     </div>
   );
@@ -921,25 +938,9 @@ const CameraAccess = dynamic(
   { 
     ssr: false, // Disable server-side rendering for camera component
     loading: () => (
-      <div style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: '480px',
-        height: '360px',
-        background: '#f0f8ff',
-        border: '2px solid #0066cc',
-        borderRadius: '8px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        textAlign: 'center',
-        zIndex: 25
-      }}>
-        <div style={{ fontSize: '48px', marginBottom: '15px' }}>📷</div>
-        <p style={{ fontSize: '16px', fontWeight: 'bold', color: '#0066cc' }}>
+      <div className={styles.cameraLoadingPlaceholder}>
+        <div className={styles.cameraLoadingPlaceholderIcon}>📷</div>
+        <p className={styles.cameraLoadingPlaceholderText}>
           Loading camera...
         </p>
       </div>

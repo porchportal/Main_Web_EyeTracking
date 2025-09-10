@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     }
 
     // Get backend URL from environment or use default
-    const backendUrl = process.env.BACKEND_URL;
+    const backendUrl = process.env.AUTH_SERVICE_URL;
     
     // Make request to backend
     const response = await fetch(`${backendUrl}/consent/check-user/${userId}`, {
