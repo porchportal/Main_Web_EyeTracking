@@ -51,9 +51,10 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
           // Convert backend paths to preview format
           const previews = data.images
             .filter(path => {
-              // Filter out non-image entries (like user IDs)
+              // Filter out non-image entries (like user IDs) and default backgrounds
               return path && 
                      typeof path === 'string' && 
+                     !path.includes('/backgrounds/default.jpg') && // Exclude default background
                      (path.startsWith('/canvas/') || 
                       path.startsWith('http') || 
                       path.includes('.jpg') || 

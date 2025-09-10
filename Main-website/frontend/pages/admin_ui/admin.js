@@ -837,7 +837,13 @@ export default function AdminPage({ initialSettings }) {
                 return updatedSettings;
               });
               
-              window.showNotification(`Canvas images loaded: ${canvasData.images.length} images found`, 'success');
+              const actualImageCount = canvasData.images.filter(path => 
+                path && 
+                typeof path === 'string' && 
+                !path.includes('/backgrounds/default.jpg') && 
+                !path.includes('default.jpg')
+              ).length;
+              window.showNotification(`Canvas images loaded: ${actualImageCount} images found`, 'success');
             } else {
               // Check if we have image_background_paths from data center even without canvas images
               if (userSettings.image_background_paths && Array.isArray(userSettings.image_background_paths) && userSettings.image_background_paths.length > 0) {
@@ -873,7 +879,13 @@ export default function AdminPage({ initialSettings }) {
                   }
                 }));
                 
-                window.showNotification(`Canvas images loaded from data center: ${userSettings.image_background_paths.length} images found`, 'success');
+                const actualDataCenterImageCount = userSettings.image_background_paths.filter(path => 
+                  path && 
+                  typeof path === 'string' && 
+                  !path.includes('/backgrounds/default.jpg') && 
+                  !path.includes('default.jpg')
+                ).length;
+                window.showNotification(`Canvas images loaded from data center: ${actualDataCenterImageCount} images found`, 'success');
               } else {
                 window.showNotification('No canvas images found for this user', 'info');
               }
@@ -1611,6 +1623,7 @@ export default function AdminPage({ initialSettings }) {
                         return path && 
                                typeof path === 'string' && 
                                !path.includes('/backgrounds/default.jpg') && // Exclude default background
+                               !path.includes('default.jpg') && // Also exclude any default.jpg files
                                (path.startsWith('/canvas/') || 
                                 path.startsWith('http') || 
                                 path.includes('.jpg') || 
@@ -1652,6 +1665,7 @@ export default function AdminPage({ initialSettings }) {
                           return path && 
                                  typeof path === 'string' && 
                                  !path.includes('/backgrounds/default.jpg') && // Exclude default background
+                                 !path.includes('default.jpg') && // Also exclude any default.jpg files
                                  (path.startsWith('/canvas/') || 
                                   path.startsWith('http') || 
                                   path.includes('.jpg') || 
@@ -1810,6 +1824,7 @@ export default function AdminPage({ initialSettings }) {
                         return path && 
                                typeof path === 'string' && 
                                !path.includes('/backgrounds/default.jpg') && // Exclude default background
+                               !path.includes('default.jpg') && // Also exclude any default.jpg files
                                (path.startsWith('/canvas/') || 
                                 path.startsWith('http') || 
                                 path.includes('.jpg') || 
@@ -1830,6 +1845,7 @@ export default function AdminPage({ initialSettings }) {
                               return path && 
                                      typeof path === 'string' && 
                                      !path.includes('/backgrounds/default.jpg') && // Exclude default background
+                                     !path.includes('default.jpg') && // Also exclude any default.jpg files
                                      (path.startsWith('/canvas/') || 
                                       path.startsWith('http') || 
                                       path.includes('.jpg') || 

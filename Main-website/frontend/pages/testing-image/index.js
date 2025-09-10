@@ -42,7 +42,6 @@ export default function TestingModel() {
           rel="noopener noreferrer"
           className={styles.footerLink}
         >
-          Powered by Porch
         </a>
       </footer>
     </div>

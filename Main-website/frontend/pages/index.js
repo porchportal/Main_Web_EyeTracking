@@ -5,6 +5,8 @@ import { useProcessStatus, useBackendConnection } from '../utils/stateManager';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useConsent } from '../components/consent_ui/ConsentContext';
 import { isProfileComplete } from '../utils/consentManager';
+import Image from 'next/image';
+import { Truck } from 'lucide-react';
 
 // Use relative URLs for browser compatibility
 
@@ -18,6 +20,7 @@ export default function HomePage() {
   const [mounted, setMounted] = useState(false);
   const [userData, setUserData] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [showComingSoon, setShowComingSoon] = useState(false);
   const MAX_RETRIES = 3;
 
   // Fetch user data from MongoDB
@@ -275,40 +278,11 @@ export default function HomePage() {
     // Handle navigation based on destination
     switch (destination) {
       case 'collected-dataset-custom':
-        // Fetch user data before navigation
-        const fetchAndNavigate = async () => {
-          try {
-            const response = await fetch(`/api/user-preferences/${userId}`, {
-              headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
-              }
-            });
-            if (!response.ok) {
-              throw new Error('Failed to fetch user data');
-            }
-            const userData = await response.json();
-            
-            // Navigate with both userId and userData
-            router.push({
-              pathname: '/collected-dataset-customized',
-              query: {
-                userId: userId,
-                userData: JSON.stringify(userData)
-              }
-            });
-          } catch (error) {
-            console.error('Error fetching user data:', error);
-            // Fallback to just userId if fetch fails
-            router.push({
-              pathname: '/collected-dataset-customized',
-              query: { userId: userId }
-            });
-          }
-        };
-        
-        fetchAndNavigate();
+        // Navigate with only userId - the target page will fetch userData itself
+        router.push({
+          pathname: '/collected-dataset-customized',
+          query: { userId: userId }
+        });
         break;
 
       case 'collected-dataset':
@@ -320,7 +294,7 @@ export default function HomePage() {
         break;
 
       case 'realtime-model':
-        router.push('/realtime-model');
+        setShowComingSoon(true);
         break;
 
       case 'process-set':
@@ -382,6 +356,28 @@ export default function HomePage() {
   return (
     <div className={styles.container}>
       <main className={styles.main}>
+        <div className={styles.logoContainer}>
+          <Image
+            src="/logo.png"
+            alt="Logo"
+            width={60}
+            height={60}
+            className={styles.logo}
+            priority
+            quality={100}
+            unoptimized={true}
+          />
+          <Image
+            src="/superai_logo.png"
+            alt="Super AI Logo"
+            width={160}
+            height={160}
+            className={styles.logoLarge}
+            priority
+            quality={100}
+            unoptimized={true}
+          />
+        </div>
         <h1 className={styles.title}>Eye Tracking Application</h1>
         <p className={styles.description}>Select one of the options below to get started</p>
 
@@ -424,6 +420,29 @@ export default function HomePage() {
           </div>
         )} */}
       </main>
+
+      {/* Coming Soon Popup */}
+      {showComingSoon && (
+        <div className={styles.popupOverlay} onClick={() => setShowComingSoon(false)}>
+          <div className={styles.popupContent} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.popupHeader}>
+              <h3>Coming Soon!</h3>
+            </div>
+            <div className={styles.popupBody}>
+              <p>The Realtime Model feature is currently under development.</p>
+              <p>Please check back later for updates!</p>
+            </div>
+            <div className={styles.popupFooter}>
+              <button 
+                className={styles.okButton}
+                onClick={() => setShowComingSoon(false)}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer className={styles.footer}>
         <a 

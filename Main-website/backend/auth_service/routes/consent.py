@@ -67,6 +67,43 @@ def write_consent_data(data: List[Dict[str, Any]]):
     with open(CONSENT_DATA_FILE, 'w') as f:
         json.dump(data, f, indent=2)
 
+def save_consent_to_json_file(user_id: str, consent_status: bool, timestamp: datetime = None):
+    """Save consent data to JSON file, preventing duplicates"""
+    try:
+        # Read existing consent data
+        existing_consent_data = read_consent_data()
+        
+        # Check if user already exists in consent data
+        existing_index = next(
+            (i for i, data in enumerate(existing_consent_data) if data.get("userId") == user_id),
+            -1
+        )
+        
+        # Prepare consent data to save
+        consent_data = {
+            "userId": user_id,
+            "status": consent_status,
+            "timestamp": (timestamp or datetime.utcnow()).isoformat(),
+            "receivedAt": datetime.utcnow().isoformat()
+        }
+        
+        if existing_index != -1:
+            # Update existing entry (prevent duplicate)
+            existing_consent_data[existing_index] = consent_data
+            logger.info(f"Updated existing consent data for user {user_id} in JSON file")
+        else:
+            # Add new entry
+            existing_consent_data.append(consent_data)
+            logger.info(f"Added new consent data for user {user_id} to JSON file")
+        
+        # Save updated consent data to JSON file
+        write_consent_data(existing_consent_data)
+        return True
+        
+    except Exception as json_error:
+        logger.warning(f"Failed to save consent data to JSON file for user {user_id}: {json_error}")
+        return False
+
 
 
 # ============================================================================
@@ -158,6 +195,10 @@ async def update_user_consent(
             updated = await UserPreferencesService.save_user_data_to_preferences(
                 user_id, user_profile, consent_accepted=update.consent_status
             )
+        
+        # Also save to consent_data.json file for admin interface (prevent duplicates)
+        if update.consent_status:
+            save_consent_to_json_file(user_id, update.consent_status, update.timestamp)
         
         return DataResponse(
             success=True,
@@ -252,6 +293,9 @@ async def initialize_user_data(request: ConsentInitializationRequest):
         
         if not profile_save_result or not settings_save_result:
             raise Exception("Failed to save user data")
+        
+        # Also save to consent_data.json file for admin interface (prevent duplicates)
+        save_consent_to_json_file(user_id, True, datetime.utcnow())
         
         logger.info(f"Successfully initialized user data for {user_id}")
         
@@ -349,6 +393,10 @@ async def update_user_profile(user_id: str, profile_update: UserProfileUpdate):
         if not profile_save_result or not settings_save_result:
             raise Exception("Failed to update user data")
         
+        # Also save to consent_data.json file for admin interface (prevent duplicates)
+        # This ensures that when a user saves their profile, they are added to consent_data.json
+        save_consent_to_json_file(user_id, True, datetime.utcnow())
+        
         logger.info(f"Successfully updated user profile and settings for {user_id}")
         
         return DataResponse(
@@ -388,33 +436,20 @@ async def get_admin_consent_data():
 
 @router.post("/admin/consent-data")
 async def save_admin_consent_data(consent_data: ConsentDataModel):
-    """Save consent data to admin file"""
+    """Save consent data to admin file (prevent duplicates)"""
     try:
-        # Read existing data
-        existing_data = read_consent_data()
-        
-        # Check if user already exists
-        existing_index = next(
-            (i for i, data in enumerate(existing_data) if data.get("userId") == consent_data.userId),
-            -1
+        # Use the helper function to prevent duplicates
+        success = save_consent_to_json_file(
+            consent_data.userId, 
+            consent_data.status, 
+            datetime.fromisoformat(consent_data.timestamp.replace('Z', '+00:00'))
         )
         
-        # Prepare data to save
-        data_to_save = consent_data.dict()
-        data_to_save["receivedAt"] = datetime.utcnow().isoformat()
-        
-        if existing_index != -1:
-            # Update existing entry
-            existing_data[existing_index] = data_to_save
+        if success:
+            return {"success": True, "message": "Consent data saved successfully (no duplicates)"}
         else:
-            # Add new entry
-            existing_data.append(data_to_save)
-        
-        # Save updated data
-        write_consent_data(existing_data)
-        logger.info(f"Saved consent data for user {consent_data.userId}")
-        
-        return {"success": True, "message": "Consent data saved successfully"}
+            raise Exception("Failed to save consent data")
+            
     except Exception as e:
         logger.error(f"Error saving consent data: {e}")
         raise HTTPException(

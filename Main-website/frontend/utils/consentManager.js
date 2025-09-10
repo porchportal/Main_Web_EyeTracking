@@ -201,7 +201,31 @@ export const updateUserConsent = async (status, details = {}) => {
     Cookies.set(CONSENT_COOKIE, status.toString(), COOKIE_OPTIONS);
     Cookies.set(CONSENT_DETAILS_COOKIE, JSON.stringify(consentData), COOKIE_OPTIONS);
     
-    // Send consent data to admin
+    // Update consent in backend (this will also save to JSON file)
+    try {
+      const response = await fetch(`/api/preferences/consent`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+        },
+        body: JSON.stringify({
+          userId: userId,
+          consentStatus: status,
+          timestamp: consentData.timestamp
+        })
+      });
+      
+      if (!response.ok) {
+        console.warn('Failed to update consent in backend');
+      } else {
+        console.log('Successfully updated consent in backend');
+      }
+    } catch (error) {
+      console.warn('Error updating consent in backend:', error);
+    }
+    
+    // Also send consent data to admin JSON file (as backup)
     try {
       const response = await fetch('/api/admin/consent-data', {
         method: 'POST',

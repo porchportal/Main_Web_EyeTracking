@@ -3,7 +3,7 @@ import fetch from 'node-fetch';
 
 export default async function handler(req, res) {
   // Get the backend URL and API key from environment variables
-  const backendUrl = process.env.BACKEND_URL;
+  const backendUrl = process.env.AUTH_SERVICE_URL;
   // const apiKey = process.env.API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
   const apiKey = process.env.API_KEY ;
 
