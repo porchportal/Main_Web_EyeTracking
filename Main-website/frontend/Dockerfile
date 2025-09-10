@@ -1,4 +1,4 @@
-FROM node:21-alpine
+FROM node:22-alpine
 
 # Set working directory
 WORKDIR /app
@@ -10,8 +10,8 @@ RUN apk add --no-cache libc6-compat
 COPY package*.json ./
 COPY .env.frontend ./.env.frontend
 
-# Install all dependencies (including devDependencies for build process)
-RUN npm ci && npm cache clean --force
+# Install specific npm version and dependencies
+RUN npm install -g npm@11.6.0 && npm ci && npm cache clean --force
 
 # Copy the entire frontend app
 COPY . .
