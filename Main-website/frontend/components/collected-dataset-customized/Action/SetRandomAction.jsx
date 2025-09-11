@@ -99,6 +99,7 @@ class SetRandomAction {
       const times = this.times;
       const delay = this.delay;
       
+      
       // TopBar hiding is now handled in index.js
       
       // Set capturing state if function exists
@@ -160,9 +161,9 @@ class SetRandomAction {
           if (this.setCaptureCounter) {
             this.setCaptureCounter(prev => prev + 1);
           }
-        } catch (error) {
-          console.error(`Error capturing point ${currentCapture}:`, error);
-        }
+          } catch (error) {
+            // Error handling for point capture
+          }
         
         // Wait between captures for the specified delay time with minimal countdown display
         if (currentCapture < times) {
@@ -202,7 +203,6 @@ class SetRandomAction {
     
       
     } catch (err) {
-      console.error('Random sequence error:', err);
       this.onStatusUpdate?.({
         processStatus: `Random sequence failed: ${err.message}`,
         isCapturing: false,

@@ -154,5 +154,47 @@
     "status": true,
     "timestamp": "2025-08-08T17:05:40.235Z",
     "receivedAt": "2025-08-08T17:05:40.263Z"
+  },
+  {
+    "userId": "aa9cf543-03dd-4bc9-bc8b-9c50219a6602",
+    "status": true,
+    "timestamp": "2025-09-10T17:16:59.803000+00:00",
+    "receivedAt": "2025-09-10T17:16:59.925768"
+  },
+  {
+    "userId": "f708892a-e005-4efb-8854-0b8ee4b48fdd",
+    "status": true,
+    "timestamp": "2025-09-10T17:27:05.573000+00:00",
+    "receivedAt": "2025-09-10T17:27:05.595256"
+  },
+  {
+    "userId": "f62f07cd-95f3-478e-842d-42a24e676b3c",
+    "status": true,
+    "timestamp": "2025-09-10T17:27:09.459000+00:00",
+    "receivedAt": "2025-09-10T17:27:09.520765"
+  },
+  {
+    "userId": "791d52d4-a07f-4bc8-9bbf-98f0a5a067e6",
+    "status": true,
+    "timestamp": "2025-09-10T17:32:17.792000+00:00",
+    "receivedAt": "2025-09-10T17:32:17.799774"
+  },
+  {
+    "userId": "e619fe05-b099-4b19-b4e4-f425c78b9fe2",
+    "status": true,
+    "timestamp": "2025-09-10T17:32:19.559000+00:00",
+    "receivedAt": "2025-09-10T17:32:19.620295"
+  },
+  {
+    "userId": "fd1a913a-3a30-4624-abb0-060f5b6cf3f4",
+    "status": true,
+    "timestamp": "2025-09-11T16:07:13.791000+00:00",
+    "receivedAt": "2025-09-11T16:07:13.825163"
+  },
+  {
+    "userId": "84382b87-6bd9-42ac-9dc3-5e4b7301a2d8",
+    "status": true,
+    "timestamp": "2025-09-11T16:07:25.950873",
+    "receivedAt": "2025-09-11T16:07:25.951029"
   }
 ]

@@ -129,7 +129,7 @@ class RandomDotAction {
           }
           
         } catch (error) {
-          console.error("Error in capture and preview process:", error);
+          // Error in capture and preview process
           if (typeof this.setProcessStatus === 'function') {
             this.setProcessStatus('Error during capture process');
           }
@@ -145,7 +145,7 @@ class RandomDotAction {
 
         }
       } else {
-        console.error("Canvas reference is null - cannot draw dot");
+        // Canvas reference is null - cannot draw dot
         if (typeof this.setProcessStatus === 'function') {
           this.setProcessStatus('Error: Canvas not available');
         }

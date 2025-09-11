@@ -10,42 +10,63 @@ export default function ConsentBanner() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  console.log('🎯 ConsentBanner render check:', {
+    consentChecked,
+    contextLoading,
+    showBanner
+  });
+
   // Don't render anything until consent has been checked
   if (!consentChecked || contextLoading) {
+    console.log('⏳ ConsentBanner: Waiting for consent check to complete');
     return null;
   }
 
   // If banner shouldn't be shown, return null
-  if (!showBanner) return null;
+  if (!showBanner) {
+    console.log('🚫 ConsentBanner: Banner should not be shown');
+    return null;
+  }
+
+  console.log('✅ ConsentBanner: Rendering banner');
 
   const handleAccept = async () => {
     setLoading(true);
     try {
-      // Update consent status
-      await updateConsent(true);
-      
       // Get user ID
       const userId = getOrCreateUserId();
+      console.log('🆔 User ID for consent:', userId);
       
-      // User data will be initialized automatically when they first save their profile
-      // No need to pre-initialize since we're using the new DataCenter approach
-      console.log('User consent accepted, user data will be initialized on first profile save');
+      const requestBody = {
+        userId: userId,
+        consentStatus: true
+      };
+      console.log('📤 Sending consent request:', requestBody);
       
-      // Update user preferences with cookie acceptance
-      const response = await fetch(`/api/user-preferences/${userId}`, {
-        method: 'PUT',
+      // Update consent status through the proper consent API
+      const consentResponse = await fetch('/api/preferences/consent', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-API-Key': process.env.NEXT_PUBLIC_API_KEY 
         },
-        body: JSON.stringify({
-          cookie: true
-        })
+        body: JSON.stringify(requestBody)
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to save cookie preferences');
+      console.log('📥 Consent response status:', consentResponse.status);
+      
+      if (!consentResponse.ok) {
+        throw new Error('Failed to save consent status');
       }
+      
+      const consentData = await consentResponse.json();
+      console.log('Consent saved successfully:', consentData);
+      
+      // Update local consent state
+      await updateConsent(true);
+      
+      // User data will be initialized automatically when they first save their profile
+      console.log('User consent accepted, user data will be initialized on first profile save');
       
       // Redirect to consent setup page
       router.push('/preferences/consent-setup');
@@ -59,6 +80,30 @@ export default function ConsentBanner() {
   const handleDecline = async () => {
     setLoading(true);
     try {
+      // Get user ID
+      const userId = getOrCreateUserId();
+      
+      // Update consent status through the proper consent API
+      const consentResponse = await fetch('/api/preferences/consent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY 
+        },
+        body: JSON.stringify({
+          userId: userId,
+          consentStatus: false
+        })
+      });
+      
+      if (!consentResponse.ok) {
+        throw new Error('Failed to save consent status');
+      }
+      
+      const consentData = await consentResponse.json();
+      console.log('Consent declined successfully:', consentData);
+      
+      // Update local consent state
       await updateConsent(false);
     } catch (error) {
       console.error('Error handling cookie decline:', error);
@@ -76,6 +121,7 @@ export default function ConsentBanner() {
       window.location.href = '/privacy-policy';
     }
   };
+
 
   return (
     <div className={styles.bannerContainer}>

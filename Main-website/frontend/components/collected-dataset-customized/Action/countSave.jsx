@@ -95,14 +95,12 @@ const drawDotWithCanvasManager = (x, y, radius = 6) => {
  */
 export const createCountdownElement = (position, canvasRect) => {
   if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
-    console.warn('[createCountdownElement] Invalid position:', position);
     return null;
   }
 
   // Remove any existing countdown elements
   const existingCountdowns = document.querySelectorAll('.calibrate-countdown, .forced-countdown, .center-countdown-backup, .dot-countdown, .test-countdown');
   existingCountdowns.forEach(el => {
-    console.log('Removing existing countdown element:', el);
     if (el.parentNode) {
       el.parentNode.removeChild(el);
     }
@@ -121,13 +119,6 @@ export const createCountdownElement = (position, canvasRect) => {
       y: position.y
     };
   }
-
-  console.log('[createCountdownElement] Creating countdown at position:', {
-    original: position,
-    display: displayPosition,
-    canvasRect: canvasRect,
-    canvasFullscreen: canvas ? (canvas.style.position === 'fixed' && canvas.style.width === '100vw') : false
-  });
 
   // Create the main countdown element
   const countdownElement = document.createElement('div');
@@ -171,18 +162,6 @@ export const createCountdownElement = (position, canvasRect) => {
   }
 
   document.body.appendChild(countdownElement);
-  
-  console.log('createCountdownElement created at:', {
-    originalPosition: position,
-    displayPosition,
-    canvasRect,
-    canvasInfo: canvas ? {
-      position: canvas.style.position,
-      width: canvas.style.width,
-      height: canvas.style.height,
-      rect: canvas.getBoundingClientRect()
-    } : null
-  });
 
   // Add a temporary visual indicator to show where the countdown is positioned
   const indicator = document.createElement('div');
@@ -221,7 +200,6 @@ export const showCapturePreview = (screenImage, webcamImage, point) => {
   const hasWebcamImage = webcamImage && webcamImage.length > 100; // Check if it's a valid data URL
   
   if (!hasScreenImage && !hasWebcamImage) {
-    console.warn('No valid images to display in preview');
     return;
   }
   
@@ -478,7 +456,6 @@ export const showCapturePreview = (screenImage, webcamImage, point) => {
  */
 export const runCountdown = async (position, canvas, onStatusUpdate, onComplete) => {
   if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
-    console.warn('[runCountdown] Invalid position:', position);
     onStatusUpdate?.({
       processStatus: "Invalid dot position",
       countdownValue: null,
@@ -491,7 +468,6 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
   const countdownElement = createCountdownElement(position, canvasRect);
   
   if (!countdownElement) {
-    console.warn('[runCountdown] Countdown element could not be created.');
     return;
   }
 
@@ -612,7 +588,6 @@ export const drawRedDot = (ctx, x, y, radius = 6, clearCanvas = true) => {
   ctx.lineWidth = 2;
   ctx.stroke();
   
-  console.log(`Drew red dot at (${x}, ${y}) with radius ${radius}`);
   return { x, y };
 };
 
@@ -627,7 +602,6 @@ const getHighestResolutionConstraints = async () => {
     const videoDevices = devices.filter(device => device.kind === 'videoinput');
     
     if (videoDevices.length === 0) {
-      console.warn('No video devices found, using default constraints');
       return { video: true };
     }
     
@@ -636,7 +610,6 @@ const getHighestResolutionConstraints = async () => {
     const videoTrack = stream.getVideoTracks()[0];
     
     if (!videoTrack.getCapabilities) {
-      console.warn('getCapabilities not supported, using default constraints');
       stream.getTracks().forEach(track => track.stop());
       return { video: true };
     }
@@ -645,7 +618,6 @@ const getHighestResolutionConstraints = async () => {
     stream.getTracks().forEach(track => track.stop());
     
     if (!capabilities.width || !capabilities.height) {
-      console.warn('No width/height capabilities, using default constraints');
       return { video: true };
     }
     
@@ -653,7 +625,6 @@ const getHighestResolutionConstraints = async () => {
     const maxWidth = Math.max(...capabilities.width.values);
     const maxHeight = Math.max(...capabilities.height.values);
     
-    console.log(`Using highest resolution: ${maxWidth}x${maxHeight}`);
     
     return {
       video: {
@@ -663,7 +634,6 @@ const getHighestResolutionConstraints = async () => {
       }
     };
   } catch (error) {
-    console.warn('Error getting camera constraints, using default:', error);
     return { video: true };
   }
 };
@@ -684,7 +654,6 @@ export const captureImagesWithHtml2Canvas = async (options) => {
   } = options;
 
   if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
-    console.warn('[captureImagesWithHtml2Canvas] Invalid position object:', position);
     setProcessStatus?.('Error: Invalid capture position');
     return null;
   }
@@ -696,23 +665,18 @@ export const captureImagesWithHtml2Canvas = async (options) => {
     const videoElement = window.videoElement || document.querySelector('video');
     
     if (videoElement && videoElement.srcObject) {
-      console.log('Using existing video stream from cameraAccess.js');
       const videoTrack = videoElement.srcObject.getVideoTracks()[0];
       if (videoTrack) {
         const settings = videoTrack.getSettings();
-        console.log('Current camera settings:', settings);
       }
     } else {
-      console.log('No existing video stream found, getting new stream...');
       // Get highest resolution constraints
       const constraints = await getHighestResolutionConstraints();
-      console.log('Using camera constraints:', constraints);
       
       // Get a new stream with the highest resolution
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       const videoTrack = stream.getVideoTracks()[0];
       const settings = videoTrack.getSettings();
-      console.log('Actual camera settings:', settings);
       
       // Update video element with new stream
       if (videoElement) {
@@ -747,12 +711,10 @@ export const captureImagesWithHtml2Canvas = async (options) => {
         
         // Get high-resolution image
         webcamImage = tempCanvas.toDataURL('image/jpeg', 0.95);
-        console.log('✅ Webcam capture successful');
         
         // Clean up temporary canvas
         tempCanvas.remove();
       } catch (webcamError) {
-        console.error("❌ Error capturing webcam:", webcamError);
       }
     }
     
@@ -778,7 +740,6 @@ export const captureImagesWithHtml2Canvas = async (options) => {
     // Save files using user_savefile functions
     const { saveImageToUserServer, saveCSVToUserServer } = await import('../Helper/user_savefile');
     
-    console.log('💾 Saving files...');
     
     // Save parameter file
     const paramResult = await saveCSVToUserServer(csvData, 'parameter_001.csv', captureGroupId);
@@ -801,7 +762,6 @@ export const captureImagesWithHtml2Canvas = async (options) => {
       setCaptureCounter(prevCount => prevCount + 1);
     }
     
-    console.log('✅ Enhanced capture completed successfully');
     
     return {
       screenImage: screenImage,
@@ -816,7 +776,6 @@ export const captureImagesWithHtml2Canvas = async (options) => {
       }
     };
   } catch (err) {
-    console.error('[captureImagesWithHtml2Canvas] Unexpected error:', err);
     setProcessStatus?.(`Error: ${err.message}`);
     return {
       screenImage: '',
@@ -873,12 +832,10 @@ export const calibrationCapture = async (options) => {
     } = options;
   
     try {
-      console.log(`Starting calibration capture for point ${pointIndex + 1}/${totalPoints}`);
       
       // Get canvas using canvas management system
       const canvas = getCanvas();
       if (!canvas) {
-        console.error("Canvas reference is null in calibrationCapture");
         setProcessStatus?.(`Error: Canvas not available`);
         return { success: false };
       }
@@ -893,7 +850,6 @@ export const calibrationCapture = async (options) => {
       const countdownElement = createCountdownElement(point, canvasRect);
       
       if (!countdownElement) {
-        console.error("Failed to create countdown element");
         return { success: false };
       }
   
@@ -952,7 +908,6 @@ export const calibrationCapture = async (options) => {
       };
       
     } catch (error) {
-      console.error("Error in calibrationCapture:", error);
       setProcessStatus?.(`Error: ${error.message}`);
       
       // Always return a valid object with default values
@@ -984,7 +939,6 @@ export const captureAndPreviewProcess = async (options) => {
     // Get canvas using canvas management system
     const canvas = getCanvas();
     if (!canvas) {
-      console.error("[captureAndPreviewProcess] Canvas reference is null");
       if (setProcessStatus) setProcessStatus('Error: Canvas is not available');
       return null;
     }
@@ -1003,7 +957,6 @@ export const captureAndPreviewProcess = async (options) => {
     // Remove any existing countdown elements first
     const existingCountdowns = document.querySelectorAll('.calibrate-countdown, .dot-countdown, .forced-countdown, .center-countdown-backup');
     existingCountdowns.forEach(el => {
-      console.log('captureAndPreviewProcess: Removing existing countdown:', el);
       el.remove();
     });
     
@@ -1016,17 +969,6 @@ export const captureAndPreviewProcess = async (options) => {
       x: position.x,
       y: position.y
     };
-    
-    console.log('captureAndPreviewProcess: Creating countdown at:', {
-      originalPosition: position,
-      displayPosition,
-      canvasRect,
-      canvasStyle: {
-        position: canvas.style.position,
-        width: canvas.style.width,
-        height: canvas.style.height
-      }
-    });
     
     const countdownElement = document.createElement('div');
     countdownElement.className = 'calibrate-countdown';
@@ -1098,18 +1040,8 @@ export const captureAndPreviewProcess = async (options) => {
 
     // Ensure video element is available for capture
     const videoElement = window.videoElement || document.querySelector('video');
-    if (videoElement) {
-      console.log('Video element found for capture:', {
-        videoWidth: videoElement.videoWidth,
-        videoHeight: videoElement.videoHeight,
-        readyState: videoElement.readyState
-      });
-    } else {
-      console.warn('No video element found for capture');
-    }
 
     // Use enhanced capture with html2canvas
-    console.log('Starting enhanced image capture with html2canvas...');
     const captureResult = await captureImagesWithHtml2Canvas({
       position: position,
       captureCounter: captureCounter,
@@ -1118,11 +1050,9 @@ export const captureAndPreviewProcess = async (options) => {
       setProcessStatus: setProcessStatus
     });
 
-    console.log('Image capture completed:', captureResult);
 
     // Force display of capture preview with both images
     if (captureResult && (captureResult.screenImage || captureResult.webcamImage)) {
-      console.log('Forcing display of capture preview...');
       
       // Remove any existing previews first
       const existingPreviews = document.querySelectorAll('.capture-preview-container');
@@ -1141,7 +1071,6 @@ export const captureAndPreviewProcess = async (options) => {
       
       // Show success message
       const successMessage = `✅ Capture successful! Screen: ${captureResult.screenImage ? '✓' : '✗'}, Webcam: ${captureResult.webcamImage ? '✓' : '✗'}`;
-      console.log(successMessage);
       
       if (setProcessStatus) {
         setProcessStatus(successMessage);
@@ -1157,7 +1086,6 @@ export const captureAndPreviewProcess = async (options) => {
     } else {
       // Show error message if no images were captured
       const errorMessage = '❌ No images captured - check camera and screen access';
-      console.error(errorMessage);
       
       if (setProcessStatus) {
         setProcessStatus(errorMessage);
@@ -1175,19 +1103,16 @@ export const captureAndPreviewProcess = async (options) => {
     // 🔥 SHOW TOPBAR AGAIN AFTER COMPLETE SAVE PROCESS 🔥
     // Add a small delay to ensure save process and preview are fully complete
     setTimeout(() => {
-      console.log('🔍 captureAndPreviewProcess: Capture process completed successfully');
     }, 500); // Small delay to ensure save process is complete
 
     return captureResult;
 
   } catch (error) {
-    console.error("[captureAndPreviewProcess] Fatal error:", error);
     
     if (setProcessStatus) {
       setProcessStatus(`Fatal error: ${error.message}`);
     }
     
-    console.log('🔍 captureAndPreviewProcess: Error occurred during capture process');
     
     // Return a minimal valid object to prevent null reference errors
     return {

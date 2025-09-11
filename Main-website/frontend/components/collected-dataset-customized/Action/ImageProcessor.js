@@ -16,7 +16,6 @@ class ImageProcessor {
       try {
         const canvas = canvasRef.current;
         if (!canvas) {
-          console.error("Canvas reference is null");
           return null;
         }
   
@@ -27,16 +26,13 @@ class ImageProcessor {
         if (this.saveImageToServer) {
           try {
             await this.saveImageToServer(imageData, filename, 'screen');
-            console.log(`Saved screen image: ${filename}`);
           } catch (saveError) {
-            console.error("Error saving screen image:", saveError);
             // Continue even if save fails, so we can return the image data
           }
         }
         
         return imageData;
       } catch (error) {
-        console.error("Error capturing screen image:", error);
         return null;
       }
     }
@@ -79,7 +75,6 @@ class ImageProcessor {
         // Wait for video to be ready with timeout
         await new Promise((resolve) => {
           const timeoutId = setTimeout(() => {
-            console.warn("Video loadeddata event timed out, continuing anyway");
             resolve();
           }, 1000);
           
@@ -108,15 +103,12 @@ class ImageProcessor {
         if (this.saveImageToServer) {
           try {
             await this.saveImageToServer(imageData, filename, 'webcam');
-            console.log(`Saved webcam image: ${filename}`);
           } catch (saveError) {
-            console.error("Error saving webcam image:", saveError);
           }
         }
         
         return imageData;
       } catch (error) {
-        console.error("Error capturing webcam image:", error);
         return null;
       } finally {
         // ALWAYS clean up resources, even if there was an error
@@ -146,7 +138,6 @@ class ImageProcessor {
             }
           });
         } catch (e) {
-          console.error("Error stopping active stream:", e);
         }
         this._activeStream = null;
       }
@@ -166,7 +157,6 @@ class ImageProcessor {
               });
               video.srcObject = null;
             } catch (e) {
-              console.error("Error cleaning up hidden video:", e);
             }
             
             // Remove the element

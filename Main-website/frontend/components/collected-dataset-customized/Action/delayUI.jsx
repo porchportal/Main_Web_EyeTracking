@@ -4,12 +4,10 @@
 class DelayUI {
   constructor() {
     this.countdownElement = null;
-    console.log('DelayUI: Constructor called - DelayUI instance created');
   }
 
   // Create countdown display element
   createCountdownDisplay(delay) {
-    console.log('DelayUI: createCountdownDisplay called with delay:', delay);
     // Remove existing countdown display if any
     this.removeCountdownDisplay();
     
@@ -41,7 +39,6 @@ class DelayUI {
     
     document.body.appendChild(countdownDiv);
     this.countdownElement = countdownDiv;
-    console.log('DelayUI: Countdown element created and appended to DOM');
   }
 
   // Update countdown display
@@ -75,7 +72,6 @@ class DelayUI {
   // Start countdown with delay value
   async startCountdown(delay, onComplete) {
     if (!delay || delay <= 0) {
-      console.warn('DelayUI: Invalid delay value:', delay);
       if (onComplete) onComplete();
       return;
     }
@@ -99,7 +95,6 @@ class DelayUI {
       }
       
     } catch (error) {
-      console.error('DelayUI: Error during countdown:', error);
       this.removeCountdownDisplay();
       if (onComplete) onComplete();
     }
@@ -107,16 +102,13 @@ class DelayUI {
 
   // Start countdown after process completion (for SetRandomAction style)
   async startCountdownAfterProcess(delay, onComplete) {
-    console.log('DelayUI: startCountdownAfterProcess called with delay:', delay);
     
     if (!delay || delay <= 0) {
-      console.warn('DelayUI: Invalid delay value:', delay);
       if (onComplete) onComplete();
       return;
     }
 
     try {
-      console.log('DelayUI: Creating countdown display...');
       // Create and show initial countdown display
       this.createCountdownDisplay(delay);
       
@@ -135,7 +127,6 @@ class DelayUI {
       }
       
     } catch (error) {
-      console.error('DelayUI: Error during countdown:', error);
       this.removeCountdownDisplay();
       if (onComplete) onComplete();
     }

@@ -51,8 +51,8 @@ class CaptureHandler {
         `;
         
         // Event listeners for image loading
-        img.onload = () => console.log(`${label} image loaded successfully`);
-        img.onerror = (e) => console.error(`Error loading ${label} image:`, e);
+        img.onload = () => {};
+        img.onerror = (e) => {};
         
         const textLabel = document.createElement('div');
         textLabel.textContent = label;
@@ -190,7 +190,6 @@ class CaptureHandler {
         // Wait for video to initialize
         await new Promise((resolve) => {
           const timeoutId = setTimeout(() => {
-            console.warn("Video loading timed out, continuing anyway");
             resolve();
           }, 1000);
           
@@ -206,7 +205,6 @@ class CaptureHandler {
         // Get actual video dimensions
         const videoWidth = tempVideo.videoWidth || 640;
         const videoHeight = tempVideo.videoHeight || 480;
-        console.log(`Capturing at resolution: ${videoWidth}x${videoHeight}`);
         
         // Capture the frame at full resolution
         const tempCanvas = document.createElement('canvas');
@@ -227,7 +225,6 @@ class CaptureHandler {
         
         return true;
       } catch (error) {
-        console.error('Error capturing webcam image:', error);
         if (stream) {
           stream.getTracks().forEach(track => track.stop());
         }
@@ -246,7 +243,6 @@ class CaptureHandler {
         
         const canvas = canvasRef.current;
         if (!canvas) {
-          console.error("Canvas reference is null");
           return { imageData: null, saveResponse: null };
         }
         
@@ -256,13 +252,11 @@ class CaptureHandler {
         // Save the image
         if (this.saveImageToServer) {
           const saveResponse = await this.saveImageToServer(imageData, filename, 'screen', this.captureFolder);
-          console.log(`Saved screen image: ${filename}, response:`, saveResponse);
           return { imageData, saveResponse };
         }
         
         return { imageData, saveResponse: null };
       } catch (error) {
-        console.error("Error capturing screen image:", error);
         return { imageData: null, saveResponse: null };
       }
     }
@@ -291,13 +285,11 @@ class CaptureHandler {
         // Save CSV using the API
         if (this.saveImageToServer) {
           const saveResponse = await this.saveImageToServer(csvDataUrl, filename, 'parameters', this.captureFolder);
-          console.log(`Saved parameter CSV: ${filename}`);
           return saveResponse;
         }
         
         return null;
       } catch (csvError) {
-        console.error("Error saving parameter CSV:", csvError);
         return null;
       }
     }
@@ -305,7 +297,6 @@ class CaptureHandler {
     // Main capture and show process
     async captureAndShowPreview(captureCounter, canvasRef, position) {
       try {
-        console.log(`Starting capture process with counter: ${captureCounter}`);
         
         // Step 1: Capture screen image
         const { imageData: screenImage, saveResponse: screenResponse } = await this.captureScreenImage(canvasRef, captureCounter);
@@ -314,7 +305,6 @@ class CaptureHandler {
         let usedCaptureNumber = captureCounter;
         if (screenResponse && screenResponse.captureNumber) {
           usedCaptureNumber = screenResponse.captureNumber;
-          console.log(`Server assigned capture number: ${usedCaptureNumber}`);
         }
         
         // Step 2: Capture webcam image (and immediately stop stream)
@@ -361,7 +351,6 @@ class CaptureHandler {
         }, 3000);
         
       } catch (error) {
-        console.error('Error during capture and preview:', error);
         
         // Show error message
         if (this.setProcessStatus) {

@@ -283,12 +283,14 @@ export const useAdminSettings = (ref, consentUserId) => {
   useEffect(() => {
     const handleSettingsUpdate = (event) => {
       if (event.detail && event.detail.type === 'captureSettings') {
-        const { userId, times_set_random, delay_set_random } = event.detail;
+        const { userId, times_set_random, delay_set_random, times_set_calibrate, run_every_of_random } = event.detail;
         if (userId === currentUserId) {
           const newSettings = {
             ...currentSettings,
             times_set_random: times_set_random !== undefined ? Number(times_set_random) : currentSettings.times_set_random,
-            delay_set_random: delay_set_random !== undefined ? Number(delay_set_random) : currentSettings.delay_set_random
+            delay_set_random: delay_set_random !== undefined ? Number(delay_set_random) : currentSettings.delay_set_random,
+            times_set_calibrate: times_set_calibrate !== undefined ? Number(times_set_calibrate) : currentSettings.times_set_calibrate,
+            run_every_of_random: run_every_of_random !== undefined ? Number(run_every_of_random) : currentSettings.run_every_of_random
           };
           setCurrentSettings(newSettings);
           setSettings(prev => ({ ...prev, [userId]: newSettings }));
@@ -381,7 +383,7 @@ export const useAdminSettings = (ref, consentUserId) => {
       const result = await response.json();
       const userSettings = result.data || {};
       
-      if (userSettings && (userSettings.times_set_random !== undefined || userSettings.delay_set_random !== undefined)) {
+      if (userSettings && (userSettings.times_set_random !== undefined || userSettings.delay_set_random !== undefined || userSettings.times_set_calibrate !== undefined || userSettings.run_every_of_random !== undefined)) {
         setCurrentSettings(userSettings);
         
         // Dispatch event to notify other components
@@ -390,6 +392,8 @@ export const useAdminSettings = (ref, consentUserId) => {
             userId: userId,
             times_set_random: userSettings.times_set_random,
             delay_set_random: userSettings.delay_set_random,
+            times_set_calibrate: userSettings.times_set_calibrate,
+            run_every_of_random: userSettings.run_every_of_random,
             settings: userSettings
           }
         });

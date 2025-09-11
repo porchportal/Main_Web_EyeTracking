@@ -66,13 +66,6 @@ const transformCoordinates = (canvas, point) => {
       label: point.label
     };
     
-    console.log('Coordinate transformation in CalibratePoints:', {
-      original: point,
-      transformed: transformedPoint,
-      canvasRect,
-      scale: { x: scaleX, y: scaleY }
-    });
-    
     return transformedPoint;
   }
   
@@ -138,7 +131,6 @@ const clearCanvasWithManager = () => {
  */
 export const generateCalibrationPoints = (width, height) => {
   if (!width || !height || width <= 0 || height <= 0) {
-    console.error("generateCalibrationPoints: Invalid canvas dimensions", { width, height });
     return [];
   }
 
@@ -233,7 +225,6 @@ export const drawCalibrationPointLegacy = (ctx, x, y, radius = 12) => {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  console.log(`Drew calibration point at (${x}, ${y}) with radius ${radius}`);
   return { x, y };
 };
 

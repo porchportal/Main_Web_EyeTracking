@@ -70,8 +70,11 @@ def write_consent_data(data: List[Dict[str, Any]]):
 def save_consent_to_json_file(user_id: str, consent_status: bool, timestamp: datetime = None):
     """Save consent data to JSON file, preventing duplicates"""
     try:
+        logger.info(f"💾 Saving consent data to JSON file: user_id={user_id}, status={consent_status}")
+        
         # Read existing consent data
         existing_consent_data = read_consent_data()
+        logger.info(f"📖 Read {len(existing_consent_data)} existing consent records")
         
         # Check if user already exists in consent data
         existing_index = next(
@@ -87,21 +90,24 @@ def save_consent_to_json_file(user_id: str, consent_status: bool, timestamp: dat
             "receivedAt": datetime.utcnow().isoformat()
         }
         
+        logger.info(f"📝 Prepared consent data: {consent_data}")
+        
         if existing_index != -1:
             # Update existing entry (prevent duplicate)
             existing_consent_data[existing_index] = consent_data
-            logger.info(f"Updated existing consent data for user {user_id} in JSON file")
+            logger.info(f"✅ Updated existing consent data for user {user_id} in JSON file")
         else:
             # Add new entry
             existing_consent_data.append(consent_data)
-            logger.info(f"Added new consent data for user {user_id} to JSON file")
+            logger.info(f"✅ Added new consent data for user {user_id} to JSON file")
         
         # Save updated consent data to JSON file
         write_consent_data(existing_consent_data)
+        logger.info(f"💾 Successfully wrote {len(existing_consent_data)} consent records to JSON file")
         return True
         
     except Exception as json_error:
-        logger.warning(f"Failed to save consent data to JSON file for user {user_id}: {json_error}")
+        logger.error(f"❌ Failed to save consent data to JSON file for user {user_id}: {json_error}")
         return False
 
 
@@ -155,6 +161,7 @@ async def update_user_consent(
 ):
     """Update user consent status"""
     try:
+        logger.info(f"🔄 Updating consent for user {user_id}: {update.consent_status}")
         from db.services.user_preferences_service import UserPreferencesService
         
         # Get existing user data
@@ -197,8 +204,8 @@ async def update_user_consent(
             )
         
         # Also save to consent_data.json file for admin interface (prevent duplicates)
-        if update.consent_status:
-            save_consent_to_json_file(user_id, update.consent_status, update.timestamp)
+        # Save both true and false consent statuses
+        save_consent_to_json_file(user_id, update.consent_status, update.timestamp)
         
         return DataResponse(
             success=True,

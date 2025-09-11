@@ -35,13 +35,11 @@ class CalibrateHandler {
           });
           
           if (!response.ok) {
-            console.warn(`Server responded with ${response.status}`);
             return {};
           }
           
           return await response.json();
         } catch (err) {
-          console.error(`Error saving ${type}:`, err);
           return {};
         }
       },
@@ -174,7 +172,6 @@ class CalibrateHandler {
       
       // Add null check before using the result
       if (!captureResult) {
-        console.warn(`No capture result for point ${index + 1}`);
         // You might want to set a default or retry logic here
       }
       
@@ -183,7 +180,6 @@ class CalibrateHandler {
       
       return true;
     } catch (err) {
-      console.error(`Error processing point ${index + 1}:`, err);
       if (this.statusIndicator) {
         this.statusIndicator.textContent = `Error: ${err.message}`;
       }
@@ -260,7 +256,6 @@ class CalibrateHandler {
       // if (this.toggleTopBar) {
       //   this.toggleTopBar(true);
       // }
-      console.error('Error during capture and preview:', error);
   
       // Show error message
       if (this.setProcessStatus) {

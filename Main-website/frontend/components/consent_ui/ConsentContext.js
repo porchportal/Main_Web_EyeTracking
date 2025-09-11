@@ -7,7 +7,11 @@ const ConsentContext = createContext();
 // Check if running on localhost
 const isLocalhost = () => {
   if (typeof window === 'undefined') return false;
-  return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const hostname = window.location.hostname;
+  console.log('🔍 Checking hostname:', hostname);
+  const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '192.168.1.156';
+  console.log('🔍 Is localhost/IP:', isLocal);
+  return isLocal;
 };
 
 // Enhanced consent checking function
@@ -78,8 +82,11 @@ export function ConsentProvider({ children }) {
     // Get consent data from cookies
     const initializeConsent = async () => {
       try {
+        console.log('🚀 Initializing consent...');
         // If running on localhost, automatically set consent
-        if (isLocalhost()) {
+        // DISABLED: Allow banner to show for testing
+        if (false && isLocalhost()) {
+          console.log('🏠 Running on localhost/IP - auto-enabling consent (DISABLED)');
           const userId = getOrCreateUserId();
           const autoConsentData = {
             userId,
@@ -110,12 +117,14 @@ export function ConsentProvider({ children }) {
           return;
         }
 
-        // Normal flow for non-localhost
+        // Normal flow for non-localhost (or when auto-consent is disabled)
+        console.log('🌐 Running normal flow - banner should appear if no consent found');
         const userId = getOrCreateUserId();
+        console.log('🆔 Generated/retrieved userId:', userId);
         
         // Enhanced consent checking
         const consentCheck = await checkConsentStatus(userId);
-        console.log('Enhanced consent check result:', consentCheck);
+        console.log('🔍 Enhanced consent check result:', consentCheck);
         
         if (consentCheck.hasConsent) {
           // User has already given consent
@@ -130,6 +139,7 @@ export function ConsentProvider({ children }) {
           });
         } else if (consentCheck.source === 'none') {
           // No consent found, show banner
+          console.log('❌ No consent found - showing banner');
           setConsentState({
             loading: false,
             userId: userId,

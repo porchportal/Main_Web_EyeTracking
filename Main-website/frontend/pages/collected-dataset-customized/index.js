@@ -2104,9 +2104,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           if (userSettings) {
             times = Number(userSettings.times_set_random);
             delay = Number(userSettings.delay_set_random);
+            console.log(`[handleSetRandom] Fetched from MongoDB - times: ${times}, delay: ${delay}`);
           }
         } catch (error) {
-          // Error fetching settings, use defaults
+          console.log(`[handleSetRandom] Error fetching settings, using defaults`);
         }
       }
       
@@ -2117,6 +2118,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       if (!delay || isNaN(delay)) {
         delay = 3;
       }
+      
+      // Debug log to check final delay value
+      console.log(`[handleSetRandom] Final values - times: ${times}, delay: ${delay} seconds`);
       
       // Import and use SetRandomAction
       const { default: SetRandomAction } = await import('../../components/collected-dataset-customized/Action/SetRandomAction.jsx');
@@ -2201,15 +2205,15 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       return;
     }
     
+    // Hide TopBar immediately before starting the process
+    if (typeof window !== 'undefined' && window.toggleTopBar) {
+      window.toggleTopBar(false);
+    } else {
+      setShowTopBar(false);
+      setShowMetrics(false);
+    }
+    
     try {
-      // Hide TopBar before starting the process
-      if (typeof window !== 'undefined' && window.toggleTopBar) {
-        window.toggleTopBar(false);
-      } else {
-        setShowTopBar(false);
-        setShowMetrics(false);
-      }
-      
       // Fetch current settings from adminSettings
       let times = randomTimes;
       let delay = delaySeconds;
@@ -2267,7 +2271,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         setCaptureCounter,
         captureCounter: captureCounter,
         times: times,
-        delay: delay
+        delay: delay,
+        currentUserId: effectiveUserId,
+        settings: settings?.[effectiveUserId] || {}
       });
       
       await setCalibrateAction.handleSetCalibrate();
@@ -2279,23 +2285,12 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         console.log(`Set Calibrate completed - Counter: ${counterResult.newCount} (Image ${currentImageIndex + 1})`);
       }
       
-      // Restore TopBar after successful completion
-      if (typeof window !== 'undefined' && window.toggleTopBar) {
-        window.toggleTopBar(true);
-      } else {
-        setShowTopBar(true);
-        setShowMetrics(true);
-        // Show UI elements if they were hidden by canvas fullscreen
-        if (typeof window !== 'undefined' && window.globalCanvasManager) {
-          window.globalCanvasManager.showUIElements();
-        }
-      }
     } catch (error) {
       console.error("Calibration error:", error);
       setProcessStatus(`Calibration error: ${error.message}`);
       setIsCapturing(false);
-      
-      // Restore TopBar even if there was an error
+    } finally {
+      // Restore TopBar after completion (success or error)
       if (typeof window !== 'undefined' && window.toggleTopBar) {
         window.toggleTopBar(true);
       } else {
@@ -2571,7 +2566,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         cameraNotificationMessage={cameraNotificationMessage}
         showCountdown={showCountdown}
         countdownValue={countdownValue}
-        showCanvasNotification={showCanvasNotification}
+        showCanvasNotificationa={showCanvasNotification}
         canvasNotificationMessage={canvasNotificationMessage}
       />
 
