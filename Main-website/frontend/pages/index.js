@@ -2,13 +2,33 @@
 import { useRouter } from 'next/router';
 import styles from '../styles/Home.module.css';
 import { useProcessStatus, useBackendConnection } from '../utils/stateManager';
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { useConsent } from '../components/consent_ui/ConsentContext';
 import { isProfileComplete } from '../utils/consentManager';
 import Image from 'next/image';
-import { Truck } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+// Dynamic import for heavy components
+const Truck = dynamic(() => import('lucide-react').then(mod => ({ default: mod.Truck })), { ssr: false });
 
 // Use relative URLs for browser compatibility
+
+// Stable constants to prevent object recreation
+const BUTTONS_REQUIRING_CONSENT = ['collected-dataset-custom', 'collected-dataset'];
+const MAX_RETRIES = 3;
+
+// Memoized ButtonOverlay component
+const ButtonOverlay = memo(({ enabled }) => {
+  // Only show overlay when button is disabled (enabled = false)
+  if (enabled) return null;
+  return (
+    <div className={styles.buttonOverlay}>
+      <span className={styles.overlayIcon}>✕</span>
+    </div>
+  );
+});
+
+ButtonOverlay.displayName = 'ButtonOverlay';
 
 export default function HomePage() {
   const router = useRouter();
@@ -21,7 +41,6 @@ export default function HomePage() {
   const [userData, setUserData] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   const [showComingSoon, setShowComingSoon] = useState(false);
-  const MAX_RETRIES = 3;
 
   // Fetch user data from MongoDB
   const fetchUserData = async () => {
@@ -267,8 +286,7 @@ export default function HomePage() {
     }
 
     // Check consent status only for buttons that require it
-    const buttonsRequiringConsent = ['collected-dataset-custom', 'collected-dataset'];
-    if (buttonsRequiringConsent.includes(destination) && consentStatus === null) {
+    if (BUTTONS_REQUIRING_CONSENT.includes(destination) && consentStatus === null) {
       console.log('Consent not set, showing banner');
       // Trigger consent recheck before showing banner
       recheckConsent();
@@ -310,19 +328,11 @@ export default function HomePage() {
   const getButtonClass = useCallback((destination) => {
     if (destination === 'collected-dataset-custom') {
       const isEnabled = buttonStates[userId] || false;
-      // Only log when we have proper state (not during initial load)
-      if (mounted && userId) {
-        console.log('Button state check:', { destination, userId, isEnabled });
-      }
       return isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
     }
     
     if (destination === 'collected-dataset') {
       const isEnabled = consentStatus !== null;
-      // Only log when consent context has loaded (not during initial load)
-      if (mounted && !loading) {
-        console.log('Collected dataset button state check:', { destination, consentStatus, isEnabled });
-      }
       return isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
     }
     
@@ -341,16 +351,6 @@ export default function HomePage() {
     return `${styles.menuButton} ${styles.largerButton} ${readyClass}`;
   }, [mounted, isProcessReady, isConnected, authValid, styles.menuButton, styles.largerButton, styles.readyButton, styles.notReadyButton]);
 
-  // Add button overlay component
-  const ButtonOverlay = ({ enabled }) => {
-    // Only show overlay when button is disabled (enabled = false)
-    if (enabled) return null;
-    return (
-      <div className={styles.buttonOverlay}>
-        <span className={styles.overlayIcon}>✕</span>
-      </div>
-    );
-  };
   
 
   return (
@@ -364,7 +364,7 @@ export default function HomePage() {
             height={60}
             className={styles.logo}
             priority
-            quality={100}
+            quality={75}
             unoptimized={true}
           />
           <Image
@@ -374,7 +374,7 @@ export default function HomePage() {
             height={160}
             className={styles.logoLarge}
             priority
-            quality={100}
+            quality={75}
             unoptimized={true}
           />
         </div>

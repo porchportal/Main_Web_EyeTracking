@@ -5,68 +5,77 @@ import styles from '../../styles/Consent.module.css';
 import { useConsent } from './ConsentContext';
 import { getOrCreateUserId } from '../../utils/consentManager';
 
+// Stable headers to prevent object recreation
+const CONSENT_HEADERS = Object.freeze({
+  'Content-Type': 'application/json',
+  'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+});
+
 export default function ConsentBanner() {
   const { showBanner, updateConsent, consentChecked, loading: contextLoading } = useConsent();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  console.log('🎯 ConsentBanner render check:', {
-    consentChecked,
-    contextLoading,
-    showBanner
-  });
 
-  // Don't render anything until consent has been checked
+  // Show loading skeleton while consent is being checked
   if (!consentChecked || contextLoading) {
-    console.log('⏳ ConsentBanner: Waiting for consent check to complete');
-    return null;
+    return (
+      <div className={styles.bannerContainer}>
+        <div className={styles.bannerContent}>
+          <div className={styles.bannerText}>
+            <div className={styles.skeletonText}></div>
+          </div>
+          <div className={styles.bannerButtons}>
+            <div className={styles.skeletonButton}></div>
+            <div className={styles.skeletonButton}></div>
+            <div className={styles.skeletonButton}></div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // If banner shouldn't be shown, return null
   if (!showBanner) {
-    console.log('🚫 ConsentBanner: Banner should not be shown');
     return null;
   }
 
-  console.log('✅ ConsentBanner: Rendering banner');
 
   const handleAccept = async () => {
     setLoading(true);
     try {
       // Get user ID
       const userId = getOrCreateUserId();
-      console.log('🆔 User ID for consent:', userId);
       
       const requestBody = {
         userId: userId,
         consentStatus: true
       };
-      console.log('📤 Sending consent request:', requestBody);
+      
+      console.log('🍪 ConsentBanner: Sending consent request:', requestBody);
       
       // Update consent status through the proper consent API
       const consentResponse = await fetch('/api/preferences/consent', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY 
-        },
+        headers: CONSENT_HEADERS,
         body: JSON.stringify(requestBody)
       });
       
-      console.log('📥 Consent response status:', consentResponse.status);
+      console.log('🍪 ConsentBanner: Response status:', consentResponse.status);
       
       if (!consentResponse.ok) {
-        throw new Error('Failed to save consent status');
+        const errorText = await consentResponse.text();
+        console.error('🍪 ConsentBanner: Error response:', errorText);
+        throw new Error(`Failed to save consent status: ${consentResponse.status} - ${errorText}`);
       }
       
       const consentData = await consentResponse.json();
-      console.log('Consent saved successfully:', consentData);
+      console.log('🍪 ConsentBanner: Success response:', consentData);
       
       // Update local consent state
       await updateConsent(true);
       
       // User data will be initialized automatically when they first save their profile
-      console.log('User consent accepted, user data will be initialized on first profile save');
       
       // Redirect to consent setup page
       router.push('/preferences/consent-setup');
@@ -83,25 +92,30 @@ export default function ConsentBanner() {
       // Get user ID
       const userId = getOrCreateUserId();
       
+      const requestBody = {
+        userId: userId,
+        consentStatus: false
+      };
+      
+      console.log('🍪 ConsentBanner: Sending decline request:', requestBody);
+      
       // Update consent status through the proper consent API
       const consentResponse = await fetch('/api/preferences/consent', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY 
-        },
-        body: JSON.stringify({
-          userId: userId,
-          consentStatus: false
-        })
+        headers: CONSENT_HEADERS,
+        body: JSON.stringify(requestBody)
       });
       
+      console.log('🍪 ConsentBanner: Decline response status:', consentResponse.status);
+      
       if (!consentResponse.ok) {
-        throw new Error('Failed to save consent status');
+        const errorText = await consentResponse.text();
+        console.error('🍪 ConsentBanner: Decline error response:', errorText);
+        throw new Error(`Failed to save consent status: ${consentResponse.status} - ${errorText}`);
       }
       
       const consentData = await consentResponse.json();
-      console.log('Consent declined successfully:', consentData);
+      console.log('🍪 ConsentBanner: Decline success response:', consentData);
       
       // Update local consent state
       await updateConsent(false);

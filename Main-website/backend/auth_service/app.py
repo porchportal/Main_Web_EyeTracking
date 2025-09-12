@@ -37,6 +37,7 @@ from routes.consent import router as consent_router
 from routes.backup import router as backup_router
 from routes.user_captures import router as user_captures_router
 from routes.adminDatasetViewerEdit import router as admin_dataset_router
+from routes.admin_download import router as admin_download_router
 
 # Import response models
 from model_preference.response import HealthResponse
@@ -347,6 +348,11 @@ app.include_router(canvas_use_router)
 app.include_router(backup_router)
 app.include_router(user_captures_router)
 app.include_router(admin_dataset_router)
+app.include_router(
+    admin_download_router,
+    dependencies=[Depends(verify_api_key)]
+)
+logger.info("Admin download router included successfully")
 
 # Admin authentication route
 class AdminLogin(BaseModel):

@@ -7,12 +7,24 @@ const CONSENT_DETAILS_COOKIE = 'consent_details';
 const USER_PROFILE_COOKIE = 'user_profile';
 const USER_PREFERENCES_COOKIE = 'user_preferences';
 
-// Cookie options that work for both localhost and IP addresses
-const COOKIE_OPTIONS = {
+// Cookie options that work for both localhost and IP addresses - frozen to prevent mutation
+const COOKIE_OPTIONS = Object.freeze({
   expires: 365,
   path: '/',
   sameSite: 'Lax'
-};
+});
+
+// Stable headers to prevent object recreation
+const JSON_HEADERS = Object.freeze({
+  'Accept': 'application/json',
+  'Content-Type': 'application/json'
+});
+
+const API_HEADERS = Object.freeze({
+  'Accept': 'application/json',
+  'Content-Type': 'application/json',
+  'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+});
 
 // Get or create a user ID
 export const getOrCreateUserId = () => {
@@ -65,9 +77,7 @@ export const updateUserProfile = async (profileData) => {
       const userId = getOrCreateUserId();
       const response = await fetch('/api/user-preferences', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: JSON_HEADERS,
         body: JSON.stringify({
           user_id: userId,
           preferences: updatedProfile
@@ -205,10 +215,7 @@ export const updateUserConsent = async (status, details = {}) => {
     try {
       const response = await fetch(`/api/preferences/consent`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
-        },
+        headers: API_HEADERS,
         body: JSON.stringify({
           userId: userId,
           consentStatus: status,
@@ -218,8 +225,6 @@ export const updateUserConsent = async (status, details = {}) => {
       
       if (!response.ok) {
         console.warn('Failed to update consent in backend');
-      } else {
-        console.log('Successfully updated consent in backend');
       }
     } catch (error) {
       console.warn('Error updating consent in backend:', error);
@@ -229,9 +234,7 @@ export const updateUserConsent = async (status, details = {}) => {
     try {
       const response = await fetch('/api/admin/consent-data', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: JSON_HEADERS,
         body: JSON.stringify(consentData)
       });
       

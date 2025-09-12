@@ -54,6 +54,8 @@ const NotiMessage = () => {
           className={`${styles.notification} ${
             notification.type === 'error' 
               ? styles.notificationError 
+              : notification.type === 'info'
+              ? styles.notificationInfo
               : styles.notificationSuccess
           } ${notification.removing ? styles.removing : ''}`}
           style={{
@@ -68,7 +70,8 @@ const NotiMessage = () => {
         >
           <div className={styles.notificationContent}>
             <span className={styles.notificationIcon}>
-              {notification.type === 'success' ? '✓' : '⚠'}
+              {notification.type === 'success' ? '✓' : 
+               notification.type === 'info' ? 'ℹ' : '⚠'}
             </span>
             <span className={styles.notificationMessage}>
               {notification.message}

@@ -1,4 +1,4 @@
-import { createContext, useState, useContext, useEffect } from 'react';
+import { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 
 // Create a context for the process status
 const ProcessStatusContext = createContext();
@@ -6,9 +6,9 @@ const ProcessStatusContext = createContext();
 // Create a context for the backend connection status
 const BackendConnectionContext = createContext();
 
-// Time constants (in milliseconds)
-const CONNECTION_CHECK_INTERVAL = 30000; // 30 seconds
-const CONNECTION_CHECK_TIMEOUT = 5000;   // 5 seconds
+// Time constants (in milliseconds) - optimized for better performance
+const CONNECTION_CHECK_INTERVAL = 60000; // 60 seconds (reduced frequency)
+const CONNECTION_CHECK_TIMEOUT = 3000;   // 3 seconds (faster timeout)
 
 // Create a provider component for process status
 export function ProcessStatusProvider({ children }) {
@@ -17,20 +17,20 @@ export function ProcessStatusProvider({ children }) {
   // Add a flag to prevent automatic updates
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Function to toggle the state
-  const toggleProcessStatus = () => {
+  // Function to toggle the state - memoized to prevent recreation
+  const toggleProcessStatus = useCallback(() => {
     const newStatus = !isProcessReady;
     setIsProcessReady(newStatus);
     // Save to localStorage when explicitly toggled
     localStorage.setItem('processStatus', String(newStatus));
-  };
+  }, [isProcessReady]);
   
-  // Function to set the status directly
-  const setProcessStatus = (status) => {
+  // Function to set the status directly - memoized to prevent recreation
+  const setProcessStatus = useCallback((status) => {
     setIsProcessReady(status);
     // Save to localStorage when explicitly set
     localStorage.setItem('processStatus', String(status));
-  };
+  }, []);
 
   // Only load from localStorage on initial mount, don't auto-save on every render
   useEffect(() => {
@@ -44,8 +44,15 @@ export function ProcessStatusProvider({ children }) {
     }
   }, [isInitialized]);
 
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    isProcessReady,
+    toggleProcessStatus,
+    setProcessStatus
+  }), [isProcessReady, toggleProcessStatus, setProcessStatus]);
+
   return (
-    <ProcessStatusContext.Provider value={{ isProcessReady, toggleProcessStatus, setProcessStatus }}>
+    <ProcessStatusContext.Provider value={contextValue}>
       {children}
     </ProcessStatusContext.Provider>
   );
@@ -63,13 +70,13 @@ export function BackendConnectionProvider({ children }) {
   });
   const [checkTimer, setCheckTimer] = useState(null);
 
-  // Function to check backend connection
-  const checkConnection = async (force = false) => {
+  // Function to check backend connection with timeout - memoized to prevent recreation
+  const checkConnection = useCallback(async (force = false) => {
     // Prevent frequent checks unless forced
     if (connectionState.isChecking || 
         (!force && 
          connectionState.lastChecked && 
-         Date.now() - connectionState.lastChecked < 5000)) {
+         Date.now() - connectionState.lastChecked < 10000)) { // Increased to 10 seconds
       return;
     }
 
@@ -81,15 +88,20 @@ export function BackendConnectionProvider({ children }) {
     }));
 
     try {
-      console.log("Checking backend connection...");
-      const response = await fetch('/api/check-backend-connection');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), CONNECTION_CHECK_TIMEOUT);
+      
+      const response = await fetch('/api/check-backend-connection', {
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
       
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
       
       const data = await response.json();
-      console.log("Backend connection response:", data);
       
       setConnectionState({
         isConnected: data.connected,
@@ -100,7 +112,11 @@ export function BackendConnectionProvider({ children }) {
         error: null
       });
     } catch (err) {
-      console.error("Backend connection check failed:", err);
+      if (err.name === 'AbortError') {
+        console.warn("Backend connection check timed out");
+      } else {
+        console.error("Backend connection check failed:", err);
+      }
       
       setConnectionState(prev => ({
         ...prev,
@@ -111,7 +127,7 @@ export function BackendConnectionProvider({ children }) {
         error: err.message || "Failed to connect to backend"
       }));
     }
-  };
+  }, [connectionState.isChecking, connectionState.lastChecked]);
 
   // Initial connection check on mount and set up periodic checks
   useEffect(() => {
@@ -161,13 +177,14 @@ export function BackendConnectionProvider({ children }) {
     };
   }, [connectionState.lastChecked]);
 
+  // Memoize the context value to prevent unnecessary re-renders
+  const contextValue = useMemo(() => ({
+    ...connectionState,
+    checkConnection
+  }), [connectionState, checkConnection]);
+
   return (
-    <BackendConnectionContext.Provider
-      value={{
-        ...connectionState,
-        checkConnection
-      }}
-    >
+    <BackendConnectionContext.Provider value={contextValue}>
       {children}
     </BackendConnectionContext.Provider>
   );

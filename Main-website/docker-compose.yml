@@ -63,6 +63,7 @@ services:
     volumes:
       - ./backend/auth_service/resource_security/public/captures:/app/resource_security/public/captures
       - ./backend/auth_service/resource_security/canvas:/app/resource_security/canvas
+      - ./backend/auth_service/resource_security/consent_data.json:/app/resource_security/consent_data.json
     env_file:
       - ./backend/.env.backend
     depends_on:

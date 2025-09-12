@@ -1,5 +1,5 @@
 // frontend/components/consent_ui/ConsentContext.js
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, startTransition } from 'react';
 import { getUserConsent, updateUserConsent, getOrCreateUserId } from '../../utils/consentManager';
 
 const ConsentContext = createContext();
@@ -14,13 +14,13 @@ const isLocalhost = () => {
   return isLocal;
 };
 
-// Enhanced consent checking function
+// Optimized consent checking function with timeout
 const checkConsentStatus = async (userId) => {
   try {
-    // First check local cookies
+    // First check local cookies (fastest)
     const localConsent = getUserConsent();
     
-    // If we have local consent data, use it
+    // If we have local consent data, use it immediately
     if (localConsent && localConsent.consentStatus !== null) {
       return {
         hasConsent: localConsent.consentStatus,
@@ -29,25 +29,39 @@ const checkConsentStatus = async (userId) => {
       };
     }
     
-    // If no local consent, check backend
+    // If no local consent, check backend with timeout
     if (userId) {
-      const response = await fetch(`/api/user-preferences/${userId}`, {
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY 
-        }
-      });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
       
-      if (response.ok) {
-        const data = await response.json();
-        const backendConsent = data.data?.cookie ?? false;
+      try {
+        const response = await fetch(`/api/user-preferences/${userId}`, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY 
+          },
+          signal: controller.signal
+        });
         
-        return {
-          hasConsent: backendConsent,
-          source: 'backend',
-          data: data
-        };
+        clearTimeout(timeoutId);
+        
+        if (response.ok) {
+          const data = await response.json();
+          const backendConsent = data.data?.cookie ?? false;
+          
+          return {
+            hasConsent: backendConsent,
+            source: 'backend',
+            data: data
+          };
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          console.warn('Consent check timed out, using local fallback');
+        }
+        throw fetchError;
       }
     }
     
@@ -77,8 +91,17 @@ export function ConsentProvider({ children }) {
     showBanner: true,
     consentChecked: false,
   });
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Ensure we're hydrated before running consent logic
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   useEffect(() => {
+    // Only run after hydration is complete
+    if (!isHydrated) return;
+    
     // Get consent data from cookies
     const initializeConsent = async () => {
       try {
@@ -103,17 +126,18 @@ export function ConsentProvider({ children }) {
           // Update cookies with auto-consent
           await updateUserConsent(true, { userId });
 
-          setConsentState({
-            loading: false,
-            userId: autoConsentData.userId,
-            consentStatus: true,
-            consentUpdatedAt: autoConsentData.consentUpdatedAt,
-            consentDetails: autoConsentData.consentDetails,
-            showBanner: false,
-            consentChecked: true
+          startTransition(() => {
+            setConsentState({
+              loading: false,
+              userId: autoConsentData.userId,
+              consentStatus: true,
+              consentUpdatedAt: autoConsentData.consentUpdatedAt,
+              consentDetails: autoConsentData.consentDetails,
+              showBanner: false,
+              consentChecked: true
+            });
           });
 
-          console.log('Auto-enabled consent for localhost:', autoConsentData);
           return;
         }
 
@@ -128,33 +152,21 @@ export function ConsentProvider({ children }) {
         
         if (consentCheck.hasConsent) {
           // User has already given consent
-          setConsentState({
-            loading: false,
-            userId: userId,
-            consentStatus: true,
-            consentUpdatedAt: consentCheck.data?.consentUpdatedAt || new Date().toISOString(),
-            consentDetails: consentCheck.data?.consentDetails || consentCheck.data,
-            showBanner: false,
-            consentChecked: true
+          startTransition(() => {
+            setConsentState({
+              loading: false,
+              userId: userId,
+              consentStatus: true,
+              consentUpdatedAt: consentCheck.data?.consentUpdatedAt || new Date().toISOString(),
+              consentDetails: consentCheck.data?.consentDetails || consentCheck.data,
+              showBanner: false,
+              consentChecked: true
+            });
           });
         } else if (consentCheck.source === 'none') {
           // No consent found, show banner
           console.log('❌ No consent found - showing banner');
-          setConsentState({
-            loading: false,
-            userId: userId,
-            consentStatus: null,
-            consentUpdatedAt: null,
-            consentDetails: null,
-            showBanner: true,
-            consentChecked: true
-          });
-        } else {
-          // Fallback to original logic
-          const consentData = await getUserConsent();
-          console.log('Fallback consent data:', consentData);
-          
-          if (!consentData || consentData.consentStatus === null) {
+          startTransition(() => {
             setConsentState({
               loading: false,
               userId: userId,
@@ -164,15 +176,35 @@ export function ConsentProvider({ children }) {
               showBanner: true,
               consentChecked: true
             });
+          });
+        } else {
+          // Fallback to original logic
+          const consentData = await getUserConsent();
+          console.log('Fallback consent data:', consentData);
+          
+          if (!consentData || consentData.consentStatus === null) {
+            startTransition(() => {
+              setConsentState({
+                loading: false,
+                userId: userId,
+                consentStatus: null,
+                consentUpdatedAt: null,
+                consentDetails: null,
+                showBanner: true,
+                consentChecked: true
+              });
+            });
           } else {
-            setConsentState({
-              loading: false,
-              userId: consentData.userId,
-              consentStatus: consentData.consentStatus,
-              consentUpdatedAt: consentData.consentUpdatedAt,
-              consentDetails: consentData.consentDetails,
-              showBanner: false,
-              consentChecked: true
+            startTransition(() => {
+              setConsentState({
+                loading: false,
+                userId: consentData.userId,
+                consentStatus: consentData.consentStatus,
+                consentUpdatedAt: consentData.consentUpdatedAt,
+                consentDetails: consentData.consentDetails,
+                showBanner: false,
+                consentChecked: true
+              });
             });
           }
         }
@@ -180,20 +212,22 @@ export function ConsentProvider({ children }) {
         console.error('Error initializing consent:', error);
         // Generate userId even on error to prevent null state
         const userId = getOrCreateUserId();
-        setConsentState({
-          loading: false,
-          userId: userId,
-          consentStatus: null,
-          consentUpdatedAt: null,
-          consentDetails: null,
-          showBanner: true,
-          consentChecked: true
+        startTransition(() => {
+          setConsentState({
+            loading: false,
+            userId: userId,
+            consentStatus: null,
+            consentUpdatedAt: null,
+            consentDetails: null,
+            showBanner: true,
+            consentChecked: true
+          });
         });
       }
     };
 
     initializeConsent();
-  }, []);
+  }, [isHydrated]);
 
   const updateConsent = async (status) => {
     try {
@@ -222,14 +256,16 @@ export function ConsentProvider({ children }) {
         }
       }
       
-      setConsentState(prev => ({
-        ...prev,
-        userId: updatedConsent.userId,
-        consentStatus: updatedConsent.consentStatus,
-        consentUpdatedAt: updatedConsent.consentUpdatedAt,
-        consentDetails: updatedConsent.consentDetails,
-        showBanner: false
-      }));
+      startTransition(() => {
+        setConsentState(prev => ({
+          ...prev,
+          userId: updatedConsent.userId,
+          consentStatus: updatedConsent.consentStatus,
+          consentUpdatedAt: updatedConsent.consentUpdatedAt,
+          consentDetails: updatedConsent.consentDetails,
+          showBanner: false
+        }));
+      });
       
       return true;
     } catch (error) {
@@ -239,32 +275,40 @@ export function ConsentProvider({ children }) {
   };
 
   const toggleBanner = (show) => {
-    setConsentState(prev => ({
-      ...prev,
-      showBanner: show
-    }));
+    startTransition(() => {
+      setConsentState(prev => ({
+        ...prev,
+        showBanner: show
+      }));
+    });
   };
 
   // New function to recheck consent status
   const recheckConsent = async () => {
     if (!consentState.userId) return;
     
-    setConsentState(prev => ({ ...prev, loading: true }));
+    startTransition(() => {
+      setConsentState(prev => ({ ...prev, loading: true }));
+    });
     
     try {
       const consentCheck = await checkConsentStatus(consentState.userId);
       console.log('Recheck consent result:', consentCheck);
       
-      setConsentState(prev => ({
-        ...prev,
-        loading: false,
-        consentStatus: consentCheck.hasConsent ? true : null,
-        showBanner: !consentCheck.hasConsent,
-        consentChecked: true
-      }));
+      startTransition(() => {
+        setConsentState(prev => ({
+          ...prev,
+          loading: false,
+          consentStatus: consentCheck.hasConsent ? true : null,
+          showBanner: !consentCheck.hasConsent,
+          consentChecked: true
+        }));
+      });
     } catch (error) {
       console.error('Error rechecking consent:', error);
-      setConsentState(prev => ({ ...prev, loading: false }));
+      startTransition(() => {
+        setConsentState(prev => ({ ...prev, loading: false }));
+      });
     }
   };
 

@@ -160,6 +160,12 @@
   border-left: 4px solid #d32f2f;
 }
 
+.notificationInfo {
+  background-color: #2196f3;
+  color: white;
+  border-left: 4px solid #1976d2;
+}
+
 @keyframes slideInFromRight {
   0% {
     transform: translateX(100%);

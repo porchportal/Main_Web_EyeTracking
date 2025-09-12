@@ -690,6 +690,53 @@ export default function AdminPage({ initialSettings }) {
     }
   };
 
+  const handleDownloadDataset = async () => {
+    if (!selectedUserId || selectedUserId === 'default') {
+      window.showNotification('Please select a user ID before downloading dataset!', 'error');
+      return;
+    }
+
+    try {
+      window.showNotification('Checking user data...', 'info');
+      
+      // Call the download endpoint directly
+      const response = await fetch(`/api/admin/zip-download/${selectedUserId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      // Check if the response is a ZIP file (starts with 'PK') or JSON error
+      const contentType = response.headers.get('content-type');
+      
+      if (contentType && contentType.includes('application/zip')) {
+        // It's a ZIP file, trigger download
+        window.showNotification('Preparing download...', 'info');
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `user_${selectedUserId}_captures.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+        
+        window.showNotification('Download started successfully!', 'success');
+      } else {
+        // It's a JSON error response
+        const errorData = await response.json();
+        window.showNotification(errorData.message || "That User Didn't collect any Data", 'error');
+      }
+      
+    } catch (error) {
+      console.error('Error downloading dataset:', error);
+      window.showNotification('Failed to download dataset. Please try again.', 'error');
+    }
+  };
+
 
 
   // Add effect to handle animations for all sections
@@ -2093,9 +2140,8 @@ export default function AdminPage({ initialSettings }) {
                   
                   <button 
                     className={styles.downloadButton}
-                    onClick={() => {
-                      window.showNotification('Downloading Dataset...');
-                    }}
+                    onClick={handleDownloadDataset}
+                    disabled={!selectedUserId || selectedUserId === 'default'}
                   >
                     📥 Download Dataset
                   </button>

@@ -78,6 +78,8 @@ export default async function handler(req, res) {
           status: response.status,
           data: data
         });
+      } else {
+        console.log('✅ Consent successfully saved to backend for user:', userId);
       }
       
       return res.status(response.ok ? 200 : 400).json(data);

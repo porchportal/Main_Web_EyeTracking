@@ -11,6 +11,12 @@ const nextConfig = {
   // Add proper configuration for Docker development
   output: 'standalone',
   
+  // Image configuration for Next.js 16 compatibility
+  images: {
+    qualities: [25, 50, 75, 100],
+    formats: ['image/webp', 'image/avif'],
+  },
+  
   // Webpack configuration for HMR
   webpack: (config, { dev, isServer }) => {
     if (dev && !isServer) {
