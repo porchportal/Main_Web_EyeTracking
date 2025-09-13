@@ -1,7 +1,7 @@
 // pages/process_set/processApi.js - API functions for process_set with improved connection handling
 
 // Utility function for making API requests with retry and better error handling
-const fetchWithRetry = async (url, options = {}, retries = 2) => {
+const fetchWithRetry = async (url, options = {}, retries = 2, customTimeout = 8000) => {
   let lastError;
   
   // Get API key from environment variable
@@ -19,7 +19,7 @@ const fetchWithRetry = async (url, options = {}, retries = 2) => {
       console.log(`Fetching ${absoluteUrl}${i > 0 ? ` (retry ${i}/${retries})` : ''}`);
       
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      const timeout = setTimeout(() => controller.abort(), customTimeout); // Custom timeout
       
       const response = await fetch(absoluteUrl, {
         ...options,
@@ -80,6 +80,39 @@ const fetchWithRetry = async (url, options = {}, retries = 2) => {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
 
+// Cache for current user ID to avoid repeated API calls
+let currentUserIdCache = null;
+let userIdCacheTimestamp = 0;
+const USER_ID_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Get the actual user ID from the backend
+export const getCurrentUserId = async () => {
+  try {
+    // Check if we have a valid cached user ID
+    const now = Date.now();
+    if (currentUserIdCache && (now - userIdCacheTimestamp) < USER_ID_CACHE_DURATION) {
+      return currentUserIdCache;
+    }
+
+    // Get user ID from backend
+    const response = await fetchWithRetry('/api/current-user-id', {}, 1, 5000);
+    
+    if (response.success && response.userId) {
+      currentUserIdCache = response.userId;
+      userIdCacheTimestamp = now;
+      return response.userId;
+    } else {
+      throw new Error(response.error || 'Failed to get user ID');
+    }
+  } catch (error) {
+    console.error('Error getting current user ID:', error);
+    // Fallback to localStorage or 'default'
+    const fallbackUserId = localStorage.getItem('userId') || 'default';
+    console.warn(`Using fallback user ID: ${fallbackUserId}`);
+    return fallbackUserId;
+  }
+};
+
 // Check if the backend is connected
 export const checkBackendConnection = async () => {
   try {
@@ -105,9 +138,9 @@ export const checkBackendConnection = async () => {
 // Get list of files from a specific folder using readDataset API
 export const getFilesList = async (folder, userId = null) => {
   try {
-    // Get user ID from localStorage if not provided
+    // Get user ID from backend if not provided
     if (!userId) {
-      userId = localStorage.getItem('userId') || 'default';
+      userId = await getCurrentUserId();
     }
     
     // Get files from specified folder
@@ -141,9 +174,9 @@ export const getFilesList = async (folder, userId = null) => {
 // Check file completeness using readDataset API
 export const checkFilesCompleteness = async (userId = null) => {
   try {
-    // Get user ID from localStorage if not provided
+    // Get user ID from backend if not provided
     if (!userId) {
-      userId = localStorage.getItem('userId') || 'default';
+      userId = await getCurrentUserId();
     }
     
     const response = await fetchWithRetry(`/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=check-completeness`);
@@ -171,9 +204,9 @@ export const checkFilesCompleteness = async (userId = null) => {
 // Preview a specific file using readDataset API
 export const previewFile = async (filename, userId = null, folder = 'captures') => {
   try {
-    // Get user ID from localStorage if not provided
+    // Get user ID from backend if not provided
     if (!userId) {
-      userId = localStorage.getItem('userId') || 'default';
+      userId = await getCurrentUserId();
     }
     
     const data = await fetchWithRetry(`/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?filename=${encodeURIComponent(filename)}&folder=${encodeURIComponent(folder)}`);
@@ -199,12 +232,17 @@ export const previewFile = async (filename, userId = null, folder = 'captures') 
 // Check if files need processing using readDataset API
 export const checkFilesNeedProcessing = async (userId = null) => {
   try {
-    // Get user ID from localStorage if not provided
+    // Get user ID from backend if not provided
     if (!userId) {
-      userId = localStorage.getItem('userId') || 'default';
+      userId = await getCurrentUserId();
     }
     
+    console.log(`Checking files need processing for userId: ${userId}`);
+    
     const response = await fetchWithRetry(`/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=compare`);
+    
+    console.log('checkFilesNeedProcessing response:', response);
+    
     if (!response.success) {
       throw new Error(response.message || 'Failed to get files list');
     }
@@ -213,6 +251,15 @@ export const checkFilesNeedProcessing = async (userId = null) => {
     const enhanceCount = response.enhanceCount || 0;
     const needsProcessing = captureCount > enhanceCount;
     const filesToProcess = captureCount - enhanceCount;
+    
+    console.log('File processing check results:', {
+      userId,
+      captureCount,
+      enhanceCount,
+      needsProcessing,
+      filesToProcess,
+      setsNeedingProcessing: response.setsNeedingProcessing || []
+    });
     
     return {
       success: true,
@@ -236,7 +283,44 @@ export const checkFilesNeedProcessing = async (userId = null) => {
   }
 };
 
-// Note: processFiles function has been moved to index.js to keep processing logic centralized
+// Process files function that calls the new aprocess-file endpoint
+export const processFiles = async (setNumbers, userId = null, enhanceFace) => {
+  try {
+    // Debug logging
+    console.log(`processFiles called with: setNumbers=${JSON.stringify(setNumbers)}, userId=${userId}, enhanceFace=${enhanceFace} (type: ${typeof enhanceFace})`);
+    
+    // Get user ID from backend if not provided
+    if (!userId) {
+      userId = await getCurrentUserId();
+    }
+
+    // Get auth service URL from environment (which proxies to image service)
+    const authServiceUrl = process.env.NEXT_PUBLIC_API_URL;
+    
+    // Use the new aprocess-file endpoint with longer timeout for image processing
+    const response = await fetchWithRetry(`/api/for-process-folder/aprocess-file/${encodeURIComponent(userId)}`, {
+      method: 'POST',
+      body: JSON.stringify({ setNumbers, enhanceFace }),
+    }, 0, 300000); // Use 0 retries but 5 minute timeout for image processing
+
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to process files');
+    }
+
+    return {
+      success: true,
+      message: 'Files processed successfully',
+      data: response
+    };
+  } catch (error) {
+    console.error('Error processing files:', error);
+    return {
+      success: false,
+      error: error.message,
+      message: 'Failed to process files'
+    };
+  }
+};
   
 // Compare files between capture and enhance folders (now handled by checkFilesNeedProcessing)
 export const compareFileCounts = async (userId = null) => {

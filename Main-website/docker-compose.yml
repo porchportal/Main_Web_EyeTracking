@@ -27,8 +27,15 @@ services:
     container_name: backend_image_service
     ports:
       - "8010:8010"
+    env_file:
+      - ./backend/.env.backend
+    volumes:
+      - ./backend/auth_service/resource_security/public/captures:/app/resource_security/public/captures
+      - ./backend/auth_service/resource_security/public/enhance:/app/resource_security/public/enhance
+      - ./backend/auth_service/resource_security/public/complete:/app/resource_security/public/complete
     environment:
       - PORT=8010
+      - IMAGE_SERVICE_URL=http://backend_image_service:8010
     networks:
       - app-network
     restart: unless-stopped
@@ -63,11 +70,13 @@ services:
     volumes:
       - ./backend/auth_service/resource_security/public/captures:/app/resource_security/public/captures
       - ./backend/auth_service/resource_security/public/enhance:/app/resource_security/public/enhance
-      - ./backend/auth_service/resource_security/public/enhance:/app/resource_security/public/complete
+      - ./backend/auth_service/resource_security/public/complete:/app/resource_security/public/complete
       - ./backend/auth_service/resource_security/canvas:/app/resource_security/canvas
       - ./backend/auth_service/resource_security/consent_data.json:/app/resource_security/consent_data.json
     env_file:
       - ./backend/.env.backend
+    environment:
+      - IMAGE_SERVICE_URL=http://backend_image_service:8010
     depends_on:
       mongodb:
         condition: service_healthy
@@ -94,6 +103,11 @@ services:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
+    # environment:
+      # - NEXT_PUBLIC_API_URL=https://192.168.1.107
+      # - AUTH_SERVICE_URL=http://backend_auth_service:8108
+      # - BACKEND_API_KEY=A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV
+      # - NEXT_PUBLIC_API_KEY=A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV
     env_file:
       - ./frontend/.env.frontend
     depends_on:

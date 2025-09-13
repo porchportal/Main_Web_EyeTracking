@@ -22,7 +22,7 @@ load_dotenv('.env.backend')
 # Add parent directory to path to import the main app
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from process_images import process_images
+from routes.process_images import process_images
 
 # Create FastAPI app for image service
 app = FastAPI(
@@ -62,17 +62,33 @@ async def process_image(
         raise HTTPException(status_code=500, detail=str(e))
 
 class ProcessImagesRequest(BaseModel):
-    set_numbers: list
+    setNumbers: list
+    userId: Optional[str] = None
+    enhanceFace: bool
 
 @app.post("/process-images")
 async def process_images_batch(request: ProcessImagesRequest):
     """Process multiple images in batch"""
     try:
+        # Debug logging to see what parameters we're receiving
+        print(f"Image service received request: setNumbers={request.setNumbers}, userId={request.userId}, enhanceFace={request.enhanceFace}")
+        
         results = []
-        async for result in process_images(request.set_numbers):
+        async for result in process_images(
+            set_numbers=request.setNumbers,
+            userId=request.userId,
+            enhanceFace=request.enhanceFace
+        ):
             results.append(result)
-        return {"results": results}
+        return {
+            "success": True,
+            "message": "Images processed successfully",
+            "results": results,
+            "totalSets": len(request.setNumbers),
+            "processedCount": len([r for r in results if r.get("status") == "completed"])
+        }
     except Exception as e:
+        print(f"Error in process_images_batch: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/process-frame")

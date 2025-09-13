@@ -149,17 +149,132 @@ async function handleCompletenessCheck(userId, res, backendUrl, apiKey) {
 // Handle compare operation
 async function handleCompareOperation(userId, res, backendUrl, apiKey) {
   try {
-    // For now, return a simple response
-    // In production, this should be implemented as a proper backend API endpoint
     console.log(`Compare operation requested for userId: ${userId}`);
+    
+    // Get capture files
+    const captureUrl = `${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=captures`;
+    console.log(`Fetching capture files from: ${captureUrl}`);
+    
+    const captureResponse = await fetch(captureUrl, {
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    // Get enhance files
+    const enhanceUrl = `${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=enhance`;
+    console.log(`Fetching enhance files from: ${enhanceUrl}`);
+    
+    const enhanceResponse = await fetch(enhanceUrl, {
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    // Get complete files
+    const completeUrl = `${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=complete`;
+    console.log(`Fetching complete files from: ${completeUrl}`);
+    
+    const completeResponse = await fetch(completeUrl, {
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    let captureFiles = [];
+    let enhanceFiles = [];
+    let completeFiles = [];
+    
+    console.log(`Capture response status: ${captureResponse.status}`);
+    console.log(`Enhance response status: ${enhanceResponse.status}`);
+    console.log(`Complete response status: ${completeResponse.status}`);
+    
+    if (captureResponse.ok) {
+      const captureData = await captureResponse.json();
+      captureFiles = captureData.files || [];
+      console.log(`Capture files found: ${captureFiles.length}`, captureFiles.slice(0, 5));
+    } else {
+      console.error(`Capture response error: ${captureResponse.status}`, await captureResponse.text());
+    }
+    
+    if (enhanceResponse.ok) {
+      const enhanceData = await enhanceResponse.json();
+      enhanceFiles = enhanceData.files || [];
+      console.log(`Enhance files found: ${enhanceFiles.length}`, enhanceFiles.slice(0, 5));
+    } else {
+      console.error(`Enhance response error: ${enhanceResponse.status}`, await enhanceResponse.text());
+    }
+    
+    if (completeResponse.ok) {
+      const completeData = await completeResponse.json();
+      completeFiles = completeData.files || [];
+      console.log(`Complete files found: ${completeFiles.length}`, completeFiles.slice(0, 5));
+    } else {
+      console.error(`Complete response error: ${completeResponse.status}`, await completeResponse.text());
+    }
+    
+    // Extract set numbers from capture files (webcam_XXX.jpg format)
+    const captureSets = new Set();
+    captureFiles.forEach(file => {
+      const match = file.match(/webcam_(\d+)\.jpg/);
+      if (match) {
+        captureSets.add(parseInt(match[1]));
+      }
+    });
+    
+    // Extract set numbers from enhance files (webcam_enhance_XXX.jpg format)
+    const enhanceSets = new Set();
+    enhanceFiles.forEach(file => {
+      const match = file.match(/webcam_enhance_(\d+)\.jpg/);
+      if (match) {
+        enhanceSets.add(parseInt(match[1]));
+      }
+    });
+    
+    // Extract set numbers from complete files (webcam_XXX.jpg format - same as capture)
+    const completeSets = new Set();
+    completeFiles.forEach(file => {
+      const match = file.match(/webcam_(\d+)\.jpg/);
+      if (match) {
+        completeSets.add(parseInt(match[1]));
+      }
+    });
+    
+    // Find sets that need processing (in capture but not in enhance OR complete)
+    const processedSets = new Set([...enhanceSets, ...completeSets]);
+    const setsNeedingProcessing = Array.from(captureSets).filter(setNum => !processedSets.has(setNum));
+    
+    const captureCount = captureSets.size;
+    const enhanceCount = enhanceSets.size;
+    const completeCount = completeSets.size;
+    const totalProcessedCount = enhanceCount + completeCount;
+    const needsProcessing = setsNeedingProcessing.length > 0;
+    
+    console.log(`File comparison results:`, {
+      userId,
+      captureCount,
+      enhanceCount,
+      completeCount,
+      totalProcessedCount,
+      setsNeedingProcessing: setsNeedingProcessing.length,
+      needsProcessing
+    });
     
     return res.status(200).json({
       success: true,
-      captureCount: 0,
-      enhanceCount: 0,
-      needsProcessing: false,
-      setsNeedingProcessing: [],
-      setsNeedingProcessingCount: 0
+      captureCount,
+      enhanceCount,
+      completeCount,
+      totalProcessedCount,
+      needsProcessing,
+      setsNeedingProcessing,
+      setsNeedingProcessingCount: setsNeedingProcessing.length,
+      message: needsProcessing ? 
+        `${setsNeedingProcessing.length} sets need processing` : 
+        'No files need processing'
     });
   } catch (error) {
     console.error('Error comparing files:', error);

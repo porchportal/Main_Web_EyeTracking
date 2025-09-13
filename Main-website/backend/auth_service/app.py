@@ -28,6 +28,7 @@ from db.data_centralization import DataCenter, UserSettings
 from routes import preferences
 from routes.process_set import processing
 from routes.process_set import preview
+from routes.process_set import enhance
 from routes.data_center_routes import router as data_center_router
 from routes.admin_updates import router as admin_updates_router
 from routes.canvas_admin import router as canvas_admin_router
@@ -126,6 +127,10 @@ app.include_router(
 )
 app.include_router(
     preview.router,
+    dependencies=[Depends(verify_api_key)]
+)
+app.include_router(
+    enhance.router,
     dependencies=[Depends(verify_api_key)]
 )
 app.include_router(
@@ -468,20 +473,30 @@ async def admin_logout(session_data: dict, request: Request):
 class ProcessingRequest(BaseModel):
     user_id: str
     set_numbers: List[int]
+    enhanceFace: bool
 
-@app.post("/api/queue-processing")
+@app.post("/api/queue-processing", dependencies=[Depends(verify_api_key)])
 async def queue_processing(request: ProcessingRequest):
     """Process images for the given user and set numbers"""
     try:
         logger.info(f"Received processing request for user {request.user_id}")
+        logger.info(f"Auth service received: setNumbers={request.set_numbers}, userId={request.user_id}, enhanceFace={request.enhanceFace} (type: {type(request.enhanceFace)})")
         
         # Make HTTP call to image service
-        image_service_url = os.getenv("IMAGE_SERVICE_URL", "http://image_service:8010")
+        image_service_url = os.getenv("IMAGE_SERVICE_URL", "http://backend_image_service:8010")
+        
+        # Debug the request being sent to image service
+        request_data = {
+            "setNumbers": request.set_numbers,
+            "userId": request.user_id,
+            "enhanceFace": request.enhanceFace
+        }
+        logger.info(f"Sending to image service: {request_data}")
         
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 f"{image_service_url}/process-images",
-                json={"set_numbers": request.set_numbers},
+                json=request_data,
                 timeout=300.0  # 5 minutes timeout
             )
             
@@ -506,6 +521,24 @@ async def queue_processing(request: ProcessingRequest):
             status_code=500,
             detail=str(e)
         )
+
+@app.get("/api/current-user-id")
+async def get_current_user_id():
+    """Get the current user ID (first available user folder)"""
+    try:
+        captures_base_dir = os.path.abspath('/app/resource_security/public/captures')
+        user_folders = [d for d in os.listdir(captures_base_dir) 
+                       if os.path.isdir(os.path.join(captures_base_dir, d)) 
+                       and d not in ['enhance', 'eye_tracking_captures']]
+        
+        if user_folders:
+            actual_user_id = user_folders[0]  # Use the first available user folder
+            return {"success": True, "userId": actual_user_id}
+        else:
+            return {"success": False, "error": "No user folders found"}
+    except Exception as e:
+        logger.error(f"Error getting current user ID: {e}")
+        return {"success": False, "error": str(e)}
 
 @app.get("/api/processing-status")
 async def get_processing_status(user_id: str):

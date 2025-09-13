@@ -35,7 +35,7 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType, fold
     loadImageFromBackend(selectedFile, folder);
   }, [selectedFile, folder]);
 
-  // Function to load image from backend
+  // Function to load image from backend with fallback
   const loadImageFromBackend = async (filename, folderType) => {
     setIsLoading(true);
     setLoadError(null);
@@ -48,8 +48,39 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType, fold
       if (result.success) {
         handleImageLoad(result.data, result.type);
       } else {
-        setLoadError(result.error || 'Failed to load image from backend');
-        console.error('Failed to load image:', result.error);
+        // If file not found in specified folder, try the other folders as fallback
+        const fallbackFolders = ['enhance', 'complete', 'captures'].filter(f => f !== folderType);
+        console.log(`File not found in ${folderType} folder, trying fallback folders: ${fallbackFolders.join(', ')}`);
+        
+        let fallbackSuccess = false;
+        let lastError = result.error;
+        
+        for (const fallbackFolder of fallbackFolders) {
+          console.log(`Trying ${fallbackFolder} folder as fallback`);
+          const fallbackResult = await readImageFromBackend(filename, null, fallbackFolder);
+          
+          if (fallbackResult.success) {
+            console.log(`Successfully loaded from ${fallbackFolder} folder`);
+            handleImageLoad(fallbackResult.data, fallbackResult.type);
+            fallbackSuccess = true;
+            break;
+          } else {
+            lastError = fallbackResult.error;
+          }
+        }
+        
+        if (!fallbackSuccess) {
+          // If all folders failed, provide a more helpful error message
+          const errorMsg = `File '${filename}' not found in captures, enhance, or complete folders. This might be a file naming or folder structure issue.`;
+          setLoadError(errorMsg);
+          console.error('Failed to load image from all folders:', {
+            originalError: result.error,
+            lastError: lastError,
+            filename,
+            requestedFolder: folderType,
+            triedFolders: [folderType, ...fallbackFolders]
+          });
+        }
       }
     } catch (error) {
       setLoadError(error.message);
@@ -173,6 +204,17 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
   const [selectedFolder, setSelectedFolder] = useState('capture'); // Default to capture folder
   const [fileMetadata, setFileMetadata] = useState(new Map());
 
+  // Auto-select first available folder when files change
+  useEffect(() => {
+    if (files.capture && Array.isArray(files.capture) && files.capture.length > 0) {
+      setSelectedFolder('capture');
+    } else if (files.enhance && Array.isArray(files.enhance) && files.enhance.length > 0) {
+      setSelectedFolder('enhance');
+    } else if (files.complete && Array.isArray(files.complete) && files.complete.length > 0) {
+      setSelectedFolder('complete');
+    }
+  }, [files]);
+
   // Update file metadata when files change
   useEffect(() => {
     const metadata = new Map();
@@ -196,6 +238,17 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
         isImage: isImageFile(file.filename),
         isText: isTextFile(file.filename),
         folder: 'enhance'
+      });
+    });
+    
+    // Process complete files
+    files.complete?.forEach(file => {
+      metadata.set(file.filename, {
+        ...file,
+        fileType: getFileType(file.filename),
+        isImage: isImageFile(file.filename),
+        isText: isTextFile(file.filename),
+        folder: 'complete'
       });
     });
     
@@ -224,24 +277,30 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
         <div className={styles.headerTopRow}>
           <h3>Files</h3>
           <div className={styles.folderSelector}>
-            <button 
-              className={`${styles.folderButton} ${selectedFolder === 'capture' ? styles.activeFolder : ''}`}
-              onClick={() => setSelectedFolder('capture')}
-            >
-              Capture ({files.capture?.length || 0})
-            </button>
-            <button 
-              className={`${styles.folderButton} ${selectedFolder === 'enhance' ? styles.activeFolder : ''}`}
-              onClick={() => setSelectedFolder('enhance')}
-            >
-              Enhance ({files.enhance?.length || 0})
-            </button>
-            <button 
-              className={`${styles.folderButton} ${selectedFolder === 'complete' ? styles.activeFolder : ''}`}
-              onClick={() => setSelectedFolder('complete')}
-            >
-              Complete ({files.enhance?.length || 0})
-            </button>
+            {files.capture && Array.isArray(files.capture) && files.capture.length > 0 && (
+              <button 
+                className={`${styles.folderButton} ${selectedFolder === 'capture' ? styles.activeFolder : ''}`}
+                onClick={() => setSelectedFolder('capture')}
+              >
+                Capture ({files.capture.length})
+              </button>
+            )}
+            {files.enhance && Array.isArray(files.enhance) && files.enhance.length > 0 && (
+              <button 
+                className={`${styles.folderButton} ${selectedFolder === 'enhance' ? styles.activeFolder : ''}`}
+                onClick={() => setSelectedFolder('enhance')}
+              >
+                Enhance ({files.enhance.length})
+              </button>
+            )}
+            {files.complete && Array.isArray(files.complete) && files.complete.length > 0 && (
+              <button 
+                className={`${styles.folderButton} ${selectedFolder === 'complete' ? styles.activeFolder : ''}`}
+                onClick={() => setSelectedFolder('complete')}
+              >
+                Complete ({files.complete.length})
+              </button>
+            )}
           </div>
         </div>
         <div className={styles.enhanceToggleContainer}>
@@ -320,9 +379,9 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
             </>
           ) : (
             <>
-              {files.enhance?.length > 0 ? (
+              {files.complete?.length > 0 ? (
                 <ul className={styles.fileListItems}>
-                  {files.enhance.map((file) => {
+                  {files.complete.map((file) => {
                     const metadata = fileMetadata.get(file.filename);
                     return (
                       <li 
@@ -415,7 +474,9 @@ export const Notification = ({ notification, onClose }) => {
 export const ProcessSummary = ({ files }) => {
   const captureCount = files.capture?.length || 0;
   const enhanceCount = files.enhance?.length || 0;
-  const remainingCount = captureCount - enhanceCount;
+  const completeCount = files.complete?.length || 0;
+  const totalProcessed = enhanceCount + completeCount;
+  const remainingCount = captureCount - totalProcessed;
   
   return (
     <div className={styles.processSummary}>
@@ -426,8 +487,12 @@ export const ProcessSummary = ({ files }) => {
           <span>{captureCount}</span>
         </div>
         <div className={styles.statItem}>
-          <span>Processed:</span>
+          <span>Enhanced:</span>
           <span>{enhanceCount}</span>
+        </div>
+        <div className={styles.statItem}>
+          <span>Complete:</span>
+          <span>{completeCount}</span>
         </div>
         <div className={styles.statItem}>
           <span>Remaining:</span>

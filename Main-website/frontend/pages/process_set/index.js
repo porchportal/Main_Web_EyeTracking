@@ -8,7 +8,9 @@ import { useNotification } from './NotificationMessage';
 // Import API functions (only backend connection and processing)
 import {
   checkBackendConnection,
-  checkProcessingStatus
+  checkProcessingStatus,
+  processFiles,
+  getCurrentUserId
 } from './processApi';
 
 // Import dataset reader utilities (now includes all file operations)
@@ -44,6 +46,7 @@ export default function ProcessSet() {
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFolder, setSelectedFolder] = useState('captures');
   const [previewImageData, setPreviewImageData] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState(null);
@@ -57,7 +60,9 @@ export default function ProcessSet() {
 
   // Handle enhance face toggle
   const handleEnhanceFaceToggle = () => {
-    setEnhanceFace(!enhanceFace);
+    const newValue = !enhanceFace;
+    console.log(`EnhanceFace toggle: ${enhanceFace} -> ${newValue}`);
+    setEnhanceFace(newValue);
   };
 
   // Helper function to show notification only if message is different
@@ -84,14 +89,15 @@ export default function ProcessSet() {
   const initializeComponent = async () => {
     await checkConnection();
     if (backendConnected) {
-      // Get user ID from localStorage
-      const userId = localStorage.getItem('userId') || 'default';
+      // Get user ID from backend
+      const userId = await getCurrentUserId();
       
-      // Get files list from both folders
+      // Get files list from all three folders
       const captureResult = await getFilesList('captures', userId);
       const enhanceResult = await getFilesList('enhance', userId);
+      const completeResult = await getFilesList('complete', userId);
       
-      if (captureResult.success || enhanceResult.success) {
+      if (captureResult.success || enhanceResult.success || completeResult.success) {
         const organizedFiles = {
           capture: captureResult.success ? captureResult.files.map(filename => ({
             filename,
@@ -102,6 +108,12 @@ export default function ProcessSet() {
           enhance: enhanceResult.success ? enhanceResult.files.map(filename => ({
             filename,
             path: `/enhance/${userId}/${filename}`,
+            file_type: filename.split('.').pop(),
+            size: 0
+          })) : [],
+          complete: completeResult.success ? completeResult.files.map(filename => ({
+            filename,
+            path: `/complete/${userId}/${filename}`,
             file_type: filename.split('.').pop(),
             size: 0
           })) : []
@@ -158,8 +170,8 @@ export default function ProcessSet() {
   // Check if processing is needed
   const checkProcessingNeeded = async (showNotificationOnChange = false) => {
     try {
-      // Get user ID from localStorage
-      const userId = localStorage.getItem('userId') || 'default';
+      // Get user ID from backend
+      const userId = await getCurrentUserId();
       
       // First check file completeness
       const completenessResult = await checkFilesCompleteness(userId);
@@ -208,14 +220,15 @@ export default function ProcessSet() {
     
     setLoading(true);
     
-    // Get user ID from localStorage
-    const userId = localStorage.getItem('userId') || 'default';
+    // Get user ID from backend
+    const userId = await getCurrentUserId();
     
-    // Get files list from both folders
+    // Get files list from all three folders
     const captureResult = await getFilesList('captures', userId);
     const enhanceResult = await getFilesList('enhance', userId);
+    const completeResult = await getFilesList('complete', userId);
     
-    if (captureResult.success || enhanceResult.success) {
+    if (captureResult.success || enhanceResult.success || completeResult.success) {
       const organizedFiles = {
         capture: captureResult.success ? captureResult.files.map(filename => ({
           filename,
@@ -226,6 +239,12 @@ export default function ProcessSet() {
         enhance: enhanceResult.success ? enhanceResult.files.map(filename => ({
           filename,
           path: `/enhance/${userId}/${filename}`,
+          file_type: filename.split('.').pop(),
+          size: 0
+        })) : [],
+        complete: completeResult.success ? completeResult.files.map(filename => ({
+          filename,
+          path: `/complete/${userId}/${filename}`,
           file_type: filename.split('.').pop(),
           size: 0
         })) : []
@@ -280,11 +299,12 @@ export default function ProcessSet() {
   const handleFileSelect = async (filename, folder = 'captures') => {
     console.log('File selected:', filename, 'from folder:', folder);
     setSelectedFile(filename);
+    setSelectedFolder(folder);
     setPreviewImageData(null);
     
     try {
-      // Get user ID from localStorage
-      const userId = localStorage.getItem('userId') || 'default';
+      // Get user ID from backend
+      const userId = await getCurrentUserId();
       
       // Use the dataset reader to load the file from specific folder
       const result = await readFileFromFolder(filename, folder, userId, true);
@@ -306,33 +326,11 @@ export default function ProcessSet() {
     }
   };
 
-  // Process files function - moved from processApi.js to keep processing logic centralized
-  const processFiles = async (setNumbers) => {
+  // Process files function - now uses the centralized API function
+  const processFilesLocal = async (setNumbers, userId) => {
     try {
-      // console.log('Starting processing for sets:', setNumbers);
-      const response = await fetch('/api/process-images', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ set_numbers: setNumbers }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to start processing');
-      }
-
-      const data = await response.json();
-      
-      if (!data.success) {
-        throw new Error(data.error || 'Processing failed');
-      }
-      
-      return {
-        success: true,
-        message: data.message,
-        data: data
-      };
+      console.log(`processFilesLocal called with enhanceFace=${enhanceFace} (type: ${typeof enhanceFace})`);
+      return await processFiles(setNumbers, userId, enhanceFace);
     } catch (error) {
       console.error('Error processing files:', error);
       return {
@@ -369,8 +367,8 @@ export default function ProcessSet() {
     showNotification('Processing started...', 'info');
     
     try {
-      // Get user ID from localStorage
-      const userId = localStorage.getItem('userId') || 'default';
+      // Get user ID from backend
+      const userId = await getCurrentUserId();
       
       // Get the processing status
       const result = await checkFilesNeedProcessing(userId);
@@ -396,7 +394,7 @@ export default function ProcessSet() {
       });
 
       // Use the local processFiles function
-      const processResult = await processFiles(result.setsNeedingProcessing);
+      const processResult = await processFilesLocal(result.setsNeedingProcessing, userId);
       
       if (!processResult.success) {
         throw new Error(processResult.error || 'Processing failed');
@@ -516,6 +514,7 @@ export default function ProcessSet() {
               selectedFile={selectedFile}
               previewImage={previewImageData?.data}
               previewType={previewImageData?.type}
+              folder={selectedFolder}
             />
           </div>
         </div>

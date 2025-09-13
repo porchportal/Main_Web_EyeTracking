@@ -352,14 +352,18 @@ export class DatasetReader {
 
       const captureCount = data.captureCount || 0;
       const enhanceCount = data.enhanceCount || 0;
-      const needsProcessing = captureCount > enhanceCount;
-      const filesToProcess = captureCount - enhanceCount;
+      const completeCount = data.completeCount || 0;
+      const totalProcessedCount = data.totalProcessedCount || (enhanceCount + completeCount);
+      const needsProcessing = data.needsProcessing || false;
+      const filesToProcess = captureCount - totalProcessedCount;
 
       return {
         success: true,
         needsProcessing,
         captureCount,
         enhanceCount,
+        completeCount,
+        totalProcessedCount,
         filesToProcess,
         setsNeedingProcessing: data.setsNeedingProcessing || []
       };
@@ -371,6 +375,8 @@ export class DatasetReader {
         needsProcessing: false,
         captureCount: 0,
         enhanceCount: 0,
+        completeCount: 0,
+        totalProcessedCount: 0,
         filesToProcess: 0,
         setsNeedingProcessing: []
       };
