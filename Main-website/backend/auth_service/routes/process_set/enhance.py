@@ -34,7 +34,6 @@ async def process_with_enhance(request: EnhanceRequest):
     If enhanceFace=False: saves to /complete directory
     """
     try:
-        logger.info(f"Received enhance processing request for user {request.user_id}, enhanceFace={request.enhanceFace}")
         
         # Get image service URL from environment
         image_service_url = os.getenv("IMAGE_SERVICE_URL", "http://image_service:8010")

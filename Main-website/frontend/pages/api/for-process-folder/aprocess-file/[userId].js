@@ -7,8 +7,6 @@ export default async function handler(req, res) {
     const { setNumbers, enhanceFace } = req.body;
     const { userId } = req.query;
 
-    // Debug logging
-    console.log(`aprocess-file API received: setNumbers=${JSON.stringify(setNumbers)}, enhanceFace=${enhanceFace} (type: ${typeof enhanceFace}), userId=${userId}`);
 
     if (!setNumbers || !Array.isArray(setNumbers)) {
       return res.status(400).json({ error: 'Invalid set numbers' });

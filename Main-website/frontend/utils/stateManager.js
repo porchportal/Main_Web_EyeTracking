@@ -113,7 +113,7 @@ export function BackendConnectionProvider({ children }) {
       });
     } catch (err) {
       if (err.name === 'AbortError') {
-        console.warn("Backend connection check timed out");
+        // Backend connection check timed out
       } else {
         console.error("Backend connection check failed:", err);
       }

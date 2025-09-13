@@ -86,7 +86,6 @@ def get_face_tracker():
             # if model_path is None:
             #     raise FileNotFoundError("Face landmarker model not found in any of the expected locations")
                 
-            # print(f"Initializing face tracker with model: {model_path}")
             image_face_tracker = FrameShow_head_face(
                 # model_path=model_path,
                 isVideo=False,  # Set to False for image processing
@@ -410,16 +409,13 @@ async def process_images(
                         if user_folders:
                             actual_user_id = user_folders[0]  # Use the first available user folder
                             user_capture_dir = os.path.abspath(os.path.join('/app/resource_security/public/captures', actual_user_id))
-                            logging.info(f"Using first available user folder: {actual_user_id}")
                     except Exception as e:
                         logging.warning(f"Error finding user folders: {e}")
                 # Use user-specific directory if it exists, otherwise fallback to general
                 if os.path.exists(user_capture_dir):
                     capture_dir = user_capture_dir
-                    logging.info(f"Using user-specific capture directory: {capture_dir}")
                 else:
                     capture_dir = general_capture_dir
-                    logging.info(f"User-specific directory not found, using general directory: {capture_dir}")
                 
                 # Choose output directory based on enhanceFace value
                 # Use the actual user ID (which might be different from the input userId)
@@ -435,19 +431,7 @@ async def process_images(
                 else:
                     output_dir = os.path.abspath('/app/resource_security/public/complete')
             
-            # Debug logging
-            logging.info(f"Processing for userId: {userId}")
-            logging.info(f"Current working directory: {current_dir}")
-            logging.info(f"Capture directory: {capture_dir}")
-            logging.info(f"Output directory: {output_dir}")
-            logging.info(f"EnhanceFace parameter received: {enhanceFace} (type: {type(enhanceFace)})")
-            logging.info(f"Set numbers to process: {set_numbers}")
             
-            # Additional debug for folder selection
-            if enhanceFace:
-                logging.info("EnhanceFace is TRUE - outputting to enhance folder")
-            else:
-                logging.info("EnhanceFace is FALSE - outputting to complete folder")
             
             # Test different path resolutions
             test_paths = [
@@ -455,10 +439,6 @@ async def process_images(
                 os.path.abspath(os.path.join(current_dir, '../../auth_service/resource_security/public/captures')),
                 os.path.abspath(os.path.join(current_dir, '../../../auth_service/resource_security/public/captures')),
             ]
-            logging.info(f"Testing path resolutions:")
-            for i, path in enumerate(test_paths):
-                exists = os.path.exists(path)
-                logging.info(f"  Path {i+1}: {path} - Exists: {exists}")
             
             # Check if capture directory exists
             if not os.path.exists(capture_dir):
@@ -468,7 +448,6 @@ async def process_images(
                 base_captures_dir = os.path.abspath(os.path.join(current_dir, '../../auth_service/resource_security/public/captures'))
                 if os.path.exists(base_captures_dir):
                     available_dirs = [d for d in os.listdir(base_captures_dir) if os.path.isdir(os.path.join(base_captures_dir, d))]
-                    logging.info(f"Available capture directories: {available_dirs}")
                 
                 yield {
                     "status": "error",
@@ -482,13 +461,11 @@ async def process_images(
             # List files in capture directory for debugging
             try:
                 capture_files = os.listdir(capture_dir)
-                logging.info(f"Files found in capture directory: {capture_files[:10]}")  # Show first 10 files
             except Exception as e:
                 logging.error(f"Error listing capture directory: {e}")
             
             # Ensure output directory exists
             if not os.path.exists(output_dir):
-                logging.info(f"Creating output directory: {output_dir}")
                 os.makedirs(output_dir, exist_ok=True)
             
             # Process each set number
@@ -509,8 +486,6 @@ async def process_images(
                     webcam_src = os.path.join(capture_dir, f'webcam_{set_num:03d}.jpg')
                     webcam_dst = os.path.join(output_dir, f'webcam_enhance_{set_num:03d}.jpg' if enhanceFace else f'webcam_{set_num:03d}.jpg')
                     
-                    logging.info(f"Looking for webcam file: {webcam_src}")
-                    logging.info(f"File exists: {os.path.exists(webcam_src)}")
                     
                     if not os.path.exists(webcam_src):
                         # List available webcam files for debugging

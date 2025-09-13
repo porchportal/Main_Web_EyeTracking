@@ -85,7 +85,6 @@ export const updateUserProfile = async (profileData) => {
       });
       
       if (!response.ok) {
-        console.warn('Failed to save profile to backend');
         return null;
       }
 
@@ -103,7 +102,6 @@ export const updateUserProfile = async (profileData) => {
         isComplete
       };
     } catch (saveError) {
-      console.warn('Error saving profile to backend:', saveError);
       return null;
     }
   } catch (error) {
@@ -224,10 +222,10 @@ export const updateUserConsent = async (status, details = {}) => {
       });
       
       if (!response.ok) {
-        console.warn('Failed to update consent in backend');
+        // Failed to update consent in backend
       }
     } catch (error) {
-      console.warn('Error updating consent in backend:', error);
+      // Error updating consent in backend
     }
     
     // Also send consent data to admin JSON file (as backup)
@@ -239,10 +237,10 @@ export const updateUserConsent = async (status, details = {}) => {
       });
       
       if (!response.ok) {
-        console.warn('Failed to send consent data to admin');
+        // Failed to send consent data to admin
       }
     } catch (error) {
-      console.warn('Error sending consent data to admin:', error);
+      // Error sending consent data to admin
     }
     
     return {

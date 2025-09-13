@@ -1,7 +1,7 @@
 // pages/process_set/readDataset.js - Dataset reading utilities for image preview with folder support
 
 // Utility function for making API requests with retry and better error handling
-const fetchWithRetry = async (url, options = {}, retries = 2) => {
+const fetchWithRetry = async (url, options = {}, retries = 3) => {
   let lastError;
   
   // Get API key from environment variable
@@ -16,10 +16,8 @@ const fetchWithRetry = async (url, options = {}, retries = 2) => {
 
   for (let i = 0; i <= retries; i++) {
     try {
-      console.log(`Fetching ${absoluteUrl}${i > 0 ? ` (retry ${i}/${retries})` : ''}`);
-      
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      const timeout = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
       const response = await fetch(absoluteUrl, {
         ...options,
@@ -36,11 +34,14 @@ const fetchWithRetry = async (url, options = {}, retries = 2) => {
       // Check for response errors
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`API error (${response.status}):`, errorText);
         
-        // Special handling for 401 (Unauthorized)
+        // Special handling for different error codes
         if (response.status === 401) {
           throw new Error('Invalid API key. Please check your configuration.');
+        } else if (response.status === 503) {
+          throw new Error('Service temporarily unavailable. Please try again in a moment.');
+        } else if (response.status >= 500) {
+          throw new Error(`Server error (${response.status}). Please try again later.`);
         }
         
         throw new Error(`API returned ${response.status}: ${errorText || response.statusText}`);
@@ -51,16 +52,23 @@ const fetchWithRetry = async (url, options = {}, retries = 2) => {
         const data = await response.json();
         return data;
       } catch (parseError) {
-        console.error('JSON parse error:', parseError);
         throw new Error(`Failed to parse response: ${parseError.message}`);
       }
     } catch (error) {
-      console.error(`Fetch error (attempt ${i+1}/${retries+1}):`, error);
       lastError = error;
       
-      // If this was an abort error (timeout), log it specifically
+      // If this was an abort error (timeout), don't retry
       if (error.name === 'AbortError') {
-        console.error('Request timed out');
+        throw new Error('Request timed out. Please check your connection.');
+      }
+      
+      // If this is a 503 error, wait longer before retrying
+      if (error.message.includes('503') || error.message.includes('Service temporarily unavailable')) {
+        if (i < retries) {
+          const delay = 2000 * Math.pow(2, i); // Longer delay for 503: 2s, 4s, 8s
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
       }
       
       // If we have retries left, wait before trying again
@@ -135,13 +143,11 @@ export class DatasetReader {
     
     // Check cache first if enabled
     if (useCache && this.cache.has(cacheKey)) {
-      console.log(`Using cached data for ${cacheKey}`);
       return this.cache.get(cacheKey);
     }
 
     // Check if already loading this file
     if (this.loadingPromises.has(cacheKey)) {
-      console.log(`File ${cacheKey} is already being loaded, waiting...`);
       return this.loadingPromises.get(cacheKey);
     }
 
@@ -173,7 +179,6 @@ export class DatasetReader {
    */
   async _loadFileFromBackend(filename, userId, folder = 'captures') {
     try {
-      console.log(`Loading file from backend: ${filename} from ${folder} folder`);
       
       // Get user ID from localStorage if not provided
       if (!userId) {
@@ -391,7 +396,6 @@ export class DatasetReader {
    * @returns {Promise<Array<Object>>} - Array of preview data objects
    */
   async preloadFiles(filenames, userId = null, folder = 'captures') {
-    console.log(`Preloading ${filenames.length} files from ${folder} folder...`);
     
     const promises = filenames.map(filename => 
       this.readFile(filename, userId, true, folder)
@@ -428,10 +432,8 @@ export class DatasetReader {
   clearCache(filename = null) {
     if (filename) {
       this.cache.delete(filename);
-      console.log(`Cleared cache for ${filename}`);
     } else {
       this.cache.clear();
-      console.log('Cleared all cache');
     }
   }
 
@@ -525,11 +527,11 @@ export const checkFilesNeedProcessing = (userId) =>
 
 // Debug utility function
 export const debugDatasetReader = () => {
-  console.log('Dataset Reader Debug Info:');
-  console.log('- Cache size:', datasetReader.getCacheStats().size);
-  console.log('- Cached files:', datasetReader.getCacheStats().files);
-  console.log('- Loading files:', datasetReader.getCacheStats().loadingCount);
-  console.log('- Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(datasetReader)));
+  console.warn('Dataset Reader Debug Info:');
+  console.warn('- Cache size:', datasetReader.getCacheStats().size);
+  console.warn('- Cached files:', datasetReader.getCacheStats().files);
+  console.warn('- Loading files:', datasetReader.getCacheStats().loadingCount);
+  console.warn('- Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(datasetReader)));
 };
 
 // Default export

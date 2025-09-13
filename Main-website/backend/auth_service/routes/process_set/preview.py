@@ -57,7 +57,6 @@ async def list_files(userId: str = "default", folder: str = "captures"):
                               and item not in ['enhance', 'complete', 'eye_tracking_captures']]
                 if user_folders:
                     actual_user_id = user_folders[0]  # Use the first available user folder
-                    logging.info(f"Using first available user folder: {actual_user_id}")
         
         # Handle different folder structures - all folders are user-specific
         if folder in ['enhance', 'complete']:
@@ -67,10 +66,8 @@ async def list_files(userId: str = "default", folder: str = "captures"):
             # For captures, use /public/captures/{userId}
             file_dir = os.path.join(base_dir, 'captures', actual_user_id)
         
-        logging.info(f"Listing files in folder: {file_dir}")
         
         if not os.path.exists(file_dir):
-            logging.info(f"Creating empty folder: {file_dir}")
             os.makedirs(file_dir, exist_ok=True)
             return {
                 "success": True,
@@ -91,7 +88,6 @@ async def list_files(userId: str = "default", folder: str = "captures"):
         # Sort files by number in filename if present
         files.sort(key=lambda x: int(x.split('_')[-1].split('.')[0]) if '_' in x and x.split('_')[-1].split('.')[0].isdigit() else 0)
         
-        logging.info(f"Found {len(files)} files in {actual_folder} folder")
         
         return {
             "success": True,
@@ -136,7 +132,6 @@ async def get_preview(filename: str, userId: str = "default", folder: str = "cap
                               and item not in ['enhance', 'complete', 'eye_tracking_captures']]
                 if user_folders:
                     actual_user_id = user_folders[0]  # Use the first available user folder
-                    logging.info(f"Using first available user folder: {actual_user_id}")
         
         # Handle different folder structures - all folders are user-specific
         if folder in ['enhance', 'complete']:
@@ -157,12 +152,6 @@ async def get_preview(filename: str, userId: str = "default", folder: str = "cap
             
         file_path = os.path.join(file_dir, filename)
         
-        logging.info(f"Current directory: {current_dir}")
-        logging.info(f"Base directory: {base_dir}")
-        logging.info(f"File directory: {file_dir}")
-        logging.info(f"Folder: {folder} -> {actual_folder}")
-        logging.info(f"User ID: {userId} -> {actual_user_id}")
-        logging.info(f"Looking for preview file: {file_path}")
         
         if not os.path.exists(file_path):
             logging.error(f"File not found at path: {file_path}")
@@ -170,13 +159,11 @@ async def get_preview(filename: str, userId: str = "default", folder: str = "cap
             
         # Check if file is an image
         file_ext = os.path.splitext(filename)[1].lower()
-        logging.info(f"File extension: {file_ext}")
         
         if file_ext in ['.jpg', '.jpeg', '.png', '.gif']:
             # Read and encode the image file
             with open(file_path, 'rb') as f:
                 image_data = base64.b64encode(f.read()).decode('utf-8')
-                logging.info(f"Successfully encoded image data, length: {len(image_data)}")
                 
             return PreviewResponse(
                 data=image_data,
@@ -188,7 +175,6 @@ async def get_preview(filename: str, userId: str = "default", folder: str = "cap
             # For non-image files, read as text
             with open(file_path, 'r') as f:
                 text_data = f.read()
-                logging.info(f"Successfully read text data, length: {len(text_data)}")
                 
             return PreviewResponse(
                 data=text_data,

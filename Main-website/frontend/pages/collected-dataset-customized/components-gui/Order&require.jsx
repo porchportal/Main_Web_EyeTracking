@@ -38,7 +38,6 @@ const OrderRequire = ({
 
   // Function to handle path name click
   const handlePathClick = (imagePath, index) => {
-    console.log('Path clicked:', imagePath, 'Index:', index); // Debug log
     if (expandedPath === index) {
       // If already expanded, collapse it
       setExpandedPath(null);
@@ -59,7 +58,6 @@ const OrderRequire = ({
   // Function to clear all state data (can be called from parent component)
   const clearAllState = () => {
     const result = clearAllStateDataWithCompletion(currentUserId);
-    console.log('OrderRequire - Clear state result:', result);
     return result;
   };
 
@@ -79,7 +77,6 @@ const OrderRequire = ({
   // Update parsed images when imageBackgroundPaths change
   useEffect(() => {
     const parsed = parseImagePaths(imageBackgroundPaths);
-    console.log('Parsed images:', parsed); // Debug log
     setParsedImages(parsed);
   }, [imageBackgroundPaths]);
 
@@ -90,13 +87,11 @@ const OrderRequire = ({
       
       // Check if data is stale (older than 24 hours)
       if (isProgressDataStale(progressData, 24)) {
-        console.log('Progress data is stale, not loading from localStorage');
         return;
       }
       
       // Update progress if we have valid data
       if (progressData.buttonClickCount > 0 || progressData.parsedImages.length > 0) {
-        console.log('Loaded progress from localStorage for user:', currentUserId, progressData);
         // Note: The actual progress values are managed by CanvasImage manager
         // This is just for logging and potential UI updates
       }
@@ -186,16 +181,9 @@ const OrderRequire = ({
   }, []);
 
   if (!isHydrated || !isVisible) {
-    console.log('OrderRequire not visible - isHydrated:', isHydrated, 'isVisible:', isVisible);
     return null;
   }
 
-  console.log('OrderRequire is visible and rendering');
-  console.log('Props received:', { 
-    imageBackgroundPaths, 
-    parsedImagesLength: parsedImages.length,
-    clickedButtonsSize: clickedButtons.size 
-  });
 
   return (
     <>
@@ -262,7 +250,6 @@ const OrderRequire = ({
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('TEST BUTTON CLICKED!');
                     alert('Test button works!');
                   }}
                   style={{
@@ -287,7 +274,6 @@ const OrderRequire = ({
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
-                      console.log('Row clicked - Index:', index, 'Path:', image.path); // Debug log
                       handlePathClick(image.path, index);
                     }}
                   >

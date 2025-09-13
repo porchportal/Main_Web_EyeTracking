@@ -177,14 +177,34 @@ async def websocket_endpoint(websocket: WebSocket):
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint to verify MongoDB connection."""
+    """Health check endpoint to verify MongoDB connection and service status."""
     try:
-        if await MongoDB.ensure_connected():
-            return {"status": "healthy", "mongodb": "connected"}
-        return {"status": "degraded", "mongodb": "disconnected"}
+        # Check MongoDB connection
+        mongo_connected = await MongoDB.ensure_connected()
+        mongo_status = "connected" if mongo_connected else "disconnected"
+        
+        # Check if service is responsive
+        service_status = "healthy" if mongo_connected else "degraded"
+        
+        # Check disk space (optional)
+        try:
+            import shutil
+            disk_usage = shutil.disk_usage("/")
+            free_space_gb = disk_usage.free / (1024**3)
+            disk_status = "ok" if free_space_gb > 1.0 else "low"
+        except:
+            disk_status = "unknown"
+        
+        return {
+            "status": service_status,
+            "mongodb": mongo_status,
+            "disk_space": disk_status,
+            "timestamp": datetime.now().isoformat(),
+            "uptime": "running"
+        }
     except Exception as e:
         logger.error(f"Health check failed: {str(e)}")
-        return {"status": "unhealthy", "mongodb": "error"}
+        return {"status": "unhealthy", "mongodb": "error", "error": str(e)}
 
 @app.get("/api/check-backend-connection")
 async def check_backend_connection():

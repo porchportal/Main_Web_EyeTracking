@@ -69,7 +69,6 @@ export default async function handler(req, res) {
       serverInfo: healthData
     };
     
-    console.log('Backend connection response:', response);
     return res.status(200).json(response);
   } catch (error) {
     console.error('Backend connection error:', error);

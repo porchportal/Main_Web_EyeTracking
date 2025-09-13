@@ -1,7 +1,7 @@
 // pages/process_set/processApi.js - API functions for process_set with improved connection handling
 
 // Utility function for making API requests with retry and better error handling
-const fetchWithRetry = async (url, options = {}, retries = 2, customTimeout = 8000) => {
+const fetchWithRetry = async (url, options = {}, retries = 3, customTimeout = 10000) => {
   let lastError;
   
   // Get API key from environment variable
@@ -16,10 +16,8 @@ const fetchWithRetry = async (url, options = {}, retries = 2, customTimeout = 80
 
   for (let i = 0; i <= retries; i++) {
     try {
-      console.log(`Fetching ${absoluteUrl}${i > 0 ? ` (retry ${i}/${retries})` : ''}`);
-      
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), customTimeout); // Custom timeout
+      const timeout = setTimeout(() => controller.abort(), customTimeout);
       
       const response = await fetch(absoluteUrl, {
         ...options,
@@ -36,11 +34,14 @@ const fetchWithRetry = async (url, options = {}, retries = 2, customTimeout = 80
       // Check for response errors
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`API error (${response.status}):`, errorText);
         
-        // Special handling for 401 (Unauthorized)
+        // Special handling for different error codes
         if (response.status === 401) {
           throw new Error('Invalid API key. Please check your configuration.');
+        } else if (response.status === 503) {
+          throw new Error('Service temporarily unavailable. Please try again in a moment.');
+        } else if (response.status >= 500) {
+          throw new Error(`Server error (${response.status}). Please try again later.`);
         }
         
         throw new Error(`API returned ${response.status}: ${errorText || response.statusText}`);
@@ -51,22 +52,28 @@ const fetchWithRetry = async (url, options = {}, retries = 2, customTimeout = 80
         const data = await response.json();
         return data;
       } catch (parseError) {
-        console.error('JSON parse error:', parseError);
         throw new Error(`Failed to parse response: ${parseError.message}`);
       }
     } catch (error) {
-      console.error(`Fetch error (attempt ${i+1}/${retries+1}):`, error);
       lastError = error;
       
-      // If this was an abort error (timeout), log it specifically
+      // If this was an abort error (timeout), don't retry
       if (error.name === 'AbortError') {
-        console.error('Request timed out');
+        throw new Error('Request timed out. Please check your connection.');
+      }
+      
+      // If this is a 503 error, wait longer before retrying
+      if (error.message.includes('503') || error.message.includes('Service temporarily unavailable')) {
+        if (i < retries) {
+          const delay = 2000 * Math.pow(2, i); // Longer delay for 503: 2s, 4s, 8s
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
       }
       
       // If we have retries left, wait before trying again
       if (i < retries) {
         const delay = 1000 * Math.pow(2, i); // Exponential backoff: 1s, 2s, 4s, etc.
-        // console.log(`Waiting ${delay}ms before retry...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -116,9 +123,7 @@ export const getCurrentUserId = async () => {
 // Check if the backend is connected
 export const checkBackendConnection = async () => {
   try {
-    // console.log('Checking backend connection...');
     const response = await fetchWithRetry('/api/check-backend-connection');
-    // console.log('Backend connection response:', response);
     return {
       success: true,
       connected: response.connected || false,
@@ -237,11 +242,7 @@ export const checkFilesNeedProcessing = async (userId = null) => {
       userId = await getCurrentUserId();
     }
     
-    console.log(`Checking files need processing for userId: ${userId}`);
-    
     const response = await fetchWithRetry(`/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=compare`);
-    
-    console.log('checkFilesNeedProcessing response:', response);
     
     if (!response.success) {
       throw new Error(response.message || 'Failed to get files list');
@@ -251,15 +252,6 @@ export const checkFilesNeedProcessing = async (userId = null) => {
     const enhanceCount = response.enhanceCount || 0;
     const needsProcessing = captureCount > enhanceCount;
     const filesToProcess = captureCount - enhanceCount;
-    
-    console.log('File processing check results:', {
-      userId,
-      captureCount,
-      enhanceCount,
-      needsProcessing,
-      filesToProcess,
-      setsNeedingProcessing: response.setsNeedingProcessing || []
-    });
     
     return {
       success: true,
@@ -286,9 +278,6 @@ export const checkFilesNeedProcessing = async (userId = null) => {
 // Process files function that calls the new aprocess-file endpoint
 export const processFiles = async (setNumbers, userId = null, enhanceFace) => {
   try {
-    // Debug logging
-    console.log(`processFiles called with: setNumbers=${JSON.stringify(setNumbers)}, userId=${userId}, enhanceFace=${enhanceFace} (type: ${typeof enhanceFace})`);
-    
     // Get user ID from backend if not provided
     if (!userId) {
       userId = await getCurrentUserId();
@@ -331,7 +320,6 @@ export const compareFileCounts = async (userId = null) => {
 // Check if processing is currently running
 export const checkProcessingStatus = async () => {
   try {
-    // console.log('Requesting processing status...');
     const response = await fetchWithRetry('/api/process-status-api', {}, 1); // Only 1 retry for status checks
     
     // If fetch succeeded but response is malformed, handle it gracefully

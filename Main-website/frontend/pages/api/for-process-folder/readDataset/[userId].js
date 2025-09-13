@@ -54,8 +54,6 @@ export default async function handler(req, res) {
 // Handle list operation by calling backend API
 async function handleListOperation(userId, folder, res, backendUrl, apiKey) {
   try {
-    console.log(`Calling backend API for file listing: ${folder} folder for user ${userId}`);
-    
     // Call the backend list-files API
     const response = await fetch(`${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=${encodeURIComponent(folder)}`, {
       headers: {
@@ -106,7 +104,6 @@ async function handleFileListing(userId, folder, res, backendUrl, apiKey) {
   try {
     // For now, we'll return a simple response indicating no files
     // In production, this should call a proper backend API endpoint for file listing
-    console.log(`File listing requested for userId: ${userId}, folder: ${folder}`);
     
     // Return empty files list for now - the backend should implement a proper file listing API
     return res.status(200).json({
@@ -128,7 +125,6 @@ async function handleCompletenessCheck(userId, res, backendUrl, apiKey) {
   try {
     // For now, return a simple response
     // In production, this should be implemented as a proper backend API endpoint
-    console.log(`Completeness check requested for userId: ${userId}`);
     
     return res.status(200).json({
       success: true,
@@ -149,11 +145,8 @@ async function handleCompletenessCheck(userId, res, backendUrl, apiKey) {
 // Handle compare operation
 async function handleCompareOperation(userId, res, backendUrl, apiKey) {
   try {
-    console.log(`Compare operation requested for userId: ${userId}`);
-    
     // Get capture files
     const captureUrl = `${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=captures`;
-    console.log(`Fetching capture files from: ${captureUrl}`);
     
     const captureResponse = await fetch(captureUrl, {
       headers: {
@@ -164,7 +157,6 @@ async function handleCompareOperation(userId, res, backendUrl, apiKey) {
     
     // Get enhance files
     const enhanceUrl = `${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=enhance`;
-    console.log(`Fetching enhance files from: ${enhanceUrl}`);
     
     const enhanceResponse = await fetch(enhanceUrl, {
       headers: {
@@ -175,7 +167,6 @@ async function handleCompareOperation(userId, res, backendUrl, apiKey) {
     
     // Get complete files
     const completeUrl = `${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=complete`;
-    console.log(`Fetching complete files from: ${completeUrl}`);
     
     const completeResponse = await fetch(completeUrl, {
       headers: {
@@ -188,14 +179,9 @@ async function handleCompareOperation(userId, res, backendUrl, apiKey) {
     let enhanceFiles = [];
     let completeFiles = [];
     
-    console.log(`Capture response status: ${captureResponse.status}`);
-    console.log(`Enhance response status: ${enhanceResponse.status}`);
-    console.log(`Complete response status: ${completeResponse.status}`);
-    
     if (captureResponse.ok) {
       const captureData = await captureResponse.json();
       captureFiles = captureData.files || [];
-      console.log(`Capture files found: ${captureFiles.length}`, captureFiles.slice(0, 5));
     } else {
       console.error(`Capture response error: ${captureResponse.status}`, await captureResponse.text());
     }
@@ -203,7 +189,6 @@ async function handleCompareOperation(userId, res, backendUrl, apiKey) {
     if (enhanceResponse.ok) {
       const enhanceData = await enhanceResponse.json();
       enhanceFiles = enhanceData.files || [];
-      console.log(`Enhance files found: ${enhanceFiles.length}`, enhanceFiles.slice(0, 5));
     } else {
       console.error(`Enhance response error: ${enhanceResponse.status}`, await enhanceResponse.text());
     }
@@ -211,7 +196,6 @@ async function handleCompareOperation(userId, res, backendUrl, apiKey) {
     if (completeResponse.ok) {
       const completeData = await completeResponse.json();
       completeFiles = completeData.files || [];
-      console.log(`Complete files found: ${completeFiles.length}`, completeFiles.slice(0, 5));
     } else {
       console.error(`Complete response error: ${completeResponse.status}`, await completeResponse.text());
     }
@@ -253,16 +237,6 @@ async function handleCompareOperation(userId, res, backendUrl, apiKey) {
     const totalProcessedCount = enhanceCount + completeCount;
     const needsProcessing = setsNeedingProcessing.length > 0;
     
-    console.log(`File comparison results:`, {
-      userId,
-      captureCount,
-      enhanceCount,
-      completeCount,
-      totalProcessedCount,
-      setsNeedingProcessing: setsNeedingProcessing.length,
-      needsProcessing
-    });
-    
     return res.status(200).json({
       success: true,
       captureCount,
@@ -288,8 +262,6 @@ async function handleCompareOperation(userId, res, backendUrl, apiKey) {
 // Handle preview operation by calling backend API
 async function handlePreviewOperation(userId, filename, folder, res, backendUrl, apiKey) {
   try {
-    console.log(`Calling backend API for preview: ${filename} from ${folder} folder`);
-    
     // Call the backend preview API
     const response = await fetch(`${backendUrl}/api/preview-api?filename=${encodeURIComponent(filename)}&userId=${encodeURIComponent(userId)}&folder=${encodeURIComponent(folder)}`, {
       headers: {

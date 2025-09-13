@@ -172,7 +172,6 @@ export const saveClickedButtonsToStorage = (clickedButtons, userId = null) => {
     const storageKey = userId ? `clickedButtons_${userId}` : 'clickedButtons';
     const buttonsArray = Array.from(clickedButtons);
     localStorage.setItem(storageKey, JSON.stringify(buttonsArray));
-    console.log('Saved clicked buttons to localStorage:', buttonsArray);
   } catch (error) {
     console.error('Error saving clicked buttons to localStorage:', error);
   }
@@ -191,7 +190,6 @@ export const loadClickedButtonsFromStorage = (userId = null) => {
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       const buttonsArray = JSON.parse(stored);
-      console.log('Loaded clicked buttons from localStorage:', buttonsArray);
       return new Set(buttonsArray);
     }
   } catch (error) {
@@ -211,7 +209,6 @@ export const clearClickedButtonsFromStorage = (userId = null) => {
   try {
     const storageKey = userId ? `clickedButtons_${userId}` : 'clickedButtons';
     localStorage.removeItem(storageKey);
-    console.log('Cleared clicked buttons from localStorage');
   } catch (error) {
     console.error('Error clearing clicked buttons from localStorage:', error);
   }
@@ -300,7 +297,6 @@ export const saveProgressToStorage = (buttonClickCount, currentImageTimes, parse
       timestamp: Date.now()
     };
     localStorage.setItem(storageKey, JSON.stringify(progressData));
-    console.log('Saved progress to localStorage:', progressData);
   } catch (error) {
     console.error('Error saving progress to localStorage:', error);
   }
@@ -326,7 +322,6 @@ export const loadProgressFromStorage = (userId = null) => {
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       const progressData = JSON.parse(stored);
-      console.log('Loaded progress from localStorage:', progressData);
       return progressData;
     }
   } catch (error) {
@@ -351,7 +346,6 @@ export const clearProgressFromStorage = (userId = null) => {
   try {
     const storageKey = userId ? `progress_${userId}` : 'progress';
     localStorage.removeItem(storageKey);
-    console.log('Cleared progress from localStorage');
   } catch (error) {
     console.error('Error clearing progress from localStorage:', error);
   }
@@ -436,7 +430,6 @@ export const clearAllStateData = (userId = null) => {
       }
     });
     
-    console.log('Cleared all state data from localStorage:', clearedKeys);
     
     return {
       success: true,
@@ -528,8 +521,6 @@ export const trackButtonCompletion = (buttonName, userId = null) => {
     // Save back to localStorage
     localStorage.setItem(storageKey, JSON.stringify(completionData));
     
-    console.log(`Button completion tracked: ${buttonName} - Count: ${completionData[buttonName]}`);
-    
     return {
       success: true,
       newCount: completionData[buttonName],
@@ -611,8 +602,6 @@ export const clearButtonCompletionCounts = (userId = null) => {
     const storageKey = userId ? `buttonCompletion_${userId}` : 'buttonCompletion';
     localStorage.removeItem(storageKey);
     
-    console.log('Button completion counts cleared');
-    
     return {
       success: true,
       message: 'Button completion counts cleared successfully'
@@ -688,7 +677,6 @@ export const clearAllStateDataWithCompletion = (userId = null) => {
       }
     });
     
-    console.log('Cleared all state data including completion counts from localStorage:', clearedKeys);
     
     return {
       success: true,
@@ -744,17 +732,6 @@ export const counter = (number = 1, userId = null, imageIndex = null) => {
     // Save back to localStorage
     localStorage.setItem(storageKey, currentCount.toString());
     
-    // Enhanced logging to debug the issue
-    console.log(`🔢 COUNTER DEBUG:`, {
-      function: 'counter',
-      number: number,
-      userId: userId,
-      imageIndex: imageIndex,
-      storageKey: storageKey,
-      previousCount: stored ? parseInt(stored, 10) : 0,
-      newCount: currentCount,
-      stackTrace: new Error().stack
-    });
     
     return {
       success: true,
@@ -805,8 +782,6 @@ export const resetButtonCounter = (userId = null) => {
   try {
     const storageKey = userId ? `buttonCounter_${userId}` : 'buttonCounter';
     localStorage.removeItem(storageKey);
-    
-    console.log('Button counter reset to 0');
     
     return {
       success: true,
@@ -886,8 +861,6 @@ export const resetImageCounter = (imageIndex, userId = null) => {
     const storageKey = userId ? `buttonCounter_${userId}_image_${imageIndex}` : `buttonCounter_image_${imageIndex}`;
     localStorage.removeItem(storageKey);
     
-    console.log(`Image counter for image ${imageIndex + 1} reset to 0`);
-    
     return {
       success: true,
       message: `Image counter for image ${imageIndex + 1} reset successfully`
@@ -926,8 +899,6 @@ export const resetAllImageCounters = (userId = null) => {
     }
     
     keysToRemove.forEach(key => localStorage.removeItem(key));
-    
-    console.log(`Reset ${keysToRemove.length} image counters`);
     
     return {
       success: true,
@@ -972,7 +943,6 @@ export const debugButtonStorage = (userId = null) => {
       }
     }
     
-    console.log('🔍 BUTTON STORAGE DEBUG:', debugData);
     return debugData;
   } catch (error) {
     console.error('Error debugging button storage:', error);
