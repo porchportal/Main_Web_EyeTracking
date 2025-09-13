@@ -1,21 +1,28 @@
 // pages/process_set/index.js
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import styles from '../../styles/ProcessSet.module.css';
+import styles from './sectionPreview.module.css';
 import { useEffect, useState } from 'react';
 import { useNotification } from './NotificationMessage';
 
-// Import API functions
+// Import API functions (only backend connection and processing)
 import {
   checkBackendConnection,
+  checkProcessingStatus
+} from './processApi';
+
+// Import dataset reader utilities (now includes all file operations)
+import { 
+  datasetReader, 
+  readFile, 
+  preloadFiles, 
+  readFileFromFolder, 
+  preloadFilesFromFolder,
   getFilesList,
   checkFilesCompleteness,
-  previewFile,
-  processFiles,
-  compareFileCounts,
-  checkProcessingStatus,
-  checkFilesNeedProcessing
-} from './processApi';
+  checkFilesNeedProcessing,
+  previewFile
+} from './readDataset';
 
 // Import UI components
 import {
@@ -24,8 +31,9 @@ import {
   ActionButtons,
   Notification,
   ProcessSummary,
-  ProcessingProgress
-} from './ProcessSetUI';
+  ProcessingProgress,
+  EnhanceFaceToggle
+} from './sectionPreview';
 
 export default function ProcessSet() {
   const router = useRouter();
@@ -40,8 +48,25 @@ export default function ProcessSet() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState(null);
   const [progressData, setProgressData] = useState(null);
+  const [enhanceFace, setEnhanceFace] = useState(false);
+  const [lastNotificationMessage, setLastNotificationMessage] = useState('');
+  const [captureLoaded, setCaptureLoaded] = useState(false);
+  const [filesChecked, setFilesChecked] = useState(false);
   
   const [showNotification, NotificationComponent] = useNotification();
+
+  // Handle enhance face toggle
+  const handleEnhanceFaceToggle = () => {
+    setEnhanceFace(!enhanceFace);
+  };
+
+  // Helper function to show notification only if message is different
+  const showNotificationIfNew = (message, type = 'info', duration = 5000) => {
+    if (message !== lastNotificationMessage) {
+      setLastNotificationMessage(message);
+      showNotification(message, type, duration);
+    }
+  };
 
   // Initialize component on mount
   useEffect(() => {
@@ -49,7 +74,7 @@ export default function ProcessSet() {
     initializeComponent();
     
     // Set up interval to check processing status - reduced from 10s to 30s
-    const statusInterval = setInterval(checkProcessingNeeded, 30000);
+    const statusInterval = setInterval(() => checkProcessingNeeded(false), 30000);
     
     // Clean up interval on unmount
     return () => clearInterval(statusInterval);
@@ -59,8 +84,60 @@ export default function ProcessSet() {
   const initializeComponent = async () => {
     await checkConnection();
     if (backendConnected) {
-      await handleCheckFiles();
-      await checkProcessingNeeded();
+      // Get user ID from localStorage
+      const userId = localStorage.getItem('userId') || 'default';
+      
+      // Get files list from both folders
+      const captureResult = await getFilesList('captures', userId);
+      const enhanceResult = await getFilesList('enhance', userId);
+      
+      if (captureResult.success || enhanceResult.success) {
+        const organizedFiles = {
+          capture: captureResult.success ? captureResult.files.map(filename => ({
+            filename,
+            path: `/captures/${userId}/${filename}`,
+            file_type: filename.split('.').pop(),
+            size: 0
+          })) : [],
+          enhance: enhanceResult.success ? enhanceResult.files.map(filename => ({
+            filename,
+            path: `/enhance/${userId}/${filename}`,
+            file_type: filename.split('.').pop(),
+            size: 0
+          })) : []
+        };
+        
+        setFiles(organizedFiles);
+        
+        // Set capture loaded state based on whether we have capture files
+        setCaptureLoaded(captureResult.success && captureResult.files.length > 0);
+        
+        // Preload first few files for better performance from each folder
+        const captureFilenames = organizedFiles.capture.slice(0, 5).map(f => f.filename);
+        const enhanceFilenames = organizedFiles.enhance.slice(0, 5).map(f => f.filename);
+        
+        if (captureFilenames.length > 0) {
+          console.log('Preloading capture files for better performance...');
+          preloadFilesFromFolder(captureFilenames, 'captures', userId).then(results => {
+            const successCount = results.filter(r => r.success).length;
+            console.log(`Preloaded ${successCount}/${results.length} capture files`);
+          }).catch(error => {
+            console.warn('Error preloading capture files:', error);
+          });
+        }
+        
+        if (enhanceFilenames.length > 0) {
+          console.log('Preloading enhance files for better performance...');
+          preloadFilesFromFolder(enhanceFilenames, 'enhance', userId).then(results => {
+            const successCount = results.filter(r => r.success).length;
+            console.log(`Preloaded ${successCount}/${results.length} enhance files`);
+          }).catch(error => {
+            console.warn('Error preloading enhance files:', error);
+          });
+        }
+      }
+      
+      await checkProcessingNeeded(true); // Show notification on initial load
     }
   };
 
@@ -79,18 +156,25 @@ export default function ProcessSet() {
   };
 
   // Check if processing is needed
-  const checkProcessingNeeded = async () => {
+  const checkProcessingNeeded = async (showNotificationOnChange = false) => {
     try {
+      // Get user ID from localStorage
+      const userId = localStorage.getItem('userId') || 'default';
+      
       // First check file completeness
-      const completenessResult = await checkFilesCompleteness();
+      const completenessResult = await checkFilesCompleteness(userId);
       if (!completenessResult.success) {
-        showNotification('Error checking file completeness: ' + completenessResult.error, 'error');
+        if (showNotificationOnChange) {
+          showNotification('Error checking file completeness: ' + completenessResult.error, 'error');
+        }
         return;
       }
 
       // Then check if processing is needed
-      const result = await checkFilesNeedProcessing();
+      const result = await checkFilesNeedProcessing(userId);
       if (result.success) {
+        // Only show notification if the state actually changes
+        const previousProcessReady = isProcessReady;
         setIsProcessReady(result.needsProcessing);
         setProcessingStatus({
           captureCount: result.captureCount,
@@ -98,16 +182,20 @@ export default function ProcessSet() {
           filesToProcess: result.filesToProcess
         });
         
-        // Show appropriate notification
-        if (result.needsProcessing) {
-          showNotification(`${result.filesToProcess} sets need processing`, 'info');
-        } else {
-          showNotification('All sets are processed', 'success');
+        // Only show notification if state changed or explicitly requested
+        if (showNotificationOnChange || previousProcessReady !== result.needsProcessing) {
+          if (result.needsProcessing) {
+            showNotificationIfNew(`${result.filesToProcess} sets need processing`, 'info');
+          } else {
+            showNotificationIfNew('All sets are processed', 'success');
+          }
         }
       }
     } catch (error) {
       console.error('Error checking processing status:', error);
-      showNotification('Error checking processing status: ' + error.message, 'error');
+      if (showNotificationOnChange) {
+        showNotification('Error checking processing status: ' + error.message, 'error');
+      }
     }
   };
 
@@ -120,13 +208,46 @@ export default function ProcessSet() {
     
     setLoading(true);
     
-    // Get files list
-    const filesResult = await getFilesList();
-    if (filesResult.success) {
-      setFiles(filesResult.files);
+    // Get user ID from localStorage
+    const userId = localStorage.getItem('userId') || 'default';
+    
+    // Get files list from both folders
+    const captureResult = await getFilesList('captures', userId);
+    const enhanceResult = await getFilesList('enhance', userId);
+    
+    if (captureResult.success || enhanceResult.success) {
+      const organizedFiles = {
+        capture: captureResult.success ? captureResult.files.map(filename => ({
+          filename,
+          path: `/captures/${userId}/${filename}`,
+          file_type: filename.split('.').pop(),
+          size: 0
+        })) : [],
+        enhance: enhanceResult.success ? enhanceResult.files.map(filename => ({
+          filename,
+          path: `/enhance/${userId}/${filename}`,
+          file_type: filename.split('.').pop(),
+          size: 0
+        })) : []
+      };
+      
+      setFiles(organizedFiles);
+      
+      // Set capture loaded state based on whether we have capture files
+      setCaptureLoaded(captureResult.success && captureResult.files.length > 0);
+      
+      console.log('Files loaded:', organizedFiles);
+      
+      // Check if folders were created (empty folders)
+      if (captureResult.folder_created) {
+        showNotification('Created empty captures folder - no files found', 'info');
+      }
+      if (enhanceResult.folder_created) {
+        showNotification('Created empty enhance folder - no files found', 'info');
+      }
       
       // Check file completeness
-      const completenessResult = await checkFilesCompleteness();
+      const completenessResult = await checkFilesCompleteness(userId);
       if (completenessResult.success) {
         if (completenessResult.isComplete) {
           showNotification('All file sets are complete', 'success');
@@ -136,47 +257,104 @@ export default function ProcessSet() {
       }
       
       // Check if processing is needed
-      const processingResult = await checkFilesNeedProcessing();
+      const processingResult = await checkFilesNeedProcessing(userId);
       if (processingResult.success) {
         // Update isProcessReady state based on needsProcessing
         setIsProcessReady(processingResult.needsProcessing);
+        setFilesChecked(true); // Mark files as checked
         
         if (processingResult.needsProcessing) {
-          showNotification(`${processingResult.filesToProcess - 1} sets need processing`, 'info');
+          showNotificationIfNew(`${processingResult.filesToProcess} sets need processing`, 'info');
         } else {
-          showNotification('All sets are processed', 'success');
+          showNotificationIfNew('All sets are processed', 'success');
         }
       }
     } else {
-      showNotification('Error loading files: ' + (filesResult.error || 'Unknown error'), 'error');
+      showNotification('Error loading files: ' + (captureResult.error || enhanceResult.error || 'Unknown error'), 'error');
     }
     
     setLoading(false);
   };
 
-  // Handle file preview
-  const handleFileSelect = async (filename) => {
-    // console.log('File selected:', filename);
+  // Handle file preview using the new dataset reader with folder support
+  const handleFileSelect = async (filename, folder = 'captures') => {
+    console.log('File selected:', filename, 'from folder:', folder);
     setSelectedFile(filename);
     setPreviewImageData(null);
     
-    const result = await previewFile(filename);
-    // console.log('Preview API result:', result);
-    
-    if (result.success) {
-      // console.log('Setting preview data:', { data: result.data, type: result.type });
-      setPreviewImageData({
-        data: result.data,
-        type: result.type
+    try {
+      // Get user ID from localStorage
+      const userId = localStorage.getItem('userId') || 'default';
+      
+      // Use the dataset reader to load the file from specific folder
+      const result = await readFileFromFolder(filename, folder, userId, true);
+      console.log('Dataset reader result:', result);
+      
+      if (result.success) {
+        console.log('Setting preview data:', { data: result.data, type: result.type });
+        setPreviewImageData({
+          data: result.data,
+          type: result.type
+        });
+      } else {
+        console.error('Dataset reader error:', result.error);
+        showNotification('Error loading preview: ' + (result.error || 'Unknown error'), 'error');
+      }
+    } catch (error) {
+      console.error('Error in handleFileSelect:', error);
+      showNotification('Error loading preview: ' + error.message, 'error');
+    }
+  };
+
+  // Process files function - moved from processApi.js to keep processing logic centralized
+  const processFiles = async (setNumbers) => {
+    try {
+      // console.log('Starting processing for sets:', setNumbers);
+      const response = await fetch('/api/process-images', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ set_numbers: setNumbers }),
       });
-    } else {
-      console.error('Preview API error:', result.error);
-      showNotification('Error loading preview: ' + (result.error || 'Unknown error'), 'error');
+      
+      if (!response.ok) {
+        throw new Error('Failed to start processing');
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Processing failed');
+      }
+      
+      return {
+        success: true,
+        message: data.message,
+        data: data
+      };
+    } catch (error) {
+      console.error('Error processing files:', error);
+      return {
+        success: false,
+        error: error.message,
+        message: 'Failed to process files'
+      };
     }
   };
 
   // Handle process files button click
   const handleProcessFiles = async () => {
+    if (!captureLoaded) {
+      showNotification('Please load capture dataset first', 'info');
+      return;
+    }
+    
+    if (!filesChecked) {
+      showNotification('Please click "Check Files" button first to validate files', 'info');
+      return;
+    }
+    
     if (!isProcessReady) {
       showNotification('No files need processing', 'info');
       return;
@@ -191,8 +369,11 @@ export default function ProcessSet() {
     showNotification('Processing started...', 'info');
     
     try {
+      // Get user ID from localStorage
+      const userId = localStorage.getItem('userId') || 'default';
+      
       // Get the processing status
-      const result = await checkFilesNeedProcessing();
+      const result = await checkFilesNeedProcessing(userId);
       if (!result.success) {
         throw new Error('Failed to get processing status');
       }
@@ -214,29 +395,15 @@ export default function ProcessSet() {
         message: 'Starting processing...'
       });
 
-      // Send processing request to backend
-      const response = await fetch('/api/process-images', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          set_numbers: result.setsNeedingProcessing
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to start processing');
-      }
-
-      const data = await response.json();
+      // Use the local processFiles function
+      const processResult = await processFiles(result.setsNeedingProcessing);
       
-      if (!data.success) {
-        throw new Error(data.error || 'Processing failed');
+      if (!processResult.success) {
+        throw new Error(processResult.error || 'Processing failed');
       }
 
       // Update progress with results
-      const processedSets = data.results
+      const processedSets = processResult.data.results
         .filter(r => r.status === 'success')
         .map(r => r.setNumber);
 
@@ -245,11 +412,11 @@ export default function ProcessSet() {
         processedSets,
         progress: Math.round((processedSets.length / prev.totalSets) * 100),
         status: 'completed',
-        message: `Processed ${data.processedCount} of ${data.totalSets} sets`
+        message: `Processed ${processResult.data.processedCount} of ${processResult.data.totalSets} sets`
       }));
 
       // Show notifications for any errors
-      data.results
+      processResult.data.results
         .filter(r => r.status === 'error')
         .forEach(r => {
           showNotification(r.message, 'error');
@@ -294,9 +461,23 @@ export default function ProcessSet() {
           </div>
           
           <div className={styles.statusIndicator}>
+            <span>Capture Dataset:</span>
+            <span className={captureLoaded ? styles.statusConnected : styles.statusDisconnected}>
+              {captureLoaded ? 'Loaded' : 'Not Loaded'}
+            </span>
+          </div>
+          
+          <div className={styles.statusIndicator}>
+            <span>Files Checked:</span>
+            <span className={filesChecked ? styles.statusConnected : styles.statusDisconnected}>
+              {filesChecked ? 'Yes' : 'No'}
+            </span>
+          </div>
+          
+          <div className={styles.statusIndicator}>
             <span>Processing Status:</span>
-            <span className={isProcessReady ? styles.statusReady : styles.statusNotReady}>
-              {isProcessReady ? 'Ready' : 'Not Ready'}
+            <span className={isProcessReady && captureLoaded && filesChecked ? styles.statusReady : styles.statusNotReady}>
+              {isProcessReady && captureLoaded && filesChecked ? 'Ready' : 'Not Ready'}
             </span>
           </div>
           
@@ -323,6 +504,8 @@ export default function ProcessSet() {
               files={files}
               onFileSelect={handleFileSelect}
               isLoading={loading}
+              enhanceFace={enhanceFace}
+              onEnhanceFaceToggle={handleEnhanceFaceToggle}
             />
             
             <ProcessSummary files={files} />
@@ -342,6 +525,8 @@ export default function ProcessSet() {
           onProcessFiles={handleProcessFiles}
           isProcessReady={isProcessReady}
           isProcessing={isProcessing}
+          captureLoaded={captureLoaded}
+          filesChecked={filesChecked}
         />
         
         <button 

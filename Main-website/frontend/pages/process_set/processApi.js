@@ -102,69 +102,62 @@ export const checkBackendConnection = async () => {
   }
 };
   
-// Get list of files from both capture and enhance folders
-export const getFilesList = async () => {
+// Get list of files from a specific folder using readDataset API
+export const getFilesList = async (folder, userId = null) => {
   try {
-    const response = await fetchWithRetry('/api/for-process-folder/file-api?operation=list');
-    
-    if (!response.success) {
-      throw new Error(response.message || 'Failed to get files list');
+    // Get user ID from localStorage if not provided
+    if (!userId) {
+      userId = localStorage.getItem('userId') || 'default';
     }
     
-    // Organize files into capture and enhance arrays
-    const organizedFiles = {
-      capture: [],
-      enhance: []
-    };
+    // Get files from specified folder
+    const response = await fetchWithRetry(`/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=list&folder=${encodeURIComponent(folder)}`);
     
-    if (response.files && response.files.capture && response.files.enhance) {
-      organizedFiles.capture = response.files.capture.map(filename => ({
-        filename,
-        path: `/captures/eye_tracking_captures/${filename}`,
-        file_type: filename.split('.').pop(),
-        size: 0 // Size will be updated when file is accessed
-      }));
-      
-      organizedFiles.enhance = response.files.enhance.map(filename => ({
-        filename,
-        path: `/captures/enhance/${filename}`,
-        file_type: filename.split('.').pop(),
-        size: 0 // Size will be updated when file is accessed
-      }));
+    if (response.success && response.files) {
+      return {
+        success: true,
+        files: response.files,
+        message: `Found ${response.files.length} files in ${folder} folder`
+      };
+    } else {
+      return {
+        success: false,
+        error: response.error || 'Failed to get files list',
+        files: [],
+        message: `Failed to get files from ${folder} folder`
+      };
     }
-    
-    return {
-      success: true,
-      files: organizedFiles,
-      message: response.message || 'Files retrieved successfully'
-    };
   } catch (error) {
     console.error('Error getting files list:', error);
     return {
       success: false,
       error: error.message,
-      message: 'Failed to get files list',
-      files: { capture: [], enhance: [] }
+      files: [],
+      message: `Failed to get files from ${folder} folder`
     };
   }
 };
   
-// Check file completeness (if webcam, screen, and parameter files exist for each set)
-export const checkFilesCompleteness = async () => {
+// Check file completeness using readDataset API
+export const checkFilesCompleteness = async (userId = null) => {
   try {
-    const response = await fetch('/api/for-process-folder/file-api?operation=check-completeness');
-    const data = await response.json();
+    // Get user ID from localStorage if not provided
+    if (!userId) {
+      userId = localStorage.getItem('userId') || 'default';
+    }
     
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to check files');
+    const response = await fetchWithRetry(`/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=check-completeness`);
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Failed to check files');
     }
 
     return {
       success: true,
-      isComplete: data.isComplete,
-      missingFiles: data.missingFiles,
-      totalFiles: data.totalSets,
-      incompleteSets: data.incompleteSets || []
+      isComplete: response.isComplete,
+      missingFiles: response.missingFiles,
+      totalFiles: response.totalSets,
+      incompleteSets: response.incompleteSets || []
     };
   } catch (error) {
     console.error('Error checking files completeness:', error);
@@ -175,10 +168,15 @@ export const checkFilesCompleteness = async () => {
   }
 };
   
-// Preview a specific file
-export const previewFile = async (filename) => {
+// Preview a specific file using readDataset API
+export const previewFile = async (filename, userId = null, folder = 'captures') => {
   try {
-    const data = await fetchWithRetry(`/api/preview-api?filename=${encodeURIComponent(filename)}`);
+    // Get user ID from localStorage if not provided
+    if (!userId) {
+      userId = localStorage.getItem('userId') || 'default';
+    }
+    
+    const data = await fetchWithRetry(`/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?filename=${encodeURIComponent(filename)}&folder=${encodeURIComponent(folder)}`);
     
     if (!data.success) {
       throw new Error(data.error || 'Failed to get preview');
@@ -198,10 +196,15 @@ export const previewFile = async (filename) => {
   }
 };
   
-// Check if files need processing
-export const checkFilesNeedProcessing = async () => {
+// Check if files need processing using readDataset API
+export const checkFilesNeedProcessing = async (userId = null) => {
   try {
-    const response = await fetchWithRetry('/api/for-process-folder/file-api?operation=compare');
+    // Get user ID from localStorage if not provided
+    if (!userId) {
+      userId = localStorage.getItem('userId') || 'default';
+    }
+    
+    const response = await fetchWithRetry(`/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=compare`);
     if (!response.success) {
       throw new Error(response.message || 'Failed to get files list');
     }
@@ -233,59 +236,12 @@ export const checkFilesNeedProcessing = async () => {
   }
 };
 
-// Process files
-export const processFiles = async (setNumbers) => {
-  try {
-    // console.log('Starting processing for sets:', setNumbers);
-    const response = await fetchWithRetry('/api/process-images', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ set_numbers: setNumbers }),
-    });
-    
-    if (!response.success) {
-      throw new Error(response.message || 'Failed to start processing');
-    }
-    
-    return {
-      success: true,
-      message: response.message
-    };
-  } catch (error) {
-    console.error('Error processing files:', error);
-    return {
-      success: false,
-      error: error.message,
-      message: 'Failed to process files'
-    };
-  }
-};
+// Note: processFiles function has been moved to index.js to keep processing logic centralized
   
-// Compare files between capture and enhance folders
-export const compareFileCounts = async () => {
-  try {
-    const response = await fetchWithRetry('/api/file-api?operation=compare');
-    if (!response.success) {
-      throw new Error(response.message || 'Failed to compare file counts');
-    }
-    return {
-      success: true,
-      captureCount: response.captureCount,
-      enhanceCount: response.enhanceCount,
-      needsProcessing: response.needsProcessing
-    };
-  } catch (error) {
-    console.error('Error comparing file counts:', error);
-    return { 
-      success: false, 
-      error: error.message,
-      captureCount: 0,
-      enhanceCount: 0,
-      needsProcessing: false
-    };
-  }
+// Compare files between capture and enhance folders (now handled by checkFilesNeedProcessing)
+export const compareFileCounts = async (userId = null) => {
+  // This function is now handled by checkFilesNeedProcessing
+  return await checkFilesNeedProcessing(userId);
 };
   
 // Check if processing is currently running

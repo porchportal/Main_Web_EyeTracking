@@ -26,9 +26,8 @@ from db.data_centralization import DataCenter, UserSettings
 
 # Import routers
 from routes import preferences
-from routes import processing
-from routes import files
-from routes import preview
+from routes.process_set import processing
+from routes.process_set import preview
 from routes.data_center_routes import router as data_center_router
 from routes.admin_updates import router as admin_updates_router
 from routes.canvas_admin import router as canvas_admin_router
@@ -123,10 +122,6 @@ app.include_router(
 )
 app.include_router(
     processing.router,
-    dependencies=[Depends(verify_api_key)]
-)
-app.include_router(
-    files.router,
     dependencies=[Depends(verify_api_key)]
 )
 app.include_router(
