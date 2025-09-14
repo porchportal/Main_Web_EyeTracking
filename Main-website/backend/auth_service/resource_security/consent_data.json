@@ -1,11 +1,5 @@
 [
   {
-    "userId": "4d8937de-5f66-47f3-babd-f9d99ea86992",
-    "status": true,
-    "timestamp": "2025-04-23T07:13:20.486Z",
-    "receivedAt": "2025-04-23T07:13:20.666Z"
-  },
-  {
     "userId": "2dffd9ff-f369-4c70-bc86-6d4b2730de77",
     "status": true,
     "timestamp": "2025-04-23T08:28:02.099Z",
@@ -208,5 +202,29 @@
     "status": true,
     "timestamp": "2025-09-12T09:56:44.395706",
     "receivedAt": "2025-09-12T09:56:44.395826"
+  },
+  {
+    "userId": "f94e3f6f-8197-4dac-9cdd-a07d32fb2c71",
+    "status": true,
+    "timestamp": "2025-09-14T10:16:59.029000+00:00",
+    "receivedAt": "2025-09-14T10:16:59.045642"
+  },
+  {
+    "userId": "306f7a17-c2ad-4179-84ff-69b7412e6243",
+    "status": true,
+    "timestamp": "2025-09-14T10:21:21.666218",
+    "receivedAt": "2025-09-14T10:21:21.670232"
+  },
+  {
+    "userId": "a8256b73-0a73-414d-bcac-7bbd932691a1",
+    "status": true,
+    "timestamp": "2025-09-14T11:43:52.166000+00:00",
+    "receivedAt": "2025-09-14T11:43:52.176835"
+  },
+  {
+    "userId": "fc7fe20d-f988-4847-bb60-4b35c4040642",
+    "status": true,
+    "timestamp": "2025-09-14T12:09:46.874189",
+    "receivedAt": "2025-09-14T12:09:46.874616"
   }
 ]

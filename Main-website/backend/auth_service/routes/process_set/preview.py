@@ -33,6 +33,7 @@ class PreviewResponse(BaseModel):
 async def list_files(userId: str = "default", folder: str = "captures"):
     """List files in a specific folder"""
     try:
+        logging.info(f"list_files called with userId: {userId}, folder: {folder}")
         # Get the base directory
         current_dir = os.path.dirname(os.path.abspath(__file__))
         base_dir = os.path.abspath(os.path.join(current_dir, '../../resource_security/public'))
@@ -47,16 +48,8 @@ async def list_files(userId: str = "default", folder: str = "captures"):
         # Get the actual folder name
         actual_folder = folder_mapping.get(folder, folder)
         
-        # If userId is 'default', try to find the first available user folder
+        # Use the provided userId directly - don't fallback to first available folder
         actual_user_id = userId
-        if userId == 'default':
-            captures_base_path = os.path.join(base_dir, 'captures')
-            if os.path.exists(captures_base_path):
-                user_folders = [item for item in os.listdir(captures_base_path) 
-                              if os.path.isdir(os.path.join(captures_base_path, item)) 
-                              and item not in ['enhance', 'complete', 'eye_tracking_captures']]
-                if user_folders:
-                    actual_user_id = user_folders[0]  # Use the first available user folder
         
         # Handle different folder structures - all folders are user-specific
         if folder in ['enhance', 'complete']:
@@ -72,8 +65,9 @@ async def list_files(userId: str = "default", folder: str = "captures"):
             return {
                 "success": True,
                 "files": [],
-                "message": f"Created empty {actual_folder} folder for user {actual_user_id}",
-                "folder_created": True
+                "message": f"No dataset found for user {actual_user_id}. Created empty {actual_folder} folder.",
+                "folder_created": True,
+                "no_dataset": True
             }
         
         # Read files from directory
@@ -108,6 +102,7 @@ async def list_files(userId: str = "default", folder: str = "captures"):
 async def get_preview(filename: str, userId: str = "default", folder: str = "captures") -> PreviewResponse:
     """Get preview of a file from specified folder"""
     try:
+        logging.info(f"get_preview called with userId: {userId}, filename: {filename}, folder: {folder}")
         # Get the base directory
         current_dir = os.path.dirname(os.path.abspath(__file__))
         base_dir = os.path.abspath(os.path.join(current_dir, '../../resource_security/public'))
@@ -122,16 +117,8 @@ async def get_preview(filename: str, userId: str = "default", folder: str = "cap
         # Get the actual folder name
         actual_folder = folder_mapping.get(folder, folder)
         
-        # If userId is 'default', try to find the first available user folder
+        # Use the provided userId directly - don't fallback to first available folder
         actual_user_id = userId
-        if userId == 'default':
-            captures_base_path = os.path.join(base_dir, 'captures')
-            if os.path.exists(captures_base_path):
-                user_folders = [item for item in os.listdir(captures_base_path) 
-                              if os.path.isdir(os.path.join(captures_base_path, item)) 
-                              and item not in ['enhance', 'complete', 'eye_tracking_captures']]
-                if user_folders:
-                    actual_user_id = user_folders[0]  # Use the first available user folder
         
         # Handle different folder structures - all folders are user-specific
         if folder in ['enhance', 'complete']:

@@ -92,13 +92,24 @@ export function BackendConnectionProvider({ children }) {
       const timeoutId = setTimeout(() => controller.abort(), CONNECTION_CHECK_TIMEOUT);
       
       const response = await fetch('/api/check-backend-connection', {
-        signal: controller.signal
+        signal: controller.signal,
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        }
       });
       
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+        // Handle specific error codes
+        if (response.status === 503) {
+          throw new Error('Backend service unavailable (503). Please check if all services are running.');
+        } else if (response.status === 404) {
+          throw new Error('Backend endpoint not found (404). Please check service configuration.');
+        } else {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
       }
       
       const data = await response.json();
@@ -114,18 +125,25 @@ export function BackendConnectionProvider({ children }) {
     } catch (err) {
       if (err.name === 'AbortError') {
         // Backend connection check timed out
+        setConnectionState(prev => ({
+          ...prev,
+          isConnected: false,
+          authValid: false,
+          isChecking: false,
+          lastChecked: Date.now(),
+          error: 'Connection timeout. Please check if the backend service is running.'
+        }));
       } else {
         console.error("Backend connection check failed:", err);
+        setConnectionState(prev => ({
+          ...prev,
+          isConnected: false,
+          authValid: false,
+          isChecking: false,
+          lastChecked: Date.now(),
+          error: err.message || "Failed to connect to backend"
+        }));
       }
-      
-      setConnectionState(prev => ({
-        ...prev,
-        isConnected: false,
-        authValid: false,
-        isChecking: false,
-        lastChecked: Date.now(),
-        error: err.message || "Failed to connect to backend"
-      }));
     }
   }, [connectionState.isChecking, connectionState.lastChecked]);
 

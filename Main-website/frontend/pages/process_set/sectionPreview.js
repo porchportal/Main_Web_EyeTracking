@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import styles from './sectionPreview.module.css';
 import { datasetReader, isImageFile, isTextFile, getFileType, readImageFromBackend, getImagePreviewUrl } from './readDataset';
+import { getCurrentUserId } from './processApi';
 
 // Utility function to format file size
 const formatFileSize = (bytes) => {
@@ -43,7 +44,9 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType, fold
     try {
       console.log(`Loading image from backend: ${filename} from ${folderType} folder`);
       
-      const result = await readImageFromBackend(filename, null, folderType);
+      // Get current user ID from backend
+      const userId = await getCurrentUserId();
+      const result = await readImageFromBackend(filename, userId, folderType);
       
       if (result.success) {
         handleImageLoad(result.data, result.type);
@@ -57,7 +60,7 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType, fold
         
         for (const fallbackFolder of fallbackFolders) {
           console.log(`Trying ${fallbackFolder} folder as fallback`);
-          const fallbackResult = await readImageFromBackend(filename, null, fallbackFolder);
+          const fallbackResult = await readImageFromBackend(filename, userId, fallbackFolder);
           
           if (fallbackResult.success) {
             console.log(`Successfully loaded from ${fallbackFolder} folder`);

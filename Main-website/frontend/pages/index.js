@@ -41,6 +41,7 @@ export default function HomePage() {
   const [userData, setUserData] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   const [showComingSoon, setShowComingSoon] = useState(false);
+  const [publicDataAccess, setPublicDataAccess] = useState(false);
 
   // Fetch user data from MongoDB
   const fetchUserData = async () => {
@@ -126,6 +127,10 @@ export default function HomePage() {
           const data = await newResponse.json();
           console.log('Fetched new user data:', data);
           setUserData(data);
+          
+          // Fetch public_data_access from data center settings
+          await fetchPublicDataAccess();
+          
           setRetryCount(0); // Reset retry count on success
         } else {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -134,6 +139,9 @@ export default function HomePage() {
         const data = await response.json();
         console.log('Successfully fetched user data:', data);
         setUserData(data);
+        
+        // Fetch public_data_access from data center settings
+        await fetchPublicDataAccess();
         
         // Check both profile completion and local storage
         const savedState = localStorage.getItem(`buttonState_${userId}`);
@@ -161,6 +169,45 @@ export default function HomePage() {
         console.error('Max retries reached, giving up');
         setRetryCount(0);
       }
+    }
+  };
+
+  // Fetch public_data_access from data center settings
+  const fetchPublicDataAccess = async () => {
+    if (!userId) {
+      console.log('No userId available for public data access fetch');
+      return;
+    }
+
+    try {
+      console.log(`Fetching public data access for user: ${userId}`);
+      const response = await fetch(`/api/data-center/settings/${userId}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Data center settings response:', data);
+        
+        if (data.success && data.data) {
+          const publicAccess = data.data.public_data_access || false;
+          console.log(`Setting public data access to: ${publicAccess}`);
+          setPublicDataAccess(publicAccess);
+        } else {
+          console.log('No data center settings found, defaulting to false');
+          setPublicDataAccess(false);
+        }
+      } else {
+        console.log('Failed to fetch data center settings, defaulting to false');
+        setPublicDataAccess(false);
+      }
+    } catch (error) {
+      console.error('Error fetching public data access:', error);
+      setPublicDataAccess(false);
     }
   };
 
@@ -254,9 +301,25 @@ export default function HomePage() {
       }
     };
 
+    const handlePublicAccessUpdate = (event) => {
+      console.log('Received public access update:', event.detail);
+      if (event.detail && event.detail.type === 'publicAccessUpdate') {
+        // Check if this update is for the current user
+        if (event.detail.userId === userId) {
+          console.log(`Updating public data access for current user to: ${event.detail.enabled}`);
+          setPublicDataAccess(event.detail.enabled);
+        }
+      }
+    };
+
     window.addEventListener('adminOverride', handleAdminOverride);
-    return () => window.removeEventListener('adminOverride', handleAdminOverride);
-  }, []);
+    window.addEventListener('publicAccessUpdate', handlePublicAccessUpdate);
+    
+    return () => {
+      window.removeEventListener('adminOverride', handleAdminOverride);
+      window.removeEventListener('publicAccessUpdate', handlePublicAccessUpdate);
+    };
+  }, [userId]);
 
   // Enhanced consent checking effect
   useEffect(() => {
@@ -316,7 +379,10 @@ export default function HomePage() {
         break;
 
       case 'process-set':
-        router.push('/process_set');
+        router.push({
+          pathname: '/process_set',
+          query: { userId: userId }
+        });
         break;
 
       default:
@@ -394,7 +460,7 @@ export default function HomePage() {
             disabled={!buttonStates[userId]}
           >
             <h2>Collected Dataset with customization</h2>
-            <ButtonOverlay enabled={buttonStates[userId] || false} />
+            <ButtonOverlay enabled={buttonStates[userId]} />
           </button>
           <button 
             className={`${styles.menuButton} ${getButtonClass('collected-dataset')}`} 
@@ -406,19 +472,15 @@ export default function HomePage() {
           </button>
         </div>
 
-        {/* Third row: Process Folder Button */}
-        <div className={styles.centerButtonContainer}>
-          <button className={getProcessButtonClass} onClick={() => handleButtonClick('process-set')}>
-            <h2>Process Image Folder</h2>
-          </button>
-        </div>
-
-        {/* {mounted && userId && (
-          <div className={styles.userInfo}>
-            <p>User ID: {userId}</p>
-            <p>Consent Status: {consentStatus === null ? 'Not set' : consentStatus ? 'Accepted' : 'Declined'}</p>
+        {/* Third row: Process Folder Button - Only show if public_data_access is true */}
+        {publicDataAccess && (
+          <div className={styles.centerButtonContainer}>
+            <button className={`${styles.menuButton} ${styles.largerButton}`} onClick={() => handleButtonClick('process-set')}>
+              <h2>Process Image Folder</h2>
+            </button>
           </div>
-        )} */}
+        )}
+        
       </main>
 
       {/* Coming Soon Popup */}

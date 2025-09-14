@@ -10,6 +10,8 @@ export default async function handler(req, res) {
   try {
     const { userId, filename, folder = 'captures', operation = 'preview' } = req.query;
     
+    console.log(`Frontend API received: userId=${userId}, folder=${folder}, operation=${operation}, filename=${filename}`);
+    
     if (!userId) {
       return res.status(400).json({
         success: false,
@@ -18,8 +20,8 @@ export default async function handler(req, res) {
     }
 
     // Get backend URL and API key from environment variables
-    const backendUrl = process.env.AUTH_SERVICE_URL || 'http://backend_auth_service:8108';
-    const apiKey = process.env.BACKEND_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+    const backendUrl = process.env.AUTH_SERVICE_URL;
+    const apiKey = process.env.BACKEND_API_KEY;
 
     // Handle different operations
     if (operation === 'list') {
@@ -54,6 +56,9 @@ export default async function handler(req, res) {
 // Handle list operation by calling backend API
 async function handleListOperation(userId, folder, res, backendUrl, apiKey) {
   try {
+    console.log(`Frontend API: Calling backend with userId: ${userId}, folder: ${folder}`);
+    console.log(`Frontend API: Backend URL: ${backendUrl}`);
+    console.log(`Frontend API: Full URL: ${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=${encodeURIComponent(folder)}`);
     // Call the backend list-files API
     const response = await fetch(`${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=${encodeURIComponent(folder)}`, {
       headers: {
@@ -123,15 +128,108 @@ async function handleFileListing(userId, folder, res, backendUrl, apiKey) {
 // Handle completeness check operation
 async function handleCompletenessCheck(userId, res, backendUrl, apiKey) {
   try {
-    // For now, return a simple response
-    // In production, this should be implemented as a proper backend API endpoint
+    // Get capture files to check if there are any files at all
+    const captureUrl = `${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=captures`;
+    
+    const captureResponse = await fetch(captureUrl, {
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    let captureFiles = [];
+    if (captureResponse.ok) {
+      const captureData = await captureResponse.json();
+      captureFiles = captureData.files || [];
+    }
+    
+    // If no capture files exist, return appropriate response
+    if (captureFiles.length === 0) {
+      return res.status(200).json({
+        success: true,
+        isComplete: false,
+        incompleteSets: [],
+        missingFiles: 0,
+        totalSets: 0,
+        message: 'No capture files found'
+      });
+    }
+    
+    // Extract set numbers from capture files (webcam_XXX.jpg format)
+    const captureSets = new Set();
+    captureFiles.forEach(file => {
+      const match = file.match(/webcam_(\d+)\.jpg/);
+      if (match) {
+        captureSets.add(parseInt(match[1]));
+      }
+    });
+    
+    // Get enhance files
+    const enhanceUrl = `${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=enhance`;
+    const enhanceResponse = await fetch(enhanceUrl, {
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    let enhanceFiles = [];
+    if (enhanceResponse.ok) {
+      const enhanceData = await enhanceResponse.json();
+      enhanceFiles = enhanceData.files || [];
+    }
+    
+    // Get complete files
+    const completeUrl = `${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=complete`;
+    const completeResponse = await fetch(completeUrl, {
+      headers: {
+        'X-API-Key': apiKey,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    let completeFiles = [];
+    if (completeResponse.ok) {
+      const completeData = await completeResponse.json();
+      completeFiles = completeData.files || [];
+    }
+    
+    // Extract set numbers from enhance files (webcam_enhance_XXX.jpg format)
+    const enhanceSets = new Set();
+    enhanceFiles.forEach(file => {
+      const match = file.match(/webcam_enhance_(\d+)\.jpg/);
+      if (match) {
+        enhanceSets.add(parseInt(match[1]));
+      }
+    });
+    
+    // Extract set numbers from complete files (webcam_XXX.jpg format - same as capture)
+    const completeSets = new Set();
+    completeFiles.forEach(file => {
+      const match = file.match(/webcam_(\d+)\.jpg/);
+      if (match) {
+        completeSets.add(parseInt(match[1]));
+      }
+    });
+    
+    // Find incomplete sets (in capture but not in enhance OR complete)
+    const processedSets = new Set([...enhanceSets, ...completeSets]);
+    const incompleteSets = Array.from(captureSets).filter(setNum => !processedSets.has(setNum));
+    
+    const totalSets = captureSets.size;
+    const isComplete = incompleteSets.length === 0;
+    const missingFiles = incompleteSets.length;
     
     return res.status(200).json({
       success: true,
-      isComplete: true,
-      incompleteSets: [],
-      missingFiles: 0,
-      totalSets: 0
+      isComplete,
+      incompleteSets,
+      missingFiles,
+      totalSets,
+      message: isComplete ? 
+        'All file sets are complete' : 
+        `${missingFiles} sets are incomplete`
     });
   } catch (error) {
     console.error('Error checking completeness:', error);

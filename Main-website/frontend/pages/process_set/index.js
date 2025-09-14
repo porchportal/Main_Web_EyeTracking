@@ -39,6 +39,7 @@ import {
 
 export default function ProcessSet() {
   const router = useRouter();
+  const { userId: passedUserId } = router.query;
   const [isProcessReady, setIsProcessReady] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [backendConnected, setBackendConnected] = useState(false);
@@ -55,8 +56,24 @@ export default function ProcessSet() {
   const [lastNotificationMessage, setLastNotificationMessage] = useState('');
   const [captureLoaded, setCaptureLoaded] = useState(false);
   const [filesChecked, setFilesChecked] = useState(false);
+  const [lastProcessingStatus, setLastProcessingStatus] = useState(null);
+  const [currentUserId, setCurrentUserId] = useState(null);
   
   const [showNotification, NotificationComponent] = useNotification();
+
+  // Get user ID - prioritize passed user ID, fallback to getCurrentUserId
+  const getUserId = async () => {
+    if (passedUserId) {
+      console.log('Using passed user ID:', passedUserId);
+      setCurrentUserId(passedUserId);
+      return passedUserId;
+    }
+    
+    console.log('No passed user ID, getting from backend');
+    const userId = await getCurrentUserId();
+    setCurrentUserId(userId);
+    return userId;
+  };
 
   // Handle enhance face toggle
   const handleEnhanceFaceToggle = () => {
@@ -67,11 +84,22 @@ export default function ProcessSet() {
 
   // Helper function to show notification only if message is different
   const showNotificationIfNew = (message, type = 'info', duration = 5000) => {
-    if (message !== lastNotificationMessage) {
-      setLastNotificationMessage(message);
+    // Create a unique key for this type of notification
+    const notificationKey = `${type}-${message}`;
+    
+    if (notificationKey !== lastNotificationMessage) {
+      setLastNotificationMessage(notificationKey);
       showNotification(message, type, duration);
     }
   };
+
+  // Set current user ID when passed user ID is available
+  useEffect(() => {
+    if (passedUserId) {
+      console.log('Setting current user ID from passed user ID:', passedUserId);
+      setCurrentUserId(passedUserId);
+    }
+  }, [passedUserId]);
 
   // Initialize component on mount
   useEffect(() => {
@@ -89,8 +117,9 @@ export default function ProcessSet() {
   const initializeComponent = async () => {
     await checkConnection();
     if (backendConnected) {
-      // Get user ID from backend
-      const userId = await getCurrentUserId();
+      // Get user ID (prioritize passed user ID)
+      const userId = await getUserId();
+      console.log('initializeComponent: Using user ID:', userId);
       
       // Get files list from all three folders
       const captureResult = await getFilesList('captures', userId);
@@ -123,6 +152,14 @@ export default function ProcessSet() {
         
         // Set capture loaded state based on whether we have capture files
         setCaptureLoaded(captureResult.success && captureResult.files.length > 0);
+        
+        // Check if no dataset was found for this user
+        if (captureResult.no_dataset) {
+          showNotificationIfNew('Didn\'t collect any dataset for this user', 'info');
+        } else if (captureResult.success && captureResult.files.length === 0) {
+          // If no files found in captures folder, show the message
+          showNotificationIfNew('Didn\'t collect any dataset for this user', 'info');
+        }
         
         // Preload first few files for better performance from each folder
         const captureFilenames = organizedFiles.capture.slice(0, 5).map(f => f.filename);
@@ -170,8 +207,8 @@ export default function ProcessSet() {
   // Check if processing is needed
   const checkProcessingNeeded = async (showNotificationOnChange = false) => {
     try {
-      // Get user ID from backend
-      const userId = await getCurrentUserId();
+      // Get user ID (prioritize passed user ID)
+      const userId = await getUserId();
       
       // First check file completeness
       const completenessResult = await checkFilesCompleteness(userId);
@@ -185,7 +222,20 @@ export default function ProcessSet() {
       // Then check if processing is needed
       const result = await checkFilesNeedProcessing(userId);
       if (result.success) {
-        // Only show notification if the state actually changes
+        // Create current processing status object for comparison
+        const currentProcessingStatus = {
+          needsProcessing: result.needsProcessing,
+          filesToProcess: result.filesToProcess,
+          captureCount: result.captureCount,
+          enhanceCount: result.enhanceCount
+        };
+        
+        // Check if the processing status has actually changed
+        const statusChanged = !lastProcessingStatus || 
+          lastProcessingStatus.needsProcessing !== currentProcessingStatus.needsProcessing ||
+          lastProcessingStatus.filesToProcess !== currentProcessingStatus.filesToProcess;
+        
+        // Update state
         const previousProcessReady = isProcessReady;
         setIsProcessReady(result.needsProcessing);
         setProcessingStatus({
@@ -194,14 +244,17 @@ export default function ProcessSet() {
           filesToProcess: result.filesToProcess
         });
         
-        // Only show notification if state changed or explicitly requested
-        if (showNotificationOnChange || previousProcessReady !== result.needsProcessing) {
+        // Only show notification if status actually changed or explicitly requested
+        if (showNotificationOnChange || statusChanged) {
           if (result.needsProcessing) {
             showNotificationIfNew(`${result.filesToProcess} sets need processing`, 'info');
           } else {
             showNotificationIfNew('All sets are processed', 'success');
           }
         }
+        
+        // Update the last processing status
+        setLastProcessingStatus(currentProcessingStatus);
       }
     } catch (error) {
       console.error('Error checking processing status:', error);
@@ -220,8 +273,9 @@ export default function ProcessSet() {
     
     setLoading(true);
     
-    // Get user ID from backend
-    const userId = await getCurrentUserId();
+    // Get user ID (prioritize passed user ID)
+    const userId = await getUserId();
+    console.log('handleCheckFiles: Using user ID:', userId);
     
     // Get files list from all three folders
     const captureResult = await getFilesList('captures', userId);
@@ -256,22 +310,35 @@ export default function ProcessSet() {
       setCaptureLoaded(captureResult.success && captureResult.files.length > 0);
       
       console.log('Files loaded:', organizedFiles);
+      console.log('Capture result:', captureResult);
       
-      // Check if folders were created (empty folders)
+      // Check if folders were created (empty folders) or no dataset found
       if (captureResult.folder_created) {
-        showNotification('Created empty captures folder - no files found', 'info');
+        if (captureResult.no_dataset) {
+          showNotificationIfNew('Didn\'t collect any dataset for this user', 'info');
+        } else {
+          showNotificationIfNew('Created empty captures folder - no files found', 'info');
+        }
+      } else if (captureResult.success && captureResult.files.length === 0) {
+        // If no files found in captures folder, show the message
+        showNotificationIfNew('Didn\'t collect any dataset for this user', 'info');
       }
+      
       if (enhanceResult.folder_created) {
-        showNotification('Created empty enhance folder - no files found', 'info');
+        if (enhanceResult.no_dataset) {
+          showNotificationIfNew('Didn\'t collect any dataset for this user', 'info');
+        } else {
+          showNotificationIfNew('Created empty enhance folder - no files found', 'info');
+        }
       }
       
       // Check file completeness
       const completenessResult = await checkFilesCompleteness(userId);
       if (completenessResult.success) {
         if (completenessResult.isComplete) {
-          showNotification('All file sets are complete', 'success');
+          showNotificationIfNew('All file sets are complete', 'success');
         } else {
-          showNotification(`Warning: ${completenessResult.missingFiles} files are missing from sets`, 'info');
+          showNotificationIfNew(`Warning: ${completenessResult.missingFiles} files are missing from sets`, 'info');
         }
       }
       
@@ -281,6 +348,14 @@ export default function ProcessSet() {
         // Update isProcessReady state based on needsProcessing
         setIsProcessReady(processingResult.needsProcessing);
         setFilesChecked(true); // Mark files as checked
+        
+        // Update processing status for comparison
+        setLastProcessingStatus({
+          needsProcessing: processingResult.needsProcessing,
+          filesToProcess: processingResult.filesToProcess,
+          captureCount: processingResult.captureCount,
+          enhanceCount: processingResult.enhanceCount
+        });
         
         if (processingResult.needsProcessing) {
           showNotificationIfNew(`${processingResult.filesToProcess} sets need processing`, 'info');
@@ -303,8 +378,8 @@ export default function ProcessSet() {
     setPreviewImageData(null);
     
     try {
-      // Get user ID from backend
-      const userId = await getCurrentUserId();
+      // Get user ID (prioritize passed user ID)
+      const userId = await getUserId();
       
       // Use the dataset reader to load the file from specific folder
       const result = await readFileFromFolder(filename, folder, userId, true);
@@ -367,8 +442,8 @@ export default function ProcessSet() {
     showNotification('Processing started...', 'info');
     
     try {
-      // Get user ID from backend
-      const userId = await getCurrentUserId();
+      // Get user ID (prioritize passed user ID)
+      const userId = await getUserId();
       
       // Get the processing status
       const result = await checkFilesNeedProcessing(userId);
@@ -451,6 +526,16 @@ export default function ProcessSet() {
         {NotificationComponent}
         
         <div className={styles.statusDisplay}>
+          <div className={styles.statusIndicator}>
+            <span>Current User ID:</span>
+            <span 
+              className={currentUserId ? styles.statusConnected : styles.statusDisconnected}
+              title={currentUserId || 'User ID not available'}
+            >
+              {currentUserId ? currentUserId.substring(0, 8) + '...' : 'Not Available'}
+            </span>
+          </div>
+          
           <div className={styles.statusIndicator}>
             <span>Backend Connection:</span>
             <span className={backendConnected ? styles.statusConnected : styles.statusDisconnected}>

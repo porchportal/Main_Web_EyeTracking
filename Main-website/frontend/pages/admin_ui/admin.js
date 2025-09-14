@@ -13,6 +13,8 @@ import AdminCanvaConfig from './adminCanvaConfig';
 import AdminAdjustDataset from './adminAdjust-dataset';
 import NotiMessage from './notiMessage';
 import CanvasImageOrder from './CanvasImageOrder';
+import AdminAIProcess from './adminAIProcess';
+import DownloadPopup from './popup';
 import { useRouter } from 'next/router';
 
 
@@ -83,6 +85,8 @@ export default function AdminPage({ initialSettings }) {
   const [systemControlsAnimating, setSystemControlsAnimating] = useState(false);
   const [showDataPreview, setShowDataPreview] = useState(false);
   const [showCanvasImageOrder, setShowCanvasImageOrder] = useState(false);
+  const [showAIProcess, setShowAIProcess] = useState(false);
+  const [showDownloadPopup, setShowDownloadPopup] = useState(false);
 
   // Debug effect to track modal state changes
   useEffect(() => {
@@ -606,11 +610,19 @@ export default function AdminPage({ initialSettings }) {
 
     try {
       const newValue = !publicAccessEnabled;
+      console.log('Toggle public access:', { 
+        currentValue: publicAccessEnabled, 
+        newValue, 
+        selectedUserId 
+      });
+      
       const currentSettings = tempSettings[selectedUserId] || {};
       const updatedSettings = {
         ...currentSettings,
         public_data_access: newValue
       };
+
+      console.log('Settings to save:', updatedSettings);
 
       // Update local state immediately
       setPublicAccessEnabled(newValue);
@@ -628,12 +640,32 @@ export default function AdminPage({ initialSettings }) {
         body: JSON.stringify(updatedSettings)
       });
 
+      console.log('API response status:', response.status);
+      
       if (response.ok) {
+        const responseData = await response.json();
+        console.log('API response data:', responseData);
+        
+        // Dispatch event to notify other components about the public access change
+        if (typeof window !== 'undefined') {
+          const event = new CustomEvent('publicAccessUpdate', {
+            detail: {
+              type: 'publicAccessUpdate',
+              userId: selectedUserId,
+              enabled: newValue
+            }
+          });
+          window.dispatchEvent(event);
+        }
+        
         window.showNotification(
           `Public access ${newValue ? 'enabled' : 'disabled'} and saved to data center!`,
           'success'
         );
       } else {
+        const errorText = await response.text();
+        console.error('API error response:', errorText);
+        
         // Revert on failure
         setPublicAccessEnabled(!newValue);
         window.showNotification('Failed to save public access setting', 'error');
@@ -690,52 +722,6 @@ export default function AdminPage({ initialSettings }) {
     }
   };
 
-  const handleDownloadDataset = async () => {
-    if (!selectedUserId || selectedUserId === 'default') {
-      window.showNotification('Please select a user ID before downloading dataset!', 'error');
-      return;
-    }
-
-    try {
-      window.showNotification('Checking user data...', 'info');
-      
-      // Call the download endpoint directly
-      const response = await fetch(`/api/admin/zip-download/${selectedUserId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        }
-      });
-
-      // Check if the response is a ZIP file (starts with 'PK') or JSON error
-      const contentType = response.headers.get('content-type');
-      
-      if (contentType && contentType.includes('application/zip')) {
-        // It's a ZIP file, trigger download
-        window.showNotification('Preparing download...', 'info');
-        
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `user_${selectedUserId}_captures.zip`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-        
-        window.showNotification('Download started successfully!', 'success');
-      } else {
-        // It's a JSON error response
-        const errorData = await response.json();
-        window.showNotification(errorData.message || "That User Didn't collect any Data", 'error');
-      }
-      
-    } catch (error) {
-      console.error('Error downloading dataset:', error);
-      window.showNotification('Failed to download dataset. Please try again.', 'error');
-    }
-  };
 
 
 
@@ -1242,7 +1228,6 @@ export default function AdminPage({ initialSettings }) {
                 <tr>
                   <th>User ID</th>
                   <th>Consent Status</th>
-                  <th>Profile</th>
                   <th>Timestamp</th>
                   <th>Received At</th>
                   <th>Actions</th>
@@ -1261,7 +1246,6 @@ export default function AdminPage({ initialSettings }) {
                   >
                     <td>{data.userId}</td>
                     <td>{data.status ? 'Accepted' : 'Declined'}</td>
-                    <td>{getProfileStatus(data.userId)}</td>
                     <td>{new Date(data.timestamp).toLocaleString()}</td>
                     <td>{new Date(data.receivedAt).toLocaleString()}</td>
                     <td>
@@ -2139,8 +2123,39 @@ export default function AdminPage({ initialSettings }) {
                   </button>
                   
                   <button 
-                    className={styles.downloadButton}
-                    onClick={handleDownloadDataset}
+                    className={`${styles.downloadButton} ${styles.aiProcessButton} ${showAIProcess ? styles.active : ''}`}
+                    onClick={() => {
+                      if (showAIProcess) {
+                        if (window.showNotification) {
+                          window.showNotification('AI Process closed');
+                        }
+                        setShowAIProcess(false);
+                      } else {
+                        if (window.showNotification) {
+                          window.showNotification('Opening AI Process...');
+                        }
+                        setShowAIProcess(true);
+                      }
+                    }}
+                  >
+                    🤖 AI Process
+                  </button>
+                  
+                  <button 
+                    className={`${styles.downloadButton} ${styles.downloadDatasetButton} ${showDownloadPopup ? styles.active : ''}`}
+                    onClick={() => {
+                      if (showDownloadPopup) {
+                        if (window.showNotification) {
+                          window.showNotification('Download Dataset closed');
+                        }
+                        setShowDownloadPopup(false);
+                      } else {
+                        if (window.showNotification) {
+                          window.showNotification('Opening Download Dataset...');
+                        }
+                        setShowDownloadPopup(true);
+                      }
+                    }}
                     disabled={!selectedUserId || selectedUserId === 'default'}
                   >
                     📥 Download Dataset
@@ -2167,6 +2182,21 @@ export default function AdminPage({ initialSettings }) {
             />
           )}
 
+          {/* AI Process Section */}
+          {showAIProcess && (
+            <AdminAIProcess
+              userId={selectedUserId}
+              onClose={() => setShowAIProcess(false)}
+            />
+          )}
+
+          {/* Download Popup */}
+          <DownloadPopup
+            isOpen={showDownloadPopup}
+            onClose={() => setShowDownloadPopup(false)}
+            userId={selectedUserId}
+          />
+
           {/* Second Box - Download Dataset */}
           <div className={styles.controlBox}>
             <h2>Download Dataset</h2>
@@ -2175,7 +2205,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    window.showNotification('Downloading All Dataset...');
+                    window.showNotification('This Unavailable Right Now, It will update in next version', 'info');
                   }}
                 >
                   📥 Download All Dataset
@@ -2183,7 +2213,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    window.showNotification('Downloading User Profiles...');
+                    window.showNotification('This Unavailable Right Now, It will update in next version', 'info');
                   }}
                 >
                   👥 Download User Profiles
@@ -2191,7 +2221,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    window.showNotification('Downloading Raw Dataset...');
+                    window.showNotification('This Unavailable Right Now, It will update in next version', 'info');
                   }}
                 >
                   📋 Download Raw Dataset
@@ -2199,7 +2229,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    window.showNotification('Downloading Enhance Dataset...');
+                    window.showNotification('This Unavailable Right Now, It will update in next version', 'info');
                   }}
                 >
                   📋 Download Enhance Dataset
@@ -2207,7 +2237,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    window.showNotification('Downloading Label Parameters...');
+                    window.showNotification('This Unavailable Right Now, It will update in next version', 'info');
                   }}
                 >
                   📋 Download Label Parameters

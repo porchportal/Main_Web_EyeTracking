@@ -1,5 +1,8 @@
 // pages/process_set/processApi.js - API functions for process_set with improved connection handling
 
+// Import consent manager to get user ID properly
+import { getOrCreateUserId } from '../../utils/consentManager';
+
 // Utility function for making API requests with retry and better error handling
 const fetchWithRetry = async (url, options = {}, retries = 3, customTimeout = 10000) => {
   let lastError;
@@ -92,29 +95,77 @@ let currentUserIdCache = null;
 let userIdCacheTimestamp = 0;
 const USER_ID_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+// Global user ID to ensure consistency across all calls
+let globalUserId = null;
+
 // Get the actual user ID from the backend
 export const getCurrentUserId = async () => {
   try {
+    // Check if we have a global user ID first
+    if (globalUserId) {
+      console.log('Using global user ID:', globalUserId);
+      return globalUserId;
+    }
+
     // Check if we have a valid cached user ID
     const now = Date.now();
     if (currentUserIdCache && (now - userIdCacheTimestamp) < USER_ID_CACHE_DURATION) {
+      console.log('Using cached user ID:', currentUserIdCache);
+      globalUserId = currentUserIdCache;
       return currentUserIdCache;
     }
 
-    // Get user ID from backend
-    const response = await fetchWithRetry('/api/current-user-id', {}, 1, 5000);
+    // First try to get user ID from consent context using consent manager
+    let frontendUserId = null;
+    try {
+      // Try to get from consent manager first
+      const consentData = getOrCreateUserId();
+      if (consentData) {
+        frontendUserId = consentData;
+        console.log('Found user ID from consent context (cookies):', frontendUserId);
+      }
+    } catch (e) {
+      console.warn('Could not get consent data:', e);
+    }
+
+    // If no frontend user ID, try sessionStorage
+    if (!frontendUserId) {
+      frontendUserId = sessionStorage.getItem('userId');
+      if (frontendUserId) {
+        console.log('Found user ID from sessionStorage:', frontendUserId);
+      }
+    }
+
+    // If still no user ID, generate one (this should rarely happen)
+    if (!frontendUserId) {
+      // Generate a new UUID for this session using crypto.randomUUID if available
+      if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        frontendUserId = crypto.randomUUID();
+      } else {
+        // Fallback to a simple random ID
+        frontendUserId = 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+      }
+      console.log('Generated new user ID (no existing found):', frontendUserId);
+    }
+
+    // Pass the user ID to the backend
+    console.log('Sending user ID to backend:', frontendUserId);
+    const response = await fetchWithRetry(`/api/current-user-id?userId=${encodeURIComponent(frontendUserId)}`, {}, 1, 5000);
     
     if (response.success && response.userId) {
       currentUserIdCache = response.userId;
+      globalUserId = response.userId;
       userIdCacheTimestamp = now;
+      console.log('Backend confirmed user ID:', response.userId);
       return response.userId;
     } else {
       throw new Error(response.error || 'Failed to get user ID');
     }
   } catch (error) {
     console.error('Error getting current user ID:', error);
-    // Fallback to localStorage or 'default'
-    const fallbackUserId = localStorage.getItem('userId') || 'default';
+    // Fallback to localStorage or generate new one
+    const fallbackUserId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || 'default';
+    globalUserId = fallbackUserId;
     console.warn(`Using fallback user ID: ${fallbackUserId}`);
     return fallbackUserId;
   }

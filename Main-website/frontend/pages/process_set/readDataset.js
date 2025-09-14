@@ -1,5 +1,8 @@
 // pages/process_set/readDataset.js - Dataset reading utilities for image preview with folder support
 
+// Import getCurrentUserId from processApi to ensure consistent user ID handling
+import { getCurrentUserId } from './processApi';
+
 // Utility function for making API requests with retry and better error handling
 const fetchWithRetry = async (url, options = {}, retries = 3) => {
   let lastError;
@@ -180,9 +183,9 @@ export class DatasetReader {
   async _loadFileFromBackend(filename, userId, folder = 'captures') {
     try {
       
-      // Get user ID from localStorage if not provided
+      // Get user ID from backend if not provided
       if (!userId) {
-        userId = localStorage.getItem('userId') || 'default';
+        userId = await getCurrentUserId();
       }
 
       // Call the new readDataset API with folder support
@@ -274,9 +277,9 @@ export class DatasetReader {
    */
   async getFilesList(folder, userId = null) {
     try {
-      // Get user ID from localStorage if not provided
+      // Get user ID from backend if not provided
       if (!userId) {
-        userId = localStorage.getItem('userId') || 'default';
+        userId = await getCurrentUserId();
       }
 
       const url = `/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=list&folder=${encodeURIComponent(folder)}`;
@@ -308,9 +311,9 @@ export class DatasetReader {
    */
   async checkFilesCompleteness(userId = null) {
     try {
-      // Get user ID from localStorage if not provided
+      // Get user ID from backend if not provided
       if (!userId) {
-        userId = localStorage.getItem('userId') || 'default';
+        userId = await getCurrentUserId();
       }
 
       const url = `/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=check-completeness`;
@@ -343,9 +346,9 @@ export class DatasetReader {
    */
   async checkFilesNeedProcessing(userId = null) {
     try {
-      // Get user ID from localStorage if not provided
+      // Get user ID from backend if not provided
       if (!userId) {
-        userId = localStorage.getItem('userId') || 'default';
+        userId = await getCurrentUserId();
       }
 
       const url = `/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=compare`;
@@ -396,6 +399,10 @@ export class DatasetReader {
    * @returns {Promise<Array<Object>>} - Array of preview data objects
    */
   async preloadFiles(filenames, userId = null, folder = 'captures') {
+    // Get user ID from backend if not provided
+    if (!userId) {
+      userId = await getCurrentUserId();
+    }
     
     const promises = filenames.map(filename => 
       this.readFile(filename, userId, true, folder)

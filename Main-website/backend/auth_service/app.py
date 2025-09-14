@@ -543,16 +543,24 @@ async def queue_processing(request: ProcessingRequest):
         )
 
 @app.get("/api/current-user-id")
-async def get_current_user_id():
-    """Get the current user ID (first available user folder)"""
+async def get_current_user_id(userId: str = None):
+    """Get the current user ID - return provided userId or find first available user folder"""
     try:
         captures_base_dir = os.path.abspath('/app/resource_security/public/captures')
+        
+        # If userId is provided, ALWAYS return it (don't validate existence)
+        if userId and userId != "default":
+            logger.info(f"Returning provided userId: {userId}")
+            return {"success": True, "userId": userId}
+        
+        # If no userId provided or userId is "default", find first available user folder
         user_folders = [d for d in os.listdir(captures_base_dir) 
                        if os.path.isdir(os.path.join(captures_base_dir, d)) 
                        and d not in ['enhance', 'eye_tracking_captures']]
         
         if user_folders:
             actual_user_id = user_folders[0]  # Use the first available user folder
+            logger.info(f"No userId provided, using first available: {actual_user_id}")
             return {"success": True, "userId": actual_user_id}
         else:
             return {"success": False, "error": "No user folders found"}
@@ -600,11 +608,20 @@ async def get_user_settings(user_id: str):
 # Use UserSettings from data_centralization.py instead of duplicating the model
 
 @app.post("/api/data-center/settings/{user_id}")
-async def update_user_settings(user_id: str, settings: dict):
+async def update_user_settings(user_id: str, request: Request):
     """Update user settings in data center"""
     try:
         if not await DataCenter.initialize():
             raise HTTPException(status_code=503, detail="Data center not initialized")
+        
+        # Parse JSON body
+        try:
+            settings = await request.json()
+        except Exception as json_error:
+            logger.error(f"JSON parsing error: {json_error}")
+            raise HTTPException(status_code=400, detail="Invalid JSON in request body")
+        
+        logger.info(f"Updating settings for user {user_id}: {settings}")
         
         # Get current settings
         current_settings = await DataCenter.get_value(f"settings_{user_id}") or {}
@@ -626,6 +643,7 @@ async def update_user_settings(user_id: str, settings: dict):
             "json"
         )
         
+        logger.info(f"Successfully updated settings for user {user_id}: {updated_settings}")
         return {"status": "success", "message": "Settings updated successfully", "data": updated_settings}
     except HTTPException:
         raise

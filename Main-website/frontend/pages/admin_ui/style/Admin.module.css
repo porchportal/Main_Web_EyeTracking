@@ -1254,6 +1254,64 @@
   transform: translateY(-3px) !important;
 }
 
+/* Download Dataset Button Specific Styles */
+.downloadDatasetButton {
+  position: relative;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #6c757d 0%, #495057 100%) !important;
+  color: white !important;
+  border: 2px solid #6c757d !important;
+}
+
+.downloadDatasetButton:hover {
+  background: linear-gradient(135deg, #495057 0%, #6c757d 100%) !important;
+  box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+
+.downloadDatasetButton.active {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important;
+  border: 2px solid #28a745 !important;
+  box-shadow: 0 6px 16px rgba(40, 167, 69, 0.4) !important;
+  transform: translateY(-2px) !important;
+  color: white !important;
+}
+
+.downloadDatasetButton.active:hover {
+  background: linear-gradient(135deg, #20c997 0%, #28a745 100%) !important;
+  box-shadow: 0 8px 20px rgba(40, 167, 69, 0.5) !important;
+  transform: translateY(-3px) !important;
+}
+
+/* AI Process Button Specific Styles */
+.aiProcessButton {
+  position: relative;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg, #6f42c1 0%, #e83e8c 100%) !important;
+  color: white !important;
+  border: 2px solid #6f42c1 !important;
+}
+
+.aiProcessButton:hover {
+  background: linear-gradient(135deg, #e83e8c 0%, #6f42c1 100%) !important;
+  box-shadow: 0 4px 12px rgba(111, 66, 193, 0.3) !important;
+  transform: translateY(-1px) !important;
+}
+
+.aiProcessButton.active {
+  background: linear-gradient(135deg, #fd7e14 0%, #ffc107 100%) !important;
+  border: 2px solid #fd7e14 !important;
+  box-shadow: 0 6px 16px rgba(253, 126, 20, 0.4) !important;
+  transform: translateY(-2px) !important;
+  color: white !important;
+}
+
+.aiProcessButton.active:hover {
+  background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%) !important;
+  box-shadow: 0 8px 20px rgba(253, 126, 20, 0.5) !important;
+  transform: translateY(-3px) !important;
+}
+
 /* Download Section Styles */
 .downloadSection {
   display: flex;
