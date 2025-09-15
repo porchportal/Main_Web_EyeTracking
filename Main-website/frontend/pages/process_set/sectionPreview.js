@@ -224,33 +224,39 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
     
     // Process capture files
     files.capture?.forEach(file => {
-      metadata.set(file.filename, {
+      const filename = typeof file === 'string' ? file : file.filename;
+      metadata.set(filename, {
         ...file,
-        fileType: getFileType(file.filename),
-        isImage: isImageFile(file.filename),
-        isText: isTextFile(file.filename),
+        filename: filename,
+        fileType: getFileType(filename),
+        isImage: isImageFile(filename),
+        isText: isTextFile(filename),
         folder: 'captures'
       });
     });
     
     // Process enhance files
     files.enhance?.forEach(file => {
-      metadata.set(file.filename, {
+      const filename = typeof file === 'string' ? file : file.filename;
+      metadata.set(filename, {
         ...file,
-        fileType: getFileType(file.filename),
-        isImage: isImageFile(file.filename),
-        isText: isTextFile(file.filename),
+        filename: filename,
+        fileType: getFileType(filename),
+        isImage: isImageFile(filename),
+        isText: isTextFile(filename),
         folder: 'enhance'
       });
     });
     
     // Process complete files
     files.complete?.forEach(file => {
-      metadata.set(file.filename, {
+      const filename = typeof file === 'string' ? file : file.filename;
+      metadata.set(filename, {
         ...file,
-        fileType: getFileType(file.filename),
-        isImage: isImageFile(file.filename),
-        isText: isTextFile(file.filename),
+        filename: filename,
+        fileType: getFileType(filename),
+        isImage: isImageFile(filename),
+        isText: isTextFile(filename),
         folder: 'complete'
       });
     });
@@ -323,22 +329,23 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
               {files.capture?.length > 0 ? (
                 <ul className={styles.fileListItems}>
                   {files.capture.map((file) => {
-                    const metadata = fileMetadata.get(file.filename);
+                    const filename = typeof file === 'string' ? file : file.filename;
+                    const metadata = fileMetadata.get(filename);
                     return (
                       <li 
-                        key={file.filename} 
+                        key={filename} 
                         className={styles.fileListItem}
-                        onClick={() => handleFileClick(file.filename)}
-                        title={`Click to preview ${file.filename}`}
+                        onClick={() => handleFileClick(filename)}
+                        title={`Click to preview ${filename}`}
                       >
                         <div className={styles.fileInfo}>
                           <div className={styles.fileHeader}>
-                            <span className={styles.fileIcon}>{getFileIcon(file.filename)}</span>
-                            <span className={styles.fileName}>{file.filename}</span>
+                            <span className={styles.fileIcon}>{getFileIcon(filename)}</span>
+                            <span className={styles.fileName}>{filename}</span>
                           </div>
-                          <span className={styles.filePath}>{file.path}</span>
+                          <span className={styles.filePath}>{file.path || `/captures/${filename}`}</span>
                           <span className={styles.fileDetails}>
-                            {metadata?.fileType?.toUpperCase() || file.file_type?.toUpperCase() || 'UNKNOWN'} - {formatFileSize(file.size)}
+                            {metadata?.fileType?.toUpperCase() || file.file_type?.toUpperCase() || 'UNKNOWN'} - {formatFileSize(file.size || 0)}
                           </span>
                         </div>
                       </li>
@@ -354,22 +361,23 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
               {files.enhance?.length > 0 ? (
                 <ul className={styles.fileListItems}>
                   {files.enhance.map((file) => {
-                    const metadata = fileMetadata.get(file.filename);
+                    const filename = typeof file === 'string' ? file : file.filename;
+                    const metadata = fileMetadata.get(filename);
                     return (
                       <li 
-                        key={file.filename} 
+                        key={filename} 
                         className={styles.fileListItem}
-                        onClick={() => handleFileClick(file.filename)}
-                        title={`Click to preview ${file.filename}`}
+                        onClick={() => handleFileClick(filename)}
+                        title={`Click to preview ${filename}`}
                       >
                         <div className={styles.fileInfo}>
                           <div className={styles.fileHeader}>
-                            <span className={styles.fileIcon}>{getFileIcon(file.filename)}</span>
-                            <span className={styles.fileName}>{file.filename}</span>
+                            <span className={styles.fileIcon}>{getFileIcon(filename)}</span>
+                            <span className={styles.fileName}>{filename}</span>
                           </div>
-                          <span className={styles.filePath}>{file.path}</span>
+                          <span className={styles.filePath}>{file.path || `/enhance/${filename}`}</span>
                           <span className={styles.fileDetails}>
-                            {metadata?.fileType?.toUpperCase() || file.file_type?.toUpperCase() || 'UNKNOWN'} - {formatFileSize(file.size)}
+                            {metadata?.fileType?.toUpperCase() || file.file_type?.toUpperCase() || 'UNKNOWN'} - {formatFileSize(file.size || 0)}
                           </span>
                         </div>
                       </li>
@@ -385,22 +393,23 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
               {files.complete?.length > 0 ? (
                 <ul className={styles.fileListItems}>
                   {files.complete.map((file) => {
-                    const metadata = fileMetadata.get(file.filename);
+                    const filename = typeof file === 'string' ? file : file.filename;
+                    const metadata = fileMetadata.get(filename);
                     return (
                       <li 
-                        key={file.filename} 
+                        key={filename} 
                         className={styles.fileListItem}
-                        onClick={() => handleFileClick(file.filename)}
-                        title={`Click to preview ${file.filename}`}
+                        onClick={() => handleFileClick(filename)}
+                        title={`Click to preview ${filename}`}
                       >
                         <div className={styles.fileInfo}>
                           <div className={styles.fileHeader}>
-                            <span className={styles.fileIcon}>{getFileIcon(file.filename)}</span>
-                            <span className={styles.fileName}>{file.filename}</span>
+                            <span className={styles.fileIcon}>{getFileIcon(filename)}</span>
+                            <span className={styles.fileName}>{filename}</span>
                           </div>
-                          <span className={styles.filePath}>{file.path}</span>
+                          <span className={styles.filePath}>{file.path || `/complete/${filename}`}</span>
                           <span className={styles.fileDetails}>
-                            {metadata?.fileType?.toUpperCase() || file.file_type?.toUpperCase() || 'UNKNOWN'} - {formatFileSize(file.size)}
+                            {metadata?.fileType?.toUpperCase() || file.file_type?.toUpperCase() || 'UNKNOWN'} - {formatFileSize(file.size || 0)}
                           </span>
                         </div>
                       </li>

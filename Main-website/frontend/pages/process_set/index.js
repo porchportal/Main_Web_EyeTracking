@@ -128,24 +128,60 @@ export default function ProcessSet() {
       
       if (captureResult.success || enhanceResult.success || completeResult.success) {
         const organizedFiles = {
-          capture: captureResult.success ? captureResult.files.map(filename => ({
-            filename,
-            path: `/captures/${userId}/${filename}`,
-            file_type: filename.split('.').pop(),
-            size: 0
-          })) : [],
-          enhance: enhanceResult.success ? enhanceResult.files.map(filename => ({
-            filename,
-            path: `/enhance/${userId}/${filename}`,
-            file_type: filename.split('.').pop(),
-            size: 0
-          })) : [],
-          complete: completeResult.success ? completeResult.files.map(filename => ({
-            filename,
-            path: `/complete/${userId}/${filename}`,
-            file_type: filename.split('.').pop(),
-            size: 0
-          })) : []
+          capture: captureResult.success ? captureResult.files.map(file => {
+            // Handle both old format (string) and new format (object)
+            if (typeof file === 'string') {
+              return {
+                filename: file,
+                path: `/captures/${userId}/${file}`,
+                file_type: file.split('.').pop(),
+                size: 0
+              };
+            } else {
+              return {
+                filename: file.filename,
+                path: file.path || `/captures/${userId}/${file.filename}`,
+                file_type: file.file_type || file.filename.split('.').pop(),
+                size: file.size || 0
+              };
+            }
+          }) : [],
+          enhance: enhanceResult.success ? enhanceResult.files.map(file => {
+            // Handle both old format (string) and new format (object)
+            if (typeof file === 'string') {
+              return {
+                filename: file,
+                path: `/enhance/${userId}/${file}`,
+                file_type: file.split('.').pop(),
+                size: 0
+              };
+            } else {
+              return {
+                filename: file.filename,
+                path: file.path || `/enhance/${userId}/${file.filename}`,
+                file_type: file.file_type || file.filename.split('.').pop(),
+                size: file.size || 0
+              };
+            }
+          }) : [],
+          complete: completeResult.success ? completeResult.files.map(file => {
+            // Handle both old format (string) and new format (object)
+            if (typeof file === 'string') {
+              return {
+                filename: file,
+                path: `/complete/${userId}/${file}`,
+                file_type: file.split('.').pop(),
+                size: 0
+              };
+            } else {
+              return {
+                filename: file.filename,
+                path: file.path || `/complete/${userId}/${file.filename}`,
+                file_type: file.file_type || file.filename.split('.').pop(),
+                size: file.size || 0
+              };
+            }
+          }) : []
         };
         
         setFiles(organizedFiles);
@@ -284,24 +320,60 @@ export default function ProcessSet() {
     
     if (captureResult.success || enhanceResult.success || completeResult.success) {
       const organizedFiles = {
-        capture: captureResult.success ? captureResult.files.map(filename => ({
-          filename,
-          path: `/captures/${userId}/${filename}`,
-          file_type: filename.split('.').pop(),
-          size: 0
-        })) : [],
-        enhance: enhanceResult.success ? enhanceResult.files.map(filename => ({
-          filename,
-          path: `/enhance/${userId}/${filename}`,
-          file_type: filename.split('.').pop(),
-          size: 0
-        })) : [],
-        complete: completeResult.success ? completeResult.files.map(filename => ({
-          filename,
-          path: `/complete/${userId}/${filename}`,
-          file_type: filename.split('.').pop(),
-          size: 0
-        })) : []
+        capture: captureResult.success ? captureResult.files.map(file => {
+          // Handle both old format (string) and new format (object)
+          if (typeof file === 'string') {
+            return {
+              filename: file,
+              path: `/captures/${userId}/${file}`,
+              file_type: file.split('.').pop(),
+              size: 0
+            };
+          } else {
+            return {
+              filename: file.filename,
+              path: file.path || `/captures/${userId}/${file.filename}`,
+              file_type: file.file_type || file.filename.split('.').pop(),
+              size: file.size || 0
+            };
+          }
+        }) : [],
+        enhance: enhanceResult.success ? enhanceResult.files.map(file => {
+          // Handle both old format (string) and new format (object)
+          if (typeof file === 'string') {
+            return {
+              filename: file,
+              path: `/enhance/${userId}/${file}`,
+              file_type: file.split('.').pop(),
+              size: 0
+            };
+          } else {
+            return {
+              filename: file.filename,
+              path: file.path || `/enhance/${userId}/${file.filename}`,
+              file_type: file.file_type || file.filename.split('.').pop(),
+              size: file.size || 0
+            };
+          }
+        }) : [],
+        complete: completeResult.success ? completeResult.files.map(file => {
+          // Handle both old format (string) and new format (object)
+          if (typeof file === 'string') {
+            return {
+              filename: file,
+              path: `/complete/${userId}/${file}`,
+              file_type: file.split('.').pop(),
+              size: 0
+            };
+          } else {
+            return {
+              filename: file.filename,
+              path: file.path || `/complete/${userId}/${file.filename}`,
+              file_type: file.file_type || file.filename.split('.').pop(),
+              size: file.size || 0
+            };
+          }
+        }) : []
       };
       
       setFiles(organizedFiles);

@@ -177,6 +177,9 @@ const CameraAccessComponent = ({
         if (window.videoElement) {
           delete window.videoElement;
         }
+        if (window.subVideoElement) {
+          delete window.subVideoElement;
+        }
       }
       return;
     }
@@ -196,6 +199,9 @@ const CameraAccessComponent = ({
         // Clean up global video element
         if (window.videoElement) {
           delete window.videoElement;
+        }
+        if (window.subVideoElement) {
+          delete window.subVideoElement;
         }
       }
     };
@@ -515,7 +521,18 @@ const CameraAccessComponent = ({
           setIsVideoReady(true);
           
           // Expose video element to global scope for capture functions
-          window.videoElement = video;
+          // Set up global video element references based on camera index
+          if (cameraIndex === 0) {
+            window.videoElement = video;
+            console.log('📹 Main video element set to global scope');
+          } else if (cameraIndex === 1) {
+            window.subVideoElement = video;
+            console.log('📹 Sub video element set to global scope');
+          }
+          
+          // Also set data attributes for identification
+          video.setAttribute('data-camera-index', cameraIndex.toString());
+          video.setAttribute('data-camera-tag', cameraIndex === 0 ? 'main' : 'submain');
           
           if (wsStatus === 'connected') {
             processingInterval.current = setInterval(captureAndProcessFrame, 33);

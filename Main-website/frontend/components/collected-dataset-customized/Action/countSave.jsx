@@ -191,15 +191,17 @@ export const createCountdownElement = (position, canvasRect) => {
 /**
  * Display a preview of the captured images
  * @param {string} screenImage - Data URL of the screen image
- * @param {string} webcamImage - Data URL of the webcam image
+ * @param {string} webcamImage - Data URL of the main webcam image
+ * @param {string} subWebcamImage - Data URL of the sub webcam image (optional)
  * @param {Object} point - {x, y} position of the dot
  */
-export const showCapturePreview = (screenImage, webcamImage, point) => {
+export const showCapturePreview = (screenImage, webcamImage, subWebcamImage, point) => {
   // Force display even if only one image is available
   const hasScreenImage = screenImage && screenImage.length > 100; // Check if it's a valid data URL
   const hasWebcamImage = webcamImage && webcamImage.length > 100; // Check if it's a valid data URL
+  const hasSubWebcamImage = subWebcamImage && subWebcamImage.length > 100; // Check if it's a valid data URL
   
-  if (!hasScreenImage && !hasWebcamImage) {
+  if (!hasScreenImage && !hasWebcamImage && !hasSubWebcamImage) {
     return;
   }
   
@@ -227,6 +229,9 @@ export const showCapturePreview = (screenImage, webcamImage, point) => {
     z-index: 10000;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     min-width: 300px;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow-y: auto;
   `;
   
   // Add simple success indicator
@@ -315,42 +320,89 @@ export const showCapturePreview = (screenImage, webcamImage, point) => {
     previewContainer.appendChild(screenPreview);
   }
   
-  // Add webcam image if available
-  if (hasWebcamImage) {
-    const webcamPreview = document.createElement('div');
-    webcamPreview.style.cssText = `
+  // Add webcam images if available - support for dual camera display
+  if (hasWebcamImage || hasSubWebcamImage) {
+    const webcamContainer = document.createElement('div');
+    webcamContainer.style.cssText = `
       display: flex;
       flex-direction: column;
       align-items: center;
+      gap: 10px;
     `;
     
-    const webcamImg = document.createElement('img');
-    webcamImg.src = webcamImage;
-    webcamImg.alt = 'Webcam Capture';
-    webcamImg.style.cssText = `
-      max-width: 200px;
-      max-height: 150px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      background-color: #fff;
-    `;
+    // Main webcam (tag: main)
+    if (hasWebcamImage) {
+      const webcamPreview = document.createElement('div');
+      webcamPreview.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      `;
+      
+      const webcamImg = document.createElement('img');
+      webcamImg.src = webcamImage;
+      webcamImg.alt = 'Main Webcam Capture';
+      webcamImg.style.cssText = `
+        max-width: 200px;
+        max-height: 120px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background-color: #fff;
+      `;
+      
+      const webcamLabel = document.createElement('div');
+      webcamLabel.textContent = 'Main Webcam';
+      webcamLabel.style.cssText = `
+        color: #fff;
+        font-size: 12px;
+        margin-top: 8px;
+        font-weight: 400;
+      `;
+      
+      webcamPreview.appendChild(webcamImg);
+      webcamPreview.appendChild(webcamLabel);
+      webcamContainer.appendChild(webcamPreview);
+    }
     
-    const webcamLabel = document.createElement('div');
-    webcamLabel.textContent = 'Webcam';
-    webcamLabel.style.cssText = `
-      color: #fff;
-      font-size: 12px;
-      margin-top: 8px;
-      font-weight: 400;
-    `;
+    // Sub webcam (tag: submain)
+    if (hasSubWebcamImage) {
+      const subWebcamPreview = document.createElement('div');
+      subWebcamPreview.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      `;
+      
+      const subWebcamImg = document.createElement('img');
+      subWebcamImg.src = subWebcamImage;
+      subWebcamImg.alt = 'Sub Webcam Capture';
+      subWebcamImg.style.cssText = `
+        max-width: 200px;
+        max-height: 120px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        background-color: #fff;
+      `;
+      
+      const subWebcamLabel = document.createElement('div');
+      subWebcamLabel.textContent = 'Sub Webcam';
+      subWebcamLabel.style.cssText = `
+        color: #fff;
+        font-size: 12px;
+        margin-top: 8px;
+        font-weight: 400;
+      `;
+      
+      subWebcamPreview.appendChild(subWebcamImg);
+      subWebcamPreview.appendChild(subWebcamLabel);
+      webcamContainer.appendChild(subWebcamPreview);
+    }
     
-    webcamPreview.appendChild(webcamImg);
-    webcamPreview.appendChild(webcamLabel);
-    previewContainer.appendChild(webcamPreview);
+    previewContainer.appendChild(webcamContainer);
   } else {
-    // Show minimal placeholder for missing webcam image
-    const webcamPreview = document.createElement('div');
-    webcamPreview.style.cssText = `
+    // Show minimal placeholder for missing webcam images
+    const webcamContainer = document.createElement('div');
+    webcamContainer.style.cssText = `
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -381,9 +433,9 @@ export const showCapturePreview = (screenImage, webcamImage, point) => {
       font-weight: 400;
     `;
     
-    webcamPreview.appendChild(webcamPlaceholder);
-    webcamPreview.appendChild(webcamLabel);
-    previewContainer.appendChild(webcamPreview);
+    webcamContainer.appendChild(webcamPlaceholder);
+    webcamContainer.appendChild(webcamLabel);
+    previewContainer.appendChild(webcamContainer);
   }
   
   // Add minimal point info
@@ -640,7 +692,8 @@ const getHighestResolutionConstraints = async () => {
     const videoDevices = devices.filter(device => device.kind === 'videoinput');
     
     if (videoDevices.length === 0) {
-      return { video: true };
+      console.warn('No video devices found, using default constraints');
+      return { video: { width: { ideal: 1280 }, height: { ideal: 720 } } };
     }
     
     // Use selected camera if available, otherwise use first available camera
@@ -651,41 +704,84 @@ const getHighestResolutionConstraints = async () => {
       console.log('Using selected camera for capture:', targetDeviceId);
     }
     
+    // Find the target device
+    const targetDevice = targetDeviceId ? 
+      videoDevices.find(device => device.deviceId === targetDeviceId) : 
+      videoDevices[0];
+    
+    if (!targetDevice) {
+      console.warn('Target device not found, using first available');
+      return { video: { width: { ideal: 1280 }, height: { ideal: 720 } } };
+    }
+    
+    console.log('🎯 Using device:', targetDevice.label || targetDevice.deviceId);
+    
     // Try to get capabilities for the target device
-    const constraints = targetDeviceId ? 
-      { video: { deviceId: { exact: targetDeviceId } } } : 
-      { video: true };
-      
+    const constraints = { 
+      video: { 
+        deviceId: { exact: targetDevice.deviceId },
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      } 
+    };
+    
+    // Test the constraints to see what's actually supported
     const stream = await navigator.mediaDevices.getUserMedia(constraints);
     const videoTrack = stream.getVideoTracks()[0];
     
-    if (!videoTrack.getCapabilities) {
+    if (!videoTrack) {
       stream.getTracks().forEach(track => track.stop());
-      return constraints;
+      console.warn('No video track found, using fallback constraints');
+      return { video: { deviceId: { exact: targetDevice.deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } } };
     }
     
-    const capabilities = videoTrack.getCapabilities();
+    // Get the actual settings being used
+    const settings = videoTrack.getSettings();
+    console.log('📊 Actual video settings:', settings);
+    
+    // Get capabilities if available
+    let capabilities = null;
+    if (videoTrack.getCapabilities) {
+      capabilities = videoTrack.getCapabilities();
+      console.log('📊 Video capabilities:', capabilities);
+    }
+    
+    // Stop the test stream
     stream.getTracks().forEach(track => track.stop());
     
-    if (!capabilities.width || !capabilities.height) {
-      return constraints;
+    // Determine the best resolution
+    let bestWidth = 1280; // Default minimum
+    let bestHeight = 720;
+    
+    if (capabilities && capabilities.width && capabilities.height) {
+      // Use the maximum available resolution
+      bestWidth = Math.max(...capabilities.width.values);
+      bestHeight = Math.max(...capabilities.height.values);
+      console.log('🎯 Maximum supported resolution:', bestWidth, 'x', bestHeight);
+    } else if (settings.width && settings.height) {
+      // Use the settings from the test stream
+      bestWidth = settings.width;
+      bestHeight = settings.height;
+      console.log('🎯 Test stream resolution:', bestWidth, 'x', bestHeight);
     }
     
-    // Get the highest resolution available
-    const maxWidth = Math.max(...capabilities.width.values);
-    const maxHeight = Math.max(...capabilities.height.values);
+    // Ensure minimum resolution of 640x480
+    bestWidth = Math.max(bestWidth, 640);
+    bestHeight = Math.max(bestHeight, 480);
+    
+    console.log('✅ Final resolution constraints:', bestWidth, 'x', bestHeight);
     
     return {
       video: {
-        ...constraints.video,
-        width: { ideal: maxWidth },
-        height: { ideal: maxHeight },
+        deviceId: { exact: targetDevice.deviceId },
+        width: { ideal: bestWidth },
+        height: { ideal: bestHeight },
         frameRate: { ideal: 30 }
       }
     };
   } catch (error) {
     console.warn('Error getting camera constraints, falling back to default:', error);
-    return { video: true };
+    return { video: { width: { ideal: 1280 }, height: { ideal: 720 } } };
   }
 };
 
@@ -715,6 +811,64 @@ export const captureImagesWithHtml2Canvas = async (options) => {
     // Use the existing video element from cameraAccess.js if available
     const videoElement = window.videoElement || document.querySelector('video');
     
+    // For sub camera, we need to find the second video element
+    let subVideoElement = window.subVideoElement || document.querySelector('video[data-camera-index="1"]');
+    
+    // If subVideoElement not found, try to find all video elements and get the second one
+    if (!subVideoElement) {
+      const allVideoElements = document.querySelectorAll('video');
+      console.log('🔍 All video elements found for capture:', allVideoElements.length);
+      console.log('🔍 Video elements details for capture:', Array.from(allVideoElements).map((video, index) => ({
+        index,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        readyState: video.readyState,
+        srcObject: !!video.srcObject,
+        cameraIndex: video.getAttribute('data-camera-index'),
+        cameraTag: video.getAttribute('data-camera-tag'),
+        isMainVideo: video === videoElement
+      })));
+      
+      if (allVideoElements.length > 1) {
+        // Find the video element that's not the main one
+        for (let i = 0; i < allVideoElements.length; i++) {
+          const video = allVideoElements[i];
+          if (video !== videoElement && video.srcObject) {
+            subVideoElement = video;
+            console.log('✅ Found sub video element at index:', i);
+            console.log('✅ Sub video element details for capture:', {
+              videoWidth: video.videoWidth,
+              videoHeight: video.videoHeight,
+              readyState: video.readyState,
+              srcObject: !!video.srcObject,
+              cameraIndex: video.getAttribute('data-camera-index'),
+              cameraTag: video.getAttribute('data-camera-tag')
+            });
+            break;
+          }
+        }
+      }
+    }
+    
+    console.log('📹 Video elements for capture:', {
+      mainVideo: !!videoElement,
+      subVideo: !!subVideoElement,
+      allVideos: document.querySelectorAll('video').length
+    });
+    
+    // Debug: Check if we should have a sub camera
+    const selectedCameras = loadSelectedCamerasFromStorage();
+    if (selectedCameras.length > 1 && !subVideoElement) {
+      console.warn('⚠️ WARNING: 2 cameras selected but no sub video element found!');
+      console.warn('⚠️ This means sub camera capture will be skipped');
+      console.warn('⚠️ Selected cameras:', selectedCameras);
+      console.warn('⚠️ All video elements on page:', document.querySelectorAll('video').length);
+      console.warn('⚠️ Window video elements:', {
+        main: !!window.videoElement,
+        sub: !!window.subVideoElement
+      });
+    }
+    
     if (videoElement && videoElement.srcObject) {
       const videoTrack = videoElement.srcObject.getVideoTracks()[0];
       if (videoTrack) {
@@ -743,18 +897,25 @@ export const captureImagesWithHtml2Canvas = async (options) => {
     console.log('📸 Capturing screen with html2canvas...');
     const screenImage = await captureScreenWithHtml2Canvas();
     
-    // Capture webcam using existing method
+    // Capture webcam using existing method - Support for dual cameras
     console.log('📷 Capturing webcam...');
     let webcamImage = null;
+    let subWebcamImage = null;
+    
+    // Capture main camera (tag: main)
     if (videoElement) {
       try {
-        // Create a temporary canvas to capture webcam
+        // Create a temporary canvas to capture main webcam
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
         
-        // Set canvas size to video dimensions
-        tempCanvas.width = videoElement.videoWidth || 640;
-        tempCanvas.height = videoElement.videoHeight || 480;
+        // Set canvas size to video dimensions - use high resolution
+        tempCanvas.width = videoElement.videoWidth || 1280;
+        tempCanvas.height = videoElement.videoHeight || 720;
+        
+        // Ensure minimum resolution
+        tempCanvas.width = Math.max(tempCanvas.width, 640);
+        tempCanvas.height = Math.max(tempCanvas.height, 480);
         
         // Draw video frame to canvas - remove horizontal mirroring for capture
         tempCtx.save();
@@ -765,18 +926,66 @@ export const captureImagesWithHtml2Canvas = async (options) => {
         
         // Get high-resolution image
         webcamImage = tempCanvas.toDataURL('image/jpeg', 0.95);
+        console.log('📷 Main webcam image captured successfully');
         
         // Clean up temporary canvas
         tempCanvas.remove();
       } catch (webcamError) {
+        console.error('Error capturing main webcam:', webcamError);
       }
+    }
+    
+    // Capture sub camera (tag: submain) if available
+    if (subVideoElement && subVideoElement.srcObject) {
+      try {
+        console.log('📷 Sub video element found for capture, attempting capture...');
+        console.log('📷 Sub video element details for capture:', {
+          videoWidth: subVideoElement.videoWidth,
+          videoHeight: subVideoElement.videoHeight,
+          readyState: subVideoElement.readyState,
+          srcObject: !!subVideoElement.srcObject,
+          cameraIndex: subVideoElement.getAttribute('data-camera-index'),
+          cameraTag: subVideoElement.getAttribute('data-camera-tag')
+        });
+        
+        // Create a temporary canvas to capture sub webcam
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        // Set canvas size to video dimensions - use high resolution
+        tempCanvas.width = subVideoElement.videoWidth || 1280;
+        tempCanvas.height = subVideoElement.videoHeight || 720;
+        
+        // Ensure minimum resolution
+        tempCanvas.width = Math.max(tempCanvas.width, 640);
+        tempCanvas.height = Math.max(tempCanvas.height, 480);
+        
+        // Draw video frame to canvas - remove horizontal mirroring for capture
+        tempCtx.save();
+        tempCtx.scale(-1, 1); // Mirror horizontally to counteract the display mirroring
+        tempCtx.translate(-tempCanvas.width, 0); // Move to correct position after scaling
+        tempCtx.drawImage(subVideoElement, 0, 0, tempCanvas.width, tempCanvas.height);
+        tempCtx.restore();
+        
+        // Get high-resolution image
+        subWebcamImage = tempCanvas.toDataURL('image/jpeg', 0.95);
+        console.log('📷 Sub webcam image captured successfully');
+        
+        // Clean up temporary canvas
+        tempCanvas.remove();
+      } catch (webcamError) {
+        console.error('Error capturing sub webcam:', webcamError);
+      }
+    } else {
+      console.log('ℹ️ No sub video element found - single camera mode');
     }
     
     // Create capture group ID
     const captureGroupId = `capture-${Date.now()}-${Date.now()}`;
     
-    // Create parameter data
-    const csvData = [
+    // Create parameter data - Include dual camera support only when 2 cameras are selected
+    const selectedCamerasForCSV = loadSelectedCamerasFromStorage();
+    const csvDataArray = [
       "name,value",
       `dot_x,${position.x}`,
       `dot_y,${position.y}`,
@@ -787,9 +996,16 @@ export const captureImagesWithHtml2Canvas = async (options) => {
       `webcam_resolution_width,${videoElement?.videoWidth || 640}`,
       `webcam_resolution_height,${videoElement?.videoHeight || 480}`,
       `timestamp,${new Date().toISOString()}`,
-      `group_id,${captureGroupId}`,
-      `capture_method,html2canvas`
-    ].join('\n');
+      `group_id,${captureGroupId}`
+    ];
+    
+    // Only add sub camera resolution fields if 2 cameras are selected
+    if (selectedCamerasForCSV.length > 1) {
+      csvDataArray.splice(9, 0, `webcam_resolution_width_1,${subVideoElement?.videoWidth || 0}`);
+      csvDataArray.splice(10, 0, `webcam_resolution_height_1,${subVideoElement?.videoHeight || 0}`);
+    }
+    
+    const csvData = csvDataArray.join('\n');
     
     // Save files using user_savefile functions
     const { saveImageToUserServer, saveCSVToUserServer } = await import('../Helper/user_savefile');
@@ -802,14 +1018,41 @@ export const captureImagesWithHtml2Canvas = async (options) => {
     // Save screen image
     const screenResult = await saveImageToUserServer(screenImage, 'screen_001.jpg', 'screen', captureGroupId);
     
-    // Save webcam image if available
+    // Save main webcam image if available
     let webcamResult = null;
     if (webcamImage) {
       webcamResult = await saveImageToUserServer(webcamImage, 'webcam_001.jpg', 'webcam', captureGroupId);
     }
     
-    // Show preview
-    showCapturePreview(screenImage, webcamImage, position);
+    // Save sub webcam image if available
+    let subWebcamResult = null;
+    if (subWebcamImage) {
+      console.log('📷 Saving sub webcam image...');
+      console.log('📷 Sub webcam image details for countSave:', {
+        hasImage: !!subWebcamImage,
+        imageLength: subWebcamImage?.length || 0,
+        filename: 'webcam_sub_001.jpg',
+        type: 'webcam_sub',
+        captureGroupId
+      });
+      subWebcamResult = await saveImageToUserServer(subWebcamImage, 'webcam_sub_001.jpg', 'webcam_sub', captureGroupId);
+      if (subWebcamResult && subWebcamResult.success) {
+        console.log('✅ Sub webcam image saved successfully');
+      } else {
+        console.error('❌ Failed to save sub webcam image');
+      }
+    } else {
+      console.log('ℹ️ No sub webcam image to save (single camera mode)');
+      console.log('ℹ️ Sub webcam image check for countSave:', {
+        hasSubWebcamImage: !!subWebcamImage,
+        subWebcamImageLength: subWebcamImage?.length || 0,
+        selectedCameras: selectedCameras,
+        hasSubVideoElement: !!subVideoElement
+      });
+    }
+    
+    // Show preview with both cameras
+    showCapturePreview(screenImage, webcamImage, subWebcamImage, position);
     
     // Increment counter
     if (setCaptureCounter) {
@@ -820,13 +1063,15 @@ export const captureImagesWithHtml2Canvas = async (options) => {
     return {
       screenImage: screenImage,
       webcamImage: webcamImage,
+      subWebcamImage: subWebcamImage,
       success: true,
       captureId: captureGroupId,
       captureNumber: captureNumber,
       results: {
         parameter: paramResult,
         screen: screenResult,
-        webcam: webcamResult
+        webcam: webcamResult,
+        subWebcam: subWebcamResult
       }
     };
   } catch (err) {
@@ -944,7 +1189,9 @@ export const calibrationCapture = async (options) => {
         captureCount: captureCounter,
         canvasRef,
         setCaptureCount: setCaptureCounter,
-        showCapturePreview
+        showCapturePreview: (screenImage, webcamImage, subWebcamImage, point) => {
+          showCapturePreview(screenImage, webcamImage, subWebcamImage, point);
+        }
       });
   
       // Ensure proper return even if captureResult is null
@@ -1106,7 +1353,7 @@ export const captureAndPreviewProcess = async (options) => {
 
 
     // Force display of capture preview with both images
-    if (captureResult && (captureResult.screenImage || captureResult.webcamImage)) {
+    if (captureResult && (captureResult.screenImage || captureResult.webcamImage || captureResult.subWebcamImage)) {
       
       // Remove any existing previews first
       const existingPreviews = document.querySelectorAll('.capture-preview-container');
@@ -1116,15 +1363,16 @@ export const captureAndPreviewProcess = async (options) => {
         }
       });
       
-      // Force show the preview with both images
+      // Force show the preview with all images
       showCapturePreview(
         captureResult.screenImage || '', 
         captureResult.webcamImage || '', 
+        captureResult.subWebcamImage || '',
         position
       );
       
       // Show success message
-      const successMessage = `✅ Capture successful! Screen: ${captureResult.screenImage ? '✓' : '✗'}, Webcam: ${captureResult.webcamImage ? '✓' : '✗'}`;
+      const successMessage = `✅ Capture successful! Screen: ${captureResult.screenImage ? '✓' : '✗'}, Main Webcam: ${captureResult.webcamImage ? '✓' : '✗'}, Sub Webcam: ${captureResult.subWebcamImage ? '✓' : '✗'}`;
       
       if (setProcessStatus) {
         setProcessStatus(successMessage);

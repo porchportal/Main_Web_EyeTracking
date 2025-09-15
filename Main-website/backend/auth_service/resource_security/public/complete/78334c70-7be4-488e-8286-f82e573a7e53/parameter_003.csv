@@ -1,0 +1,17 @@
+Parameter,Value
+dot_x,1005
+dot_y,860
+canvas_width,1677
+canvas_height,933
+window_width,1677
+window_height,933
+webcam_resolution_width,640
+webcam_resolution_height,480
+timestamp,2025-09-15T04:20:26.807Z
+group_id,capture-1757910026807-1757910026807
+capture_method,html2canvas
+face_detected,True
+pitch,-0.3317780506118994
+yaw,0.016830311319074986
+roll,-0.0007223664182941012
+processing_time,2025-09-15T06:00:23.257100

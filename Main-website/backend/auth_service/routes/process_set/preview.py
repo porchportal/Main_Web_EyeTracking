@@ -28,6 +28,8 @@ class PreviewResponse(BaseModel):
     type: Optional[str] = None
     error: Optional[str] = None
     message: Optional[str] = None
+    size: Optional[int] = None
+    mtime: Optional[float] = None
 
 @router.get("/list-files", dependencies=[Depends(verify_api_key)])
 async def list_files(userId: str = "default", folder: str = "captures"):
@@ -70,17 +72,27 @@ async def list_files(userId: str = "default", folder: str = "captures"):
                 "no_dataset": True
             }
         
-        # Read files from directory
+        # Read files from directory with metadata
         files = []
         for file in os.listdir(file_dir):
             file_path = os.path.join(file_dir, file)
             if os.path.isfile(file_path):
                 ext = os.path.splitext(file)[1].lower()
                 if ext in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.csv', '.txt', '.json', '.log']:
-                    files.append(file)
+                    # Get file metadata
+                    file_size = os.path.getsize(file_path)
+                    file_mtime = os.path.getmtime(file_path)
+                    
+                    files.append({
+                        'filename': file,
+                        'size': file_size,
+                        'mtime': file_mtime,
+                        'path': f"/{actual_folder}/{actual_user_id}/{file}",
+                        'file_type': ext[1:] if ext else 'unknown'
+                    })
         
         # Sort files by number in filename if present
-        files.sort(key=lambda x: int(x.split('_')[-1].split('.')[0]) if '_' in x and x.split('_')[-1].split('.')[0].isdigit() else 0)
+        files.sort(key=lambda x: int(x['filename'].split('_')[-1].split('.')[0]) if '_' in x['filename'] and x['filename'].split('_')[-1].split('.')[0].isdigit() else 0)
         
         
         return {
@@ -152,22 +164,38 @@ async def get_preview(filename: str, userId: str = "default", folder: str = "cap
             with open(file_path, 'rb') as f:
                 image_data = base64.b64encode(f.read()).decode('utf-8')
                 
+            # Get file size and modification time for debugging
+            file_size = os.path.getsize(file_path)
+            file_mtime = os.path.getmtime(file_path)
+            
+            logging.info(f"Image file loaded: {filename}, size: {file_size} bytes, mtime: {file_mtime}")
+                
             return PreviewResponse(
                 data=image_data,
                 success=True,
                 type="image",
-                message=f"Image loaded from {folder} folder"
+                message=f"Image loaded from {folder} folder",
+                size=file_size,
+                mtime=file_mtime
             )
         else:
             # For non-image files, read as text
             with open(file_path, 'r') as f:
                 text_data = f.read()
                 
+            # Get file size and modification time for debugging
+            file_size = os.path.getsize(file_path)
+            file_mtime = os.path.getmtime(file_path)
+            
+            logging.info(f"Text file loaded: {filename}, size: {file_size} bytes, mtime: {file_mtime}")
+                
             return PreviewResponse(
                 data=text_data,
                 success=True,
                 type="text",
-                message=f"Text file loaded from {folder} folder"
+                message=f"Text file loaded from {folder} folder",
+                size=file_size,
+                mtime=file_mtime
             )
     except Exception as e:
         logging.error(f"Error getting preview: {str(e)}")

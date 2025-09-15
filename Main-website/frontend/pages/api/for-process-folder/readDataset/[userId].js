@@ -159,7 +159,8 @@ async function handleCompletenessCheck(userId, res, backendUrl, apiKey) {
     // Extract set numbers from capture files (webcam_XXX.jpg format)
     const captureSets = new Set();
     captureFiles.forEach(file => {
-      const match = file.match(/webcam_(\d+)\.jpg/);
+      const filename = file.filename || file; // Handle both object and string formats
+      const match = filename.match(/webcam_(\d+)\.jpg/);
       if (match) {
         captureSets.add(parseInt(match[1]));
       }
@@ -198,7 +199,8 @@ async function handleCompletenessCheck(userId, res, backendUrl, apiKey) {
     // Extract set numbers from enhance files (webcam_enhance_XXX.jpg format)
     const enhanceSets = new Set();
     enhanceFiles.forEach(file => {
-      const match = file.match(/webcam_enhance_(\d+)\.jpg/);
+      const filename = file.filename || file; // Handle both object and string formats
+      const match = filename.match(/webcam_enhance_(\d+)\.jpg/);
       if (match) {
         enhanceSets.add(parseInt(match[1]));
       }
@@ -207,7 +209,8 @@ async function handleCompletenessCheck(userId, res, backendUrl, apiKey) {
     // Extract set numbers from complete files (webcam_XXX.jpg format - same as capture)
     const completeSets = new Set();
     completeFiles.forEach(file => {
-      const match = file.match(/webcam_(\d+)\.jpg/);
+      const filename = file.filename || file; // Handle both object and string formats
+      const match = filename.match(/webcam_(\d+)\.jpg/);
       if (match) {
         completeSets.add(parseInt(match[1]));
       }
@@ -301,7 +304,8 @@ async function handleCompareOperation(userId, res, backendUrl, apiKey) {
     // Extract set numbers from capture files (webcam_XXX.jpg format)
     const captureSets = new Set();
     captureFiles.forEach(file => {
-      const match = file.match(/webcam_(\d+)\.jpg/);
+      const filename = file.filename || file; // Handle both object and string formats
+      const match = filename.match(/webcam_(\d+)\.jpg/);
       if (match) {
         captureSets.add(parseInt(match[1]));
       }
@@ -310,7 +314,8 @@ async function handleCompareOperation(userId, res, backendUrl, apiKey) {
     // Extract set numbers from enhance files (webcam_enhance_XXX.jpg format)
     const enhanceSets = new Set();
     enhanceFiles.forEach(file => {
-      const match = file.match(/webcam_enhance_(\d+)\.jpg/);
+      const filename = file.filename || file; // Handle both object and string formats
+      const match = filename.match(/webcam_enhance_(\d+)\.jpg/);
       if (match) {
         enhanceSets.add(parseInt(match[1]));
       }
@@ -319,7 +324,8 @@ async function handleCompareOperation(userId, res, backendUrl, apiKey) {
     // Extract set numbers from complete files (webcam_XXX.jpg format - same as capture)
     const completeSets = new Set();
     completeFiles.forEach(file => {
-      const match = file.match(/webcam_(\d+)\.jpg/);
+      const filename = file.filename || file; // Handle both object and string formats
+      const match = filename.match(/webcam_(\d+)\.jpg/);
       if (match) {
         completeSets.add(parseInt(match[1]));
       }

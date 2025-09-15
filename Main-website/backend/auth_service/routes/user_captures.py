@@ -34,6 +34,7 @@ def get_highest_existing_number(user_captures_dir: Path) -> int:
         capture_files = [f for f in files if 
                         (f.name.startswith('screen_') or 
                          f.name.startswith('webcam_') or 
+                         f.name.startswith('webcam_sub_') or
                          f.name.startswith('parameter_')) and
                         f.name.endswith(('.jpg', '.png', '.csv'))]
 
@@ -116,11 +117,34 @@ async def save_user_capture(
 
         # Create filename with padded number
         padded_number = str(next_number).zfill(3)
-        prefix = filename.split('_')[0]
-        extension = filename.split('.')[-1]
-        final_filename = f"{prefix}_{padded_number}.{extension}"
+        
+        # Handle special case for sub camera files (webcam_sub_001.jpg)
+        logger.info(f"🔍 Filename processing check: filename='{filename}', file_type='{file_type}'")
+        logger.info(f"🔍 Condition 1 (filename starts with webcam_sub_): {filename.startswith('webcam_sub_')}")
+        logger.info(f"🔍 Condition 2 (file_type == 'webcam_sub'): {file_type == 'webcam_sub'}")
+        
+        condition1 = filename.startswith('webcam_sub_')
+        condition2 = file_type == 'webcam_sub'
+        should_use_sub_logic = condition1 or condition2
+        
+        logger.info(f"🔍 Condition evaluation: condition1={condition1}, condition2={condition2}, should_use_sub_logic={should_use_sub_logic}")
+        
+        if should_use_sub_logic:
+            # For sub camera files, keep the "webcam_sub" prefix
+            prefix = 'webcam_sub'
+            extension = filename.split('.')[-1]
+            final_filename = f"{prefix}_{padded_number}.{extension}"
+            logger.info(f"✅ Using sub camera logic: prefix='{prefix}', extension='{extension}'")
+        else:
+            # For other files, use the first part before underscore
+            prefix = filename.split('_')[0]
+            extension = filename.split('.')[-1]
+            final_filename = f"{prefix}_{padded_number}.{extension}"
+            logger.info(f"✅ Using regular logic: prefix='{prefix}', extension='{extension}'")
         
         logger.info(f"📝 Final filename: {final_filename}")
+        logger.info(f"📝 Original filename: {filename}")
+        logger.info(f"📝 Filename processing: prefix='{prefix}', padded_number='{padded_number}', extension='{extension}'")
 
         # Process the data based on type
         if file_type == 'parameters' and filename.endswith('.csv'):
@@ -216,6 +240,7 @@ async def get_user_capture_status(
         capture_files = [f for f in files if 
                         (f.name.startswith('screen_') or 
                          f.name.startswith('webcam_') or 
+                         f.name.startswith('webcam_sub_') or
                          f.name.startswith('parameter_')) and
                         f.name.endswith(('.jpg', '.png', '.csv'))]
 
@@ -225,12 +250,29 @@ async def get_user_capture_status(
             last_modified = max(f.stat().st_mtime for f in capture_files)
             last_modified = datetime.fromtimestamp(last_modified).isoformat()
 
+        # Count captures more accurately - each capture can have 3-5 files:
+        # screen_xxx.jpg, webcam_xxx.jpg, webcam_sub_xxx.jpg (optional), parameter_xxx.csv
+        screen_files = [f for f in capture_files if f.name.startswith('screen_')]
+        webcam_files = [f for f in capture_files if f.name.startswith('webcam_') and not f.name.startswith('webcam_sub_')]
+        webcam_sub_files = [f for f in capture_files if f.name.startswith('webcam_sub_')]
+        parameter_files = [f for f in capture_files if f.name.startswith('parameter_')]
+        
+        # Total captures is the number of screen files (each capture has exactly one screen)
+        total_captures = len(screen_files)
+        
         return JSONResponse({
             "user_id": user_id,
-            "total_captures": len(capture_files) // 3,  # Each capture has 3 files
+            "total_captures": total_captures,
             "last_capture": last_modified,
             "directory_exists": True,
-            "directory_path": str(user_captures_dir)
+            "directory_path": str(user_captures_dir),
+            "file_counts": {
+                "screen_files": len(screen_files),
+                "webcam_files": len(webcam_files),
+                "webcam_sub_files": len(webcam_sub_files),
+                "parameter_files": len(parameter_files),
+                "total_files": len(capture_files)
+            }
         })
 
     except Exception as error:
