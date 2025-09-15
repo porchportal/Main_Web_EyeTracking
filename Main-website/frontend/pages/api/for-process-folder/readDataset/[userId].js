@@ -8,9 +8,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId, filename, folder = 'captures', operation = 'preview' } = req.query;
+    const { userId, filename, folder = 'captures', operation = 'preview', enhanceFace } = req.query;
     
-    console.log(`Frontend API received: userId=${userId}, folder=${folder}, operation=${operation}, filename=${filename}`);
+    console.log(`Frontend API received: userId=${userId}, folder=${folder}, operation=${operation}, filename=${filename}, enhanceFace=${enhanceFace}`);
     
     if (!userId) {
       return res.status(400).json({
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
     } else if (operation === 'check-completeness') {
       return await handleCompletenessCheck(userId, res, backendUrl, apiKey);
     } else if (operation === 'compare') {
-      return await handleCompareOperation(userId, res, backendUrl, apiKey);
+      return await handleCompareOperation(userId, enhanceFace, res, backendUrl, apiKey);
     } else if (operation === 'preview') {
       if (!filename) {
         return res.status(400).json({
@@ -244,8 +244,13 @@ async function handleCompletenessCheck(userId, res, backendUrl, apiKey) {
 }
 
 // Handle compare operation
-async function handleCompareOperation(userId, res, backendUrl, apiKey) {
+async function handleCompareOperation(userId, enhanceFace, res, backendUrl, apiKey) {
   try {
+    console.log(`🔍 handleCompareOperation called with enhanceFace=${enhanceFace} (type: ${typeof enhanceFace})`);
+    
+    // Convert enhanceFace string to boolean if needed
+    const isEnhanceMode = enhanceFace === 'true' || enhanceFace === true;
+    console.log(`🔍 isEnhanceMode: ${isEnhanceMode}`);
     // Get capture files
     const captureUrl = `${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=captures`;
     
@@ -331,15 +336,40 @@ async function handleCompareOperation(userId, res, backendUrl, apiKey) {
       }
     });
     
-    // Find sets that need processing (in capture but not in enhance OR complete)
-    const processedSets = new Set([...enhanceSets, ...completeSets]);
-    const setsNeedingProcessing = Array.from(captureSets).filter(setNum => !processedSets.has(setNum));
-    
+    // ✅ FIXED: Declare all variables first
     const captureCount = captureSets.size;
     const enhanceCount = enhanceSets.size;
     const completeCount = completeSets.size;
-    const totalProcessedCount = enhanceCount + completeCount;
-    const needsProcessing = setsNeedingProcessing.length > 0;
+    
+    // ✅ FIXED: Only consider the relevant folder based on enhanceFace setting
+    let processedSets, totalProcessedCount, needsProcessing;
+    
+    if (isEnhanceMode) {
+      // In enhance mode: only consider enhance files, ignore complete files
+      processedSets = enhanceSets;
+      totalProcessedCount = enhanceCount;
+      console.log(`🔍 Enhance mode: only considering enhance files (${enhanceCount} files)`);
+    } else {
+      // In complete mode: only consider complete files, ignore enhance files
+      processedSets = completeSets;
+      totalProcessedCount = completeCount;
+      console.log(`🔍 Complete mode: only considering complete files (${completeCount} files)`);
+    }
+    
+    const setsNeedingProcessing = Array.from(captureSets).filter(setNum => !processedSets.has(setNum));
+    needsProcessing = setsNeedingProcessing.length > 0;
+    
+    console.log(`🔍 handleCompareOperation results:`, {
+      captureCount,
+      enhanceCount,
+      completeCount,
+      totalProcessedCount,
+      needsProcessing,
+      setsNeedingProcessing,
+      captureSets: Array.from(captureSets),
+      enhanceSets: Array.from(enhanceSets),
+      completeSets: Array.from(completeSets)
+    });
     
     return res.status(200).json({
       success: true,

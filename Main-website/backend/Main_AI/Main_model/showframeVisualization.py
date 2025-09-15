@@ -327,10 +327,11 @@ class FrameShow_head_face:
         return all_element, (pitch, yaw, roll), (frame_width, frame_height), face_landmarks, frame
     
     def enhance_image_set(self, frame, face_box, timestamp_ms: int = 0, isVideo=None):
-        enhanced_face = self.enhancer.main_process(frame.copy(), face_box=face_box)
-        if not isinstance(enhanced_face, np.ndarray):
-            enhanced_face = np.array(enhanced_face)
-        return self.set_functional_process(enhanced_face, timestamp_ms, isVideo)
+        # Use the new method that pastes the enhanced face back into the original frame
+        enhanced_frame = self.enhancer.main_process_with_paste_back(frame.copy(), face_box=face_box)
+        if not isinstance(enhanced_frame, np.ndarray):
+            enhanced_frame = np.array(enhanced_frame)
+        return self.set_functional_process(enhanced_frame, timestamp_ms, isVideo)
 
     def process_frame(self, frame, timestamp_ms: int = 0, isVideo=None, isEnhanceFace=None)-> Tuple[Optional[all_data_output], np.ndarray]:
         """Process frame and return frame with face landmarks and head pose angles"""

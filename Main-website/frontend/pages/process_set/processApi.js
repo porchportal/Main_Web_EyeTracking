@@ -286,14 +286,14 @@ export const previewFile = async (filename, userId = null, folder = 'captures') 
 };
   
 // Check if files need processing using readDataset API
-export const checkFilesNeedProcessing = async (userId = null) => {
+export const checkFilesNeedProcessing = async (userId = null, enhanceFace = false) => {
   try {
     // Get user ID from backend if not provided
     if (!userId) {
       userId = await getCurrentUserId();
     }
     
-    const response = await fetchWithRetry(`/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=compare`);
+    const response = await fetchWithRetry(`/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=compare&enhanceFace=${enhanceFace}`);
     
     if (!response.success) {
       throw new Error(response.message || 'Failed to get files list');
@@ -301,14 +301,22 @@ export const checkFilesNeedProcessing = async (userId = null) => {
     
     const captureCount = response.captureCount || 0;
     const enhanceCount = response.enhanceCount || 0;
-    const needsProcessing = captureCount > enhanceCount;
-    const filesToProcess = captureCount - enhanceCount;
+    const completeCount = response.completeCount || 0;
+    // ✅ FIXED: Use the totalProcessedCount directly from the API response
+    // The API already calculates the correct count based on enhanceFace setting
+    const totalProcessedCount = response.totalProcessedCount !== undefined ? response.totalProcessedCount : 0;
+    
+    // ✅ FIXED: Use total processed count from API response (already considers enhanceFace)
+    const needsProcessing = captureCount > totalProcessedCount;
+    const filesToProcess = captureCount - totalProcessedCount;
     
     return {
       success: true,
       needsProcessing,
       captureCount,
       enhanceCount,
+      completeCount,
+      totalProcessedCount,
       filesToProcess,
       setsNeedingProcessing: response.setsNeedingProcessing || []
     };
@@ -320,27 +328,36 @@ export const checkFilesNeedProcessing = async (userId = null) => {
       needsProcessing: false,
       captureCount: 0,
       enhanceCount: 0,
+      completeCount: 0,
+      totalProcessedCount: 0,
       filesToProcess: 0,
       setsNeedingProcessing: []
     };
   }
 };
 
-// Process files function that calls the new aprocess-file endpoint
+// Process files function that calls the new process-status API
 export const processFiles = async (setNumbers, userId = null, enhanceFace) => {
   try {
+    console.log(`🔧 processFiles API called with:`, {
+      setNumbers: setNumbers,
+      userId: userId,
+      enhanceFace: enhanceFace,
+      enhanceFaceType: typeof enhanceFace
+    });
+    
     // Get user ID from backend if not provided
     if (!userId) {
       userId = await getCurrentUserId();
     }
 
-    // Get auth service URL from environment (which proxies to image service)
-    const authServiceUrl = process.env.NEXT_PUBLIC_API_URL;
-    
-    // Use the new aprocess-file endpoint with longer timeout for image processing
+    const requestBody = { setNumbers, enhanceFace };
+    console.log(`📤 Sending request body:`, requestBody);
+
+    // Use the aprocess-file API which calls the correct backend endpoint
     const response = await fetchWithRetry(`/api/for-process-folder/aprocess-file/${encodeURIComponent(userId)}`, {
       method: 'POST',
-      body: JSON.stringify({ setNumbers, enhanceFace }),
+      body: JSON.stringify(requestBody),
     }, 0, 300000); // Use 0 retries but 5 minute timeout for image processing
 
     if (!response.success) {
@@ -369,9 +386,14 @@ export const compareFileCounts = async (userId = null) => {
 };
   
 // Check if processing is currently running
-export const checkProcessingStatus = async () => {
+export const checkProcessingStatus = async (userId = null) => {
   try {
-    const response = await fetchWithRetry('/api/process-status-api', {}, 1); // Only 1 retry for status checks
+    // Get user ID from backend if not provided
+    if (!userId) {
+      userId = await getCurrentUserId();
+    }
+    
+    const response = await fetchWithRetry(`/api/for-process-folder/process-status/${encodeURIComponent(userId)}`, {}, 1); // Only 1 retry for status checks
     
     // If fetch succeeded but response is malformed, handle it gracefully
     if (!response || typeof response !== 'object') {
@@ -380,6 +402,19 @@ export const checkProcessingStatus = async () => {
         success: false, 
         error: `Invalid response format: ${typeof response}`,
         isProcessing: false
+      };
+    }
+    
+    // Ensure progress object has required fields
+    if (response.progress && typeof response.progress === 'object') {
+      response.progress = {
+        currentSet: response.progress.currentSet || 0,
+        totalSets: response.progress.totalSets || 0,
+        processedSets: response.progress.processedSets || [],
+        progress: response.progress.progress || 0,
+        status: response.progress.status || 'unknown',
+        message: response.progress.message || '',
+        currentFile: response.progress.currentFile || ''
       };
     }
     

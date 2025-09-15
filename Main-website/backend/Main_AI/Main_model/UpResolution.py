@@ -353,6 +353,70 @@ class FaceEnhancer:
             print(f"Error processing face: {e}")
             return None
         
+    def paste_enhanced_face_back(self, original_frame, enhanced_face, face_box):
+        """
+        Paste the enhanced face back into the original frame at the correct position.
+        
+        Args:
+            original_frame: Original full frame
+            enhanced_face: Enhanced face crop (4x larger)
+            face_box: Original face bounding box coordinates
+            
+        Returns:
+            Full frame with enhanced face pasted back
+        """
+        if enhanced_face is None or face_box is None:
+            return original_frame
+            
+        try:
+            # Extract original face coordinates
+            (min_x, min_y) = face_box[0]
+            (max_x, max_y) = face_box[1]
+            
+            # Calculate the size of the enhanced face
+            enhanced_h, enhanced_w = enhanced_face.shape[:2]
+            original_face_h = max_y - min_y
+            original_face_w = max_x - min_x
+            
+            # Calculate the scale factor (should be 4x)
+            scale_factor = enhanced_h / original_face_h
+            
+            # Calculate new coordinates for the enhanced face in the original frame
+            # Center the enhanced face in the original face position
+            new_face_h = int(original_face_h * scale_factor)
+            new_face_w = int(original_face_w * scale_factor)
+            
+            # Calculate offset to center the enhanced face
+            offset_x = (new_face_w - original_face_w) // 2
+            offset_y = (new_face_h - original_face_h) // 2
+            
+            # Calculate new bounding box for the enhanced face
+            new_min_x = max(0, min_x - offset_x)
+            new_min_y = max(0, min_y - offset_y)
+            new_max_x = min(original_frame.shape[1], new_min_x + new_face_w)
+            new_max_y = min(original_frame.shape[0], new_min_y + new_face_h)
+            
+            # Resize the enhanced face to fit the new bounding box
+            actual_h = new_max_y - new_min_y
+            actual_w = new_max_x - new_min_x
+            
+            if actual_h > 0 and actual_w > 0:
+                resized_enhanced_face = cv2.resize(enhanced_face, (actual_w, actual_h))
+                
+                # Create a copy of the original frame
+                result_frame = original_frame.copy()
+                
+                # Paste the enhanced face back into the frame
+                result_frame[new_min_y:new_max_y, new_min_x:new_max_x] = resized_enhanced_face
+                
+                return result_frame
+            else:
+                return original_frame
+                
+        except Exception as e:
+            print(f"Error pasting enhanced face back: {e}")
+            return original_frame
+
     def main_process(self, frame, face_box: Tuple[int, int]):
         """
         Main processing function to enhance a face from a frame.
@@ -372,5 +436,29 @@ class FaceEnhancer:
         except Exception as e:
             print(f"Error in main process: {e}")
             return None
+    
+    def main_process_with_paste_back(self, frame, face_box: Tuple[int, int]):
+        """
+        Main processing function to enhance a face and paste it back into the original frame.
+        
+        Args:
+            frame: Input image frame
+            face_box: Tuple of ((min_x, min_y), (max_x, max_y)) defining face boundaries
+            
+        Returns:
+            Full frame with enhanced face pasted back or original frame if processing fails
+        """
+        try:    
+            enhanced_face = self.process_face(frame, face_box)
+            
+            if enhanced_face is not None:
+                # Paste the enhanced face back into the original frame
+                return self.paste_enhanced_face_back(frame, enhanced_face, face_box)
+            else:
+                return frame
+            
+        except Exception as e:
+            print(f"Error in main process with paste back: {e}")
+            return frame
             
             

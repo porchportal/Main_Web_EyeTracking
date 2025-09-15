@@ -1,0 +1,23 @@
+{
+  "currentSet": 12,
+  "totalSets": 11,
+  "processedSets": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12
+  ],
+  "status": "completed",
+  "message": "All images processed successfully (11/11)",
+  "currentFile": "",
+  "timestamp": "2025-09-15T09:35:48.886615",
+  "userId": "84382b87-6bd9-42ac-9dc3-5e4b7301a2d8",
+  "progress": 100
+}

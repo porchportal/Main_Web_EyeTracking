@@ -224,39 +224,33 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
     
     // Process capture files
     files.capture?.forEach(file => {
-      const filename = typeof file === 'string' ? file : file.filename;
-      metadata.set(filename, {
+      metadata.set(file.filename, {
         ...file,
-        filename: filename,
-        fileType: getFileType(filename),
-        isImage: isImageFile(filename),
-        isText: isTextFile(filename),
+        fileType: getFileType(file.filename),
+        isImage: isImageFile(file.filename),
+        isText: isTextFile(file.filename),
         folder: 'captures'
       });
     });
     
     // Process enhance files
     files.enhance?.forEach(file => {
-      const filename = typeof file === 'string' ? file : file.filename;
-      metadata.set(filename, {
+      metadata.set(file.filename, {
         ...file,
-        filename: filename,
-        fileType: getFileType(filename),
-        isImage: isImageFile(filename),
-        isText: isTextFile(filename),
+        fileType: getFileType(file.filename),
+        isImage: isImageFile(file.filename),
+        isText: isTextFile(file.filename),
         folder: 'enhance'
       });
     });
     
     // Process complete files
     files.complete?.forEach(file => {
-      const filename = typeof file === 'string' ? file : file.filename;
-      metadata.set(filename, {
+      metadata.set(file.filename, {
         ...file,
-        filename: filename,
-        fileType: getFileType(filename),
-        isImage: isImageFile(filename),
-        isText: isTextFile(filename),
+        fileType: getFileType(file.filename),
+        isImage: isImageFile(file.filename),
+        isText: isTextFile(file.filename),
         folder: 'complete'
       });
     });
@@ -329,23 +323,22 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
               {files.capture?.length > 0 ? (
                 <ul className={styles.fileListItems}>
                   {files.capture.map((file) => {
-                    const filename = typeof file === 'string' ? file : file.filename;
-                    const metadata = fileMetadata.get(filename);
+                    const metadata = fileMetadata.get(file.filename);
                     return (
                       <li 
-                        key={filename} 
+                        key={file.filename} 
                         className={styles.fileListItem}
-                        onClick={() => handleFileClick(filename)}
-                        title={`Click to preview ${filename}`}
+                        onClick={() => handleFileClick(file.filename)}
+                        title={`Click to preview ${file.filename}`}
                       >
                         <div className={styles.fileInfo}>
                           <div className={styles.fileHeader}>
-                            <span className={styles.fileIcon}>{getFileIcon(filename)}</span>
-                            <span className={styles.fileName}>{filename}</span>
+                            <span className={styles.fileIcon}>{getFileIcon(file.filename)}</span>
+                            <span className={styles.fileName}>{file.filename}</span>
                           </div>
-                          <span className={styles.filePath}>{file.path || `/captures/${filename}`}</span>
+                          <span className={styles.filePath}>{file.path}</span>
                           <span className={styles.fileDetails}>
-                            {metadata?.fileType?.toUpperCase() || file.file_type?.toUpperCase() || 'UNKNOWN'} - {formatFileSize(file.size || 0)}
+                            {metadata?.fileType?.toUpperCase() || file.file_type?.toUpperCase() || 'UNKNOWN'} - {formatFileSize(file.size)}
                           </span>
                         </div>
                       </li>
@@ -361,23 +354,22 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
               {files.enhance?.length > 0 ? (
                 <ul className={styles.fileListItems}>
                   {files.enhance.map((file) => {
-                    const filename = typeof file === 'string' ? file : file.filename;
-                    const metadata = fileMetadata.get(filename);
+                    const metadata = fileMetadata.get(file.filename);
                     return (
                       <li 
-                        key={filename} 
+                        key={file.filename} 
                         className={styles.fileListItem}
-                        onClick={() => handleFileClick(filename)}
-                        title={`Click to preview ${filename}`}
+                        onClick={() => handleFileClick(file.filename)}
+                        title={`Click to preview ${file.filename}`}
                       >
                         <div className={styles.fileInfo}>
                           <div className={styles.fileHeader}>
-                            <span className={styles.fileIcon}>{getFileIcon(filename)}</span>
-                            <span className={styles.fileName}>{filename}</span>
+                            <span className={styles.fileIcon}>{getFileIcon(file.filename)}</span>
+                            <span className={styles.fileName}>{file.filename}</span>
                           </div>
-                          <span className={styles.filePath}>{file.path || `/enhance/${filename}`}</span>
+                          <span className={styles.filePath}>{file.path}</span>
                           <span className={styles.fileDetails}>
-                            {metadata?.fileType?.toUpperCase() || file.file_type?.toUpperCase() || 'UNKNOWN'} - {formatFileSize(file.size || 0)}
+                            {metadata?.fileType?.toUpperCase() || file.file_type?.toUpperCase() || 'UNKNOWN'} - {formatFileSize(file.size)}
                           </span>
                         </div>
                       </li>
@@ -393,23 +385,22 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
               {files.complete?.length > 0 ? (
                 <ul className={styles.fileListItems}>
                   {files.complete.map((file) => {
-                    const filename = typeof file === 'string' ? file : file.filename;
-                    const metadata = fileMetadata.get(filename);
+                    const metadata = fileMetadata.get(file.filename);
                     return (
                       <li 
-                        key={filename} 
+                        key={file.filename} 
                         className={styles.fileListItem}
-                        onClick={() => handleFileClick(filename)}
-                        title={`Click to preview ${filename}`}
+                        onClick={() => handleFileClick(file.filename)}
+                        title={`Click to preview ${file.filename}`}
                       >
                         <div className={styles.fileInfo}>
                           <div className={styles.fileHeader}>
-                            <span className={styles.fileIcon}>{getFileIcon(filename)}</span>
-                            <span className={styles.fileName}>{filename}</span>
+                            <span className={styles.fileIcon}>{getFileIcon(file.filename)}</span>
+                            <span className={styles.fileName}>{file.filename}</span>
                           </div>
-                          <span className={styles.filePath}>{file.path || `/complete/${filename}`}</span>
+                          <span className={styles.filePath}>{file.path}</span>
                           <span className={styles.fileDetails}>
-                            {metadata?.fileType?.toUpperCase() || file.file_type?.toUpperCase() || 'UNKNOWN'} - {formatFileSize(file.size || 0)}
+                            {metadata?.fileType?.toUpperCase() || file.file_type?.toUpperCase() || 'UNKNOWN'} - {formatFileSize(file.size)}
                           </span>
                         </div>
                       </li>
@@ -427,12 +418,13 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
   );
 };
 
-export const ActionButtons = ({ onCheckFiles, onProcessFiles, isProcessReady, isProcessing, captureLoaded, filesChecked }) => {
-  const canProcess = captureLoaded && filesChecked && !isProcessing;
+export const ActionButtons = ({ onCheckFiles, onProcessFiles, isProcessReady, isProcessing, captureLoaded, filesChecked, files, bothProcessingComplete = false }) => {
+  const canProcess = captureLoaded && filesChecked && !isProcessing && !bothProcessingComplete;
   
   const getProcessButtonTitle = () => {
     if (!captureLoaded) return 'Please load capture dataset first';
     if (!filesChecked) return 'Please click "Check Files" button first to validate files';
+    if (bothProcessingComplete) return 'All processing complete - both Enhance and Complete modes are done';
     if (!isProcessReady) return 'No files need processing';
     if (isProcessing) return 'Processing in progress...';
     return 'Ready to process files';
@@ -449,12 +441,18 @@ export const ActionButtons = ({ onCheckFiles, onProcessFiles, isProcessReady, is
       </button>
       
       <button
-        className={`${styles.button} ${canProcess ? styles.readyButton : styles.notReadyButton}`}
+        className={`${styles.button} ${
+          bothProcessingComplete 
+            ? styles.completeButton 
+            : canProcess 
+              ? styles.readyButton 
+              : styles.notReadyButton
+        }`}
         onClick={onProcessFiles}
         disabled={!canProcess}
         title={getProcessButtonTitle()}
       >
-        {isProcessing ? 'Processing...' : 'Process Files'}
+        {isProcessing ? 'Processing...' : bothProcessingComplete ? 'All Complete' : 'Process Files'}
       </button>
     </div>
   );
@@ -483,16 +481,28 @@ export const Notification = ({ notification, onClose }) => {
   );
 };
 
-export const ProcessSummary = ({ files }) => {
+export const ProcessSummary = ({ files, enhanceFace = false }) => {
   const captureCount = files.capture?.length || 0;
   const enhanceCount = files.enhance?.length || 0;
   const completeCount = files.complete?.length || 0;
-  const totalProcessed = enhanceCount + completeCount;
+  
+  // ✅ FIXED: Only consider the relevant folder based on enhanceFace setting
+  const totalProcessed = enhanceFace ? enhanceCount : completeCount;
   const remainingCount = captureCount - totalProcessed;
+  
+  // ✅ SAFETY: Check if both processing modes are complete
+  const bothProcessingComplete = captureCount > 0 && 
+                                enhanceCount >= captureCount && 
+                                completeCount >= captureCount;
   
   return (
     <div className={styles.processSummary}>
       <h3>Processing Summary</h3>
+      {bothProcessingComplete && (
+        <div className={styles.completionNotice}>
+          ✅ All processing complete! Both Enhance and Complete modes are done.
+        </div>
+      )}
       <div className={styles.summaryStats}>
         <div className={styles.statItem}>
           <span>Total Files:</span>
@@ -539,20 +549,30 @@ export const ProcessingProgress = ({ isProcessing, progressData }) => {
   if (!isProcessing || !progressData) return null;
 
   const {
+    currentSet = 0,
+    totalSets = 0,
+    progress = 0,
+    currentFile = '',
+    status = 'unknown',
+    message = ''
+  } = progressData || {};
+
+  // Debug logging
+  console.log('ProcessingProgress render:', {
+    isProcessing,
+    progressData,
+    progress,
     currentSet,
     totalSets,
-    progress,
-    currentFile,
-    status,
-    message
-  } = progressData;
+    status
+  });
 
   return (
     <div className={styles.processingProgress}>
       <div className={styles.progressHeader}>
         <h3>Processing Progress</h3>
         <span className={`${styles.statusBadge} ${styles[status]}`}>
-          {status.charAt(0).toUpperCase() + status.slice(1)}
+          {status && typeof status === 'string' ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown'}
         </span>
       </div>
       

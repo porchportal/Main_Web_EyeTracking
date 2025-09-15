@@ -342,17 +342,21 @@ export class DatasetReader {
   /**
    * Check if files need processing
    * @param {string} userId - The user ID
+   * @param {boolean} enhanceFace - Whether to use enhance mode
    * @returns {Promise<Object>} - Processing check response
    */
-  async checkFilesNeedProcessing(userId = null) {
+  async checkFilesNeedProcessing(userId = null, enhanceFace = false) {
     try {
       // Get user ID from backend if not provided
       if (!userId) {
         userId = await getCurrentUserId();
       }
 
-      const url = `/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=compare`;
+      const url = `/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=compare&enhanceFace=${enhanceFace}`;
+      console.log(`🔍 Calling readDataset API:`, url);
       const data = await fetchWithRetry(url);
+      
+      console.log(`🔍 readDataset API response:`, data);
       
       if (!data.success) {
         throw new Error(data.error || 'Failed to check files processing');
@@ -361,9 +365,24 @@ export class DatasetReader {
       const captureCount = data.captureCount || 0;
       const enhanceCount = data.enhanceCount || 0;
       const completeCount = data.completeCount || 0;
-      const totalProcessedCount = data.totalProcessedCount || (enhanceCount + completeCount);
-      const needsProcessing = data.needsProcessing || false;
+      // ✅ FIXED: Use the totalProcessedCount directly from the API response
+      // The API already calculates the correct count based on enhanceFace setting
+      const totalProcessedCount = data.totalProcessedCount !== undefined ? data.totalProcessedCount : 0;
+      
+      // ✅ FIXED: Calculate needsProcessing correctly using the API response
+      const needsProcessing = captureCount > totalProcessedCount;
       const filesToProcess = captureCount - totalProcessedCount;
+      
+      // Debug logging
+      console.log('checkFilesNeedProcessing (readDataset.js):', {
+        captureCount,
+        enhanceCount,
+        completeCount,
+        totalProcessedCount,
+        needsProcessing,
+        filesToProcess,
+        backendNeedsProcessing: data.needsProcessing
+      });
 
       return {
         success: true,
@@ -529,8 +548,8 @@ export const getFilesList = (folder, userId) =>
 export const checkFilesCompleteness = (userId) => 
   datasetReader.checkFilesCompleteness(userId);
 
-export const checkFilesNeedProcessing = (userId) => 
-  datasetReader.checkFilesNeedProcessing(userId);
+export const checkFilesNeedProcessing = (userId, enhanceFace = false) => 
+  datasetReader.checkFilesNeedProcessing(userId, enhanceFace);
 
 // Debug utility function
 export const debugDatasetReader = () => {
