@@ -557,7 +557,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const lastSettingsUpdate = useRef(new Map());
   
   // Camera selection and management functions
-  const getAvailableCameras = useCallback(async () => {
+  const getAvailableCameras = useCallback(async (skipAutoSelect = false) => {
     try {
       if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
         const devices = await navigator.mediaDevices.enumerateDevices();
@@ -571,15 +571,27 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         
         setAvailableCameras(cameras);
         
-        // Auto-select camera based on availability
-        if (cameras.length === 1) {
-          // If only one camera, auto-select it
-          setSelectedCameras([cameras[0].id]);
-          setProcessStatus(`Auto-selected camera: ${cameras[0].label}`);
-        } else if (cameras.length > 1 && (!Array.isArray(selectedCameras) || selectedCameras.length === 0)) {
-          // If multiple cameras but none selected, select the first one as default
-          setSelectedCameras([cameras[0].id]);
-          setProcessStatus(`Default camera selected: ${cameras[0].label}`);
+        // Auto-select camera based on availability - only if no cameras are already selected and not skipped
+        const hasStoredCameras = typeof window !== 'undefined' && localStorage.getItem('selectedCameras');
+        const autoSelectDisabled = typeof window !== 'undefined' && localStorage.getItem('disableCameraAutoSelect') === 'true';
+        
+        if (!skipAutoSelect && !hasStoredCameras && !autoSelectDisabled) {
+          if (cameras.length === 1) {
+            // If only one camera and no stored selection, auto-select it
+            setSelectedCameras([cameras[0].id]);
+            setProcessStatus(`Auto-selected camera: ${cameras[0].label}`);
+          } else if (cameras.length > 1 && (!Array.isArray(selectedCameras) || selectedCameras.length === 0)) {
+            // If multiple cameras but none selected and no stored selection, select the first one as default
+            setSelectedCameras([cameras[0].id]);
+            setProcessStatus(`Default camera selected: ${cameras[0].label}`);
+          }
+        } else if (hasStoredCameras) {
+          // Cameras are already selected from localStorage, don't auto-select
+          console.log('Cameras already selected from localStorage, skipping auto-selection');
+        } else if (skipAutoSelect) {
+          console.log('Auto-selection skipped by user preference');
+        } else if (autoSelectDisabled) {
+          console.log('Auto-selection disabled by user setting');
         }
         
         return cameras;
@@ -593,7 +605,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
   const openCameraSelector = useCallback(() => {
     setShowCameraSelector(true);
-    getAvailableCameras();
+    getAvailableCameras(true); // Skip auto-selection when opening selector
   }, [getAvailableCameras]);
   
   // Countdown timer function for camera activation

@@ -15,7 +15,9 @@ const CameraSelect = ({
     if (typeof window !== 'undefined') {
       try {
         const storedCameras = localStorage.getItem('selectedCameras');
-        console.log('Loading cameras from localStorage:', storedCameras);
+        const storedCameraData = localStorage.getItem('selectedCamerasData');
+        console.log('Loading cameras from localStorage:', { storedCameras, storedCameraData });
+        
         if (storedCameras) {
           const parsedCameras = JSON.parse(storedCameras);
           console.log('Parsed cameras from localStorage:', parsedCameras);
@@ -24,6 +26,17 @@ const CameraSelect = ({
             const uniqueCameras = [...new Set(parsedCameras)];
             console.log('Unique cameras after deduplication:', uniqueCameras);
             setSelectedCameras(uniqueCameras);
+            
+            // Load camera data if available
+            if (storedCameraData) {
+              try {
+                const parsedCameraData = JSON.parse(storedCameraData);
+                console.log('Loaded camera data with tags:', parsedCameraData);
+              } catch (dataError) {
+                console.warn('Error parsing camera data:', dataError);
+              }
+            }
+            
             setProcessStatus(`Loaded ${uniqueCameras.length} previously selected camera(s) from storage`);
           }
         }
@@ -51,11 +64,19 @@ const CameraSelect = ({
         console.log('Removed camera:', { cameraId, newSelected: newSelectedCameras });
       }
       
-      // Save to localStorage
+      // Create camera data with tags for localStorage
+      const cameraData = newSelectedCameras.map((id, index) => ({
+        id: id,
+        tag: index === 0 ? 'main' : 'submain',
+        order: index + 1
+      }));
+      
+      // Save to localStorage with camera data
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem('selectedCameras', JSON.stringify(newSelectedCameras));
-          console.log('Saved to localStorage:', newSelectedCameras);
+          localStorage.setItem('selectedCamerasData', JSON.stringify(cameraData));
+          console.log('Saved to localStorage:', { cameras: newSelectedCameras, data: cameraData });
         } catch (error) {
           console.warn('Error saving selected cameras to localStorage:', error);
         }
@@ -75,17 +96,26 @@ const CameraSelect = ({
       const camerasArray = Array.isArray(selectedCameras) ? [...new Set(selectedCameras)] : [];
       console.log('Applying camera selection:', camerasArray);
       
-      const selectedCameraNames = camerasArray.map(id => {
+      // Create camera data with tags
+      const cameraData = camerasArray.map((id, index) => ({
+        id: id,
+        tag: index === 0 ? 'main' : 'submain',
+        order: index + 1
+      }));
+      
+      const selectedCameraNames = camerasArray.map((id, index) => {
         const camera = availableCameras.find(cam => cam.id === id);
-        return camera ? camera.label : 'Unknown';
+        const tag = index === 0 ? 'main' : 'submain';
+        return camera ? `${camera.label} (${tag})` : `Unknown (${tag})`;
       });
       
       // Save to localStorage
       if (typeof window !== 'undefined') {
         try {
           localStorage.setItem('selectedCameras', JSON.stringify(camerasArray));
+          localStorage.setItem('selectedCamerasData', JSON.stringify(cameraData));
           localStorage.setItem('selectedCamerasTimestamp', Date.now().toString());
-          console.log('Saved cameras to localStorage:', camerasArray);
+          console.log('Saved cameras to localStorage:', { cameras: camerasArray, data: cameraData });
         } catch (error) {
           console.warn('Error saving selected cameras to localStorage:', error);
         }
@@ -104,6 +134,7 @@ const CameraSelect = ({
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem('selectedCameras');
+        localStorage.removeItem('selectedCamerasData');
         localStorage.removeItem('selectedCamerasTimestamp');
         console.log('Cleared cameras from localStorage');
       } catch (error) {
@@ -130,12 +161,6 @@ const CameraSelect = ({
         <div className="camera-selector-dialog">
           <div className="camera-selector-header">
             <h2 className="camera-selector-title">📷 Camera Selection</h2>
-            <button
-              onClick={closeCameraSelector}
-              className="camera-selector-close-btn"
-            >
-              ×
-            </button>
           </div>
 
           {/* Available Cameras */}
@@ -146,9 +171,29 @@ const CameraSelect = ({
             <div className="camera-selector-info">
               <p>Select up to 2 cameras for dual preview</p>
               <p>Selected: {selectedCameras.length}/2</p>
+              <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <input 
+                    type="checkbox" 
+                    id="disableAutoSelect"
+                    onChange={(e) => {
+                      if (typeof window !== 'undefined') {
+                        localStorage.setItem('disableCameraAutoSelect', e.target.checked.toString());
+                      }
+                    }}
+                    defaultChecked={typeof window !== 'undefined' && localStorage.getItem('disableCameraAutoSelect') === 'true'}
+                  />
+                  Disable auto-selection on page load
+                </label>
+              </div>
               {process.env.NODE_ENV === 'development' && (
                 <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-                  Debug: {JSON.stringify(selectedCameras)}
+                  <div>Debug cameras: {JSON.stringify(selectedCameras)}</div>
+                  <div>Debug data: {JSON.stringify(selectedCameras.map((id, index) => ({
+                    id: id,
+                    tag: index === 0 ? 'main' : 'submain',
+                    order: index + 1
+                  })))}</div>
                 </div>
               )}
             </div>
@@ -161,6 +206,8 @@ const CameraSelect = ({
                 {availableCameras.map((camera) => {
                   const isSelected = selectedCameras.includes(camera.id);
                   const isDisabled = !isSelected && selectedCameras.length >= 2;
+                  const selectedIndex = selectedCameras.indexOf(camera.id);
+                  const cameraTag = selectedIndex >= 0 ? (selectedIndex === 0 ? 'main' : 'submain') : null;
                   
                   return (
                     <label 
@@ -177,6 +224,11 @@ const CameraSelect = ({
                       <div>
                         <div className="camera-selector-item-label">
                           {camera.label}
+                          {cameraTag && (
+                            <span className={`camera-tag ${cameraTag}`}>
+                              {cameraTag.toUpperCase()}
+                            </span>
+                          )}
                         </div>
                         <div className="camera-selector-item-id">
                           ID: {camera.id.substring(0, 20)}...
@@ -198,14 +250,9 @@ const CameraSelect = ({
               Clear All
             </button>
             <button
-              onClick={closeCameraSelector}
-              className="camera-selector-btn cancel"
-            >
-              Cancel
-            </button>
-            <button
               onClick={handleApplySelection}
               className="camera-selector-btn apply"
+              disabled={selectedCameras.length === 0}
             >
               Apply ({selectedCameras.length} selected)
             </button>
@@ -260,25 +307,6 @@ const CameraSelect = ({
           color: #333;
         }
 
-        .camera-selector-close-btn {
-          background: none;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: #666;
-          padding: 0;
-          width: 30px;
-          height: 30px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          transition: background-color 0.2s ease;
-        }
-
-        .camera-selector-close-btn:hover {
-          background-color: #f0f0f0;
-        }
 
         .camera-selector-section {
           margin-bottom: 20px;
@@ -377,6 +405,27 @@ const CameraSelect = ({
           font-family: monospace;
         }
 
+        .camera-tag {
+          display: inline-block;
+          margin-left: 8px;
+          padding: 2px 6px;
+          border-radius: 3px;
+          font-size: 10px;
+          font-weight: bold;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .camera-tag.main {
+          background-color: #28a745;
+          color: white;
+        }
+
+        .camera-tag.submain {
+          background-color: #ffc107;
+          color: #212529;
+        }
+
         .camera-selector-actions {
           display: flex;
           justify-content: flex-end;
@@ -416,6 +465,7 @@ const CameraSelect = ({
         .camera-selector-btn.apply:disabled {
           background-color: #ccc;
           cursor: not-allowed;
+          opacity: 0.6;
         }
 
         .camera-selector-btn.clear {

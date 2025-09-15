@@ -242,10 +242,23 @@ const CameraAccessComponent = ({
     if (typeof window !== 'undefined') {
       try {
         const storedCameras = localStorage.getItem('selectedCameras');
+        const storedCameraData = localStorage.getItem('selectedCamerasData');
+        
         if (storedCameras) {
           const parsedCameras = JSON.parse(storedCameras);
           if (Array.isArray(parsedCameras) && parsedCameras.length > 0) {
             console.log('Loaded selected cameras from localStorage:', parsedCameras);
+            
+            // Load camera data with tags if available
+            if (storedCameraData) {
+              try {
+                const parsedCameraData = JSON.parse(storedCameraData);
+                console.log('Loaded camera data with tags:', parsedCameraData);
+              } catch (dataError) {
+                console.warn('Error parsing camera data:', dataError);
+              }
+            }
+            
             return parsedCameras;
           }
         }

@@ -31,10 +31,23 @@ const loadSelectedCamerasFromStorage = () => {
   if (typeof window !== 'undefined') {
     try {
       const storedCameras = localStorage.getItem('selectedCameras');
+      const storedCameraData = localStorage.getItem('selectedCamerasData');
+      
       if (storedCameras) {
         const parsedCameras = JSON.parse(storedCameras);
         if (Array.isArray(parsedCameras) && parsedCameras.length > 0) {
           console.log('Loaded selected cameras from localStorage for capture:', parsedCameras);
+          
+          // Load camera data with tags if available
+          if (storedCameraData) {
+            try {
+              const parsedCameraData = JSON.parse(storedCameraData);
+              console.log('Loaded camera data with tags for capture:', parsedCameraData);
+            } catch (dataError) {
+              console.warn('Error parsing camera data for capture:', dataError);
+            }
+          }
+          
           return parsedCameras;
         }
       }
@@ -244,6 +257,7 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
     // File patterns for saving
     const screenFilename = 'screen_001.jpg';
     const webcamFilename = 'webcam_001.jpg';
+    const subWebcamFilename = 'webcam_sub_001.jpg';
     const parameterFilename = 'parameter_001.csv';
     
     const canvas = canvasRef.current;
@@ -368,9 +382,23 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
       console.warn('⚠️ No video element found for webcam capture');
     }
 
-    // 1.3 Parameter data - Now including webcam resolution, user ID, and selected camera info
+    // 1.3 Parameter data - Now including webcam resolution, user ID, and selected camera info with tags
     const selectedCameras = loadSelectedCamerasFromStorage();
     const cameraInfo = selectedCameras.length > 0 ? selectedCameras.join(';') : 'default';
+    
+    // Load camera data with tags
+    let cameraDataInfo = 'default';
+    if (typeof window !== 'undefined') {
+      try {
+        const storedCameraData = localStorage.getItem('selectedCamerasData');
+        if (storedCameraData) {
+          const parsedCameraData = JSON.parse(storedCameraData);
+          cameraDataInfo = parsedCameraData.map(cam => `${cam.id}:${cam.tag}`).join(';');
+        }
+      } catch (error) {
+        console.warn('Error loading camera data for CSV:', error);
+      }
+    }
     
     const csvData = [
       "name,value",
@@ -384,6 +412,7 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
       `webcam_resolution_width,${webcamWidth}`,
       `webcam_resolution_height,${webcamHeight}`,
       `selected_cameras,${cameraInfo}`,
+      `camera_data,${cameraDataInfo}`,
       `camera_count,${selectedCameras.length}`,
       `timestamp,${new Date().toISOString()}`,
       `group_id,${captureGroupId}`
