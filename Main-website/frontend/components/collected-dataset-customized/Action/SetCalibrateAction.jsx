@@ -21,6 +21,10 @@ class SetCalibrateAction {
     this.delay = options.delay || 3; // Default to 3 seconds if not provided
     this.originalCanvasDimensions = null;
     
+    // TopBar control functions
+    this.hideTopBar = options.hideTopBar;
+    this.restoreTopBar = options.restoreTopBar;
+    
     // Add settings management properties
     this.currentUserId = options.currentUserId || null;
     this.settings = options.settings || {};
@@ -271,7 +275,12 @@ class SetCalibrateAction {
         isCapturing: true
       });
       
-      // Start calibration process immediately (TopBar hiding is handled in index.js)
+      // Hide TopBar right before starting the actual process
+      if (typeof this.hideTopBar === 'function') {
+        this.hideTopBar();
+      }
+      
+      // Start calibration process immediately
       const canvas = await this.waitForCanvas();
       if (!canvas) {
         throw new Error("Canvas not available");
@@ -432,7 +441,10 @@ class SetCalibrateAction {
       // Reset calibration running flag
       this.isCalibrationRunning = false;
       
-      // TopBar restoration is now handled by index.js
+      // Restore TopBar after successful completion
+      if (typeof this.restoreTopBar === 'function') {
+        this.restoreTopBar();
+      }
     }
   };
 }

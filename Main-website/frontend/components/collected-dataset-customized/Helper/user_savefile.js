@@ -24,6 +24,28 @@ const getCurrentUserId = () => {
 };
 
 /**
+ * Load selected cameras from localStorage
+ * @returns {Array} - Array of selected camera IDs
+ */
+const loadSelectedCamerasFromStorage = () => {
+  if (typeof window !== 'undefined') {
+    try {
+      const storedCameras = localStorage.getItem('selectedCameras');
+      if (storedCameras) {
+        const parsedCameras = JSON.parse(storedCameras);
+        if (Array.isArray(parsedCameras) && parsedCameras.length > 0) {
+          console.log('Loaded selected cameras from localStorage for capture:', parsedCameras);
+          return parsedCameras;
+        }
+      }
+    } catch (error) {
+      console.warn('Error loading selected cameras from localStorage:', error);
+    }
+  }
+  return [];
+};
+
+/**
  * Save an image or data to the server for a specific user
  * @param {string} imageData - Base64 encoded image data
  * @param {string} filename - Filename pattern to save as
@@ -346,7 +368,10 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
       console.warn('⚠️ No video element found for webcam capture');
     }
 
-    // 1.3 Parameter data - Now including webcam resolution and user ID
+    // 1.3 Parameter data - Now including webcam resolution, user ID, and selected camera info
+    const selectedCameras = loadSelectedCamerasFromStorage();
+    const cameraInfo = selectedCameras.length > 0 ? selectedCameras.join(';') : 'default';
+    
     const csvData = [
       "name,value",
       `user_id,${userId}`,
@@ -358,6 +383,8 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
       `window_height,${window.innerHeight}`,
       `webcam_resolution_width,${webcamWidth}`,
       `webcam_resolution_height,${webcamHeight}`,
+      `selected_cameras,${cameraInfo}`,
+      `camera_count,${selectedCameras.length}`,
       `timestamp,${new Date().toISOString()}`,
       `group_id,${captureGroupId}`
     ].join('\n');

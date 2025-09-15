@@ -592,11 +592,36 @@ export const drawRedDot = (ctx, x, y, radius = 6, clearCanvas = true) => {
 };
 
 /**
- * Get highest resolution camera constraints
+ * Load selected cameras from localStorage
+ * @returns {Array} - Array of selected camera IDs
+ */
+const loadSelectedCamerasFromStorage = () => {
+  if (typeof window !== 'undefined') {
+    try {
+      const storedCameras = localStorage.getItem('selectedCameras');
+      if (storedCameras) {
+        const parsedCameras = JSON.parse(storedCameras);
+        if (Array.isArray(parsedCameras) && parsedCameras.length > 0) {
+          console.log('Loaded selected cameras from localStorage for capture:', parsedCameras);
+          return parsedCameras;
+        }
+      }
+    } catch (error) {
+      console.warn('Error loading selected cameras from localStorage:', error);
+    }
+  }
+  return [];
+};
+
+/**
+ * Get highest resolution camera constraints with selected camera support
  * @returns {Promise<Object>} - Camera constraints
  */
 const getHighestResolutionConstraints = async () => {
   try {
+    // Load selected cameras from localStorage
+    const selectedCameras = loadSelectedCamerasFromStorage();
+    
     // Get all video input devices
     const devices = await navigator.mediaDevices.enumerateDevices();
     const videoDevices = devices.filter(device => device.kind === 'videoinput');
@@ -605,35 +630,48 @@ const getHighestResolutionConstraints = async () => {
       return { video: true };
     }
     
-    // Try to get capabilities for the first video device
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    // Use selected camera if available, otherwise use first available camera
+    let targetDeviceId = null;
+    if (selectedCameras.length > 0) {
+      // Use the first selected camera
+      targetDeviceId = selectedCameras[0];
+      console.log('Using selected camera for capture:', targetDeviceId);
+    }
+    
+    // Try to get capabilities for the target device
+    const constraints = targetDeviceId ? 
+      { video: { deviceId: { exact: targetDeviceId } } } : 
+      { video: true };
+      
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
     const videoTrack = stream.getVideoTracks()[0];
     
     if (!videoTrack.getCapabilities) {
       stream.getTracks().forEach(track => track.stop());
-      return { video: true };
+      return constraints;
     }
     
     const capabilities = videoTrack.getCapabilities();
     stream.getTracks().forEach(track => track.stop());
     
     if (!capabilities.width || !capabilities.height) {
-      return { video: true };
+      return constraints;
     }
     
     // Get the highest resolution available
     const maxWidth = Math.max(...capabilities.width.values);
     const maxHeight = Math.max(...capabilities.height.values);
     
-    
     return {
       video: {
+        ...constraints.video,
         width: { ideal: maxWidth },
         height: { ideal: maxHeight },
         frameRate: { ideal: 30 }
       }
     };
   } catch (error) {
+    console.warn('Error getting camera constraints, falling back to default:', error);
     return { video: true };
   }
 };
@@ -668,15 +706,18 @@ export const captureImagesWithHtml2Canvas = async (options) => {
       const videoTrack = videoElement.srcObject.getVideoTracks()[0];
       if (videoTrack) {
         const settings = videoTrack.getSettings();
+        console.log('Using existing video stream for capture:', settings);
       }
     } else {
-      // Get highest resolution constraints
+      // Get highest resolution constraints with selected camera support
       const constraints = await getHighestResolutionConstraints();
       
-      // Get a new stream with the highest resolution
+      // Get a new stream with the selected camera and highest resolution
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       const videoTrack = stream.getVideoTracks()[0];
       const settings = videoTrack.getSettings();
+      
+      console.log('Created new video stream for capture:', settings);
       
       // Update video element with new stream
       if (videoElement) {
@@ -1100,10 +1141,7 @@ export const captureAndPreviewProcess = async (options) => {
       }
     }
 
-    // 🔥 SHOW TOPBAR AGAIN AFTER COMPLETE SAVE PROCESS 🔥
-    // Add a small delay to ensure save process and preview are fully complete
-    setTimeout(() => {
-    }, 500); // Small delay to ensure save process is complete
+    // Save process completed
 
     return captureResult;
 

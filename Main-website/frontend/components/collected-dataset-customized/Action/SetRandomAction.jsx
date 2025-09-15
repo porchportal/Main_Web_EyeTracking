@@ -17,9 +17,13 @@ class SetRandomAction {
     this.setIsCapturing = config.setIsCapturing;
     this.setProcessStatus = config.setProcessStatus;
     
-    // Settings values passed from index.js (linked from adminSettings through TopBar)
+    // Settings values passed from index.js
     this.times = config.times || 1; // Default to 1 if not provided
     this.delay = config.delay || 3; // Default to 3 seconds if not provided
+    
+    // TopBar control functions
+    this.hideTopBar = config.hideTopBar;
+    this.restoreTopBar = config.restoreTopBar;
     
     // Get canvas manager and utilities from global scope (from actionButton.js)
     this.canvasManager = typeof window !== 'undefined' ? window.canvasManager : null;
@@ -95,12 +99,14 @@ class SetRandomAction {
   // Main handler for Set Random button
   handleAction = async () => {
     try {
-      // Use the settings values passed from index.js (linked from adminSettings through TopBar)
+      // Use the settings values passed from index.js
       const times = this.times;
       const delay = this.delay;
       
-      
-      // TopBar hiding is now handled in index.js
+      // Hide TopBar right before starting the actual process
+      if (typeof this.hideTopBar === 'function') {
+        this.hideTopBar();
+      }
       
       // Set capturing state if function exists
       if (typeof this.setIsCapturing === 'function') {
@@ -200,6 +206,11 @@ class SetRandomAction {
       
       // Cleanup delay UI
       this.delayUI.cleanup();
+      
+      // Restore TopBar after successful completion
+      if (typeof this.restoreTopBar === 'function') {
+        this.restoreTopBar();
+      }
     
       
     } catch (err) {
@@ -216,6 +227,11 @@ class SetRandomAction {
       
       // Cleanup delay UI on error
       this.delayUI.cleanup();
+      
+      // Restore TopBar even on error
+      if (typeof this.restoreTopBar === 'function') {
+        this.restoreTopBar();
+      }
     
     }
   };

@@ -10,16 +10,58 @@ const CameraSelect = ({
   setProcessStatus,
   getAvailableCameras
 }) => {
+  // Load selected cameras from localStorage on component mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedCameras = localStorage.getItem('selectedCameras');
+        console.log('Loading cameras from localStorage:', storedCameras);
+        if (storedCameras) {
+          const parsedCameras = JSON.parse(storedCameras);
+          console.log('Parsed cameras from localStorage:', parsedCameras);
+          if (Array.isArray(parsedCameras) && parsedCameras.length > 0) {
+            // Remove any duplicates that might have been saved
+            const uniqueCameras = [...new Set(parsedCameras)];
+            console.log('Unique cameras after deduplication:', uniqueCameras);
+            setSelectedCameras(uniqueCameras);
+            setProcessStatus(`Loaded ${uniqueCameras.length} previously selected camera(s) from storage`);
+          }
+        }
+      } catch (error) {
+        console.warn('Error loading selected cameras from localStorage:', error);
+      }
+    }
+  }, [setSelectedCameras, setProcessStatus]);
+
   const handleCameraSelection = useCallback((cameraId, isSelected) => {
     setSelectedCameras(prev => {
+      console.log('Camera selection change:', { cameraId, isSelected, currentSelected: prev });
+      
+      let newSelectedCameras;
       if (isSelected) {
         if (!prev.includes(cameraId) && prev.length < 2) {
-          return [...prev, cameraId];
+          newSelectedCameras = [...prev, cameraId];
+          console.log('Added camera:', { cameraId, newSelected: newSelectedCameras });
+        } else {
+          console.log('Camera not added - already exists or limit reached:', { cameraId, prev });
+          return prev;
         }
       } else {
-        return prev.filter(id => id !== cameraId);
+        newSelectedCameras = prev.filter(id => id !== cameraId);
+        console.log('Removed camera:', { cameraId, newSelected: newSelectedCameras });
       }
-      return prev;
+      
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('selectedCameras', JSON.stringify(newSelectedCameras));
+          console.log('Saved to localStorage:', newSelectedCameras);
+        } catch (error) {
+          console.warn('Error saving selected cameras to localStorage:', error);
+        }
+      }
+      
+      return newSelectedCameras;
     });
   }, [setSelectedCameras]);
 
@@ -29,16 +71,47 @@ const CameraSelect = ({
 
   const handleApplySelection = useCallback(() => {
     if (selectedCameras.length > 0) {
-      const selectedCameraNames = selectedCameras.map(id => {
+      // Ensure selectedCameras is an array before mapping and remove duplicates
+      const camerasArray = Array.isArray(selectedCameras) ? [...new Set(selectedCameras)] : [];
+      console.log('Applying camera selection:', camerasArray);
+      
+      const selectedCameraNames = camerasArray.map(id => {
         const camera = availableCameras.find(cam => cam.id === id);
         return camera ? camera.label : 'Unknown';
       });
-      setProcessStatus(`Selected ${selectedCameras.length} camera(s): ${selectedCameraNames.join(', ')}`);
+      
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('selectedCameras', JSON.stringify(camerasArray));
+          localStorage.setItem('selectedCamerasTimestamp', Date.now().toString());
+          console.log('Saved cameras to localStorage:', camerasArray);
+        } catch (error) {
+          console.warn('Error saving selected cameras to localStorage:', error);
+        }
+      }
+      
+      setProcessStatus(`Selected ${camerasArray.length} camera(s): ${selectedCameraNames.join(', ')}`);
       closeCameraSelector();
     } else {
       setProcessStatus('Please select at least one camera');
     }
   }, [selectedCameras, availableCameras, setProcessStatus, closeCameraSelector]);
+
+  const handleClearSelection = useCallback(() => {
+    console.log('Clearing camera selection');
+    setSelectedCameras([]);
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('selectedCameras');
+        localStorage.removeItem('selectedCamerasTimestamp');
+        console.log('Cleared cameras from localStorage');
+      } catch (error) {
+        console.warn('Error clearing selected cameras from localStorage:', error);
+      }
+    }
+    setProcessStatus('Camera selection cleared');
+  }, [setSelectedCameras, setProcessStatus]);
 
   // Auto-fetch cameras when modal opens
   useEffect(() => {
@@ -73,6 +146,11 @@ const CameraSelect = ({
             <div className="camera-selector-info">
               <p>Select up to 2 cameras for dual preview</p>
               <p>Selected: {selectedCameras.length}/2</p>
+              {process.env.NODE_ENV === 'development' && (
+                <div style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+                  Debug: {JSON.stringify(selectedCameras)}
+                </div>
+              )}
             </div>
             {availableCameras.length === 0 ? (
               <p className="camera-selector-no-cameras">
@@ -113,6 +191,12 @@ const CameraSelect = ({
 
           {/* Action Buttons */}
           <div className="camera-selector-actions">
+            <button
+              onClick={handleClearSelection}
+              className="camera-selector-btn clear"
+            >
+              Clear All
+            </button>
             <button
               onClick={closeCameraSelector}
               className="camera-selector-btn cancel"
@@ -332,6 +416,15 @@ const CameraSelect = ({
         .camera-selector-btn.apply:disabled {
           background-color: #ccc;
           cursor: not-allowed;
+        }
+
+        .camera-selector-btn.clear {
+          background-color: #dc3545;
+          color: white;
+        }
+
+        .camera-selector-btn.clear:hover {
+          background-color: #c82333;
         }
       `}</style>
     </>

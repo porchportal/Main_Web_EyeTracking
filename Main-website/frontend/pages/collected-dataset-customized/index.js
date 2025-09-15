@@ -576,7 +576,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           // If only one camera, auto-select it
           setSelectedCameras([cameras[0].id]);
           setProcessStatus(`Auto-selected camera: ${cameras[0].label}`);
-        } else if (cameras.length > 1 && selectedCameras.length === 0) {
+        } else if (cameras.length > 1 && (!Array.isArray(selectedCameras) || selectedCameras.length === 0)) {
           // If multiple cameras but none selected, select the first one as default
           setSelectedCameras([cameras[0].id]);
           setProcessStatus(`Default camera selected: ${cameras[0].label}`);
@@ -923,6 +923,20 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       // Load clicked buttons from localStorage
       const storedClickedButtons = loadClickedButtonsFromStorage();
       setClickedButtons(storedClickedButtons);
+      
+      // Load selected cameras from localStorage
+      try {
+        const storedCameras = localStorage.getItem('selectedCameras');
+        if (storedCameras) {
+          const parsedCameras = JSON.parse(storedCameras);
+          if (Array.isArray(parsedCameras) && parsedCameras.length > 0) {
+            setSelectedCameras(parsedCameras);
+            setProcessStatus(`Loaded ${parsedCameras.length} previously selected camera(s) from storage`);
+          }
+        }
+      } catch (error) {
+        console.warn('Error loading selected cameras from localStorage:', error);
+      }
     }
     
     // Restore camera state (which will deactivate camera)
@@ -1918,6 +1932,29 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
 
 
+  // TopBar control functions
+  const hideTopBar = () => {
+    if (typeof window !== 'undefined' && window.toggleTopBar) {
+      window.toggleTopBar(false);
+    } else {
+      setShowTopBar(false);
+      setShowMetrics(false);
+    }
+  };
+
+  const restoreTopBar = () => {
+    if (typeof window !== 'undefined' && window.toggleTopBar) {
+      window.toggleTopBar(true);
+    } else {
+      setShowTopBar(true);
+      setShowMetrics(true);
+      // Show UI elements if they were hidden by canvas fullscreen
+      if (typeof window !== 'undefined' && window.globalCanvasManager) {
+        window.globalCanvasManager.showUIElements();
+      }
+    }
+  };
+
   // Action handlers
   const handleRandomDot = async () => {
     if (isCapturing) return;
@@ -1955,14 +1992,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     }
 
     try {
-      // Hide TopBar before starting the process
-      if (typeof window !== 'undefined' && window.toggleTopBar) {
-        window.toggleTopBar(false);
-      } else {
-        setShowTopBar(false);
-        setShowMetrics(false);
-      }
-      
       // Clear canvas before starting the main process (preserve image if exists)
       if (!canvasImageManager || !canvasImageManager.currentImage) {
         // Always set yellow background in index.js
@@ -2005,7 +2034,9 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         },
         saveImageToServer: true,
         setCaptureCounter,
-        captureCounter: captureCounter
+        captureCounter: captureCounter,
+        hideTopBar: hideTopBar, // Pass the hideTopBar function to the action
+        restoreTopBar: restoreTopBar // Pass the restoreTopBar function to the action
       });
       
       await randomDotAction.handleRandomDot();
@@ -2017,33 +2048,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         console.log(`Random Dot completed - Counter: ${counterResult.newCount} (Image ${currentImageIndex + 1})`);
       }
       
-      // Restore TopBar after successful completion
-      if (typeof window !== 'undefined' && window.toggleTopBar) {
-        window.toggleTopBar(true);
-      } else {
-        setShowTopBar(true);
-        setShowMetrics(true);
-        // Show UI elements if they were hidden by canvas fullscreen
-        if (typeof window !== 'undefined' && window.globalCanvasManager) {
-          window.globalCanvasManager.showUIElements();
-        }
-      }
     } catch (error) {
       console.error('Random dot error:', error);
       setProcessStatus(`Error: ${error.message}`);
       setIsCapturing(false);
-      
-      // Restore TopBar even if there was an error
-      if (typeof window !== 'undefined' && window.toggleTopBar) {
-        window.toggleTopBar(true);
-      } else {
-        setShowTopBar(true);
-        setShowMetrics(true);
-        // Show UI elements if they were hidden by canvas fullscreen
-        if (typeof window !== 'undefined' && window.globalCanvasManager) {
-          window.globalCanvasManager.showUIElements();
-        }
-      }
     }
   };
 
@@ -2082,14 +2090,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     }
     
     try {
-      // Hide TopBar before starting the process
-      if (typeof window !== 'undefined' && window.toggleTopBar) {
-        window.toggleTopBar(false);
-      } else {
-        setShowTopBar(false);
-        setShowMetrics(false);
-      }
-      
       // Fetch current settings from adminSettings
       let times = randomTimes;
       let delay = delaySeconds;
@@ -2148,8 +2148,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           setProcessStatus(status);
         },
         times: times,
-        delay: delay
+        delay: delay,
+        hideTopBar: hideTopBar, // Pass the hideTopBar function to the action
+        restoreTopBar: restoreTopBar // Pass the restoreTopBar function to the action
       });
+      
+      // Hide TopBar right before starting the actual action
+      hideTopBar();
       
       await setRandomAction.handleAction();
       
@@ -2163,30 +2168,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       console.error("Random sequence error:", error);
       setProcessStatus(`Random sequence failed: ${error.message}`);
       setIsCapturing(false);
-      
-      // Restore TopBar even if there was an error
-      if (typeof window !== 'undefined' && window.toggleTopBar) {
-        window.toggleTopBar(true);
-      } else {
-        setShowTopBar(true);
-        setShowMetrics(true);
-        // Show UI elements if they were hidden by canvas fullscreen
-        if (typeof window !== 'undefined' && window.globalCanvasManager) {
-          window.globalCanvasManager.showUIElements();
-        }
-      }
-    }
-    
-    // Restore TopBar at the end of handleSetRandom function
-    if (typeof window !== 'undefined' && window.toggleTopBar) {
-      window.toggleTopBar(true);
-    } else {
-      setShowTopBar(true);
-      setShowMetrics(true);
-      // Show UI elements if they were hidden by canvas fullscreen
-      if (typeof window !== 'undefined' && window.globalCanvasManager) {
-        window.globalCanvasManager.showUIElements();
-      }
     }
   };
 
@@ -2203,14 +2184,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     if (!isCameraActivated) {
       showCameraRequiredNotification('Set Calibrate');
       return;
-    }
-    
-    // Hide TopBar immediately before starting the process
-    if (typeof window !== 'undefined' && window.toggleTopBar) {
-      window.toggleTopBar(false);
-    } else {
-      setShowTopBar(false);
-      setShowMetrics(false);
     }
     
     try {
@@ -2273,8 +2246,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         times: times,
         delay: delay,
         currentUserId: effectiveUserId,
-        settings: settings?.[effectiveUserId] || {}
+        settings: settings?.[effectiveUserId] || {},
+        hideTopBar: hideTopBar, // Pass the hideTopBar function to the action
+        restoreTopBar: restoreTopBar // Pass the restoreTopBar function to the action
       });
+      
+      // Hide TopBar right before starting the actual action
+      hideTopBar();
       
       await setCalibrateAction.handleSetCalibrate();
       
@@ -2289,18 +2267,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       console.error("Calibration error:", error);
       setProcessStatus(`Calibration error: ${error.message}`);
       setIsCapturing(false);
-    } finally {
-      // Restore TopBar after completion (success or error)
-      if (typeof window !== 'undefined' && window.toggleTopBar) {
-        window.toggleTopBar(true);
-      } else {
-        setShowTopBar(true);
-        setShowMetrics(true);
-        // Show UI elements if they were hidden by canvas fullscreen
-        if (typeof window !== 'undefined' && window.globalCanvasManager) {
-          window.globalCanvasManager.showUIElements();
-        }
-      }
     }
   };
 
@@ -2637,8 +2603,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             
             {/* Camera components - Support up to 2 cameras */}
             {isHydrated && typeof window !== 'undefined' && (showCamera || isCameraActive) && (
-              <div className={`${cameraStyles.cameraPreviewContainer} ${selectedCameras.length > 1 ? cameraStyles.dualCamera : cameraStyles.singleCamera}`}>
-                {selectedCameras.length > 0 ? (
+              <div className={`${cameraStyles.cameraPreviewContainer} ${Array.isArray(selectedCameras) && selectedCameras.length > 1 ? cameraStyles.dualCamera : cameraStyles.singleCamera}`}>
+                {Array.isArray(selectedCameras) && selectedCameras.length > 0 ? (
                   // Show selected cameras
                   selectedCameras.map((cameraId, index) => (
                     <DynamicCameraAccess
@@ -2660,7 +2626,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                     isHidden={!showCamera && isCameraActive}
                     onClose={handleCameraClose}
                     onCameraReady={handleCameraReady}
-                    selectedCameras={selectedCameras}
+                    selectedCameras={Array.isArray(selectedCameras) ? selectedCameras : []}
                     cameraIndex={0}
                     videoRef={videoRef}
                   />

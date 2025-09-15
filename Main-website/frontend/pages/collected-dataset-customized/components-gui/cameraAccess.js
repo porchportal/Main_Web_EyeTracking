@@ -237,6 +237,25 @@ const CameraAccessComponent = ({
     }
   };
 
+  // Load selected cameras from localStorage
+  const loadSelectedCamerasFromStorage = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedCameras = localStorage.getItem('selectedCameras');
+        if (storedCameras) {
+          const parsedCameras = JSON.parse(storedCameras);
+          if (Array.isArray(parsedCameras) && parsedCameras.length > 0) {
+            console.log('Loaded selected cameras from localStorage:', parsedCameras);
+            return parsedCameras;
+          }
+        }
+      } catch (error) {
+        console.warn('Error loading selected cameras from localStorage:', error);
+      }
+    }
+    return selectedCameras; // Fallback to prop
+  };
+
   // Start camera with highest resolution
   const startCamera = async () => {
     setErrorMessage('');
@@ -366,12 +385,16 @@ const CameraAccessComponent = ({
       // 8. Get Camera Constraints with selected camera
       const constraints = await getHighestResolutionConstraints();
       
+      // Load selected cameras from localStorage
+      const effectiveSelectedCameras = loadSelectedCamerasFromStorage();
+      
       // Add deviceId constraint if a specific camera is selected
-      if (selectedCameras && selectedCameras.length > 0 && cameraIndex < selectedCameras.length) {
+      if (effectiveSelectedCameras && effectiveSelectedCameras.length > 0 && cameraIndex < effectiveSelectedCameras.length) {
         constraints.video = {
           ...constraints.video,
-          deviceId: { exact: selectedCameras[cameraIndex] }
+          deviceId: { exact: effectiveSelectedCameras[cameraIndex] }
         };
+        console.log(`Using camera ${cameraIndex + 1}/${effectiveSelectedCameras.length}: ${effectiveSelectedCameras[cameraIndex]}`);
       }
 
       // 9. Add Fallback Constraints

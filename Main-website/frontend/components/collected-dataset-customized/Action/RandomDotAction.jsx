@@ -19,6 +19,8 @@ class RandomDotAction {
     this.saveImageToServer = options.saveImageToServer;
     this.setCaptureCounter = options.setCaptureCounter;
     this.captureCounter = options.captureCounter;
+    this.hideTopBar = options.hideTopBar;
+    this.restoreTopBar = options.restoreTopBar;
   }
 
   // Get canvas using the global canvas manager from index.js
@@ -68,8 +70,6 @@ class RandomDotAction {
       }
     });
     
-    // TopBar hiding is now handled in index.js
-    
     // Set capturing state if function exists
     if (typeof this.setIsCapturing === 'function') {
       this.setIsCapturing(true);
@@ -85,6 +85,11 @@ class RandomDotAction {
         processStatus: 'Generating random dot...',
         isCapturing: true
       });
+    }
+    
+    // Hide TopBar right before starting the actual process
+    if (typeof this.hideTopBar === 'function') {
+      this.hideTopBar();
     }
     
     // Give the component time to update
@@ -128,6 +133,11 @@ class RandomDotAction {
             this.setIsCapturing(false);
           }
           
+          // Restore TopBar after successful completion
+          if (typeof this.restoreTopBar === 'function') {
+            this.restoreTopBar();
+          }
+          
         } catch (error) {
           // Error in capture and preview process
           if (typeof this.setProcessStatus === 'function') {
@@ -137,11 +147,15 @@ class RandomDotAction {
             this.setIsCapturing(false);
           }
           
-          // Clear error message and ensure TopBar is restored immediately
+          // Clear error message
           if (typeof this.setProcessStatus === 'function') {
             this.setProcessStatus('');
           }
           
+          // Restore TopBar even on error
+          if (typeof this.restoreTopBar === 'function') {
+            this.restoreTopBar();
+          }
 
         }
       } else {
@@ -151,6 +165,11 @@ class RandomDotAction {
         }
         if (typeof this.setIsCapturing === 'function') {
           this.setIsCapturing(false);
+        }
+        
+        // Restore TopBar even on error
+        if (typeof this.restoreTopBar === 'function') {
+          this.restoreTopBar();
         }
       }
     }, 200);
