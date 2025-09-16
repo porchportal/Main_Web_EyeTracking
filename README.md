@@ -178,8 +178,8 @@ Replace `YOUR_SERVER_IP` with your actual server IP address.
 ### 3. Configure Environment
 ```bash
 # Copy environment files
-cp Main-website/backend/.env.backend.example Main-website/backend/.env.backend
-cp Main-website/frontend/.env.frontend.example Main-website/frontend/.env.frontend
+touch Main-website/backend/.env.backend
+touch Main-website/frontend/.env.frontend
 
 # Edit configuration files
 nano Main-website/backend/.env.backend

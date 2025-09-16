@@ -36,14 +36,14 @@ This document contains detailed technical requirements, configuration specificat
   - Image enhancement using Real-ESRGAN
   - Batch processing capabilities
 
-#### 3. Video Service (Port 8011)
+#### 3. Video Service (Port 8011) 🚧
 - **Purpose**: Real-time video processing and analysis
 - **Key Features**:
   - Real-time video stream processing
   - Video-based eye tracking analysis
   - Continuous frame processing
   - Video enhancement capabilities
-- **Status**: Currently unavailable (under development)
+- **Status**: 🚧 Currently unavailable (under development)
 
 #### 4. Nginx Reverse Proxy (Ports 80, 443, 8443)
 - **Purpose**: Load balancing, SSL termination, security headers
@@ -100,6 +100,8 @@ Main_AI/
 5. **Data Export**: CSV parameter export for analysis
 
 ## 🔐 SSL Configuration
+
+> **Reference**: This section uses [OpenSSL](https://github.com/openssl/openssl) - a robust, commercial-grade, full-featured Open Source Toolkit for the TLS (formerly SSL), DTLS and QUIC protocols.
 
 ### SSL Setup Process
 
@@ -331,6 +333,7 @@ docker exec backend_nginx nginx -t
 - **MongoDB**: NoSQL database for user data and session management
 - **Docker**: Containerization for microservices architecture
 - **Nginx**: Reverse proxy and load balancer
+- **[OpenSSL](https://github.com/openssl/openssl)**: TLS/SSL and crypto library for secure communications
 
 ## 🚀 Prerequisites
 
