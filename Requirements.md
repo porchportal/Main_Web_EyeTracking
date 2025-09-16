@@ -116,7 +116,7 @@ openssl req -x509 -newkey rsa:2048 \
     -keyout backend/config/ssl/key.pem \
     -out backend/config/ssl/cert.pem \
     -days 365 -nodes \
-    -subj "/C=US/ST=State/L=City/O=Organization/CN=your-domain.com" \
+    -subj "/C=US/ST=State/L=City/O=Organization/CN=your-server-ip" \
     -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:192.168.1.100"
 
 # Set proper permissions
@@ -130,7 +130,7 @@ chmod 644 backend/config/ssl/cert.pem
 # Install Certbot
 sudo apt install certbot
 
-# Generate certificate
+# Generate certificate (Note: Let's Encrypt requires a domain name, not IP)
 sudo certbot certonly --webroot \
     -w /var/www/html \
     -d your-domain.com \
@@ -358,3 +358,87 @@ docker-compose up --build > /dev/null
 - **Ports**: 80, 443, 8443, 3010, 8010, 8011, 8108
 - **Firewall**: Configure to allow HTTPS traffic
 - **SSL**: Valid SSL certificates for production deployment
+
+## 🔧 Environment Configuration
+
+### Frontend Environment (.env.frontend)
+
+```bash
+# Frontend Environment Configuration
+# This file contains environment variables for the Next.js frontend
+
+# API Configuration
+# NEXT_PUBLIC_API_URL=https://(ip)
+NEXT_PUBLIC_API_URL=https://(ip)
+
+NEXT_PUBLIC_API_KEY=(api-key)
+
+# WebSocket URL for real-time features
+# NEXT_PUBLIC_WS_URL=wss://(ip)/ws
+NEXT_PUBLIC_WS_URL=wss://(ip)/ws
+
+# Development settings
+NODE_ENV=development
+NEXT_TELEMETRY_DISABLED=1
+WATCHPACK_POLLING=true
+
+# Camera access port
+NEXT_PUBLIC_CAMERA_PORT=8443
+
+# SSL settings
+NEXT_PUBLIC_SSL_ENABLED=true
+
+# Backend service URLs
+AUTH_SERVICE_URL=http://backend_auth_service:8108
+IMAGE_SERVICE_URL=http://backend_auth_service:8010
+
+BACKEND_API_KEY=(api-key)
+INTERNAL_API_URL=https://nginx
+
+# Cross-Origin Configuration for Docker Development
+# Comma-separated list of allowed development origins
+ALLOWED_DEV_ORIGINS=(ip),172.18.0.0/16,192.168.0.0/16,localhost,127.0.0.1
+```
+
+### Backend Environment (.env.backend)
+
+```bash
+API_KEY=(api-key)
+
+# MongoDB settings
+# MONGODB_URL=mongodb://localhost:27017
+MONGODB_URL=mongodb://mongodb:27017 
+
+MONGODB_DB_NAME=eye_tracking
+
+# Admin settings
+ADMIN_USERNAME=(admin-username)
+ADMIN_PASSWORD=(admin-password)
+
+# CORS settings
+ALLOWED_ORIGINS=http://localhost:3010
+# CORS_ORIGINS=["http://localhost:3010", "http://frontend:3010"]
+
+# Logging settings
+LOG_LEVEL=INFO
+AUTH_SERVICE_URL=http://backend_auth_service:8108
+IMAGE_SERVICE_URL=http://backend_image_service:8010
+```
+
+### Environment Variables Explained
+
+#### Frontend Variables
+- **NEXT_PUBLIC_API_URL**: Main API endpoint URL (replace `(ip)` with your server IP)
+- **NEXT_PUBLIC_API_KEY**: API authentication key (replace `(api-key)` with your key)
+- **NEXT_PUBLIC_WS_URL**: WebSocket URL for real-time features (replace `(ip)` with your server IP)
+- **NEXT_PUBLIC_CAMERA_PORT**: Port for camera access (8443)
+- **NEXT_PUBLIC_SSL_ENABLED**: Enable/disable SSL features
+- **ALLOWED_DEV_ORIGINS**: CORS allowed origins for development (replace `(ip)` with your server IP)
+
+#### Backend Variables
+- **API_KEY**: Internal API authentication key (replace `(api-key)` with your key)
+- **MONGODB_URL**: MongoDB connection string
+- **MONGODB_DB_NAME**: Database name
+- **ADMIN_USERNAME/PASSWORD**: Admin credentials (replace `(admin-username)` and `(admin-password)` with your credentials)
+- **ALLOWED_ORIGINS**: CORS allowed origins
+- **LOG_LEVEL**: Logging verbosity level
