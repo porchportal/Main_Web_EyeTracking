@@ -42,7 +42,7 @@ class CanvasImageManager {
     return true;
   }
 
-  // Clear canvas without setting yellow background (yellow is handled in index.js)
+  // Clear canvas without setting blue background (blue is handled in index.js)
   clearCanvas() {
     if (!this.canvas) return;
     
@@ -133,7 +133,7 @@ class CanvasImageManager {
             
             // Draw on canvas with a small delay to ensure everything is ready
             setTimeout(() => {
-              // Draw image on canvas (yellow background is handled in index.js)
+              // Draw image on canvas (blue background is handled in index.js)
               this.drawImageOnCanvas(img);
               this.currentImage = imagePath;
             }, 100);
@@ -157,7 +157,7 @@ class CanvasImageManager {
             
             // Draw on canvas
             setTimeout(() => {
-              // Draw image on canvas (yellow background is handled in index.js)
+              // Draw image on canvas (blue background is handled in index.js)
               this.drawImageOnCanvas(fallbackImg);
               this.currentImage = imagePath;
             }, 100);
@@ -166,7 +166,7 @@ class CanvasImageManager {
           };
           
           fallbackImg.onerror = (fallbackError) => {
-            // Clear canvas on image load error (yellow background is handled in index.js)
+            // Clear canvas on image load error (blue background is handled in index.js)
             this.clearCanvas();
             if (onError) {
               onError(`Failed to load image: ${imagePath}`);
@@ -192,7 +192,7 @@ class CanvasImageManager {
         }, 10000); // 10 second timeout
       });
     } catch (error) {
-      // Clear canvas on error (yellow background is handled in index.js)
+      // Clear canvas on error (blue background is handled in index.js)
       this.clearCanvas();
       if (onError) {
         onError(`Error loading image: ${error.message}`);
@@ -669,7 +669,7 @@ class CanvasImageManager {
         onNotification('Using default background image. Please configure custom images in admin settings.');
       }
       
-      // Clear canvas as fallback (yellow background is handled in index.js)
+      // Clear canvas as fallback (blue background is handled in index.js)
       this.clearCanvas();
       return;
     }
@@ -688,10 +688,10 @@ class CanvasImageManager {
       if (shouldShowNotification && onNotification) {
         this.lastUserId = userId;
         this.lastNotificationTime = now;
-        onNotification('No valid background images available. Canvas will remain yellow.');
+        onNotification('No valid background images available. Canvas will remain blue.');
       }
       
-      // Clear canvas as fallback (yellow background is handled in index.js)
+      // Clear canvas as fallback (blue background is handled in index.js)
       this.clearCanvas();
       return;
     }
@@ -721,7 +721,7 @@ class CanvasImageManager {
     });
 
     if (!success) {
-      // Clear canvas if image loading failed (yellow background is handled in index.js)
+      // Clear canvas if image loading failed (blue background is handled in index.js)
       this.clearCanvas();
     }
   }
@@ -833,7 +833,7 @@ class CanvasImageManager {
       if (settings && userId) {
         this.handleCanvasBackgroundFromSettings(settings, userId);
       } else {
-        // No image, clear canvas (yellow background is handled in index.js)
+        // No image, clear canvas (blue background is handled in index.js)
         this.clearCanvas();
       }
     }
@@ -948,10 +948,10 @@ export const useCanvasImage = (canvas, userId, settings, adminUserId = null) => 
         const enableBackgroundChange = userSettings?.enable_background_change || false;
         
         if (enableBackgroundChange) {
-          // Load image on canvas (yellow background is handled in index.js)
+          // Load image on canvas (blue background is handled in index.js)
           canvasImageManager.setImageBackground('/Overall_porch.png');
         } else {
-          // Background change is disabled, clear canvas (yellow background is handled in index.js)
+          // Background change is disabled, clear canvas (blue background is handled in index.js)
           canvasImageManager.clearCanvas();
         }
       }, 500);
@@ -979,7 +979,7 @@ export const useCanvasImage = (canvas, userId, settings, adminUserId = null) => 
     const userSettings = settings[effectiveUserId];
 
     if (!userSettings) {
-      // No settings for user, clear canvas (yellow background is handled in index.js)
+      // No settings for user, clear canvas (blue background is handled in index.js)
       canvasImageManager.clearCanvas();
       return;
     }
@@ -997,7 +997,7 @@ export const useCanvasImage = (canvas, userId, settings, adminUserId = null) => 
 
     // Background change is enabled, check if we have image paths
     if (!imageBackgroundPaths || imageBackgroundPaths.length === 0) {
-      // No image paths available, clear canvas (yellow background is handled in index.js)
+      // No image paths available, clear canvas (blue background is handled in index.js)
       canvasImageManager.clearCanvas();
       return;
     }
@@ -1261,10 +1261,10 @@ export const useCanvasImageWithOverlay = (canvas, userId, settings, adminUserId 
         const enableBackgroundChange = userSettings?.enable_background_change || false;
         
         if (enableBackgroundChange) {
-          // Load image on canvas (yellow background is handled in index.js)
+          // Load image on canvas (blue background is handled in index.js)
           canvasImageManager.setImageBackground('/Overall_porch.png');
         } else {
-          // Background change is disabled, clear canvas (yellow background is handled in index.js)
+          // Background change is disabled, clear canvas (blue background is handled in index.js)
           canvasImageManager.clearCanvas();
         }
       }, 100);
@@ -1292,7 +1292,7 @@ export const useCanvasImageWithOverlay = (canvas, userId, settings, adminUserId 
     const userSettings = settings[effectiveUserId];
 
     if (!userSettings) {
-      // No settings for user, clear canvas (yellow background is handled in index.js)
+      // No settings for user, clear canvas (blue background is handled in index.js)
       setOverlayImagePath(null);
       if (canvasImageManager) {
         canvasImageManager.clearCanvas();

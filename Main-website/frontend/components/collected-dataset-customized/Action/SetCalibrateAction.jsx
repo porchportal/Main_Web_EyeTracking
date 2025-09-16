@@ -338,7 +338,7 @@ class SetCalibrateAction {
           statusIndicator.textContent = `Run ${this.calibrationRunCounter + 1}/${this.runEveryOfRandom} - Sequence ${currentSequence}/${times}: Point ${i + 1}/${points.length}`;
           this.setProcessStatus(`Processing calibration point ${i + 1}/${points.length} (Run ${this.calibrationRunCounter + 1}/${this.runEveryOfRandom}, Sequence ${currentSequence}/${times})`);
           
-          // Clear canvas with yellow background using canvas management system
+          // Clear canvas with blue background using canvas management system
           this.clearCanvas();
           
           // Draw the calibration point using ORIGINAL coordinates (canvas coordinates)

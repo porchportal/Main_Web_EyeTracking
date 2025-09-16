@@ -737,79 +737,51 @@ export default function CollectedDatasetPage() {
         }
         break;
       case 'headPose':
-        const newHeadPoseState = !showHeadPose;
-        setShowHeadPose(newHeadPoseState);
-        setOutputText(`Head pose visualization ${newHeadPoseState ? 'enabled' : 'disabled'}`);
-        if (newHeadPoseState && !showCamera) {
-          setShowCameraPlaceholder(true);
-        } else if (!newHeadPoseState && !showBoundingBox && !showMask && !showParameters) {
-          setShowCameraPlaceholder(false);
-        }
+        // Show coming soon message
+        setShowWarning(true);
+        setWarningMessage('This button unavailable right now, coming soon update');
+        setOutputText('Head pose visualization - Coming soon!');
         
-        // Update processor options if camera is active
-        if (showCamera && window.videoProcessor) {
-          window.videoProcessor.updateOptions({
-            ...window.videoProcessor.options,
-            showHeadPose: newHeadPoseState
-          });
-        }
+        // Hide warning after 3 seconds
+        setTimeout(() => {
+          setShowWarning(false);
+        }, 3000);
         break;
         
       case 'boundingBox':
-        const newBoundingBoxState = !showBoundingBox;
-        setShowBoundingBox(newBoundingBoxState);
-        setOutputText(`Bounding box ${newBoundingBoxState ? 'shown' : 'hidden'}`);
-        if (newBoundingBoxState && !showCamera) {
-          setShowCameraPlaceholder(true);
-        } else if (!newBoundingBoxState && !showHeadPose && !showMask && !showParameters) {
-          setShowCameraPlaceholder(false);
-        }
+        // Show coming soon message
+        setShowWarning(true);
+        setWarningMessage('This button unavailable right now, coming soon update');
+        setOutputText('Bounding box visualization - Coming soon!');
         
-        // Update processor options if camera is active
-        if (showCamera && window.videoProcessor) {
-          window.videoProcessor.updateOptions({
-            ...window.videoProcessor.options,
-            showBoundingBox: newBoundingBoxState
-          });
-        }
+        // Hide warning after 3 seconds
+        setTimeout(() => {
+          setShowWarning(false);
+        }, 3000);
         break;
         
       case 'mask':
-        const newMaskState = !showMask;
-        setShowMask(newMaskState);
-        setOutputText(`Mask ${newMaskState ? 'shown' : 'hidden'}`);
-        if (newMaskState && !showCamera) {
-          setShowCameraPlaceholder(true);
-        } else if (!newMaskState && !showHeadPose && !showBoundingBox && !showParameters) {
-          setShowCameraPlaceholder(false);
-        }
+        // Show coming soon message
+        setShowWarning(true);
+        setWarningMessage('This button unavailable right now, coming soon update');
+        setOutputText('Mask visualization - Coming soon!');
         
-        // Update processor options if camera is active
-        if (showCamera && window.videoProcessor) {
-          window.videoProcessor.updateOptions({
-            ...window.videoProcessor.options,
-            showMask: newMaskState
-          });
-        }
+        // Hide warning after 3 seconds
+        setTimeout(() => {
+          setShowWarning(false);
+        }, 3000);
         break;
         
       case 'parameters':
-        const newParametersState = !showParameters;
-        setShowParameters(newParametersState);
-        setOutputText(`Parameters ${newParametersState ? 'shown' : 'hidden'}`);
-        if (newParametersState && !showCamera) {
-          setShowCameraPlaceholder(true);
-        } else if (!newParametersState && !showHeadPose && !showBoundingBox && !showMask) {
-          setShowCameraPlaceholder(false);
-        }
+        // Show coming soon message
+        setShowWarning(true);
+        setWarningMessage('This button unavailable right now, coming soon update');
+        setOutputText('Parameters visualization - Coming soon!');
         
-        // Update processor options if camera is active
-        if (showCamera && window.videoProcessor) {
-          window.videoProcessor.updateOptions({
-            ...window.videoProcessor.options,
-            showParameters: newParametersState
-          });
-        }
+        // Hide warning after 3 seconds
+        setTimeout(() => {
+          setShowWarning(false);
+        }, 3000);
         break;
         
       // Fixed calibrate case handler in index.js

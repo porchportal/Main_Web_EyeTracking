@@ -5,12 +5,12 @@ import html2canvas from 'html2canvas';
 import { captureImagesAtUserPoint } from '../Helper/user_savefile';
 
 /**
- * Get canvas using the global canvas manager from index.js
+ * Get canvas using the centralized CanvasUtils from index.js
  * @returns {HTMLCanvasElement} Canvas element
  */
 const getCanvas = () => {
-  if (typeof window !== 'undefined' && window.globalCanvasManager) {
-    return window.globalCanvasManager.getCanvas();
+  if (typeof window !== 'undefined' && window.CanvasUtils) {
+    return window.CanvasUtils.getCanvas();
   }
   return document.querySelector('#main-canvas');
 };
@@ -69,18 +69,18 @@ const captureScreenWithHtml2Canvas = async () => {
 };
 
 /**
- * Draw dot using the global canvas manager
+ * Draw dot using the centralized CanvasUtils
  * @param {number} x - X coordinate
  * @param {number} y - Y coordinate
  * @param {number} radius - Dot radius
  * @returns {boolean} Success status
  */
 const drawDotWithCanvasManager = (x, y, radius = 6) => {
-  // Get canvas using the global canvas manager
+  // Get canvas using the centralized CanvasUtils
   const canvas = getCanvas();
-  if (canvas) {
-    const ctx = canvas.getContext('2d');
-    drawRedDot(ctx, x, y, radius, false);
+  if (canvas && typeof window !== 'undefined' && window.CanvasUtils) {
+    // Use centralized CanvasUtils for consistent dot drawing
+    window.CanvasUtils.drawRedDot(canvas, x, y, radius, false);
     return true;
   }
   return false;
@@ -526,7 +526,7 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
   // Get the backup countdown element
   const backupCountdown = document.querySelector('.backup-countdown');
 
-  // Draw dot using the canvas management system
+  // Draw dot using the centralized CanvasUtils
   drawDotWithCanvasManager(position.x, position.y);
 
   let count = 3;
@@ -613,10 +613,16 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
 export const drawRedDot = (ctx, x, y, radius = 6, clearCanvas = true) => {
   const canvas = ctx.canvas;
   
+  // Use centralized CanvasUtils if available, otherwise fallback to legacy method
+  if (typeof window !== 'undefined' && window.CanvasUtils) {
+    return window.CanvasUtils.drawRedDot(canvas, x, y, radius, clearCanvas);
+  }
+  
+  // Legacy fallback method
   // Clear the canvas if requested (default behavior)
   if (clearCanvas) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'yellow';
+    ctx.fillStyle = '#CCFFF5'; // Updated to use blue background
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
   
@@ -1139,7 +1145,7 @@ export const calibrationCapture = async (options) => {
         return { success: false };
       }
   
-      // Draw dot using the canvas management system
+      // Draw dot using the centralized CanvasUtils
       drawDotWithCanvasManager(point.x, point.y);
   
       setProcessStatus?.(`Calibration point ${pointIndex + 1}/${totalPoints}`);
@@ -1244,7 +1250,7 @@ export const captureAndPreviewProcess = async (options) => {
       return null;
     }
 
-    // Draw the dot using canvas management system
+    // Draw the dot using centralized CanvasUtils
     drawDotWithCanvasManager(position.x, position.y);
 
     // Countdown before capture

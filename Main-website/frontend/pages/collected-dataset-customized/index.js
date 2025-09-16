@@ -132,6 +132,85 @@ const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabl
   );
 };
 
+// Centralized Canvas Utility Functions
+const CanvasUtils = {
+  // Default canvas background color
+  DEFAULT_BACKGROUND_COLOR: '#CCFFF5',
+  
+  // Clear canvas with specified background color
+  clearCanvas: (canvas, backgroundColor = CanvasUtils.DEFAULT_BACKGROUND_COLOR) => {
+    if (!canvas) return false;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return true;
+  },
+  
+  // Draw red dot on canvas
+  drawRedDot: (canvas, x, y, radius = 6, clearCanvas = true) => {
+    if (!canvas) return { x: 0, y: 0 };
+    
+    const ctx = canvas.getContext('2d');
+    
+    // Clear canvas if requested
+    if (clearCanvas) {
+      CanvasUtils.clearCanvas(canvas);
+    }
+    
+    // Draw the dot with a bright red color
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = 'red';
+    ctx.fill();
+    
+    // Add glow effect for better visibility
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+    ctx.lineWidth = 3;
+    ctx.stroke();
+    
+    // Add a second larger glow for even better visibility
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 4, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    
+    return { x, y };
+  },
+  
+  // Get canvas using global canvas manager
+  getCanvas: () => {
+    if (typeof window !== 'undefined' && window.globalCanvasManager) {
+      return window.globalCanvasManager.getCanvas();
+    }
+    return document.querySelector('#main-canvas');
+  },
+  
+  // Get canvas dimensions
+  getDimensions: (canvas) => {
+    if (!canvas) return { width: 0, height: 0 };
+    return {
+      width: canvas.width,
+      height: canvas.height
+    };
+  },
+  
+  // Set canvas background color
+  setBackgroundColor: (canvas, color = CanvasUtils.DEFAULT_BACKGROUND_COLOR) => {
+    if (!canvas) return false;
+    return CanvasUtils.clearCanvas(canvas, color);
+  }
+};
+
+// Make CanvasUtils globally available
+if (typeof window !== 'undefined') {
+  window.CanvasUtils = CanvasUtils;
+}
+
 // Simplified Canvas Manager - Essential functions only
 class GlobalCanvasManager {
   constructor() {
@@ -219,7 +298,7 @@ class GlobalCanvasManager {
     canvas.style.outline = 'none';
     canvas.style.pointerEvents = 'none'; // Allow clicks to pass through to elements below
 
-    // Initialize with yellow background (will be overridden by canvas image manager if needed)
+    // Initialize with blue background (will be overridden by canvas image manager if needed)
     this.clearCanvas(canvas);
   }
 
@@ -246,22 +325,19 @@ class GlobalCanvasManager {
     return canvas;
   }
 
-  // Clear canvas with yellow background
+  // Clear canvas with blue background using centralized CanvasUtils
   clearCanvas(canvas = null) {
     const targetCanvas = canvas || this.getCanvas();
     if (!targetCanvas) return;
     
-    // Always set yellow background in index.js
-    const ctx = targetCanvas.getContext('2d');
-    ctx.clearRect(0, 0, targetCanvas.width, targetCanvas.height);
-    ctx.fillStyle = 'yellow';
-    ctx.fillRect(0, 0, targetCanvas.width, targetCanvas.height);
+    // Use centralized CanvasUtils for consistent background color
+    CanvasUtils.clearCanvas(targetCanvas);
     
     // If we have a canvas image manager, check if it has an image to redraw
     if (this.canvasImageManager && this.canvasImageManager.currentImage) {
       const cachedImage = this.canvasImageManager.imageCache.get(this.canvasImageManager.currentImage);
       if (cachedImage) {
-        // Redraw the image on top of yellow background
+        // Redraw the image on top of blue background
         this.canvasImageManager.drawImageOnCanvas(cachedImage);
       }
     }
@@ -315,7 +391,7 @@ class GlobalCanvasManager {
     canvas.width = newWidth;
     canvas.height = newHeight;
     
-    // Always set yellow background first
+    // Always set blue background first
     this.clearCanvas(canvas);
     
     // If we have a canvas image manager, let it handle the image redraw
@@ -865,7 +941,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             if (enableBackgroundChange) {
               canvasImageManager.setImageBackground('/Overall_porch.png');
             } else {
-              // Background change is disabled, clear canvas (yellow background is handled in index.js)
+              // Background change is disabled, clear canvas (blue background is handled in index.js)
               canvasImageManager.clearCanvas();
               canvasImageManager.currentImage = null; // Ensure no image is set
             }
@@ -1041,7 +1117,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                 // Try to restore from MongoDB settings
                 canvasImageManager.forceCheckMongoDBSettings(settings, currentUserId);
               } else {
-                // Just set yellow background
+                // Just set blue background
                 canvasManager.clearCanvas();
               }
             }
@@ -1330,7 +1406,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         const userSettings = settings?.[currentUserId];
         const enableBackgroundChange = userSettings?.enable_background_change || false;
         
-        // Always set yellow background in index.js
+        // Always set blue background in index.js
         canvasManager.clearCanvas(canvas);
         
         if (!enableBackgroundChange && canvasImageManager) {
@@ -2006,7 +2082,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     try {
       // Clear canvas before starting the main process (preserve image if exists)
       if (!canvasImageManager || !canvasImageManager.currentImage) {
-        // Always set yellow background in index.js
+        // Always set blue background in index.js
         canvasManager.clearCanvas();
         
         // Check if background change is disabled
@@ -2284,7 +2360,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
   const handleClearAll = () => {
     // Clear canvas content (force clear even if image exists)
-    // Always set yellow background in index.js
+    // Always set blue background in index.js
     canvasManager.clearCanvas();
     
     if (canvasImageManager) {
@@ -2484,7 +2560,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             width: 100vw !important;
             height: 100vh !important;
             z-index: 10 !important;
-            background-color: yellow !important;
+            background-color: #CCFFF5 !important;
             display: block !important;
             margin: 0 !important;
             padding: 0 !important;
@@ -2697,7 +2773,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             />
           )}
 
-          {/* Image Overlay Component - renders images on top of yellow canvas */}
+          {/* Image Overlay Component - renders images on top of blue canvas */}
           {isHydrated && canvas && overlayImagePath && showOverlay && (
             <ImageOverlay 
               key={`image-overlay-${overlayImagePath}`}

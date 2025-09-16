@@ -1,4 +1,4 @@
-/* Main Canvas Styles - Single Yellow Canvas Management */
+/* Main Canvas Styles - Single Blue Canvas Management */
 
 /* Single main canvas - handles both normal and fullscreen modes */
 .mainCanvas {
@@ -7,7 +7,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: yellow;
+  background-color: #CCFFF5;
   z-index: 0;
   display: block;
   margin: 0;
@@ -27,7 +27,7 @@
   width: 100vw !important;
   height: 100vh !important;
   z-index: 0 !important;
-  background-color: yellow !important;
+  background-color: #CCFFF5 !important;
   border: none !important;
   display: block !important;
   opacity: 1 !important;
@@ -44,21 +44,7 @@
   overflow: hidden;
 }
 
-.withTopbar {
-  /* Handled inline */
-}
-
-.withoutTopbar {
-  /* Handled inline */
-}
-
-.withBackendWarning {
-  /* Handled inline */
-}
-
-.withCameraNotification {
-  /* Handled inline */
-}
+/* These classes are handled inline in the component */
 
 /* Canvas placeholder styles */
 .cameraPlaceholderSquare {
@@ -168,7 +154,7 @@
 /* Canvas high contrast mode support */
 @media (prefers-contrast: high) {
   .mainCanvas {
-    background-color: #ffff00 !important;
+    background-color: #CCFFF5 !important;
     border: 2px solid #000000;
   }
 }
