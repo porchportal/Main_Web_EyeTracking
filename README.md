@@ -107,21 +107,19 @@ For detailed technical specifications, system requirements, and configuration de
 
 ## 🖼️ Application Screenshots
 
-### Home Page
-![Home Page](/Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/frontend/public/Demo/Home.png)
-*Main application home page with consent management and user interface*
+<div align="center">
 
-### Data Collection Interface
-![Collect Dataset](/Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/frontend/public/Demo/CollectData.png)
-*Advanced data collection interface with real-time eye tracking capabilities*
+| Home Page | Data Collection Interface |
+|-----------|---------------------------|
+| ![Home Page](Main-website/frontend/public/Demo/Home.png) | ![Collect Dataset](Main-website/frontend/public/Demo/CollectData.png) |
+| *Main application home page with consent management and user interface* | *Advanced data collection interface with real-time eye tracking capabilities* |
 
-### Admin Dashboard
-![Admin Dashboard](/Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/frontend/public/Demo/Admin.png)
-*Administrative dashboard for managing users, datasets, and system configuration*
+| Admin Dashboard | Admin with AI Enhancement |
+|-----------------|---------------------------|
+| ![Admin Dashboard](Main-website/frontend/public/Demo/Admin.png) | ![Admin AI Enhance](Main-website/frontend/public/Demo/AdminStartEnhance.png) |
+| *Administrative dashboard for managing users, datasets, and system configuration* | *Admin interface with AI enhancement features and processing capabilities* |
 
-### Admin with AI Enhancement
-![Admin AI Enhance](/Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/frontend/public/Demo/AdminStartEnhance.png)
-*Admin interface with AI enhancement features and processing capabilities*
+</div>
 
 ## 🚀 Quick Start
 
