@@ -319,6 +319,9 @@ openssl s_client -connect localhost:443
 
 # Check nginx config
 docker exec backend_nginx nginx -t
+
+# Run without log
+docker-compose up --build > /dev/null
 ```
 
 ## 📚 Key Dependencies

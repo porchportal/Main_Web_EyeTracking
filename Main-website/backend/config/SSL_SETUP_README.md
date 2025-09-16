@@ -1,6 +1,30 @@
 # SSL Certificate Setup for Development and Production
 
-This guide covers SSL certificate generation and management for the eye tracking web application.
+This comprehensive guide covers SSL certificate generation, HTTPS camera access setup, and security configuration for the eye tracking web application.
+
+> **📋 For complete technical requirements and system specifications, see [Requirements.md](../../../Requirements.md)**  
+> **🏠 For main application documentation, see [README.md](../../../README.md)**  
+> **🔧 For system architecture and port configurations, see [Requirements.md](../../../Requirements.md#-system-architecture)**
+
+## Overview
+
+The application supports two HTTPS ports with different security configurations:
+- **Port 443**: Main application with restricted camera permissions
+- **Port 8443**: Camera access with full camera and microphone permissions
+
+## Security Configuration
+
+### Main Application (Port 443)
+- **CSP**: `default-src 'self'; connect-src 'self';`
+- **Permissions-Policy**: `camera=(), microphone=()`
+- **Referrer-Policy**: `strict-origin-when-cross-origin`
+- **X-Content-Type-Options**: `nosniff`
+
+### Camera Access (Port 8443)
+- **CSP**: `default-src 'self'; connect-src 'self';`
+- **Permissions-Policy**: `camera=*, microphone=*`
+- **Referrer-Policy**: `strict-origin-when-cross-origin`
+- **X-Content-Type-Options**: `nosniff`
 
 ## Development Environment (Self-Signed Certificates)
 
@@ -10,28 +34,28 @@ Create the SSL directory and generate certificates:
 
 ```bash
 # Create SSL directory
-mkdir -p /Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/backend/config/ssl
+mkdir -p backend/config/ssl
 
 # Generate private key
-openssl genrsa -out /Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/backend/config/ssl/key.pem 2048
+openssl genrsa -out backend/config/ssl/key.pem 2048
 
 # Generate certificate with SAN (Subject Alternative Name)
-openssl req -new -x509 -key /Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/backend/config/ssl/key.pem \
-    -out /Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/backend/config/ssl/cert.pem \
+openssl req -new -x509 -key backend/config/ssl/key.pem \
+    -out backend/config/ssl/cert.pem \
     -days 365 \
-    -subj "/C=US/ST=State/L=City/O=Organization/CN=your-domain.com" \
-    -addext "subjectAltName=DNS:your-domain.com,DNS:www.your-domain.com,DNS:localhost,IP:127.0.0.1,IP:192.168.1.100"
+    -subj "/C=US/ST=State/L=City/O=Organization/CN=your-server-ip" \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:192.168.1.100"
 ```
 
 ### 2. Set Proper Permissions
 
 ```bash
 # Set secure permissions
-chmod 600 /Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/backend/config/ssl/key.pem
-chmod 644 /Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/backend/config/ssl/cert.pem
+chmod 600 backend/config/ssl/key.pem
+chmod 644 backend/config/ssl/cert.pem
 
 # Ensure nginx can read the files
-sudo chown root:root /Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/backend/config/ssl/*
+sudo chown root:root backend/config/ssl/*
 ```
 
 ### 3. Update Docker Compose
@@ -79,7 +103,7 @@ sudo yum install certbot
 # Stop nginx temporarily
 sudo systemctl stop nginx
 
-# Generate certificate
+# Generate certificate (Note: Let's Encrypt requires a domain name, not IP)
 sudo certbot certonly --webroot \
     -w /var/www/html \
     -d your-domain.com \
@@ -137,6 +161,70 @@ sudo certbot --nginx -d your-domain.com -d www.your-domain.com
 sudo certbot --nginx -d your-domain.com -d www.your-domain.com --non-interactive --agree-tos --email your-email@domain.com
 ```
 
+## Camera Component Features
+
+### Automatic HTTPS Detection
+The camera component automatically detects:
+- Current protocol (HTTP/HTTPS)
+- Current port
+- Required security context
+
+### Smart WebSocket Connection
+- **HTTPS on port 443**: Uses `wss://hostname:443/ws/video`
+- **HTTPS on port 8443**: Uses `wss://hostname:8443/ws/video`
+- **HTTP/Development**: Falls back to `NEXT_PUBLIC_WS_URL`
+
+### Automatic Redirect
+When accessing the main application via HTTPS (port 443) and trying to use the camera:
+1. Shows a security notice
+2. Provides a button to redirect to port 8443
+3. Automatically redirects to `https://hostname:8443`
+
+## Setup Instructions
+
+### 1. Generate SSL Certificates
+
+```bash
+# Create SSL directory
+mkdir -p backend/config/ssl
+
+# Generate self-signed certificate with SAN
+openssl req -x509 -newkey rsa:2048 -keyout backend/config/ssl/key.pem \
+    -out backend/config/ssl/cert.pem \
+    -days 365 -nodes \
+    -subj "/C=US/ST=State/L=City/O=Organization/CN=your-server-ip" \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:192.168.1.100"
+
+# Set proper permissions
+chmod 600 backend/config/ssl/key.pem
+chmod 644 backend/config/ssl/cert.pem
+```
+
+### 2. Update Server Configuration
+
+Replace `your-server-ip` in `nginx.conf` with your actual server IP:
+```bash
+# Replace in nginx.conf
+sed -i 's/your-server-ip/your-actual-server-ip/g' backend/config/nginx.conf
+```
+
+### 3. Start the Application
+
+```bash
+# Start with Docker Compose
+cd Main-website
+docker-compose up -d
+
+# Check if all services are running
+docker-compose ps
+```
+
+### 4. Access the Application
+
+- **Main Application**: `https://your-server-ip` (port 443)
+- **Camera Access**: `https://your-server-ip:8443` (port 8443)
+- **HTTP Redirect**: `http://your-server-ip` → `https://your-server-ip`
+
 ## Verification and Testing
 
 ### 1. Test Nginx Configuration
@@ -153,39 +241,30 @@ docker exec backend_nginx nginx -t
 
 ```bash
 # Test SSL connection
-openssl s_client -connect your-domain.com:443 -servername your-domain.com
+openssl s_client -connect your-server-ip:443 -servername your-server-ip
 
 # Test with curl
-curl -I https://your-domain.com
+curl -I https://your-server-ip
 
 # Test HTTP redirect
-curl -I http://your-domain.com
+curl -I http://your-server-ip
 ```
 
 ### 3. Check Certificate Details
 
 ```bash
 # View certificate information
-openssl x509 -in /path/to/cert.pem -text -noout
+openssl x509 -in backend/config/ssl/cert.pem -text -noout
 
 # Check certificate expiration
-openssl x509 -in /path/to/cert.pem -noout -dates
+openssl x509 -in backend/config/ssl/cert.pem -noout -dates
 ```
 
-### 4. Test Rate Limiting
 
-```bash
-# Test general rate limiting
-for i in {1..15}; do curl -I https://your-domain.com; done
-
-# Test API rate limiting
-for i in {1..10}; do curl -I https://your-domain.com/api/health; done
-
-# Test login rate limiting
-for i in {1..5}; do curl -I https://your-domain.com/auth/login; done
-```
 
 ## Security Considerations
+
+> **📋 For detailed security requirements and specifications, see [Requirements.md](../../../Requirements.md#-security-requirements)**
 
 ### 1. Certificate Security
 
@@ -216,6 +295,10 @@ for i in {1..5}; do curl -I https://your-domain.com/auth/login; done
 2. **SSL handshake failed**: Verify certificate and key match
 3. **Rate limiting too strict**: Adjust limits in nginx.conf
 4. **CORS errors**: Check CORS headers configuration
+5. **Camera not working on port 443**: Expected behavior - camera is restricted on main port
+6. **WebSocket connection failed**: Check if backend services are running
+7. **Permission denied for camera**: Ensure you're using HTTPS and try port 8443
+8. **SSL certificate errors**: For development, accept self-signed certificates
 
 ### Debug Commands
 
@@ -224,11 +307,45 @@ for i in {1..5}; do curl -I https://your-domain.com/auth/login; done
 sudo tail -f /var/log/nginx/error.log
 
 # Check certificate chain
-openssl s_client -connect your-domain.com:443 -showcerts
+openssl s_client -connect your-server-ip:443 -showcerts
 
 # Test specific cipher
-openssl s_client -connect your-domain.com:443 -cipher ECDHE-RSA-AES128-GCM-SHA256
+openssl s_client -connect your-server-ip:443 -cipher ECDHE-RSA-AES128-GCM-SHA256
+
+# Check nginx configuration
+docker exec backend_nginx nginx -t
+
+# Check SSL certificates
+openssl x509 -in backend/config/ssl/cert.pem -text -noout
+
+# Check service logs
+docker logs backend_nginx
+docker logs backend_auth_service
+docker logs frontend_main
+
+# Test SSL connection
+openssl s_client -connect your-server-ip:443 -servername your-server-ip
+openssl s_client -connect your-server-ip:8443 -servername your-server-ip
+
+# Run without log
+docker-compose up --build > /dev/null
 ```
+
+## Security Benefits
+
+1. **Strict CSP**: Prevents XSS attacks by restricting resource loading
+2. **Permissions Policy**: Controls camera/microphone access per port
+3. **HTTPS Only**: Ensures encrypted communication
+4. **Port Separation**: Isolates camera access for better security
+5. **Automatic Redirects**: Guides users to secure camera access
+
+## Production Considerations
+
+1. **Use Let's Encrypt**: Replace self-signed certificates
+2. **Enable HSTS**: Uncomment HSTS header in nginx.conf
+3. **Monitor Logs**: Set up log monitoring for security events
+4. **Regular Updates**: Keep nginx and certificates updated
+5. **Firewall Rules**: Restrict access to necessary ports only
 
 ## File Structure
 
@@ -248,9 +365,16 @@ backend/config/
 mkdir -p backend/config/ssl
 openssl req -x509 -newkey rsa:2048 -keyout backend/config/ssl/key.pem -out backend/config/ssl/cert.pem -days 365 -nodes -subj "/CN=localhost"
 
-# Production setup
+# Production setup (requires domain name)
 sudo certbot --nginx -d your-domain.com -d www.your-domain.com
 
 # Test configuration
 sudo nginx -t && sudo systemctl reload nginx
 ```
+
+---
+
+**📚 Related Documentation:**
+- [Main Application Documentation](../../../README.md)
+- [Technical Requirements](../../../Requirements.md) - Complete technical specifications and system requirements
+- [Environment Setup](../ENVIRONMENT_SETUP.md)

@@ -176,7 +176,8 @@ openssl req -x509 -newkey rsa:2048 \
 
 Replace `YOUR_SERVER_IP` with your actual server IP address.
 
-> **📋 For detailed SSL configuration and certificate generation explanation, see [Requirements.md](Requirements.md)**
+> **📋 For detailed SSL configuration and certificate generation explanation, see [Requirements.md](Requirements.md)**  
+> **🔐 For step-by-step SSL setup guide, see [SSL_SETUP_README.md](Main-website/backend/config/SSL_SETUP_README.md)**
 
 ### 3. Configure Environment
 ```bash
@@ -268,8 +269,7 @@ For multi-user access, ensure your server is accessible from other devices on th
 
 - **📋 Technical Requirements**: [Requirements.md](Requirements.md) - Complete technical specifications and configuration details
 - **Environment Setup**: [Main-website/ENVIRONMENT_SETUP.md](Main-website/ENVIRONMENT_SETUP.md)
-- **SSL Setup**: [Main-website/backend/config/SSL_SETUP_README.md](Main-website/backend/config/SSL_SETUP_README.md)
-- **Camera Setup**: [Main-website/backend/config/HTTPS_CAMERA_SETUP.md](Main-website/backend/config/HTTPS_CAMERA_SETUP.md)
+- **SSL & Camera Setup**: [Main-website/backend/config/SSL_SETUP_README.md](Main-website/backend/config/SSL_SETUP_README.md) - Comprehensive SSL and HTTPS camera access guide
 - **Consent System**: [Main-website/backend/auth_service/CONSENT_INITIALIZATION_README.md](Main-website/backend/auth_service/CONSENT_INITIALIZATION_README.md)
 - **Admin Download**: [Main-website/backend/auth_service/routes/ADMIN_DOWNLOAD_README.md](Main-website/backend/auth_service/routes/ADMIN_DOWNLOAD_README.md)
 - **Process Set**: [Main-website/frontend/pages/process_set/README.md](Main-website/frontend/pages/process_set/README.md)
