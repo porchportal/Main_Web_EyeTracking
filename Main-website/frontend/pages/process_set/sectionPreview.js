@@ -42,7 +42,6 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType, fold
     setLoadError(null);
     
     try {
-      console.log(`Loading image from backend: ${filename} from ${folderType} folder`);
       
       // Get current user ID from backend
       const userId = await getCurrentUserId();
@@ -53,17 +52,14 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType, fold
       } else {
         // If file not found in specified folder, try the other folders as fallback
         const fallbackFolders = ['enhance', 'complete', 'captures'].filter(f => f !== folderType);
-        console.log(`File not found in ${folderType} folder, trying fallback folders: ${fallbackFolders.join(', ')}`);
         
         let fallbackSuccess = false;
         let lastError = result.error;
         
         for (const fallbackFolder of fallbackFolders) {
-          console.log(`Trying ${fallbackFolder} folder as fallback`);
           const fallbackResult = await readImageFromBackend(filename, userId, fallbackFolder);
           
           if (fallbackResult.success) {
-            console.log(`Successfully loaded from ${fallbackFolder} folder`);
             handleImageLoad(fallbackResult.data, fallbackResult.type);
             fallbackSuccess = true;
             break;
@@ -544,7 +540,7 @@ export const EnhanceFaceToggle = ({ isEnabled = false, onToggle }) => {
   );
 };
 
-export const ProcessingProgress = ({ isProcessing, progressData }) => {
+export const ProcessingProgress = ({ isProcessing, progressData, onClearProgress }) => {
   // Return null if not processing or no progress data
   if (!isProcessing || !progressData) return null;
 
@@ -557,35 +553,40 @@ export const ProcessingProgress = ({ isProcessing, progressData }) => {
     message = ''
   } = progressData || {};
 
-  // Debug logging
-  console.log('ProcessingProgress render:', {
-    isProcessing,
-    progressData,
-    progress,
-    currentSet,
-    totalSets,
-    status
-  });
+
+  // Ensure progress is a valid number between 0 and 100
+  const validProgress = Math.max(0, Math.min(100, Number(progress) || 0));
 
   return (
     <div className={styles.processingProgress}>
       <div className={styles.progressHeader}>
         <h3>Processing Progress</h3>
-        <span className={`${styles.statusBadge} ${styles[status]}`}>
-          {status && typeof status === 'string' ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown'}
-        </span>
+        <div className={styles.progressHeaderRight}>
+          <span className={`${styles.statusBadge} ${styles[status]}`}>
+            {status && typeof status === 'string' ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown'}
+          </span>
+          {onClearProgress && (status === 'completed' || status === 'error') && (
+            <button 
+              className={styles.clearButton}
+              onClick={onClearProgress}
+              title="Clear progress display"
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
       
       <div className={styles.progressBarContainer}>
         <div 
           className={styles.progressBar}
-          style={{ width: `${progress}%` }}
+          style={{ width: `${validProgress}%` }}
         />
       </div>
       
       <div className={styles.progressDetails}>
         <div className={styles.progressText}>
-          <span>Progress: {progress}%</span>
+          <span>Progress: {validProgress}%</span>
           <span>Set {currentSet} of {totalSets}</span>
         </div>
         

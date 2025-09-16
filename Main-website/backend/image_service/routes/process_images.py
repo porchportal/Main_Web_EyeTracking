@@ -1,9 +1,6 @@
 # process_image.py - Handle image processing for face tracking
 import cv2
 import numpy as np
-import base64
-from fastapi import UploadFile
-import tempfile
 import os
 import traceback
 from typing import Dict, Any, List, Tuple, Generator, AsyncGenerator
@@ -84,6 +81,9 @@ def update_progress(userId, currentSet, totalSets, processedSets, status, messag
         else:
             progress_percentage = 0
         
+        # Ensure progress is between 0 and 100
+        progress_percentage = max(0, min(100, progress_percentage))
+        
         # Create progress data
         progress_data = {
             "currentSet": currentSet,
@@ -99,13 +99,18 @@ def update_progress(userId, currentSet, totalSets, processedSets, status, messag
         
         # Write progress to file (this will be read by the frontend API)
         # Use the same path structure that the frontend API expects
+        # The frontend reads from: backend/auth_service/resource_security/public/captures/{userId}/processing_progress.json
         progress_file = f"/app/resource_security/public/captures/{userId}/processing_progress.json"
         os.makedirs(os.path.dirname(progress_file), exist_ok=True)
         
         with open(progress_file, 'w') as f:
             json.dump(progress_data, f, indent=2)
+            f.flush()  # Ensure data is written to disk immediately
             
-        logging.info(f"Progress updated: {status} - {message}")
+        print(f"🔄 Progress updated: {status} - {message} - Progress: {progress_percentage}%")
+        print(f"📁 Progress file written to: {progress_file}")
+        print(f"📊 Progress data: {progress_data}")
+        logging.info(f"Progress updated: {status} - {message} - Progress: {progress_percentage}%")
         logging.info(f"Progress file written to: {progress_file}")
         logging.info(f"Progress data: {progress_data}")
         
@@ -149,24 +154,27 @@ def get_face_tracker():
 
 async def process_images(
     set_numbers: list = None,
-    file: UploadFile = None,
     show_head_pose: bool = False,
     show_bounding_box: bool = False,
     show_mask: bool = False,
     show_parameters: bool = False,
     userId: str = None,
-    enhanceFace: bool = True
+    enhanceFace: bool = True,
+    batch_size: int = 6
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
-    Process one or multiple images for face tracking and analysis.
+    Process multiple images for face tracking and analysis (batch processing only).
+    Processes images in batches of 6 to avoid memory issues and provide better progress tracking.
     
     Args:
         set_numbers: List of set numbers to process (for batch processing)
-        file: Single uploaded file to process (for single image processing)
         show_head_pose: Whether to visualize head pose
         show_bounding_box: Whether to show face bounding box
         show_mask: Whether to show face mask visualization
         show_parameters: Whether to show detection parameters
+        userId: User ID for user-specific processing
+        enhanceFace: Whether to enhance face in processed images
+        batch_size: Number of images to process in each batch (default: 6)
         
     Returns:
         Generator yielding progress updates and results
@@ -181,264 +189,8 @@ async def process_images(
         face_tracker.set_IsMaskOn(show_mask)
         face_tracker.set_labet_face_element(show_parameters)
         
-        # Single image processing
-        if file is not None:
-            tmp_path = None
-            try:
-                # Create a temporary file to save the uploaded image
-                with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp_file:
-                    content = await file.read()
-                    if not content or len(content) == 0:
-                        yield {"success": False, "error": "Uploaded file is empty"}
-                        return
-                    
-                    tmp_file.write(content)
-                    tmp_path = tmp_file.name
-                
-                # Process the single image
-                image = cv2.imread(tmp_path)
-                if image is None:
-                    yield {"success": False, "error": "Could not read image file"}
-                    return
-                
-                # Process the image
-                timestamp_ms = int(1000)
-                metrics, processed_image = face_tracker.process_frame(
-                    image,
-                    timestamp_ms,
-                    isVideo=False,
-                    # isEnhanceFace=True
-                    isEnhanceFace=enhanceFace
-                )
-                
-                # Convert processed image to base64
-                _, buffer = cv2.imencode('.jpg', processed_image)
-                img_str = base64.b64encode(buffer).decode('utf-8')
-                
-                # Prepare result
-                result = {
-                    "success": True,
-                    "image": {
-                        "width": image.shape[1],
-                        "height": image.shape[0],
-                        "data": img_str
-                    },
-                    "face_detected": metrics is not None,
-                    "metrics": {}
-                }
-                
-                # Extract metrics if face was detected
-                if metrics is not None:
-                    # Add all available metrics (same as before)
-                    if hasattr(metrics, 'head_pose_angles') and metrics.head_pose_angles is not None:
-                        pitch, yaw, roll = metrics.head_pose_angles
-                        result["metrics"]["head_pose"] = {
-                            "pitch": round(pitch, 3),
-                            "yaw": round(yaw, 3),
-                            "roll": round(roll, 3)
-                        }
-                    
-                    # 2. Add face_box (face bounding box)
-                    if hasattr(metrics, 'face_box') and metrics.face_box is not None:
-                        try:
-                            min_pos, max_pos = metrics.face_box
-                            result["metrics"]["face_box"] = {
-                                "min": np.array(min_pos).tolist() if hasattr(min_pos, 'tolist') else list(min_pos),
-                                "max": np.array(max_pos).tolist() if hasattr(max_pos, 'tolist') else list(max_pos)
-                            }
-                            # Add individual components for CSV format
-                            min_x, min_y = min_pos
-                            max_x, max_y = max_pos
-                            result["metrics"]["face_min_position_x"] = int(min_x)
-                            result["metrics"]["face_min_position_y"] = int(min_y)
-                            result["metrics"]["face_max_position_x"] = int(max_x)
-                            result["metrics"]["face_max_position_y"] = int(max_y)
-                        except Exception as e:
-                            print(f"Error extracting face box: {e}")
-                    
-                    # 3. Add left_eye_box
-                    if hasattr(metrics, 'left_eye_box') and metrics.left_eye_box is not None:
-                        try:
-                            min_left, max_left = metrics.left_eye_box
-                            result["metrics"]["left_eye_box"] = {
-                                "min": np.array(min_left).tolist() if hasattr(min_left, 'tolist') else list(min_left),
-                                "max": np.array(max_left).tolist() if hasattr(max_left, 'tolist') else list(max_left)
-                            }
-                            # Add individual components for CSV format
-                            min_x, min_y = min_left
-                            max_x, max_y = max_left
-                            result["metrics"]["left_eye_box_min_x"] = int(min_x)
-                            result["metrics"]["left_eye_box_min_y"] = int(min_y)
-                            result["metrics"]["left_eye_box_max_x"] = int(max_x)
-                            result["metrics"]["left_eye_box_max_y"] = int(max_y)
-                        except Exception as e:
-                            print(f"Error extracting left eye box: {e}")
-                    
-                    # 4. Add right_eye_box
-                    if hasattr(metrics, 'right_eye_box') and metrics.right_eye_box is not None:
-                        try:
-                            min_right, max_right = metrics.right_eye_box
-                            result["metrics"]["right_eye_box"] = {
-                                "min": np.array(min_right).tolist() if hasattr(min_right, 'tolist') else list(min_right),
-                                "max": np.array(max_right).tolist() if hasattr(max_right, 'tolist') else list(max_right)
-                            }
-                            # Add individual components for CSV format
-                            min_x, min_y = min_right
-                            max_x, max_y = max_right
-                            result["metrics"]["right_eye_box_min_x"] = int(min_x)
-                            result["metrics"]["right_eye_box_min_y"] = int(min_y)
-                            result["metrics"]["right_eye_box_max_x"] = int(max_x)
-                            result["metrics"]["right_eye_box_max_y"] = int(max_y)
-                        except Exception as e:
-                            print(f"Error extracting right eye box: {e}")
-                    
-                    # 5. Add eye_iris_center
-                    if hasattr(metrics, 'eye_iris_center') and metrics.eye_iris_center is not None:
-                        try:
-                            left_iris, right_iris = metrics.eye_iris_center
-                            result["metrics"]["eye_iris_center"] = {
-                                "left": np.array(left_iris).tolist() if hasattr(left_iris, 'tolist') else list(left_iris),
-                                "right": np.array(right_iris).tolist() if hasattr(right_iris, 'tolist') else list(right_iris)
-                            }
-                        except Exception as e:
-                            print(f"Error extracting iris centers: {e}")
-                    
-                    # 6. Add eye_iris boxes
-                    if hasattr(metrics, 'eye_iris_left_box') and metrics.eye_iris_left_box is not None:
-                        try:
-                            min_left, max_left = metrics.eye_iris_left_box
-                            result["metrics"]["eye_iris_left_box"] = {
-                                "min": np.array(min_left).tolist() if hasattr(min_left, 'tolist') else list(min_left),
-                                "max": np.array(max_left).tolist() if hasattr(max_left, 'tolist') else list(max_left)
-                            }
-                        except Exception as e:
-                            print(f"Error extracting left iris box: {e}")
-                    
-                    if hasattr(metrics, 'eye_iris_right_box') and metrics.eye_iris_right_box is not None:
-                        try:
-                            min_right, max_right = metrics.eye_iris_right_box
-                            result["metrics"]["eye_iris_right_box"] = {
-                                "min": np.array(min_right).tolist() if hasattr(min_right, 'tolist') else list(min_right),
-                                "max": np.array(max_right).tolist() if hasattr(max_right, 'tolist') else list(max_right)
-                            }
-                        except Exception as e:
-                            print(f"Error extracting right iris box: {e}")
-                    
-                    # 7. Add eye_centers
-                    if hasattr(metrics, 'eye_centers') and metrics.eye_centers is not None:
-                        try:
-                            eye_centers = metrics.eye_centers
-                            if len(eye_centers) > 0:
-                                left_eye = eye_centers[0]
-                                result["metrics"]["left_eye_position_x"] = int(left_eye[0])
-                                result["metrics"]["left_eye_position_y"] = int(left_eye[1])
-                            
-                            if len(eye_centers) > 1:
-                                right_eye = eye_centers[1]
-                                result["metrics"]["right_eye_position_x"] = int(right_eye[0])
-                                result["metrics"]["right_eye_position_y"] = int(right_eye[1])
-                            
-                            if len(eye_centers) > 2:
-                                mid_eye = eye_centers[2]
-                                result["metrics"]["center_between_eyes_x"] = int(mid_eye[0])
-                                result["metrics"]["center_between_eyes_y"] = int(mid_eye[1])
-                        except Exception as e:
-                            print(f"Error extracting eye centers: {e}")
-                    
-                    # 8. Add landmark positions
-                    if hasattr(metrics, 'landmark_positions') and metrics.landmark_positions is not None:
-                        try:
-                            landmarks = metrics.landmark_positions
-                            result["metrics"]["landmarks"] = {}
-                            
-                            # Map specific landmark positions to our named parameters
-                            landmark_mapping = {
-                                'nose': ['nose_position_x', 'nose_position_y'],
-                                'chin': ['chin_position_x', 'chin_position_y'],
-                                'face_center': ['face_center_position_x', 'face_center_position_y'],
-                                'left_cheek': ['cheek_left_position_x', 'cheek_left_position_y'],
-                                'right_cheek': ['cheek_right_position_x', 'cheek_right_position_y'],
-                                'left_mouth': ['mouth_left_position_x', 'mouth_left_position_y'],
-                                'right_mouth': ['mouth_right_position_x', 'mouth_right_position_y'],
-                                'left_eye_socket': ['eye_socket_left_center_x', 'eye_socket_left_center_y'],
-                                'right_eye_socket': ['eye_socket_right_center_x', 'eye_socket_right_center_y']
-                            }
-                            
-                            # Add all landmarks to result
-                            for landmark_name, landmark_position in landmarks.items():
-                                pos_array = np.array(landmark_position).tolist() if hasattr(landmark_position, 'tolist') else list(landmark_position)
-                                result["metrics"]["landmarks"][landmark_name] = pos_array
-                                
-                                # Also add the specific named parameters if this landmark is in our mapping
-                                if landmark_name in landmark_mapping:
-                                    x_key, y_key = landmark_mapping[landmark_name]
-                                    result["metrics"][x_key] = int(landmark_position[0])
-                                    result["metrics"][y_key] = int(landmark_position[1])
-                        except Exception as e:
-                            print(f"Error extracting landmarks: {e}")
-                    
-                    # 9. Add eye states
-                    if hasattr(metrics, 'left_eye_state') and metrics.left_eye_state is not None:
-                        try:
-                            state, ear = metrics.left_eye_state
-                            result["metrics"]["left_eye_state"] = state
-                            result["metrics"]["left_eye_ear"] = round(ear, 3)
-                        except Exception as e:
-                            print(f"Error extracting left eye state: {e}")
-                    
-                    if hasattr(metrics, 'right_eye_state') and metrics.right_eye_state is not None:
-                        try:
-                            state, ear = metrics.right_eye_state
-                            result["metrics"]["right_eye_state"] = state
-                            result["metrics"]["right_eye_ear"] = round(ear, 3)
-                        except Exception as e:
-                            print(f"Error extracting right eye state: {e}")
-                    
-                    # 10. Add depth information
-                    if hasattr(metrics, 'depths') and metrics.depths is not None:
-                        try:
-                            face_depth, left_eye_depth, right_eye_depth, chin_depth = metrics.depths
-                            result["metrics"]["distance_cm_from_face"] = round(face_depth, 3)
-                            result["metrics"]["distance_cm_from_eye"] = round(float((left_eye_depth + right_eye_depth) / 2), 3)
-                            result["metrics"]["chin_depth"] = round(chin_depth, 3)
-                        except Exception as e:
-                            print(f"Error extracting depth information: {e}")
-                    
-                    # 11. Add derived parameters like posture and gaze direction
-                    # These would normally be calculated based on head pose and eye positions
-                    if hasattr(metrics, 'head_pose_angles') and metrics.head_pose_angles is not None:
-                        pitch, yaw, roll = metrics.head_pose_angles
-                        
-                        # Determine posture based on pitch
-                        posture = "Looking Straight"
-                        if pitch > 10:
-                            posture = "Looking Down"
-                        elif pitch < -10:
-                            posture = "Looking Up"
-                            
-                        result["metrics"]["posture"] = posture
-                        
-                        # Determine gaze direction based on yaw
-                        gaze_direction = "Looking Straight"
-                        if yaw > 10:
-                            gaze_direction = "Looking Right"
-                        elif yaw < -10:
-                            gaze_direction = "Looking Left"
-                            
-                        result["metrics"]["gaze_direction"] = gaze_direction
-                    
-                yield result
-                
-            finally:
-                # Clean up temporary file
-                if tmp_path and os.path.exists(tmp_path):
-                    try:
-                        os.unlink(tmp_path)
-                    except:
-                        pass
-        
         # Batch processing
-        elif set_numbers is not None:
+        if set_numbers is not None:
             # Get the script directory
             current_dir = os.path.dirname(os.path.abspath(__file__))
             
@@ -518,161 +270,195 @@ async def process_images(
             if not os.path.exists(output_dir):
                 os.makedirs(output_dir, exist_ok=True)
             
-            # Process each set number
+            # Process each set number in batches
             total_sets = len(set_numbers)
             processed_sets = []
             
             # Initial progress update
             update_progress(userId, 0, total_sets, processed_sets, "processing", "Starting processing...", "", 0)
             
-            for i, set_num in enumerate(set_numbers):
-                try:
-                    # Update progress
-                    progress = int(((i + 1) / total_sets) * 100)
-                    current_file = f"webcam_{set_num:03d}.jpg"
-                    
-                    # Update progress file with current index
-                    update_progress(userId, set_num, total_sets, processed_sets, "processing", 
-                                  f"Processing set {set_num} ({i + 1}/{total_sets})", current_file, i)
-                    
-                    yield {
-                        "status": "processing",
-                        "message": f"Processing set {set_num} ({i + 1}/{total_sets})",
-                        "progress": progress,
-                        "currentSet": set_num,
-                        "currentFile": current_file
-                    }
-                    
-                    # Process webcam image - check for both webcam and webcam_sub files
-                    webcam_src = os.path.join(capture_dir, f'webcam_{set_num:03d}.jpg')
-                    webcam_sub_src = os.path.join(capture_dir, f'webcam_sub_{set_num:03d}.jpg')
-                    
-                    # Determine which webcam file to use (prefer main webcam, fallback to webcam_sub)
-                    webcam_file_to_use = None
-                    webcam_file_type = ""
-                    
-                    if os.path.exists(webcam_src):
-                        webcam_file_to_use = webcam_src
-                        webcam_file_type = "webcam"
-                    elif os.path.exists(webcam_sub_src):
-                        webcam_file_to_use = webcam_sub_src
-                        webcam_file_type = "webcam_sub"
-                    
-                    if webcam_file_to_use is None:
-                        # List available webcam files for debugging
-                        webcam_files = [f for f in capture_files if f.startswith('webcam_')]
-                        logging.warning(f"Webcam files not found for set {set_num}")
-                        logging.warning(f"Available webcam files: {webcam_files}")
+            # Process images in batches of 6
+            for batch_start in range(0, total_sets, batch_size):
+                batch_end = min(batch_start + batch_size, total_sets)
+                current_batch = set_numbers[batch_start:batch_end]
+                batch_number = (batch_start // batch_size) + 1
+                total_batches = (total_sets + batch_size - 1) // batch_size
+                
+                print(f"🔄 Processing batch {batch_number}/{total_batches} (sets {batch_start + 1}-{batch_end})")
+                
+                # Update progress for batch start
+                update_progress(userId, batch_start + 1, total_sets, processed_sets, "processing", 
+                              f"Processing batch {batch_number}/{total_batches} (sets {batch_start + 1}-{batch_end})", "", batch_start)
+                
+                yield {
+                    "status": "processing",
+                    "message": f"Processing batch {batch_number}/{total_batches} (sets {batch_start + 1}-{batch_end})",
+                    "progress": int((batch_start / total_sets) * 100),
+                    "currentSet": batch_start + 1,
+                    "currentFile": f"Batch {batch_number}/{total_batches}"
+                }
+                
+                # Process each image in the current batch
+                for i, set_num in enumerate(current_batch):
+                    global_index = batch_start + i
+                    try:
+                        # Update progress - use global_index+1 for 1-based progress calculation
+                        current_file = f"webcam_{set_num:03d}.jpg"
                         
-                        # Update progress for skipped file
-                        update_progress(userId, set_num, total_sets, processed_sets, "warning", 
-                                      f"Skipped set {set_num}: No webcam image found", f"webcam_{set_num:03d}.jpg", i)
+                        # Calculate progress for yield (1-based)
+                        progress_percentage = int(((global_index + 1) / total_sets) * 100)
+                        
+                        # Update progress file with current index (global_index is 0-based, so global_index+1 gives us 1-based progress)
+                        update_progress(userId, set_num, total_sets, processed_sets, "processing", 
+                                      f"Processing set {set_num} ({global_index + 1}/{total_sets}) in batch {batch_number}/{total_batches}", current_file, global_index)
                         
                         yield {
-                            "status": "warning",
-                            "message": f"Skipping set {set_num}: No webcam image found (checked webcam_{set_num:03d}.jpg and webcam_sub_{set_num:03d}.jpg). Available webcam files: {webcam_files}",
-                            "progress": progress,
+                            "status": "processing",
+                            "message": f"Processing set {set_num} ({global_index + 1}/{total_sets}) in batch {batch_number}/{total_batches}",
+                            "progress": progress_percentage,
                             "currentSet": set_num,
-                            "currentFile": f"webcam_{set_num:03d}.jpg"
+                            "currentFile": current_file
                         }
-                        continue
-                    
-                    # Set destination path based on file type and enhanceFace setting
-                    if enhanceFace:
-                        webcam_dst = os.path.join(output_dir, f'{webcam_file_type}_enhance_{set_num:03d}.jpg')
-                    else:
-                        webcam_dst = os.path.join(output_dir, f'{webcam_file_type}_{set_num:03d}.jpg')
-                    
-                    # Read and process the image
-                    image = cv2.imread(webcam_file_to_use)
-                    
-                    # Validate the image
-                    if is_empty_image(image):
-                        yield {
-                            "status": "warning",
-                            "message": f"Skipping set {set_num}: Could not read image",
-                            "progress": progress,
-                            "currentSet": set_num,
-                            "currentFile": f"webcam_{set_num:03d}.jpg"
-                        }
-                        continue
                         
-                    if is_black_image(image):
-                        yield {
-                            "status": "warning",
-                            "message": f"Skipping set {set_num}: Black image detected",
-                            "progress": progress,
-                            "currentSet": set_num,
-                            "currentFile": f"webcam_{set_num:03d}.jpg"
-                        }
-                        continue
-                    
-                    # Process the image
-                    timestamp_ms = int(1000)
-                    metrics, processed_image = face_tracker.process_frame(
-                        image,
-                        timestamp_ms,
-                        isVideo=False,
-                        # isEnhanceFace=True
-                        isEnhanceFace=enhanceFace
-                    )
-                    
-                    # Save the processed image
-                    cv2.imwrite(webcam_dst, processed_image)
-                    
-                    # Copy screen image
-                    screen_src = os.path.join(capture_dir, f'screen_{set_num:03d}.jpg')
-                    screen_dst = os.path.join(output_dir, f'screen_enhance_{set_num:03d}.jpg' if enhanceFace else f'screen_{set_num:03d}.jpg')
-                    
-                    if os.path.exists(screen_src):
-                        with open(screen_src, 'rb') as src, open(screen_dst, 'wb') as dst:
-                            dst.write(src.read())
-                    
-                    # Copy webcam_sub image if it exists AND wasn't already processed
-                    webcam_sub_src = os.path.join(capture_dir, f'webcam_sub_{set_num:03d}.jpg')
-                    if os.path.exists(webcam_sub_src) and webcam_file_type != "webcam_sub":
+                        # Process webcam image - check for both webcam and webcam_sub files
+                        webcam_src = os.path.join(capture_dir, f'webcam_{set_num:03d}.jpg')
+                        webcam_sub_src = os.path.join(capture_dir, f'webcam_sub_{set_num:03d}.jpg')
+                        
+                        # Determine which webcam file to use (prefer main webcam, fallback to webcam_sub)
+                        webcam_file_to_use = None
+                        webcam_file_type = ""
+                        
+                        if os.path.exists(webcam_src):
+                            webcam_file_to_use = webcam_src
+                            webcam_file_type = "webcam"
+                        elif os.path.exists(webcam_sub_src):
+                            webcam_file_to_use = webcam_sub_src
+                            webcam_file_type = "webcam_sub"
+                        
+                        if webcam_file_to_use is None:
+                            # List available webcam files for debugging
+                            webcam_files = [f for f in capture_files if f.startswith('webcam_')]
+                            logging.warning(f"Webcam files not found for set {set_num}")
+                            logging.warning(f"Available webcam files: {webcam_files}")
+                        
+                            # Update progress for skipped file
+                            update_progress(userId, set_num, total_sets, processed_sets, "warning", 
+                                          f"Skipped set {set_num}: No webcam image found", f"webcam_{set_num:03d}.jpg", global_index)
+                        
+                            yield {
+                                "status": "warning",
+                                "message": f"Skipping set {set_num}: No webcam image found (checked webcam_{set_num:03d}.jpg and webcam_sub_{set_num:03d}.jpg). Available webcam files: {webcam_files}",
+                                "progress": progress_percentage,
+                                "currentSet": set_num,
+                                "currentFile": f"webcam_{set_num:03d}.jpg"
+                            }
+                            continue
+                        
+                        # Set destination path based on file type and enhanceFace setting
                         if enhanceFace:
-                            webcam_sub_dst = os.path.join(output_dir, f'webcam_sub_enhance_{set_num:03d}.jpg')
+                            webcam_dst = os.path.join(output_dir, f'{webcam_file_type}_enhance_{set_num:03d}.jpg')
                         else:
-                            webcam_sub_dst = os.path.join(output_dir, f'webcam_sub_{set_num:03d}.jpg')
+                            webcam_dst = os.path.join(output_dir, f'{webcam_file_type}_{set_num:03d}.jpg')
                         
-                        with open(webcam_sub_src, 'rb') as src, open(webcam_sub_dst, 'wb') as dst:
-                            dst.write(src.read())
-                    
-                    # Add to processed sets
-                    processed_sets.append(set_num)
-                    
-                    # Update progress for successful completion
-                    update_progress(userId, set_num, total_sets, processed_sets, "processing", 
-                                  f"Completed set {set_num} ({len(processed_sets)}/{total_sets})", current_file, i)
-                    
-                    # Update parameter file with new metrics
-                    param_src = os.path.join(capture_dir, f'parameter_{set_num:03d}.csv')
-                    param_dst = os.path.join(output_dir, f'parameter_enhance_{set_num:03d}.csv' if enhanceFace else f'parameter_{set_num:03d}.csv')
-                    
-                    # Read original parameters if they exist
-                    original_params = {}
-                    if os.path.exists(param_src):
-                        with open(param_src, 'r') as src:
-                            lines = src.readlines()
-                            for line in lines[1:]:  # Skip header
-                                parts = line.strip().split(',')
-                                if len(parts) >= 2:
-                                    original_params[parts[0]] = parts[1]
-                    
-                    # Create new parameter file with updated metrics
-                    with open(param_dst, 'w') as dst:
-                        # Write header
-                        dst.write("Parameter,Value\n")
+                        # Read and process the image
+                        image = cv2.imread(webcam_file_to_use)
                         
-                        # Write original parameters first
-                        for param, value in original_params.items():
-                            dst.write(f"{param},{value}\n")
+                        # Validate the image
+                        if is_empty_image(image):
+                            yield {
+                                "status": "warning",
+                                "message": f"Skipping set {set_num}: Could not read image",
+                                "progress": progress_percentage,
+                                "currentSet": set_num,
+                                "currentFile": f"webcam_{set_num:03d}.jpg"
+                            }
+                            continue
+                            
+                        if is_black_image(image):
+                            yield {
+                                "status": "warning",
+                                "message": f"Skipping set {set_num}: Black image detected",
+                                "progress": progress_percentage,
+                                "currentSet": set_num,
+                                "currentFile": f"webcam_{set_num:03d}.jpg"
+                            }
+                            continue
                         
-                        # Add new face tracking metrics if available
-                        if metrics is not None:
-                            # Add face detection status
-                            dst.write(f"face_detected,{True}\n")
+                        # Process the image
+                        timestamp_ms = int(1000)
+                        metrics, processed_image = face_tracker.process_frame(
+                            image,
+                            timestamp_ms,
+                            isVideo=False,
+                            # isEnhanceFace=True
+                            isEnhanceFace=enhanceFace
+                        )
+                        
+                        # Save the processed image
+                        cv2.imwrite(webcam_dst, processed_image)
+                        
+                        # Copy screen image
+                        screen_src = os.path.join(capture_dir, f'screen_{set_num:03d}.jpg')
+                        screen_dst = os.path.join(output_dir, f'screen_enhance_{set_num:03d}.jpg' if enhanceFace else f'screen_{set_num:03d}.jpg')
+                        
+                        if os.path.exists(screen_src):
+                            with open(screen_src, 'rb') as src, open(screen_dst, 'wb') as dst:
+                                dst.write(src.read())
+                        
+                        # Copy webcam_sub image if it exists AND wasn't already processed
+                        webcam_sub_src = os.path.join(capture_dir, f'webcam_sub_{set_num:03d}.jpg')
+                        if os.path.exists(webcam_sub_src) and webcam_file_type != "webcam_sub":
+                            if enhanceFace:
+                                webcam_sub_dst = os.path.join(output_dir, f'webcam_sub_enhance_{set_num:03d}.jpg')
+                            else:
+                                webcam_sub_dst = os.path.join(output_dir, f'webcam_sub_{set_num:03d}.jpg')
+                            
+                            with open(webcam_sub_src, 'rb') as src, open(webcam_sub_dst, 'wb') as dst:
+                                dst.write(src.read())
+                        
+                        # Add to processed sets
+                        processed_sets.append(set_num)
+                        
+                        # Update progress for successful completion
+                        update_progress(userId, set_num, total_sets, processed_sets, "processing", 
+                                      f"Completed set {set_num} ({len(processed_sets)}/{total_sets})", current_file, global_index)
+                        
+                        # Also yield progress update for immediate frontend update
+                        yield {
+                            "status": "processing",
+                            "message": f"Completed set {set_num} ({len(processed_sets)}/{total_sets})",
+                            "progress": int(((global_index + 1) / total_sets) * 100),
+                            "currentSet": set_num,
+                            "currentFile": current_file
+                        }
+                        
+                        # Update parameter file with new metrics
+                        param_src = os.path.join(capture_dir, f'parameter_{set_num:03d}.csv')
+                        param_dst = os.path.join(output_dir, f'parameter_enhance_{set_num:03d}.csv' if enhanceFace else f'parameter_{set_num:03d}.csv')
+                        
+                        # Read original parameters if they exist
+                        original_params = {}
+                        if os.path.exists(param_src):
+                            with open(param_src, 'r') as src:
+                                lines = src.readlines()
+                                for line in lines[1:]:  # Skip header
+                                    parts = line.strip().split(',')
+                                    if len(parts) >= 2:
+                                        original_params[parts[0]] = parts[1]
+                        
+                        # Create new parameter file with updated metrics
+                        with open(param_dst, 'w') as dst:
+                            # Write header
+                            dst.write("Parameter,Value\n")
+                            
+                            # Write original parameters first
+                            for param, value in original_params.items():
+                                dst.write(f"{param},{value}\n")
+                            
+                            # Add new face tracking metrics if available
+                            if metrics is not None:
+                                # Add face detection status
+                                dst.write(f"face_detected,{True}\n")
                             
                             # 1. Add head pose angles
                             if hasattr(metrics, 'head_pose_angles') and metrics.head_pose_angles is not None:
@@ -856,21 +642,37 @@ async def process_images(
                             # Add processing timestamp
                             dst.write(f"processing_time,{datetime.now().isoformat()}\n")
                     
-                except Exception as e:
-                    logging.error(f"Error processing set {set_num}: {str(e)}")
-                    
-                    # Update progress for error
-                    update_progress(userId, set_num, total_sets, processed_sets, "error", 
-                                  f"Error processing set {set_num}: {str(e)}", current_file, i)
-                    
-                    yield {
-                        "status": "error",
-                        "message": f"Error processing set {set_num}: {str(e)}",
-                        "progress": progress,
-                        "currentSet": set_num,
-                        "currentFile": f"webcam_{set_num:03d}.jpg"
-                    }
-                    continue
+                    except Exception as e:
+                        logging.error(f"Error processing set {set_num}: {str(e)}")
+                        
+                        # Update progress for error
+                        update_progress(userId, set_num, total_sets, processed_sets, "error", 
+                                      f"Error processing set {set_num}: {str(e)}", current_file, global_index)
+                        
+                        yield {
+                            "status": "error",
+                            "message": f"Error processing set {set_num}: {str(e)}",
+                            "progress": progress_percentage,
+                            "currentSet": set_num,
+                            "currentFile": f"webcam_{set_num:03d}.jpg"
+                        }
+                        continue
+                
+                # Batch completion message
+                batch_completed_count = len([s for s in processed_sets if s in current_batch])
+                print(f"✅ Completed batch {batch_number}/{total_batches} - processed {batch_completed_count}/{len(current_batch)} images")
+                
+                # Update progress for batch completion
+                update_progress(userId, current_batch[-1] if current_batch else 0, total_sets, processed_sets, "processing", 
+                              f"Completed batch {batch_number}/{total_batches} ({len(processed_sets)}/{total_sets} total)", "", batch_end - 1)
+                
+                yield {
+                    "status": "batch_completed",
+                    "message": f"Completed batch {batch_number}/{total_batches} - processed {batch_completed_count}/{len(current_batch)} images",
+                    "progress": int((batch_end / total_sets) * 100),
+                    "currentSet": current_batch[-1] if current_batch else 0,
+                    "currentFile": f"Batch {batch_number}/{total_batches} completed"
+                }
             
             # Final success message
             update_progress(userId, set_numbers[-1] if set_numbers else 0, total_sets, processed_sets, 
@@ -885,7 +687,7 @@ async def process_images(
             }
         
         else:
-            yield {"success": False, "error": "No input provided (neither file nor set_numbers)"}
+            yield {"success": False, "error": "No set_numbers provided for batch processing"}
     
     except Exception as e:
         error_msg = f"Error processing images: {str(e)}"

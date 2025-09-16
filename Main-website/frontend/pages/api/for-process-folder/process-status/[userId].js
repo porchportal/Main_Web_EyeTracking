@@ -27,7 +27,12 @@ export default async function handler(req, res) {
       const isProcessing = fs.existsSync(lockFilePath);
       
       // Check for progress information file created by the backend
+      // The backend writes to /app/resource_security/public/captures/{userId}/processing_progress.json
+      // which maps to the auth_service directory structure
       const progressFilePath = path.join(capturesPath, 'processing_progress.json');
+      
+      // Also check for progress file in the parent directory (in case of path issues)
+      const alternativeProgressPath = path.join(process.cwd(), '..', 'backend', 'auth_service', 'resource_security', 'public', 'captures', userId, 'processing_progress.json');
       let progressInfo = { 
         currentSet: 0,
         totalSets: 0,
@@ -40,16 +45,64 @@ export default async function handler(req, res) {
         progress: 0
       };
       
+      // Try to read progress file from primary location first
       if (fs.existsSync(progressFilePath)) {
         try {
           const progressData = fs.readFileSync(progressFilePath, 'utf8');
           progressInfo = JSON.parse(progressData);
-          console.log('Progress file found and parsed:', progressInfo);
+          console.log('Progress file found and parsed from primary location:', {
+            currentSet: progressInfo.currentSet,
+            totalSets: progressInfo.totalSets,
+            progress: progressInfo.progress,
+            status: progressInfo.status,
+            message: progressInfo.message
+          });
         } catch (err) {
-          console.error("Error reading progress file:", err);
+          console.error("Error reading progress file from primary location:", err);
+          // Try alternative location
+          if (fs.existsSync(alternativeProgressPath)) {
+            try {
+              const progressData = fs.readFileSync(alternativeProgressPath, 'utf8');
+              progressInfo = JSON.parse(progressData);
+              console.log('Progress file found and parsed from alternative location:', {
+                currentSet: progressInfo.currentSet,
+                totalSets: progressInfo.totalSets,
+                progress: progressInfo.progress,
+                status: progressInfo.status,
+                message: progressInfo.message
+              });
+            } catch (altErr) {
+              console.error("Error reading progress file from alternative location:", altErr);
+            }
+          }
+        }
+      } else if (fs.existsSync(alternativeProgressPath)) {
+        // Try alternative location if primary doesn't exist
+        try {
+          const progressData = fs.readFileSync(alternativeProgressPath, 'utf8');
+          progressInfo = JSON.parse(progressData);
+          console.log('Progress file found and parsed from alternative location:', {
+            currentSet: progressInfo.currentSet,
+            totalSets: progressInfo.totalSets,
+            progress: progressInfo.progress,
+            status: progressInfo.status,
+            message: progressInfo.message
+          });
+        } catch (err) {
+          console.error("Error reading progress file from alternative location:", err);
         }
       } else {
-        console.log('Progress file not found at:', progressFilePath);
+        console.log('Progress file not found at either location:', {
+          primary: progressFilePath,
+          alternative: alternativeProgressPath
+        });
+        // Check if the directory exists
+        if (fs.existsSync(capturesPath)) {
+          const files = fs.readdirSync(capturesPath);
+          console.log('Available files in captures directory:', files);
+        } else {
+          console.log('Captures directory does not exist:', capturesPath);
+        }
       }
       
       // Count files in each directory

@@ -64,12 +64,10 @@ export default function ProcessSet() {
   // Get user ID - prioritize passed user ID, fallback to getCurrentUserId
   const getUserId = async () => {
     if (passedUserId) {
-      console.log('Using passed user ID:', passedUserId);
       setCurrentUserId(passedUserId);
       return passedUserId;
     }
     
-    console.log('No passed user ID, getting from backend');
     const userId = await getCurrentUserId();
     setCurrentUserId(userId);
     return userId;
@@ -78,7 +76,6 @@ export default function ProcessSet() {
   // Handle enhance face toggle
   const handleEnhanceFaceToggle = async () => {
     const newValue = !enhanceFace;
-    console.log(`🔄 EnhanceFace toggle: ${enhanceFace} -> ${newValue}`);
     
     // ✅ FIXED: Update state first, then refresh processing status
     setEnhanceFace(newValue);
@@ -86,12 +83,17 @@ export default function ProcessSet() {
     // ✅ FIXED: Refresh processing status when toggle changes
     // This ensures the UI updates to reflect the new processing mode
     try {
-      console.log('🔄 Refreshing processing status after enhance face toggle...');
       // Call checkProcessingNeeded with the new value directly
       await checkProcessingNeededWithEnhanceFace(newValue, true);
     } catch (error) {
       console.error('Error refreshing processing status after toggle:', error);
     }
+  };
+
+  // Handle clear progress
+  const handleClearProgress = () => {
+    setIsProcessing(false);
+    setProgressData(null);
   };
 
   // Helper function to check if both processing modes are complete
@@ -104,7 +106,6 @@ export default function ProcessSet() {
   // Helper function to check processing needed with specific enhanceFace value
   const checkProcessingNeededWithEnhanceFace = async (enhanceFaceValue, showNotificationOnChange = false) => {
     try {
-      console.log(`🔍 checkProcessingNeededWithEnhanceFace called with enhanceFace=${enhanceFaceValue} (type: ${typeof enhanceFaceValue})`);
       
       // ✅ OPTIMIZED: Use existing file data if available, otherwise make API call
       let captureCount, enhanceCount, completeCount;
@@ -114,7 +115,6 @@ export default function ProcessSet() {
         captureCount = files.capture.length;
         enhanceCount = files.enhance.length;
         completeCount = files.complete.length;
-        console.log(`🔍 Using existing file data: capture=${captureCount}, enhance=${enhanceCount}, complete=${completeCount}`);
       } else {
         // Fallback to API call if file data not available
         const userId = await getUserId();
@@ -205,7 +205,6 @@ export default function ProcessSet() {
   // Set current user ID when passed user ID is available
   useEffect(() => {
     if (passedUserId) {
-      console.log('Setting current user ID from passed user ID:', passedUserId);
       setCurrentUserId(passedUserId);
     }
   }, [passedUserId]);
@@ -232,12 +231,43 @@ export default function ProcessSet() {
   // Separate effect for processing progress interval
   useEffect(() => {
     let progressInterval = null;
+    let fallbackTimeout = null;
     
     if (isProcessing) {
       // Set up interval to check processing progress when processing is active
-      progressInterval = setInterval(() => {
-        checkProcessingProgress();
-      }, 2000); // Check every 2 seconds when processing
+      // Use shorter interval for more responsive progress updates
+      progressInterval = setInterval(async () => {
+        // ✅ FIXED: Check if backend says processing is not running before polling
+        try {
+          const userId = await getUserId();
+          const result = await checkProcessingStatus(userId);
+          if (result.success && result.isProcessing === false) {
+            setIsProcessing(false);
+            setProgressData(null);
+            return;
+          }
+          checkProcessingProgress();
+        } catch (error) {
+          console.error('Error in progress polling:', error);
+        }
+      }, 1000); // Check every 1 second when processing for more responsive updates
+      
+      // Set up a fallback timeout to ensure progress updates even if file reading fails
+      fallbackTimeout = setTimeout(() => {
+        if (isProcessing && (!progressData || progressData.progress === 0)) {
+          setProgressData({
+            currentSet: 1,
+            totalSets: 1,
+            processedSets: [],
+            currentFile: 'Processing...',
+            progress: 10,
+            status: 'processing',
+            message: 'Processing in progress...',
+            userId: currentUserId,
+            timestamp: Date.now()
+          });
+        }
+      }, 5000); // 5 second fallback
     }
     
     // Clean up interval when isProcessing changes or component unmounts
@@ -245,8 +275,11 @@ export default function ProcessSet() {
       if (progressInterval) {
         clearInterval(progressInterval);
       }
+      if (fallbackTimeout) {
+        clearTimeout(fallbackTimeout);
+      }
     };
-  }, [isProcessing]); // ✅ FIXED: Only recreate when isProcessing changes
+  }, [isProcessing, progressData, currentUserId]); // ✅ FIXED: Only recreate when isProcessing changes
 
   // Initialize component by checking backend connection and files
   const initializeComponent = async () => {
@@ -254,7 +287,6 @@ export default function ProcessSet() {
     if (backendConnected) {
       // Get user ID (prioritize passed user ID)
       const userId = await getUserId();
-      console.log('initializeComponent: Using user ID:', userId);
       
       // Get files list from all three folders
       const captureResult = await getFilesList('captures', userId);
@@ -338,12 +370,10 @@ export default function ProcessSet() {
         
         // Only preload if we have a reasonable number of files (not too many)
         if (captureFilenames.length > 0 && organizedFiles.capture.length <= 50) {
-          console.log('Preloading capture files for better performance...');
           // Use setTimeout to defer preloading and reduce initial load
           setTimeout(() => {
             preloadFilesFromFolder(captureFilenames, 'captures', userId).then(results => {
               const successCount = results.filter(r => r.success).length;
-              console.log(`Preloaded ${successCount}/${results.length} capture files`);
             }).catch(error => {
               console.warn('Error preloading capture files:', error);
             });
@@ -351,12 +381,10 @@ export default function ProcessSet() {
         }
         
         if (enhanceFilenames.length > 0 && organizedFiles.enhance.length <= 50) {
-          console.log('Preloading enhance files for better performance...');
           // Use setTimeout to defer preloading and reduce initial load
           setTimeout(() => {
             preloadFilesFromFolder(enhanceFilenames, 'enhance', userId).then(results => {
               const successCount = results.filter(r => r.success).length;
-              console.log(`Preloaded ${successCount}/${results.length} enhance files`);
             }).catch(error => {
               console.warn('Error preloading enhance files:', error);
             });
@@ -385,52 +413,77 @@ export default function ProcessSet() {
   // Check processing progress
   const checkProcessingProgress = async () => {
     try {
-      console.log('Checking processing progress...');
       // Get user ID (prioritize passed user ID)
       const userId = await getUserId();
       
       // Check processing status
       const result = await checkProcessingStatus(userId);
-      console.log('Processing status result:', result);
       
       if (result.success) {
+        // ✅ FIXED: Check if backend says processing is not running
+        if (result.isProcessing === false) {
+          setIsProcessing(false);
+          setProgressData(null);
+          return;
+        }
+        
         if (result.progress) {
-          console.log('Setting progress data:', result.progress);
-          console.log('Progress percentage:', result.progress.progress);
-          console.log('Current set:', result.progress.currentSet);
-          console.log('Total sets:', result.progress.totalSets);
-          setProgressData(result.progress);
           
-          // If processing is completed, update state
+          // Update progress data with proper structure
+          const progressData = {
+            currentSet: result.progress.currentSet || 0,
+            totalSets: result.progress.totalSets || 0,
+            processedSets: result.progress.processedSets || [],
+            currentFile: result.progress.currentFile || '',
+            progress: result.progress.progress || 0,
+            status: result.progress.status || 'unknown',
+            message: result.progress.message || '',
+            userId: userId
+          };
+          
+          
+          // Force a re-render by updating a timestamp
+          setProgressData({
+            ...progressData,
+            timestamp: Date.now()
+          });
+          
+          // If processing is completed, update state but keep progress visible
           if (result.progress.status === 'completed') {
-            setIsProcessing(false);
+            // Don't set isProcessing to false immediately - keep progress visible
+            // Only set isProcessing to false after a delay or when user starts new process
             showNotification('Processing completed successfully', 'success');
             // Refresh files list
             await handleCheckFiles();
+            
+            // Set a timeout to clear progress after 10 seconds
+            setTimeout(() => {
+              setIsProcessing(false);
+              setProgressData(null);
+            }, 10000); // 10 seconds delay
           } else if (result.progress.status === 'error') {
-            setIsProcessing(false);
+            // Don't set isProcessing to false immediately - keep progress visible for error
             showNotification('Processing failed: ' + result.progress.message, 'error');
+            
+            // Set a timeout to clear progress after 5 seconds for errors
+            setTimeout(() => {
+              setIsProcessing(false);
+              setProgressData(null);
+            }, 5000); // 5 seconds delay for errors
           }
-        } else if (result.isProcessing === false) {
-          // If not processing and no progress data, stop processing
-          console.log('No processing in progress, stopping...');
-          setIsProcessing(false);
-          setProgressData(null);
+        } else {
         }
       } else {
-        console.log('No progress data received:', result);
         // If we can't get progress data and we think we're processing, stop
         if (isProcessing) {
-          console.log('Cannot get progress data, stopping processing...');
           setIsProcessing(false);
           setProgressData(null);
         }
       }
     } catch (error) {
-      console.error('Error checking processing progress:', error);
+      console.error('❌ Error checking processing progress:', error);
       // If there's an error checking progress and we think we're processing, stop
       if (isProcessing) {
-        console.log('Error checking progress, stopping processing...');
         setIsProcessing(false);
         setProgressData(null);
       }
@@ -457,7 +510,6 @@ export default function ProcessSet() {
     
     // Get user ID (prioritize passed user ID)
     const userId = await getUserId();
-    console.log('handleCheckFiles: Using user ID:', userId);
     
     // ✅ OPTIMIZED: Get files list from all three folders in parallel
     const [captureResult, enhanceResult, completeResult] = await Promise.all([
@@ -529,8 +581,6 @@ export default function ProcessSet() {
       // Set capture loaded state based on whether we have capture files
       setCaptureLoaded(captureResult.success && captureResult.files.length > 0);
       
-      console.log('Files loaded:', organizedFiles);
-      console.log('Capture result:', captureResult);
       
       // Check if folders were created (empty folders) or no dataset found
       if (captureResult.folder_created) {
@@ -601,7 +651,6 @@ export default function ProcessSet() {
 
   // Handle file preview using the new dataset reader with folder support
   const handleFileSelect = async (filename, folder = 'captures') => {
-    console.log('File selected:', filename, 'from folder:', folder);
     setSelectedFile(filename);
     setSelectedFolder(folder);
     setPreviewImageData(null);
@@ -612,10 +661,8 @@ export default function ProcessSet() {
       
       // Use the dataset reader to load the file from specific folder
       const result = await readFileFromFolder(filename, folder, userId, true);
-      console.log('Dataset reader result:', result);
       
       if (result.success) {
-        console.log('Setting preview data:', { data: result.data, type: result.type });
         setPreviewImageData({
           data: result.data,
           type: result.type
@@ -633,12 +680,6 @@ export default function ProcessSet() {
   // Process files function - now uses the centralized API function
   const processFilesLocal = async (setNumbers, userId) => {
     try {
-      console.log(`🔧 processFilesLocal called with:`, {
-        enhanceFace: enhanceFace,
-        enhanceFaceType: typeof enhanceFace,
-        setNumbers: setNumbers,
-        userId: userId
-      });
       return await processFiles(setNumbers, userId, enhanceFace);
     } catch (error) {
       console.error('Error processing files:', error);
@@ -652,20 +693,9 @@ export default function ProcessSet() {
 
   // Handle process files button click
   const handleProcessFiles = async () => {
-    console.log(`🚀 handleProcessFiles called with:`, {
-      enhanceFace: enhanceFace,
-      enhanceFaceType: typeof enhanceFace,
-      captureLoaded: captureLoaded,
-      filesChecked: filesChecked,
-      isProcessReady: isProcessReady,
-      isProcessing: isProcessing,
-      processingStatus: processingStatus,
-      bothProcessingComplete: processingStatus?.bothProcessingComplete
-    });
     
     // ✅ SAFETY: Check if both processing modes are complete before doing anything
     if (processingStatus?.bothProcessingComplete) {
-      console.log('❌ Both processing modes are complete, preventing processing');
       showNotification('All processing complete - both Enhance and Complete modes are done', 'info');
       return;
     }
@@ -681,11 +711,9 @@ export default function ProcessSet() {
     }
     
     if (!isProcessReady) {
-      console.log('❌ Not ready to process - checking why...');
       // Let's check the current processing status to see why it's not ready
       const userId = await getUserId();
       const result = await checkFilesNeedProcessing(userId, enhanceFace);
-      console.log('🔍 Current processing status:', result);
       
       if (result.success && result.needsProcessing) {
         // Update the state if we found files that need processing
@@ -713,9 +741,25 @@ export default function ProcessSet() {
     setIsProcessing(true);
     showNotification('Processing started...', 'info');
     
+    // Clear any previous progress data when starting new processing
+    setProgressData(null);
+    
     try {
       // Get user ID (prioritize passed user ID)
       const userId = await getUserId();
+      
+      // Set initial progress data immediately
+      setProgressData({
+        currentSet: 0,
+        totalSets: 1,
+        processedSets: [],
+        currentFile: 'Starting...',
+        progress: 0,
+        status: 'starting',
+        message: 'Initializing processing...',
+        userId: userId,
+        timestamp: Date.now()
+      });
       
       // Get the processing status
       const result = await checkFilesNeedProcessing(userId, enhanceFace);
@@ -757,7 +801,6 @@ export default function ProcessSet() {
       });
 
       // Start the processing (it will run in the background)
-      console.log(`🚀 Starting processing with enhanceFace=${enhanceFace} (type: ${typeof enhanceFace})`);
       const processResult = await processFilesLocal(result.setsNeedingProcessing, userId);
       
       if (!processResult.success) {
@@ -843,8 +886,10 @@ export default function ProcessSet() {
         {/* Add the ProcessingProgress component if processing is active */}
         {isProcessing && (
           <ProcessingProgress 
+            key={progressData?.timestamp || 'default'}
             isProcessing={isProcessing} 
             progressData={progressData}
+            onClearProgress={handleClearProgress}
           />
         )}
 

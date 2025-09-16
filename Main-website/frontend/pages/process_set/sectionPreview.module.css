@@ -673,6 +673,36 @@
   margin-bottom: 15px;
 }
 
+.progressHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.clearButton {
+  background: #ff4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.clearButton:hover {
+  background: #cc0000;
+}
+
+.clearButton:active {
+  background: #990000;
+}
+
 .progressHeader h3 {
   margin: 0;
   color: #333;

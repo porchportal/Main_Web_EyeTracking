@@ -103,14 +103,12 @@ export const getCurrentUserId = async () => {
   try {
     // Check if we have a global user ID first
     if (globalUserId) {
-      console.log('Using global user ID:', globalUserId);
       return globalUserId;
     }
 
     // Check if we have a valid cached user ID
     const now = Date.now();
     if (currentUserIdCache && (now - userIdCacheTimestamp) < USER_ID_CACHE_DURATION) {
-      console.log('Using cached user ID:', currentUserIdCache);
       globalUserId = currentUserIdCache;
       return currentUserIdCache;
     }
@@ -122,7 +120,6 @@ export const getCurrentUserId = async () => {
       const consentData = getOrCreateUserId();
       if (consentData) {
         frontendUserId = consentData;
-        console.log('Found user ID from consent context (cookies):', frontendUserId);
       }
     } catch (e) {
       console.warn('Could not get consent data:', e);
@@ -132,7 +129,6 @@ export const getCurrentUserId = async () => {
     if (!frontendUserId) {
       frontendUserId = sessionStorage.getItem('userId');
       if (frontendUserId) {
-        console.log('Found user ID from sessionStorage:', frontendUserId);
       }
     }
 
@@ -145,18 +141,15 @@ export const getCurrentUserId = async () => {
         // Fallback to a simple random ID
         frontendUserId = 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
       }
-      console.log('Generated new user ID (no existing found):', frontendUserId);
     }
 
     // Pass the user ID to the backend
-    console.log('Sending user ID to backend:', frontendUserId);
     const response = await fetchWithRetry(`/api/current-user-id?userId=${encodeURIComponent(frontendUserId)}`, {}, 1, 5000);
     
     if (response.success && response.userId) {
       currentUserIdCache = response.userId;
       globalUserId = response.userId;
       userIdCacheTimestamp = now;
-      console.log('Backend confirmed user ID:', response.userId);
       return response.userId;
     } else {
       throw new Error(response.error || 'Failed to get user ID');
@@ -339,12 +332,6 @@ export const checkFilesNeedProcessing = async (userId = null, enhanceFace = fals
 // Process files function that calls the new process-status API
 export const processFiles = async (setNumbers, userId = null, enhanceFace) => {
   try {
-    console.log(`🔧 processFiles API called with:`, {
-      setNumbers: setNumbers,
-      userId: userId,
-      enhanceFace: enhanceFace,
-      enhanceFaceType: typeof enhanceFace
-    });
     
     // Get user ID from backend if not provided
     if (!userId) {
@@ -352,7 +339,6 @@ export const processFiles = async (setNumbers, userId = null, enhanceFace) => {
     }
 
     const requestBody = { setNumbers, enhanceFace };
-    console.log(`📤 Sending request body:`, requestBody);
 
     // Use the aprocess-file API which calls the correct backend endpoint
     const response = await fetchWithRetry(`/api/for-process-folder/aprocess-file/${encodeURIComponent(userId)}`, {

@@ -15,7 +15,7 @@ ENV TORCHVISION_IMAGE_BACKEND=torch
 # Enable MPS (Metal Performance Shaders) for Mac M1 Pro ARM64 GPU acceleration
 ENV PYTORCH_ENABLE_MPS_FALLBACK=1
 
-# Install system dependencies for OpenCV and OpenGL
+# Install system dependencies for OpenCV, OpenGL, and AVIF support
 RUN apt-get update && apt-get install -y \
     libgl1 \
     libglib2.0-0 \
@@ -41,6 +41,9 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     curl \
+    pkg-config \
+    libavif-dev \
+    libavif-bin \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

@@ -11,6 +11,11 @@ const nextConfig = {
   // Add proper configuration for Docker development
   output: 'standalone',
   
+  // Configure allowed development origins from environment variables
+  allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS ? 
+    process.env.ALLOWED_DEV_ORIGINS.split(',').map(origin => origin.trim()) : 
+    [],
+  
   // Image configuration for Next.js 16 compatibility
   images: {
     qualities: [25, 50, 75, 100],
@@ -31,10 +36,10 @@ const nextConfig = {
   
   // Environment variables for backend configuration
   env: {
-    BACKEND_URL: process.env.BACKEND_URL || 'http://backend_auth_service:8108',
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://172.18.20.184',
-    NEXT_PUBLIC_API_KEY: process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV',
-    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL || 'wss://172.18.20.184/ws'
+    BACKEND_URL: process.env.BACKEND_URL,
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    NEXT_PUBLIC_API_KEY: process.env.NEXT_PUBLIC_API_KEY,
+    NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL
   }
 };
 

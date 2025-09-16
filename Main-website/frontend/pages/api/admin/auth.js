@@ -49,13 +49,25 @@ export default async function handler(req, res) {
   if (method === 'POST') {
     const { username, password } = req.body;
 
+    // Validate input
+    if (!username || !password) {
+      return res.status(400).json({ message: 'Username and password are required' });
+    }
+
     try {
       // Use direct backend service URL for server-side calls
       const backendUrl = process.env.AUTH_SERVICE_URL;
       
+      if (!backendUrl) {
+        console.error('AUTH_SERVICE_URL environment variable is not set');
+        return res.status(500).json({ message: 'Server configuration error' });
+      }
+      
       // Add timeout to prevent hanging requests
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      console.log(`Attempting to authenticate with backend: ${backendUrl}/api/admin/auth`);
       
       const response = await fetch(`${backendUrl}/api/admin/auth`, {
         method: 'POST',
@@ -67,23 +79,48 @@ export default async function handler(req, res) {
       });
 
       clearTimeout(timeoutId);
-      const data = await response.json();
+      
+      console.log(`Backend response status: ${response.status}`);
 
       if (response.ok) {
-        // Get the session token from backend response
-        const sessionToken = data.session;
-        
-        // Set the httpOnly cookie with the same settings as the backend
-        res.setHeader('Set-Cookie', `admin_session=${sessionToken}; HttpOnly; Path=/; SameSite=Strict; Max-Age=3600`);
-        
-        return res.status(200).json({ message: 'Authentication successful' });
+        try {
+          const data = await response.json();
+          
+          // Validate that we received a session token
+          if (!data.session) {
+            console.error('Backend response missing session token:', data);
+            return res.status(500).json({ message: 'Invalid response from authentication service' });
+          }
+          
+          // Get the session token from backend response
+          const sessionToken = data.session;
+          
+          // Set the httpOnly cookie with the same settings as the backend
+          res.setHeader('Set-Cookie', `admin_session=${sessionToken}; HttpOnly; Path=/; SameSite=Strict; Max-Age=3600`);
+          
+          console.log('Authentication successful, session cookie set');
+          return res.status(200).json({ message: 'Authentication successful' });
+        } catch (parseError) {
+          console.error('Error parsing backend response:', parseError);
+          return res.status(500).json({ message: 'Invalid response from authentication service' });
+        }
       } else {
-        return res.status(401).json({ message: data.detail || 'Invalid credentials' });
+        try {
+          const errorData = await response.json();
+          console.log('Backend authentication failed:', errorData);
+          return res.status(401).json({ message: errorData.detail || 'Invalid credentials' });
+        } catch (parseError) {
+          console.error('Error parsing backend error response:', parseError);
+          return res.status(401).json({ message: `Authentication failed (${response.status})` });
+        }
       }
     } catch (error) {
       console.error('Authentication error:', error);
       if (error.name === 'AbortError') {
-        return res.status(408).json({ message: 'Request timeout' });
+        return res.status(408).json({ message: 'Request timeout - authentication service unavailable' });
+      }
+      if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+        return res.status(503).json({ message: 'Authentication service unavailable' });
       }
       return res.status(500).json({ message: 'Internal server error' });
     }

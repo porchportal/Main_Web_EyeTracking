@@ -25,27 +25,48 @@ export default function AdminLogin() {
         body: JSON.stringify({ username, password }),
       });
 
-      const data = await response.json();
-
+      // Check if response is ok before trying to parse JSON
       if (response.ok) {
-        // Successful login - server sets httpOnly cookie automatically
-        // Use replace instead of push for faster navigation
-        router.replace('/admin_ui/admin');
-      } else {
-        // Failed login
-        setAttempts(prev => prev + 1);
-        setError(data.message || 'Invalid credentials');
-        
-        if (attempts >= 2) {
-          // After 3 failed attempts, redirect to home
-          setTimeout(() => {
-            router.push('/');
-          }, 2000);
+        try {
+          const data = await response.json();
+          // Successful login - server sets httpOnly cookie automatically
+          // Use replace instead of push for faster navigation
+          router.replace('/admin_ui/admin');
+        } catch (parseError) {
+          console.error('Error parsing successful response:', parseError);
+          setError('Login successful but response parsing failed. Please try again.');
         }
+      } else {
+        // Handle error response
+        try {
+          const errorData = await response.json();
+          setError(errorData.message || `Login failed (${response.status})`);
+        } catch (parseError) {
+          // If we can't parse the error response, show a generic message
+          setError(`Login failed with status ${response.status}. Please check your credentials.`);
+        }
+        
+        // Increment attempts and handle max attempts
+        setAttempts(prev => {
+          const newAttempts = prev + 1;
+          if (newAttempts >= 3) {
+            // After 3 failed attempts, redirect to home
+            setTimeout(() => {
+              router.push('/');
+            }, 2000);
+          }
+          return newAttempts;
+        });
       }
     } catch (err) {
-      console.error('Login error:', err);
-      setError('An error occurred. Please try again.');
+      // Only log network errors, not authentication errors
+      if (err.name === 'TypeError' && err.message.includes('fetch')) {
+        console.error('Network error during login:', err);
+        setError('Network error. Please check your connection and try again.');
+      } else {
+        console.error('Unexpected login error:', err);
+        setError('An unexpected error occurred. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -66,6 +87,10 @@ export default function AdminLogin() {
               onChange={(e) => setUsername(e.target.value)}
               required
               disabled={isLoading}
+              autoComplete="username"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck="false"
             />
           </div>
           <div className={styles.formGroup}>
@@ -78,6 +103,7 @@ export default function AdminLogin() {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={isLoading}
+              autoComplete="current-password"
             />
           </div>
           {error && <div className={styles.error}>{error}</div>}

@@ -499,6 +499,8 @@ class ProcessingRequest(BaseModel):
 async def queue_processing(request: ProcessingRequest):
     """Process images for the given user and set numbers"""
     try:
+        print(f"🚀 Auth service received processing request for user {request.user_id}")
+        print(f"📊 Auth service received: setNumbers={request.set_numbers}, userId={request.user_id}, enhanceFace={request.enhanceFace} (type: {type(request.enhanceFace)})")
         logger.info(f"Received processing request for user {request.user_id}")
         logger.info(f"Auth service received: setNumbers={request.set_numbers}, userId={request.user_id}, enhanceFace={request.enhanceFace} (type: {type(request.enhanceFace)})")
         
@@ -511,6 +513,7 @@ async def queue_processing(request: ProcessingRequest):
             "userId": request.user_id,
             "enhanceFace": request.enhanceFace
         }
+        print(f"📤 Sending to image service: {request_data}")
         logger.info(f"Sending to image service: {request_data}")
         
         async with httpx.AsyncClient() as client:
@@ -520,22 +523,28 @@ async def queue_processing(request: ProcessingRequest):
                 timeout=300.0  # 5 minutes timeout
             )
             
+            print(f"📥 Image service response: {response.status_code}")
             if response.status_code != 200:
+                print(f"❌ Image service error: {response.text}")
                 raise HTTPException(
                     status_code=response.status_code,
                     detail=f"Image service error: {response.text}"
                 )
             
             # Return the response from image service
-            return response.json()
+            result = response.json()
+            print(f"✅ Processing completed successfully: {result}")
+            return result
         
     except httpx.RequestError as e:
+        print(f"❌ Error connecting to image service: {str(e)}")
         logger.error(f"Error connecting to image service: {str(e)}")
         raise HTTPException(
             status_code=503,
             detail="Image service unavailable"
         )
     except Exception as e:
+        print(f"❌ Error in processing: {str(e)}")
         logger.error(f"Error in processing: {str(e)}")
         raise HTTPException(
             status_code=500,

@@ -353,10 +353,8 @@ export class DatasetReader {
       }
 
       const url = `/api/for-process-folder/readDataset/${encodeURIComponent(userId)}?operation=compare&enhanceFace=${enhanceFace}`;
-      console.log(`🔍 Calling readDataset API:`, url);
       const data = await fetchWithRetry(url);
       
-      console.log(`🔍 readDataset API response:`, data);
       
       if (!data.success) {
         throw new Error(data.error || 'Failed to check files processing');
@@ -373,16 +371,6 @@ export class DatasetReader {
       const needsProcessing = captureCount > totalProcessedCount;
       const filesToProcess = captureCount - totalProcessedCount;
       
-      // Debug logging
-      console.log('checkFilesNeedProcessing (readDataset.js):', {
-        captureCount,
-        enhanceCount,
-        completeCount,
-        totalProcessedCount,
-        needsProcessing,
-        filesToProcess,
-        backendNeedsProcessing: data.needsProcessing
-      });
 
       return {
         success: true,
