@@ -333,16 +333,17 @@ docker exec backend_nginx nginx -t
 - **MongoDB**: NoSQL database for user data and session management
 - **Docker**: Containerization for microservices architecture
 - **Nginx**: Reverse proxy and load balancer
-- **[OpenSSL](https://github.com/openssl/openssl)**: TLS/SSL and crypto library for secure communications
+- **[OpenSSL 3.5.2](https://github.com/openssl/openssl)**: TLS/SSL and crypto library for secure communications
 
 ## 🚀 Prerequisites
 
 ### System Requirements
-- Docker and Docker Compose
-- OpenSSL (for SSL certificates)
-- Node.js 18+ (for development)
+- Docker Compose v2.39.2-desktop.1
+- OpenSSL 3.5.2 (for SSL certificates)
+- Node.js v23.11.0 (for development)
+- Next.js 15.5.3 (frontend framework)
 - Python 3.8+ (for backend services)
-- MongoDB 4.4+ (for database)
+- MongoDB v8.0.8 (for database)
 
 ### Hardware Requirements
 - **RAM**: Minimum 8GB (16GB recommended for AI processing)

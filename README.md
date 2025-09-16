@@ -8,7 +8,8 @@ The application follows a microservices architecture with the following componen
 
 ### Frontend (Next.js)
 - **Port**: 3010
-- **Technology**: Next.js 13+ with React
+- **Technology**: Next.js 15.5.3 with React
+- **Node.js**: v23.11.0
 - **Features**: Real-time eye tracking interface, data collection, admin dashboard
 - **Key Pages**:
   - `/` - Home page with consent management
@@ -124,9 +125,11 @@ For detailed technical specifications, system requirements, and configuration de
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Docker and Docker Compose
-- OpenSSL (for SSL certificates)
-- Node.js 18+ (for development)
+- Docker Compose v2.39.2-desktop.1
+- OpenSSL 3.5.2 (for SSL certificates)
+- Node.js v23.11.0 (for development)
+- Next.js 15.5.3
+- MongoDB v8.0.8
 
 ### 1. Clone and Setup
 ```bash
