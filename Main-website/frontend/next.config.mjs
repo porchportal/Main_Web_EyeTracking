@@ -3,6 +3,9 @@ const nextConfig = {
   // Enable strict mode for better development experience
   reactStrictMode: true,
   
+  // Disable development indicators (Next.js badge)
+  devIndicators: false,
+  
   // Remove experimental features that cause issues
   experimental: {
     // Remove problematic optimisticClientCache
@@ -30,6 +33,11 @@ const nextConfig = {
         poll: 1000,
         aggregateTimeout: 300,
       };
+      
+      // Disable Next.js development tools badge
+      config.plugins = config.plugins.filter(plugin => {
+        return plugin.constructor.name !== 'NextJsDevToolsPlugin';
+      });
     }
     return config;
   },

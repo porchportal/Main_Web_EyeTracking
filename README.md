@@ -37,7 +37,16 @@ The application follows a microservices architecture with the following componen
   - Image enhancement using Real-ESRGAN
   - Batch processing capabilities
 
-#### 3. Nginx Reverse Proxy (Ports 80, 443, 8443)
+#### 3. Video Service (Port 8011)
+- **Purpose**: Real-time video processing and analysis
+- **Key Features**:
+  - Real-time video stream processing
+  - Video-based eye tracking analysis
+  - Continuous frame processing
+  - Video enhancement capabilities
+- **Status**: Currently unavailable (under development)
+
+#### 4. Nginx Reverse Proxy (Ports 80, 443, 8443)
 - **Purpose**: Load balancing, SSL termination, security headers
 - **Features**:
   - HTTPS redirection
@@ -83,104 +92,36 @@ resource_security/
 4. **Completion**: Final datasets stored in `complete/`
 5. **Centralization**: Data aggregated in `data_centralization/`
 
-## 🤖 AI Model Structure (`Main_AI/`)
+## 📋 Technical Requirements
 
-The AI system is organized in the `backend/Main_AI/` directory:
+For detailed technical specifications, system requirements, and configuration details, please refer to:
 
-### Model Weights and Sizes
+**[📋 Requirements.md](Requirements.md)** - Complete technical documentation including:
+- AI model weights and structure
+- SSL configuration and setup
+- Port configurations and networking
+- Storage system requirements
+- Security specifications
+- Performance requirements
+- Troubleshooting guides
 
-| Model | File | Size | Purpose |
-|-------|------|------|---------|
-| **Face Detection** | `detection_Resnet50_Final.pth` | 104MB | Face detection and bounding box |
-| **Face Parsing** | `parsing_parsenet.pth` | 81MB | Facial landmark detection |
-| **Real-ESRGAN v3** | `realesr-general-x4v3.pth` | 4.7MB | Image super-resolution |
-| **Real-ESRGAN WDN** | `realesr-general-wdn-x4v3.pth` | 4.7MB | Image super-resolution (WDN variant) |
-| **Real-ESRGAN x4+** | `RealESRGAN_x4plus.pth` | 64MB | High-quality image enhancement |
-| **Real-ESRNet x4+** | `RealESRNet_x4plus.pth` | 64MB | Image restoration |
+## 🖼️ Application Screenshots
 
-### Directory Structure
+### Home Page
+![Home Page](/Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/frontend/public/Demo/Home.png)
+*Main application home page with consent management and user interface*
 
-```
-Main_AI/
-├── Main_model/                     # Core AI models
-│   ├── face_landmarker.task       # MediaPipe face landmark model
-│   ├── facetrack_outCV.py         # Face tracking implementation
-│   ├── headpose_outCV.py          # Head pose estimation
-│   ├── showframeVisualization.py  # Visualization utilities
-│   ├── UpResolution.py            # Image enhancement wrapper
-│   ├── video_interface.py         # Video processing interface
-│   ├── weights/                   # Model weights
-│   │   ├── detection_Resnet50_Final.pth
-│   │   └── parsing_parsenet.pth
-│   └── Real-ESRGAN/               # Real-ESRGAN implementation
-│       ├── weights/               # ESRGAN model weights
-│       ├── realesrgan/            # Core implementation
-│       ├── inference_realesrgan.py
-│       └── requirements.txt
-└── weights/                       # Shared model weights
-    ├── realesr-general-wdn-x4v3.pth
-    └── realesr-general-x4v3.pth
-```
+### Data Collection Interface
+![Collect Dataset](/Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/frontend/public/Demo/CollectData.png)
+*Advanced data collection interface with real-time eye tracking capabilities*
 
-### AI Pipeline
+### Admin Dashboard
+![Admin Dashboard](/Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/frontend/public/Demo/Admin.png)
+*Administrative dashboard for managing users, datasets, and system configuration*
 
-1. **Face Detection**: ResNet50-based face detection
-2. **Landmark Extraction**: MediaPipe facial landmarks
-3. **Head Pose Estimation**: 6DOF head pose calculation
-4. **Image Enhancement**: Real-ESRGAN super-resolution
-5. **Data Export**: CSV parameter export for analysis
-
-## 🔐 SSL Configuration (`config/`)
-
-### SSL Setup Process
-
-#### 1. Development Environment (Self-Signed)
-
-```bash
-# Create SSL directory
-mkdir -p backend/config/ssl
-
-# Generate self-signed certificate with SAN
-openssl req -x509 -newkey rsa:2048 \
-    -keyout backend/config/ssl/key.pem \
-    -out backend/config/ssl/cert.pem \
-    -days 365 -nodes \
-    -subj "/C=US/ST=State/L=City/O=Organization/CN=your-domain.com" \
-    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:192.168.1.100"
-
-# Set proper permissions
-chmod 600 backend/config/ssl/key.pem
-chmod 644 backend/config/ssl/cert.pem
-```
-
-#### 2. Production Environment (Let's Encrypt)
-
-```bash
-# Install Certbot
-sudo apt install certbot
-
-# Generate certificate
-sudo certbot certonly --webroot \
-    -w /var/www/html \
-    -d your-domain.com \
-    -d www.your-domain.com
-
-# Update nginx.conf with new paths
-ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
-ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
-```
-
-### Security Configuration
-
-#### Content Security Policy (CSP)
-```nginx
-add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' ws: wss:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self';" always;
-```
-
-#### Port Configuration
-- **Port 80**: HTTP (redirects to HTTPS)
-- **Port 443**: Main application (restricted camera access)
-- **Port 8443**: Camera access (full camera permissions)
+### Admin with AI Enhancement
+![Admin AI Enhance](/Users/porchportal2/Desktop/🔥everything/Main_web_eyetracking/Main-website/frontend/public/Demo/AdminStartEnhance.png)
+*Admin interface with AI enhancement features and processing capabilities*
 
 ## 🚀 Quick Start
 
@@ -195,12 +136,46 @@ git clone <repository-url>
 cd Main_web_eyetracking
 ```
 
-### 2. Generate SSL Certificates
+### 2. Configure Server IP for Multi-User Access
+
+**IMPORTANT**: Before running the application, you must configure the server IP address in the nginx configuration to allow multiple users to access the application.
+
+#### Step 2a: Update nginx.conf with your server IP
 ```bash
-# Development
-mkdir -p Main-website/backend/config/ssl
-openssl req -x509 -newkey rsa:2048 -keyout Main-website/backend/config/ssl/key.pem -out Main-website/backend/config/ssl/cert.pem -days 365 -nodes -subj "/CN=localhost"
+# Edit the nginx configuration file
+nano Main-website/backend/config/nginx.conf
 ```
+
+Find and update the `server_name` directives in both HTTP and HTTPS server blocks:
+
+```nginx
+# HTTP server block (around line 91)
+server_name YOUR_SERVER_IP localhost;
+
+# HTTPS server block (around line 115) 
+server_name YOUR_SERVER_IP localhost;
+
+# HTTPS camera access server block (around line 428)
+server_name YOUR_SERVER_IP localhost;
+```
+
+Replace `YOUR_SERVER_IP` with your actual server IP address (e.g., `192.168.1.100`, `10.0.0.50`, etc.)
+
+#### Step 2b: Generate SSL Certificates with Server IP
+```bash
+# Development with server IP
+mkdir -p Main-website/backend/config/ssl
+openssl req -x509 -newkey rsa:2048 \
+    -keyout Main-website/backend/config/ssl/key.pem \
+    -out Main-website/backend/config/ssl/cert.pem \
+    -days 365 -nodes \
+    -subj "/CN=YOUR_SERVER_IP" \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:YOUR_SERVER_IP"
+```
+
+Replace `YOUR_SERVER_IP` with your actual server IP address.
+
+> **📋 For detailed SSL configuration and certificate generation explanation, see [Requirements.md](Requirements.md)**
 
 ### 3. Configure Environment
 ```bash
@@ -227,119 +202,70 @@ docker-compose logs -f
 ```
 
 ### 5. Access Application
-- **Main Application**: `https://localhost` (port 443)
-- **Camera Access**: `https://localhost:8443` (port 8443)
+
+#### Multi-User Access URLs
+Replace `YOUR_SERVER_IP` with your configured server IP address:
+
+- **Main Application**: `https://YOUR_SERVER_IP` (port 443)
+- **Camera Access**: `https://YOUR_SERVER_IP:8443` (port 8443)
+- **HTTP Redirect**: `http://YOUR_SERVER_IP` → `https://YOUR_SERVER_IP`
+
+#### Local Development Access
+- **Direct Frontend**: `http://localhost:3010` (Next.js development server)
+- **Main Application**: `https://localhost` (port 443 - via nginx)
+- **Camera Access**: `https://localhost:8443` (port 8443 - via nginx)
 - **HTTP Redirect**: `http://localhost` → `https://localhost`
 
-## 🔧 Configuration Files
+#### Example with IP 192.168.1.100
+- **Main Application**: `https://192.168.1.100`
+- **Camera Access**: `https://192.168.1.100:8443`
+- **HTTP Redirect**: `http://192.168.1.100` → `https://192.168.1.100`
 
-### Docker Compose (`Main-website/docker-compose.yml`)
-- Service definitions and networking
-- Volume mounts for persistent data
-- Health checks and dependencies
-- Port mappings and environment variables
+#### Access Methods Summary
+| Access Type | URL | Port | Description |
+|-------------|-----|------|-------------|
+| **Multi-User HTTPS** | `https://YOUR_SERVER_IP` | 443 | Full application via nginx (recommended) |
+| **Multi-User Camera** | `https://YOUR_SERVER_IP:8443` | 8443 | Camera access via nginx |
+| **Local Development** | `http://localhost:3010` | 3010 | Direct Next.js dev server |
+| **Local HTTPS** | `https://localhost` | 443 | Local application via nginx |
 
-### Nginx Configuration (`Main-website/backend/config/nginx.conf`)
-- Reverse proxy setup
-- SSL termination
-- Rate limiting rules
-- Security headers
-- API routing
+## 👥 Multi-User Deployment
 
-### MongoDB Configuration (`Main-website/backend/config/mongod.conf`)
-- Database settings
-- Security configurations
-- Performance tuning
+### Network Configuration
+For multi-user access, ensure your server is accessible from other devices on the network:
 
-## 📊 Data Management
+1. **Firewall Configuration**: Open ports 80, 443, and 8443
+2. **Network Access**: Ensure devices can reach the server IP
+3. **SSL Certificates**: Include server IP in certificate SAN (Subject Alternative Name)
 
-### User Data Flow
-1. **Registration**: User creates account with consent
-2. **Session Creation**: Unique session ID generated
-3. **Data Capture**: Screen/webcam captures stored
-4. **AI Processing**: Images enhanced and analyzed
-5. **Export**: Data available for download
+### Security Considerations
+- **Rate Limiting**: Configured in nginx.conf to prevent abuse
+- **User Isolation**: Each user gets separate data directories
+- **Session Management**: JWT-based authentication with proper expiration
+- **Data Privacy**: User data is isolated and encrypted
 
-### Data Formats
+### Scaling for Multiple Users
+- **Concurrent Users**: System supports multiple simultaneous users
+- **Resource Management**: Each user session is managed independently
+- **Data Storage**: User data is stored in separate directories under `resource_security/`
+
+## 🔧 Quick Configuration Reference
+
+### Essential Configuration Files
+- **Docker Compose**: `Main-website/docker-compose.yml`
+- **Nginx Config**: `Main-website/backend/config/nginx.conf`
+- **MongoDB Config**: `Main-website/backend/config/mongod.conf`
+
+### Key Data Formats
 - **Images**: JPG format for captures
 - **Parameters**: CSV format for eye tracking data
 - **Metadata**: JSON format for session information
-- **Configurations**: JSON format for settings
 
-## 🛡️ Security Features
-
-### Authentication
-- JWT-based authentication
-- Session management
-- User consent tracking
-- API key validation
-
-### Data Protection
-- HTTPS encryption
-- Secure file storage
-- User data isolation
-- Regular backups
-
-### Privacy Compliance
-- GDPR-compliant consent management
-- Data anonymization options
-- User data deletion
-- Audit logging
-
-## 🔍 Monitoring and Logging
-
-### Health Checks
-- Service availability monitoring
-- Database connectivity checks
-- AI model loading verification
-- SSL certificate validation
-
-### Logging
-- Application logs via Docker
-- Nginx access/error logs
-- MongoDB operation logs
-- AI processing logs
-
-## 📈 Performance Optimization
-
-### Caching
-- Static asset caching
-- Database query optimization
-- Image processing caching
-- CDN integration ready
-
-### Scaling
-- Horizontal scaling support
-- Load balancing configuration
-- Database replication ready
-- Microservices architecture
-
-## 🐛 Troubleshooting
-
-### Common Issues
-1. **SSL Certificate Errors**: Check certificate validity and permissions
-2. **Camera Access Denied**: Ensure HTTPS and correct port (8443)
-3. **Database Connection**: Verify MongoDB service and credentials
-4. **AI Model Loading**: Check model file paths and permissions
-
-### Debug Commands
-```bash
-# Check service status
-cd Main-website
-docker-compose ps
-
-# View logs
-docker-compose logs [service-name]
-
-# Test SSL
-openssl s_client -connect localhost:443
-
-# Check nginx config
-docker exec backend_nginx nginx -t
-```
+> **📋 For complete configuration details, troubleshooting, and technical specifications, see [Requirements.md](Requirements.md)**
 
 ## 📚 Documentation
 
+- **📋 Technical Requirements**: [Requirements.md](Requirements.md) - Complete technical specifications and configuration details
 - **Environment Setup**: [Main-website/ENVIRONMENT_SETUP.md](Main-website/ENVIRONMENT_SETUP.md)
 - **SSL Setup**: [Main-website/backend/config/SSL_SETUP_README.md](Main-website/backend/config/SSL_SETUP_README.md)
 - **Camera Setup**: [Main-website/backend/config/HTTPS_CAMERA_SETUP.md](Main-website/backend/config/HTTPS_CAMERA_SETUP.md)
@@ -347,6 +273,31 @@ docker exec backend_nginx nginx -t
 - **Admin Download**: [Main-website/backend/auth_service/routes/ADMIN_DOWNLOAD_README.md](Main-website/backend/auth_service/routes/ADMIN_DOWNLOAD_README.md)
 - **Process Set**: [Main-website/frontend/pages/process_set/README.md](Main-website/frontend/pages/process_set/README.md)
 - **Dataset Processing**: [Main-website/frontend/pages/api/for-process-folder/readDataset/README.md](Main-website/frontend/pages/api/for-process-folder/readDataset/README.md)
+
+## 📚 Key Dependencies and References
+
+This project relies on several open-source libraries and frameworks:
+
+### AI/ML Libraries
+- **[Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)**: Used for image super-resolution and enhancement. Real-ESRGAN aims at developing Practical Algorithms for General Image/Video Restoration with 32.5k+ GitHub stars.
+- **[MediaPipe](https://ai.google.dev/edge/mediapipe/solutions/guide)**: Google's framework for building machine learning pipelines, used for facial landmark detection and head pose estimation in our eye tracking system.
+
+### Core Technologies
+- **Next.js**: React framework for the frontend application
+- **FastAPI**: Python web framework for backend services
+- **MongoDB**: NoSQL database for user data and session management
+- **Docker**: Containerization for microservices architecture
+- **Nginx**: Reverse proxy and load balancer
+
+## 🤗 Acknowledgement
+
+Thanks for all the contributors and the open-source community.
+
+### External Libraries
+- **Real-ESRGAN Team**: For providing an excellent image super-resolution library
+- **Google MediaPipe Team**: For the comprehensive facial landmark detection framework
+- **Next.js Team**: For the robust React framework
+- **FastAPI Team**: For the high-performance Python web framework
 
 ## 🤝 Contributing
 

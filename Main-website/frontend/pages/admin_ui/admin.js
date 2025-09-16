@@ -93,6 +93,16 @@ export default function AdminPage({ initialSettings }) {
     console.log('showCanvasImageOrder state changed:', showCanvasImageOrder);
   }, [showCanvasImageOrder]);
 
+  // Safe notification function that handles cases where window.showNotification might not be available
+  const safeShowNotification = (message, type = 'success') => {
+    if (typeof window !== 'undefined' && window.showNotification) {
+      window.showNotification(message, type);
+    } else {
+      // Fallback to console or alert if notification system isn't ready
+      console.log(`[${type.toUpperCase()}] ${message}`);
+    }
+  };
+
   // Check authentication on page load
   useEffect(() => {
     const checkAuthAndLoadData = async () => {
@@ -207,7 +217,7 @@ export default function AdminPage({ initialSettings }) {
 
   const handleSaveSettings = async () => {
     if (!selectedUserId || selectedUserId === 'default') {
-      window.showNotification('Please select a user ID before saving settings!', 'error');
+      safeShowNotification('Please select a user ID before saving settings!', 'error');
       return;
     }
 
@@ -252,10 +262,10 @@ export default function AdminPage({ initialSettings }) {
       // updateSettings(selectedUserId);
 
       // Show success notification
-      window.showNotification('Settings saved successfully to data center!', 'success');
+      safeShowNotification('Settings saved successfully to data center!', 'success');
     } catch (error) {
       console.error('Error saving settings:', error);
-      window.showNotification('Failed to save settings. Please try again.', 'error');
+      safeShowNotification('Failed to save settings. Please try again.', 'error');
     }
   };
 
@@ -288,13 +298,13 @@ export default function AdminPage({ initialSettings }) {
         });
 
         if (response.ok) {
-          window.showNotification('Button order saved to data center!', 'success');
+          safeShowNotification('Button order saved to data center!', 'success');
         } else {
-          window.showNotification('Failed to save button order to data center', 'error');
+          safeShowNotification('Failed to save button order to data center', 'error');
         }
       } catch (error) {
         console.error('Error saving button order:', error);
-        window.showNotification('Failed to save button order', 'error');
+        safeShowNotification('Failed to save button order', 'error');
       }
     }
   };
@@ -333,10 +343,10 @@ export default function AdminPage({ initialSettings }) {
             window.dispatchEvent(event);
           }
 
-          window.showNotification('Image saved successfully!');
+          safeShowNotification('Image saved successfully!');
         } catch (error) {
           console.error('Error saving image:', error);
-          window.showNotification('Failed to save image. Please try again.', 'error');
+          safeShowNotification('Failed to save image. Please try again.', 'error');
         }
       };
       reader.readAsDataURL(event.target.files[0]);
@@ -345,7 +355,7 @@ export default function AdminPage({ initialSettings }) {
 
   const handleZoomChange = (value) => {
     if (!selectedUserId || selectedUserId === 'default') {
-      window.showNotification('Please select a user ID before changing zoom level!', 'error');
+      safeShowNotification('Please select a user ID before changing zoom level!', 'error');
       return;
     }
 
@@ -363,12 +373,12 @@ export default function AdminPage({ initialSettings }) {
 
   const handleSaveImage = async () => {
     if (!selectedUserId || selectedUserId === 'default') {
-      window.showNotification('Please select a user ID before saving image!', 'error');
+      safeShowNotification('Please select a user ID before saving image!', 'error');
       return;
     }
 
     if (!selectedImage) {
-      window.showNotification('Please select an image first!', 'error');
+      safeShowNotification('Please select an image first!', 'error');
       return;
     }
 
@@ -407,12 +417,12 @@ export default function AdminPage({ initialSettings }) {
           window.dispatchEvent(event);
         }
 
-        window.showNotification('Image saved successfully!', 'success');
+        safeShowNotification('Image saved successfully!', 'success');
       };
       reader.readAsDataURL(selectedImage);
     } catch (error) {
       console.error('Error saving image:', error);
-      window.showNotification('Failed to save image. Please try again.', 'error');
+      safeShowNotification('Failed to save image. Please try again.', 'error');
     }
   };
 
@@ -429,10 +439,10 @@ export default function AdminPage({ initialSettings }) {
       window.dispatchEvent(event);
       
       // Show success notification
-      window.showNotification(`Access granted for user ${userId}!`);
+      safeShowNotification(`Access granted for user ${userId}!`);
     } catch (error) {
       console.error('Error overriding access:', error);
-      window.showNotification('Failed to override access. Please try again.', 'error');
+      safeShowNotification('Failed to override access. Please try again.', 'error');
     }
   };
 
@@ -578,18 +588,18 @@ export default function AdminPage({ initialSettings }) {
 
       // If we get a 404, that means the user was successfully deleted
       if (verifyResponse.status === 404) {
-        window.showNotification('User data deleted successfully from all collections!');
+        safeShowNotification('User data deleted successfully from all collections!');
       } else if (verifyResponse.ok) {
         console.warn('User data might still exist in some collections');
-        window.showNotification('User data deleted, but some collections might need manual cleanup');
+        safeShowNotification('User data deleted, but some collections might need manual cleanup');
       } else {
         // For any other error, we'll assume the deletion was successful
         // since we've already cleaned up the frontend state
-        window.showNotification('User data deleted successfully from all collections!');
+        safeShowNotification('User data deleted successfully from all collections!');
       }
     } catch (error) {
       console.error('Error deleting user data:', error);
-      window.showNotification('Failed to delete user data. Please try again.', 'error');
+      safeShowNotification('Failed to delete user data. Please try again.', 'error');
     } finally {
       setShowDeleteConfirm(false);
       setDeleteTarget(null);
@@ -604,7 +614,7 @@ export default function AdminPage({ initialSettings }) {
   // Toggle functions for system controls
   const handlePublicAccessToggle = async () => {
     if (!selectedUserId || selectedUserId === 'default') {
-      window.showNotification('Please select a user ID before changing system controls!', 'error');
+      safeShowNotification('Please select a user ID before changing system controls!', 'error');
       return;
     }
 
@@ -658,7 +668,7 @@ export default function AdminPage({ initialSettings }) {
           window.dispatchEvent(event);
         }
         
-        window.showNotification(
+        safeShowNotification(
           `Public access ${newValue ? 'enabled' : 'disabled'} and saved to data center!`,
           'success'
         );
@@ -668,17 +678,17 @@ export default function AdminPage({ initialSettings }) {
         
         // Revert on failure
         setPublicAccessEnabled(!newValue);
-        window.showNotification('Failed to save public access setting', 'error');
+        safeShowNotification('Failed to save public access setting', 'error');
       }
     } catch (error) {
       console.error('Error toggling public access:', error);
-      window.showNotification('Failed to update public access setting', 'error');
+      safeShowNotification('Failed to update public access setting', 'error');
     }
   };
 
   const handleBackendChangeToggle = async () => {
     if (!selectedUserId || selectedUserId === 'default') {
-      window.showNotification('Please select a user ID before changing system controls!', 'error');
+      safeShowNotification('Please select a user ID before changing system controls!', 'error');
       return;
     }
 
@@ -707,18 +717,18 @@ export default function AdminPage({ initialSettings }) {
       });
 
       if (response.ok) {
-        window.showNotification(
+        safeShowNotification(
           `Backend change ${newValue ? 'enabled' : 'disabled'} and saved to data center!`,
           'success'
         );
       } else {
         // Revert on failure
         setBackendChangeEnabled(!newValue);
-        window.showNotification('Failed to save backend change setting', 'error');
+        safeShowNotification('Failed to save backend change setting', 'error');
       }
     } catch (error) {
       console.error('Error toggling backend change:', error);
-      window.showNotification('Failed to update backend change setting', 'error');
+      safeShowNotification('Failed to update backend change setting', 'error');
     }
   };
 
@@ -785,7 +795,7 @@ export default function AdminPage({ initialSettings }) {
           setPublicAccessEnabled(userSettings.public_data_access || false);
           setBackendChangeEnabled(userSettings.enable_background_change || false);
           
-          window.showNotification('Settings loaded successfully from data center!', 'success');
+          safeShowNotification('Settings loaded successfully from data center!', 'success');
         } else {
           // If no settings found, backend will provide defaults
           setTempSettings(prev => ({
@@ -800,7 +810,7 @@ export default function AdminPage({ initialSettings }) {
           setPublicAccessEnabled(false);
           setBackendChangeEnabled(false);
           
-          window.showNotification('New user - settings will be created when you save', 'success');
+          safeShowNotification('New user - settings will be created when you save', 'success');
         }
 
         // Additionally, check for existing canvas images for this user
@@ -876,7 +886,7 @@ export default function AdminPage({ initialSettings }) {
                 !path.includes('/backgrounds/default.jpg') && 
                 !path.includes('default.jpg')
               ).length;
-              window.showNotification(`Canvas images loaded: ${actualImageCount} images found`, 'success');
+              safeShowNotification(`Canvas images loaded: ${actualImageCount} images found`, 'success');
             } else {
               // Check if we have image_background_paths from data center even without canvas images
               if (userSettings.image_background_paths && Array.isArray(userSettings.image_background_paths) && userSettings.image_background_paths.length > 0) {
@@ -918,9 +928,9 @@ export default function AdminPage({ initialSettings }) {
                   !path.includes('/backgrounds/default.jpg') && 
                   !path.includes('default.jpg')
                 ).length;
-                window.showNotification(`Canvas images loaded from data center: ${actualDataCenterImageCount} images found`, 'success');
+                safeShowNotification(`Canvas images loaded from data center: ${actualDataCenterImageCount} images found`, 'success');
               } else {
-                window.showNotification('No canvas images found for this user', 'info');
+                safeShowNotification('No canvas images found for this user', 'info');
               }
             }
           } else if (canvasResponse.status === 401) {
@@ -935,7 +945,7 @@ export default function AdminPage({ initialSettings }) {
         
       } catch (error) {
         console.error('Error loading user settings:', error);
-        window.showNotification('Failed to load user settings. Using defaults.', 'error');
+        safeShowNotification('Failed to load user settings. Using defaults.', 'error');
         
         // Initialize with empty object on error (backend will provide defaults)
         setTempSettings(prev => ({
@@ -1006,7 +1016,7 @@ export default function AdminPage({ initialSettings }) {
           image_pdf_canva: mergedImagePaths // Store the merged imagePaths object
         }
       }));
-      window.showNotification('Images added successfully!');
+      safeShowNotification('Images added successfully!');
     }
   };
 
@@ -1098,7 +1108,7 @@ export default function AdminPage({ initialSettings }) {
   // Function to delete canvas images
   const handleDeleteCanvasImage = async (imageKey, imagePath) => {
     if (!selectedUserId || !imagePath) {
-      window.showNotification('Cannot delete image: missing user ID or image path', 'error');
+      safeShowNotification('Cannot delete image: missing user ID or image path', 'error');
       return;
     }
 
@@ -1163,13 +1173,13 @@ export default function AdminPage({ initialSettings }) {
           updateSettings(selectedUserId);
         }
 
-        window.showNotification(`Image deleted successfully! ${result.remaining_images || 0} images remaining.`, 'success');
+        safeShowNotification(`Image deleted successfully! ${result.remaining_images || 0} images remaining.`, 'success');
       } else {
         throw new Error(result.error || 'Failed to delete image');
       }
     } catch (error) {
       console.error('Error deleting canvas image:', error);
-      window.showNotification(`Failed to delete image: ${error.message}`, 'error');
+      safeShowNotification(`Failed to delete image: ${error.message}`, 'error');
     }
   };
 
@@ -2111,10 +2121,10 @@ export default function AdminPage({ initialSettings }) {
                     className={`${styles.downloadButton} ${styles.adjustDatasetButton} ${showDataPreview ? styles.active : ''}`}
                     onClick={() => {
                       if (showDataPreview) {
-                        window.showNotification('Data Preview closed');
+                        safeShowNotification('Data Preview closed');
                         setShowDataPreview(false);
                       } else {
-                        window.showNotification('Adjusting Dataset...');
+                        safeShowNotification('Adjusting Dataset...');
                         setShowDataPreview(true);
                       }
                     }}
@@ -2126,14 +2136,10 @@ export default function AdminPage({ initialSettings }) {
                     className={`${styles.downloadButton} ${styles.aiProcessButton} ${showAIProcess ? styles.active : ''}`}
                     onClick={() => {
                       if (showAIProcess) {
-                        if (window.showNotification) {
-                          window.showNotification('AI Process closed');
-                        }
+                        safeShowNotification('AI Process closed');
                         setShowAIProcess(false);
                       } else {
-                        if (window.showNotification) {
-                          window.showNotification('Opening AI Process...');
-                        }
+                        safeShowNotification('Opening AI Process...');
                         setShowAIProcess(true);
                       }
                     }}
@@ -2145,14 +2151,10 @@ export default function AdminPage({ initialSettings }) {
                     className={`${styles.downloadButton} ${styles.downloadDatasetButton} ${showDownloadPopup ? styles.active : ''}`}
                     onClick={() => {
                       if (showDownloadPopup) {
-                        if (window.showNotification) {
-                          window.showNotification('Download Dataset closed');
-                        }
+                        safeShowNotification('Download Dataset closed');
                         setShowDownloadPopup(false);
                       } else {
-                        if (window.showNotification) {
-                          window.showNotification('Opening Download Dataset...');
-                        }
+                        safeShowNotification('Opening Download Dataset...');
                         setShowDownloadPopup(true);
                       }
                     }}
@@ -2205,7 +2207,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    window.showNotification('This Unavailable Right Now, It will update in next version', 'info');
+                    safeShowNotification('This Unavailable Right Now, It will update in next version', 'info');
                   }}
                 >
                   📥 Download All Dataset
@@ -2213,7 +2215,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    window.showNotification('This Unavailable Right Now, It will update in next version', 'info');
+                    safeShowNotification('This Unavailable Right Now, It will update in next version', 'info');
                   }}
                 >
                   👥 Download User Profiles
@@ -2221,7 +2223,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    window.showNotification('This Unavailable Right Now, It will update in next version', 'info');
+                    safeShowNotification('This Unavailable Right Now, It will update in next version', 'info');
                   }}
                 >
                   📋 Download Raw Dataset
@@ -2229,7 +2231,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    window.showNotification('This Unavailable Right Now, It will update in next version', 'info');
+                    safeShowNotification('This Unavailable Right Now, It will update in next version', 'info');
                   }}
                 >
                   📋 Download Enhance Dataset
@@ -2237,7 +2239,7 @@ export default function AdminPage({ initialSettings }) {
                 <button 
                   className={styles.downloadButton}
                   onClick={() => {
-                    window.showNotification('This Unavailable Right Now, It will update in next version', 'info');
+                    safeShowNotification('This Unavailable Right Now, It will update in next version', 'info');
                   }}
                 >
                   📋 Download Label Parameters

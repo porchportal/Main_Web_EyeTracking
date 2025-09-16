@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import styles from './style/Admin.module.css';
 
 const NotiMessage = () => {
   const [notifications, setNotifications] = useState([]);
   let notificationId = 0;
 
-  const showNotification = (message, type = 'success') => {
+  const showNotification = useCallback((message, type = 'success') => {
     const id = ++notificationId;
     const newNotification = { 
       id,
@@ -31,7 +31,7 @@ const NotiMessage = () => {
         setNotifications(prev => prev.filter(notification => notification.id !== id));
       }, 300);
     }, 3000);
-  };
+  }, []);
 
   // Expose showNotification function globally so it can be used from admin.js
   useEffect(() => {
@@ -44,7 +44,7 @@ const NotiMessage = () => {
         delete window.showNotification;
       }
     };
-  }, []);
+  }, [showNotification]);
 
   return (
     <>
