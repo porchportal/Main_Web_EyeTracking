@@ -42,6 +42,7 @@ export default function HomePage() {
   const [retryCount, setRetryCount] = useState(0);
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [publicDataAccess, setPublicDataAccess] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   // Fetch user data from MongoDB
   const fetchUserData = async () => {
@@ -330,6 +331,28 @@ export default function HomePage() {
     }
   }, [mounted, consentChecked, loading, recheckConsent]);
 
+  // Reset navigation state when component unmounts or route changes
+  useEffect(() => {
+    return () => {
+      setIsNavigating(false);
+    };
+  }, []);
+
+  // Reset navigation state when route changes
+  useEffect(() => {
+    const handleRouteChange = () => {
+      setIsNavigating(false);
+    };
+
+    router.events.on('routeChangeComplete', handleRouteChange);
+    router.events.on('routeChangeError', handleRouteChange);
+
+    return () => {
+      router.events.off('routeChangeComplete', handleRouteChange);
+      router.events.off('routeChangeError', handleRouteChange);
+    };
+  }, [router.events]);
+
   // Memoize button disabled check for better performance
   const isButtonDisabled = useCallback((destination) => {
     // Special case for collected-dataset-custom
@@ -341,7 +364,7 @@ export default function HomePage() {
     return false;
   }, [buttonStates, userId]);
 
-  const handleButtonClick = (destination) => {
+  const handleButtonClick = async (destination) => {
     // Check if button is disabled
     if (isButtonDisabled(destination)) {
       console.log(`Button ${destination} is disabled`);
@@ -359,6 +382,12 @@ export default function HomePage() {
     // Handle navigation based on destination
     switch (destination) {
       case 'collected-dataset-custom':
+        // Set loading state and add animation
+        setIsNavigating(true);
+        
+        // Add a small delay to show the animation
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
         // Navigate with only userId - the target page will fetch userData itself
         router.push({
           pathname: '/collected-dataset-customized',
@@ -397,7 +426,8 @@ export default function HomePage() {
   const getButtonClass = useCallback((destination) => {
     if (destination === 'collected-dataset-custom') {
       const isEnabled = buttonStates[userId] || false;
-      return isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
+      const baseClass = isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
+      return isNavigating ? `${baseClass} ${styles.buttonLoading}` : baseClass;
     }
     
     if (destination === 'collected-dataset') {
@@ -406,7 +436,7 @@ export default function HomePage() {
     }
     
     return styles.buttonEnabled; // Default for other buttons
-  }, [buttonStates, userId, consentStatus, mounted, loading, styles.buttonEnabled, styles.buttonDisabled]);
+  }, [buttonStates, userId, consentStatus, isNavigating, styles.buttonEnabled, styles.buttonDisabled, styles.buttonLoading]);
 
   // Memoize process button class to prevent unnecessary re-renders
   const getProcessButtonClass = useMemo(() => {
@@ -460,10 +490,17 @@ export default function HomePage() {
           <button 
             className={`${styles.menuButton} ${getButtonClass('collected-dataset-custom')}`} 
             onClick={() => handleButtonClick('collected-dataset-custom')}
-            disabled={!buttonStates[userId]}
+            disabled={!buttonStates[userId] || isNavigating}
           >
-            <h2>Collected Dataset with customization</h2>
+            <h2>
+              {isNavigating ? 'Loading...' : 'Collected Dataset with customization'}
+            </h2>
             <ButtonOverlay enabled={buttonStates[userId]} />
+            {isNavigating && (
+              <div className={styles.loadingSpinner}>
+                <div className={styles.spinner}></div>
+              </div>
+            )}
           </button>
           <button 
             className={`${styles.menuButton} ${getButtonClass('collected-dataset')}`} 

@@ -58,6 +58,13 @@ export default function ProcessSet() {
   const [filesChecked, setFilesChecked] = useState(false);
   const [lastProcessingStatus, setLastProcessingStatus] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [isCheckingFiles, setIsCheckingFiles] = useState(false);
+  const [filesLoadingState, setFilesLoadingState] = useState({ 
+    capture: false, 
+    enhance: false, 
+    complete: false 
+  });
+  const [autoRefreshTriggered, setAutoRefreshTriggered] = useState(false);
   
   const [showNotification, NotificationComponent] = useNotification();
 
@@ -231,13 +238,11 @@ export default function ProcessSet() {
   // Separate effect for processing progress interval
   useEffect(() => {
     let progressInterval = null;
-    let fallbackTimeout = null;
     
     if (isProcessing) {
       // Set up interval to check processing progress when processing is active
       // Use shorter interval for more responsive progress updates
       progressInterval = setInterval(async () => {
-        // ✅ FIXED: Check if backend says processing is not running before polling
         try {
           const userId = await getUserId();
           const result = await checkProcessingStatus(userId);
@@ -250,24 +255,7 @@ export default function ProcessSet() {
         } catch (error) {
           console.error('Error in progress polling:', error);
         }
-      }, 1000); // Check every 1 second when processing for more responsive updates
-      
-      // Set up a fallback timeout to ensure progress updates even if file reading fails
-      fallbackTimeout = setTimeout(() => {
-        if (isProcessing && (!progressData || progressData.progress === 0)) {
-          setProgressData({
-            currentSet: 1,
-            totalSets: 1,
-            processedSets: [],
-            currentFile: 'Processing...',
-            progress: 10,
-            status: 'processing',
-            message: 'Processing in progress...',
-            userId: currentUserId,
-            timestamp: Date.now()
-          });
-        }
-      }, 5000); // 5 second fallback
+      }, 2000); // Check every 2 seconds when processing for more responsive updates
     }
     
     // Clean up interval when isProcessing changes or component unmounts
@@ -275,11 +263,8 @@ export default function ProcessSet() {
       if (progressInterval) {
         clearInterval(progressInterval);
       }
-      if (fallbackTimeout) {
-        clearTimeout(fallbackTimeout);
-      }
     };
-  }, [isProcessing, progressData, currentUserId]); // ✅ FIXED: Only recreate when isProcessing changes
+  }, [isProcessing, currentUserId]); // ✅ FIXED: Removed progressData dependency to avoid recreating interval
 
   // Initialize component by checking backend connection and files
   const initializeComponent = async () => {
@@ -422,14 +407,37 @@ export default function ProcessSet() {
       if (result.success) {
         // ✅ FIXED: Check if backend says processing is not running
         if (result.isProcessing === false) {
+          console.log('🛑 Backend reports processing is not running, stopping frontend processing state');
           setIsProcessing(false);
           setProgressData(null);
           return;
         }
         
-        if (result.progress) {
-          
-          // Update progress data with proper structure
+        // Additional check: if no progress file found and no active progress, stop processing
+        if (!result.progressFileFound && !result.hasActiveProgress) {
+          console.log('🛑 No progress file found and no active progress, stopping frontend processing state');
+          setIsProcessing(false);
+          setProgressData(null);
+          return;
+        }
+        
+        // Clear progress data if we have progress but it's not active processing
+        if (result.progress && result.progress.status !== 'processing' && result.progress.status !== 'starting') {
+          console.log('🛑 Progress file exists but status is not active processing, clearing progress data');
+          setProgressData(null);
+          return;
+        }
+        
+        // Check if all files are already processed (no need for processing)
+        if (result.captureCount > 0 && result.captureCount <= result.totalProcessedCount) {
+          console.log('🛑 All files are already processed, stopping frontend processing state');
+          setIsProcessing(false);
+          setProgressData(null);
+          return;
+        }
+        
+        if (result.progress && (result.progress.status === 'processing' || result.progress.status === 'starting')) {
+          // Only update progress data if we're actually processing
           const progressData = {
             currentSet: result.progress.currentSet || 0,
             totalSets: result.progress.totalSets || 0,
@@ -441,37 +449,48 @@ export default function ProcessSet() {
             userId: userId
           };
           
+          // Only set progress data if we have meaningful progress (not 0% with no activity)
+          if (progressData.progress > 0 || progressData.status === 'processing' || progressData.status === 'starting') {
+            // Force a re-render by updating a timestamp
+            setProgressData({
+              ...progressData,
+              timestamp: Date.now()
+            });
+          }
           
-          // Force a re-render by updating a timestamp
-          setProgressData({
-            ...progressData,
-            timestamp: Date.now()
-          });
-          
-          // If processing is completed, update state but keep progress visible
+          // If processing is completed, update state and clear progress after delay
           if (result.progress.status === 'completed') {
-            // Don't set isProcessing to false immediately - keep progress visible
-            // Only set isProcessing to false after a delay or when user starts new process
             showNotification('Processing completed successfully', 'success');
-            // Refresh files list
-            await handleCheckFiles();
             
-            // Set a timeout to clear progress after 10 seconds
-            setTimeout(() => {
-              setIsProcessing(false);
-              setProgressData(null);
-            }, 10000); // 10 seconds delay
+            // Only trigger auto-refresh once per processing session
+            if (!autoRefreshTriggered) {
+              setAutoRefreshTriggered(true);
+              
+              // Set a timeout to clear progress after 3 seconds, then auto-refresh
+              setTimeout(async () => {
+                console.log('🔄 Auto-refreshing files after processing completion...');
+                setIsProcessing(false);
+                setProgressData(null);
+                
+                // Show notification and refresh files
+                showNotification('Refreshing files list...', 'info');
+                await handleCheckFiles();
+                
+                // Reset the auto-refresh flag after completion
+                setTimeout(() => {
+                  setAutoRefreshTriggered(false);
+                }, 2000);
+              }, 3000); // 3 seconds delay
+            }
           } else if (result.progress.status === 'error') {
-            // Don't set isProcessing to false immediately - keep progress visible for error
             showNotification('Processing failed: ' + result.progress.message, 'error');
             
-            // Set a timeout to clear progress after 5 seconds for errors
+            // Set a timeout to clear progress after 3 seconds for errors
             setTimeout(() => {
               setIsProcessing(false);
               setProgressData(null);
-            }, 5000); // 5 seconds delay for errors
+            }, 3000); // 3 seconds delay for errors
           }
-        } else {
         }
       } else {
         // If we can't get progress data and we think we're processing, stop
@@ -498,11 +517,16 @@ export default function ProcessSet() {
 
   // Handle check files button click
   const handleCheckFiles = async () => {
+    console.log('🔄 handleCheckFiles called - starting file check...');
+    
     if (!backendConnected) {
       await checkConnection();
       if (!backendConnected) return;
     }
     
+    // ✅ SMOOTH LOADING: Set loading states for smooth UI transitions
+    setIsCheckingFiles(true);
+    setFilesLoadingState({ capture: true, enhance: true, complete: true });
     setLoading(true);
     // ✅ IMMEDIATE UI FEEDBACK: Disable button immediately
     setIsProcessReady(false);
@@ -511,12 +535,22 @@ export default function ProcessSet() {
     // Get user ID (prioritize passed user ID)
     const userId = await getUserId();
     
-    // ✅ OPTIMIZED: Get files list from all three folders in parallel
-    const [captureResult, enhanceResult, completeResult] = await Promise.all([
-      getFilesList('captures', userId),
-      getFilesList('enhance', userId),
-      getFilesList('complete', userId)
-    ]);
+    try {
+      // ✅ OPTIMIZED: Get files list from all three folders in parallel with individual loading states
+      const [captureResult, enhanceResult, completeResult] = await Promise.all([
+        getFilesList('captures', userId).then(result => {
+          setFilesLoadingState(prev => ({ ...prev, capture: false }));
+          return result;
+        }),
+        getFilesList('enhance', userId).then(result => {
+          setFilesLoadingState(prev => ({ ...prev, enhance: false }));
+          return result;
+        }),
+        getFilesList('complete', userId).then(result => {
+          setFilesLoadingState(prev => ({ ...prev, complete: false }));
+          return result;
+        })
+      ]);
     
     if (captureResult.success || enhanceResult.success || completeResult.success) {
       const organizedFiles = {
@@ -645,8 +679,16 @@ export default function ProcessSet() {
     } else {
       showNotification('Error loading files: ' + (captureResult.error || enhanceResult.error || 'Unknown error'), 'error');
     }
-    
-    setLoading(false);
+    } catch (error) {
+      console.error('Error in handleCheckFiles:', error);
+      showNotification('Error checking files: ' + error.message, 'error');
+    } finally {
+      // ✅ SMOOTH LOADING: Clean up all loading states
+      setLoading(false);
+      setIsCheckingFiles(false);
+      setFilesLoadingState({ capture: false, enhance: false, complete: false });
+      console.log('✅ handleCheckFiles completed - files refreshed');
+    }
   };
 
   // Handle file preview using the new dataset reader with folder support
@@ -743,15 +785,23 @@ export default function ProcessSet() {
     
     // Clear any previous progress data when starting new processing
     setProgressData(null);
+    // Reset auto-refresh flag for new processing session
+    setAutoRefreshTriggered(false);
     
     try {
       // Get user ID (prioritize passed user ID)
       const userId = await getUserId();
       
+      // Get the processing status first
+      const result = await checkFilesNeedProcessing(userId, enhanceFace);
+      if (!result.success) {
+        throw new Error('Failed to get processing status');
+      }
+      
       // Set initial progress data immediately
       setProgressData({
         currentSet: 0,
-        totalSets: 1,
+        totalSets: result.setsNeedingProcessing.length,
         processedSets: [],
         currentFile: 'Starting...',
         progress: 0,
@@ -760,12 +810,6 @@ export default function ProcessSet() {
         userId: userId,
         timestamp: Date.now()
       });
-      
-      // Get the processing status
-      const result = await checkFilesNeedProcessing(userId, enhanceFace);
-      if (!result.success) {
-        throw new Error('Failed to get processing status');
-      }
 
       if (!result.setsNeedingProcessing || result.setsNeedingProcessing.length === 0) {
         showNotification('No files need processing', 'info');
@@ -901,9 +945,11 @@ export default function ProcessSet() {
               isLoading={loading}
               enhanceFace={enhanceFace}
               onEnhanceFaceToggle={handleEnhanceFaceToggle}
+              isCheckingFiles={isCheckingFiles}
+              filesLoadingState={filesLoadingState}
             />
             
-            <ProcessSummary files={files} enhanceFace={enhanceFace} />
+            <ProcessSummary files={files} enhanceFace={enhanceFace} isCheckingFiles={isCheckingFiles} />
           </div>
           
           <div className={styles.rightPanel}>
@@ -925,6 +971,7 @@ export default function ProcessSet() {
           filesChecked={filesChecked}
           files={files}
           bothProcessingComplete={processingStatus?.bothProcessingComplete || false}
+          isCheckingFiles={isCheckingFiles}
         />
         
         <button 

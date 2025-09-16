@@ -199,7 +199,7 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType, fold
   );
 };
 
-export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanceFaceToggle }) => {
+export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanceFaceToggle, isCheckingFiles = false, filesLoadingState = { capture: false, enhance: false, complete: false } }) => {
   const [selectedFolder, setSelectedFolder] = useState('capture'); // Default to capture folder
   const [fileMetadata, setFileMetadata] = useState(new Map());
 
@@ -316,7 +316,12 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
         <div className={styles.tabContent}>
           {selectedFolder === 'capture' ? (
             <>
-              {files.capture?.length > 0 ? (
+              {filesLoadingState.capture ? (
+                <div className={styles.loadingContainer}>
+                  <div className={styles.loadingSpinner}></div>
+                  <div className={styles.loadingText}>Loading capture files...</div>
+                </div>
+              ) : files.capture?.length > 0 ? (
                 <ul className={styles.fileListItems}>
                   {files.capture.map((file) => {
                     const metadata = fileMetadata.get(file.filename);
@@ -347,7 +352,12 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
             </>
           ) : selectedFolder === 'enhance' ? (
             <>
-              {files.enhance?.length > 0 ? (
+              {filesLoadingState.enhance ? (
+                <div className={styles.loadingContainer}>
+                  <div className={styles.loadingSpinner}></div>
+                  <div className={styles.loadingText}>Loading enhanced files...</div>
+                </div>
+              ) : files.enhance?.length > 0 ? (
                 <ul className={styles.fileListItems}>
                   {files.enhance.map((file) => {
                     const metadata = fileMetadata.get(file.filename);
@@ -378,7 +388,12 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
             </>
           ) : (
             <>
-              {files.complete?.length > 0 ? (
+              {filesLoadingState.complete ? (
+                <div className={styles.loadingContainer}>
+                  <div className={styles.loadingSpinner}></div>
+                  <div className={styles.loadingText}>Loading complete files...</div>
+                </div>
+              ) : files.complete?.length > 0 ? (
                 <ul className={styles.fileListItems}>
                   {files.complete.map((file) => {
                     const metadata = fileMetadata.get(file.filename);
@@ -414,7 +429,7 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
   );
 };
 
-export const ActionButtons = ({ onCheckFiles, onProcessFiles, isProcessReady, isProcessing, captureLoaded, filesChecked, files, bothProcessingComplete = false }) => {
+export const ActionButtons = ({ onCheckFiles, onProcessFiles, isProcessReady, isProcessing, captureLoaded, filesChecked, files, bothProcessingComplete = false, isCheckingFiles = false }) => {
   const canProcess = captureLoaded && filesChecked && !isProcessing && !bothProcessingComplete;
   
   const getProcessButtonTitle = () => {
@@ -429,11 +444,18 @@ export const ActionButtons = ({ onCheckFiles, onProcessFiles, isProcessReady, is
   return (
     <div className={styles.actionButtons}>
       <button
-        className={`${styles.button} ${styles.checkButton}`}
+        className={`${styles.button} ${styles.checkButton} ${isCheckingFiles ? styles.loading : ''}`}
         onClick={onCheckFiles}
-        disabled={isProcessing}
+        disabled={isProcessing || isCheckingFiles}
       >
-        Check Files
+        {isCheckingFiles ? (
+          <>
+            <div className={styles.buttonSpinner}></div>
+            Checking Files...
+          </>
+        ) : (
+          'Check Files'
+        )}
       </button>
       
       <button
@@ -445,7 +467,7 @@ export const ActionButtons = ({ onCheckFiles, onProcessFiles, isProcessReady, is
               : styles.notReadyButton
         }`}
         onClick={onProcessFiles}
-        disabled={!canProcess}
+        disabled={!canProcess || isCheckingFiles}
         title={getProcessButtonTitle()}
       >
         {isProcessing ? 'Processing...' : bothProcessingComplete ? 'All Complete' : 'Process Files'}
@@ -477,7 +499,7 @@ export const Notification = ({ notification, onClose }) => {
   );
 };
 
-export const ProcessSummary = ({ files, enhanceFace = false }) => {
+export const ProcessSummary = ({ files, enhanceFace = false, isCheckingFiles = false }) => {
   const captureCount = files.capture?.length || 0;
   const enhanceCount = files.enhance?.length || 0;
   const completeCount = files.complete?.length || 0;
@@ -492,7 +514,7 @@ export const ProcessSummary = ({ files, enhanceFace = false }) => {
                                 completeCount >= captureCount;
   
   return (
-    <div className={styles.processSummary}>
+    <div className={`${styles.processSummary} ${isCheckingFiles ? styles.updating : ''}`}>
       <h3>Processing Summary</h3>
       {bothProcessingComplete && (
         <div className={styles.completionNotice}>
@@ -502,19 +524,19 @@ export const ProcessSummary = ({ files, enhanceFace = false }) => {
       <div className={styles.summaryStats}>
         <div className={styles.statItem}>
           <span>Total Files:</span>
-          <span>{captureCount}</span>
+          <span className={isCheckingFiles ? styles.loadingValue : ''}>{captureCount}</span>
         </div>
         <div className={styles.statItem}>
           <span>Enhanced:</span>
-          <span>{enhanceCount}</span>
+          <span className={isCheckingFiles ? styles.loadingValue : ''}>{enhanceCount}</span>
         </div>
         <div className={styles.statItem}>
           <span>Complete:</span>
-          <span>{completeCount}</span>
+          <span className={isCheckingFiles ? styles.loadingValue : ''}>{completeCount}</span>
         </div>
         <div className={styles.statItem}>
           <span>Remaining:</span>
-          <span>{remainingCount > 0 ? remainingCount : 0}</span>
+          <span className={isCheckingFiles ? styles.loadingValue : ''}>{remainingCount > 0 ? remainingCount : 0}</span>
         </div>
       </div>
     </div>
@@ -541,8 +563,44 @@ export const EnhanceFaceToggle = ({ isEnabled = false, onToggle }) => {
 };
 
 export const ProcessingProgress = ({ isProcessing, progressData, onClearProgress }) => {
-  // Return null if not processing or no progress data
-  if (!isProcessing || !progressData) return null;
+  const [isVisible, setIsVisible] = useState(false);
+  const [isDisappearing, setIsDisappearing] = useState(false);
+  const [animationState, setAnimationState] = useState('hidden'); // 'hidden', 'appearing', 'visible', 'disappearing'
+
+  // Handle appear animation - only trigger once when processing starts
+  useEffect(() => {
+    // Only show if we're processing AND have valid progress data
+    const shouldShow = isProcessing && progressData && (
+      progressData.status === 'processing' || 
+      progressData.status === 'starting' ||
+      (progressData.progress > 0 && progressData.totalSets > 0)
+    );
+    
+    if (shouldShow && animationState === 'hidden') {
+      setAnimationState('appearing');
+      setIsVisible(true);
+      setIsDisappearing(false);
+      
+      // After appear animation completes, set to visible
+      setTimeout(() => {
+        setAnimationState('visible');
+      }, 500);
+    } else if (!shouldShow && (animationState === 'visible' || animationState === 'appearing')) {
+      // Start disappear animation
+      setAnimationState('disappearing');
+      setIsDisappearing(true);
+      
+      // Hide after animation completes
+      setTimeout(() => {
+        setIsVisible(false);
+        setIsDisappearing(false);
+        setAnimationState('hidden'); // Reset for next time
+      }, 500); // Match CSS animation duration
+    }
+  }, [isProcessing, progressData, animationState]);
+
+  // Return null if not visible
+  if (!isVisible) return null;
 
   const {
     currentSet = 0,
@@ -553,19 +611,29 @@ export const ProcessingProgress = ({ isProcessing, progressData, onClearProgress
     message = ''
   } = progressData || {};
 
-
   // Ensure progress is a valid number between 0 and 100
   const validProgress = Math.max(0, Math.min(100, Number(progress) || 0));
+  
+  // Don't show progress UI if we don't have meaningful data
+  if (totalSets === 0 && progress === 0 && status !== 'processing' && status !== 'starting') {
+    return null;
+  }
+  
+  // Determine if processing is complete or has error
+  const isComplete = status === 'completed';
+  const hasError = status === 'error';
 
   return (
-    <div className={styles.processingProgress}>
+    <div className={`${styles.processingProgress} ${isComplete ? styles.completed : hasError ? styles.error : ''} ${animationState === 'appearing' ? styles.appearing : animationState === 'disappearing' ? styles.disappearing : ''}`}>
       <div className={styles.progressHeader}>
-        <h3>Processing Progress</h3>
+        <h3>
+          {isComplete && '🎉 '}Processing Progress{isComplete && ' 🎉'}
+        </h3>
         <div className={styles.progressHeaderRight}>
           <span className={`${styles.statusBadge} ${styles[status]}`}>
             {status && typeof status === 'string' ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown'}
           </span>
-          {onClearProgress && (status === 'completed' || status === 'error') && (
+          {onClearProgress && (isComplete || hasError) && (
             <button 
               className={styles.clearButton}
               onClick={onClearProgress}
@@ -579,7 +647,7 @@ export const ProcessingProgress = ({ isProcessing, progressData, onClearProgress
       
       <div className={styles.progressBarContainer}>
         <div 
-          className={styles.progressBar}
+          className={`${styles.progressBar} ${isComplete ? styles.completed : hasError ? styles.error : ''}`}
           style={{ width: `${validProgress}%` }}
         />
       </div>

@@ -126,6 +126,28 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     
+    // Update progress file to indicate completion
+    try {
+      const finalProgressInfo = {
+        currentSet: setNumbers.length,
+        totalSets: setNumbers.length,
+        processedSets: setNumbers,
+        startTime: new Date().toISOString(),
+        lastUpdateTime: new Date().toISOString(),
+        userId: userId,
+        enhanceFace: enhanceFace,
+        status: 'completed',
+        message: 'Processing completed successfully',
+        currentFile: '',
+        progress: 100
+      };
+      
+      fs.writeFileSync(progressFilePath, JSON.stringify(finalProgressInfo, null, 2));
+      console.log(`Updated progress file with completion status`);
+    } catch (err) {
+      console.error(`Error updating final progress file: ${err.message}`);
+    }
+    
     // Clean up lock file when processing is complete
     try {
       if (lockFilePath && fs.existsSync(lockFilePath)) {
@@ -144,6 +166,30 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Error in process-files API:', error);
+    
+    // Update progress file with error status
+    try {
+      const errorProgressInfo = {
+        currentSet: 0,
+        totalSets: setNumbers?.length || 0,
+        processedSets: [],
+        startTime: new Date().toISOString(),
+        lastUpdateTime: new Date().toISOString(),
+        userId: userId,
+        enhanceFace: enhanceFace,
+        status: 'error',
+        message: `Processing failed: ${error.message}`,
+        currentFile: '',
+        progress: 0
+      };
+      
+      if (progressFilePath) {
+        fs.writeFileSync(progressFilePath, JSON.stringify(errorProgressInfo, null, 2));
+        console.log(`Updated progress file with error status`);
+      }
+    } catch (err) {
+      console.error(`Error updating progress file with error status: ${err.message}`);
+    }
     
     // Clean up lock file on error
     try {

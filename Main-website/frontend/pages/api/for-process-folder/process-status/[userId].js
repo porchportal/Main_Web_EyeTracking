@@ -26,6 +26,10 @@ export default async function handler(req, res) {
       const lockFilePath = path.join(capturesPath, 'processing.lock');
       const isProcessing = fs.existsSync(lockFilePath);
       
+      // Also check if there's a progress file with "processing" status
+      // This is a more reliable indicator than just the lock file
+      let hasActiveProgress = false;
+      
       // Check for progress information file created by the backend
       // The backend writes to /app/resource_security/public/captures/{userId}/processing_progress.json
       // which maps to the auth_service directory structure
@@ -33,6 +37,9 @@ export default async function handler(req, res) {
       
       // Also check for progress file in the parent directory (in case of path issues)
       const alternativeProgressPath = path.join(process.cwd(), '..', 'backend', 'auth_service', 'resource_security', 'public', 'captures', userId, 'processing_progress.json');
+      
+      // Check Docker volume mount path as well
+      const dockerProgressPath = path.join('/app/resource_security/public/captures', userId, 'processing_progress.json');
       let progressInfo = { 
         currentSet: 0,
         totalSets: 0,
@@ -45,56 +52,46 @@ export default async function handler(req, res) {
         progress: 0
       };
       
-      // Try to read progress file from primary location first
-      if (fs.existsSync(progressFilePath)) {
-        try {
-          const progressData = fs.readFileSync(progressFilePath, 'utf8');
-          progressInfo = JSON.parse(progressData);
-          console.log('Progress file found and parsed from primary location:', {
-            currentSet: progressInfo.currentSet,
-            totalSets: progressInfo.totalSets,
-            progress: progressInfo.progress,
-            status: progressInfo.status,
-            message: progressInfo.message
-          });
-        } catch (err) {
-          console.error("Error reading progress file from primary location:", err);
-          // Try alternative location
-          if (fs.existsSync(alternativeProgressPath)) {
-            try {
-              const progressData = fs.readFileSync(alternativeProgressPath, 'utf8');
-              progressInfo = JSON.parse(progressData);
-              console.log('Progress file found and parsed from alternative location:', {
-                currentSet: progressInfo.currentSet,
-                totalSets: progressInfo.totalSets,
-                progress: progressInfo.progress,
-                status: progressInfo.status,
-                message: progressInfo.message
-              });
-            } catch (altErr) {
-              console.error("Error reading progress file from alternative location:", altErr);
-            }
+      // Try to read progress file from all possible locations
+      // The backend now writes to both Docker path and local path
+      // Check local paths first since they're more accessible to the frontend
+      const progressPaths = [
+        { path: progressFilePath, name: 'primary' }, // Check primary local path first
+        { path: alternativeProgressPath, name: 'alternative' }, // Check alternative local path
+        { path: dockerProgressPath, name: 'docker' } // Check Docker path as fallback
+      ];
+      
+      let progressFileFound = false;
+      
+      for (const { path: progressPath, name: locationName } of progressPaths) {
+        if (fs.existsSync(progressPath)) {
+          try {
+            const progressData = fs.readFileSync(progressPath, 'utf8');
+            progressInfo = JSON.parse(progressData);
+            console.log(`Progress file found and parsed from ${locationName} location:`, {
+              currentSet: progressInfo.currentSet,
+              totalSets: progressInfo.totalSets,
+              progress: progressInfo.progress,
+              status: progressInfo.status,
+              message: progressInfo.message,
+              path: progressPath
+            });
+            progressFileFound = true;
+            
+            // Check if this is an active progress (not completed or error)
+            hasActiveProgress = progressInfo.status === 'processing' || progressInfo.status === 'starting';
+            break;
+          } catch (err) {
+            console.error(`Error reading progress file from ${locationName} location:`, err);
           }
         }
-      } else if (fs.existsSync(alternativeProgressPath)) {
-        // Try alternative location if primary doesn't exist
-        try {
-          const progressData = fs.readFileSync(alternativeProgressPath, 'utf8');
-          progressInfo = JSON.parse(progressData);
-          console.log('Progress file found and parsed from alternative location:', {
-            currentSet: progressInfo.currentSet,
-            totalSets: progressInfo.totalSets,
-            progress: progressInfo.progress,
-            status: progressInfo.status,
-            message: progressInfo.message
-          });
-        } catch (err) {
-          console.error("Error reading progress file from alternative location:", err);
-        }
-      } else {
-        console.log('Progress file not found at either location:', {
+      }
+      
+      if (!progressFileFound) {
+        console.log('Progress file not found at any location:', {
           primary: progressFilePath,
-          alternative: alternativeProgressPath
+          alternative: alternativeProgressPath,
+          docker: dockerProgressPath
         });
         // Check if the directory exists
         if (fs.existsSync(capturesPath)) {
@@ -123,16 +120,22 @@ export default async function handler(req, res) {
             file.startsWith('webcam_') && file.endsWith('.jpg') && !file.includes('_enhance_')).length
         : 0;
       
+      // Determine if processing is actually running
+      // Processing is running if there's a lock file OR there's an active progress file
+      const actuallyProcessing = isProcessing || hasActiveProgress;
+      
       return res.status(200).json({
         success: true,
-        isProcessing,
+        isProcessing: actuallyProcessing,
         captureCount: captureFiles,
         enhanceCount: enhanceFiles,
         completeCount: completeFiles,
         totalProcessedCount: enhanceFiles + completeFiles,
         needsProcessing: captureFiles > (enhanceFiles + completeFiles),
         progress: progressInfo,
-        userId: userId
+        userId: userId,
+        hasActiveProgress: hasActiveProgress,
+        progressFileFound: progressFileFound
       });
     } catch (error) {
       console.error('Error checking process status:', error);

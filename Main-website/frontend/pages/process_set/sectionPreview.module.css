@@ -1,5 +1,288 @@
 /* sectionPreview.module.css */
 
+/* Loading animations */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInFromTop {
+  from { 
+    opacity: 0; 
+    transform: translateY(-20px) scale(0.95); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0) scale(1); 
+  }
+}
+
+@keyframes slideOutToTop {
+  from { 
+    opacity: 1; 
+    transform: translateY(0) scale(1); 
+  }
+  to { 
+    opacity: 0; 
+    transform: translateY(-20px) scale(0.95); 
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.loadingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.loadingSpinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #0070f3;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+.loadingText {
+  color: #666;
+  font-size: 0.9rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.buttonSpinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 0.5rem;
+  display: inline-block;
+}
+
+.button.loading {
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
+.button.loading .buttonSpinner {
+  margin-right: 0.5rem;
+}
+
+/* Smooth transitions for file list items */
+.fileListItems {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.fileListItem {
+  transition: all 0.2s ease-in-out;
+}
+
+.fileListItem:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Smooth transitions for folder buttons */
+.folderButton {
+  transition: all 0.2s ease-in-out;
+}
+
+.folderButton:hover {
+  transform: translateY(-1px);
+}
+
+.folderButton.activeFolder {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Process summary loading states */
+.processSummary.updating {
+  opacity: 0.8;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.loadingValue {
+  animation: pulse 1.5s ease-in-out infinite;
+  color: #0070f3;
+}
+
+/* Smooth transitions for all components */
+.processSummary {
+  transition: all 0.3s ease-in-out;
+}
+
+.summaryStats {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.statItem {
+  transition: all 0.2s ease-in-out;
+}
+
+.statItem:hover {
+  transform: translateX(2px);
+}
+
+/* Processing progress animations */
+.processingProgress {
+  transition: all 0.3s ease-in-out;
+  overflow: hidden;
+}
+
+.processingProgress.appearing {
+  animation: slideInFromTop 0.5s ease-out;
+  animation-fill-mode: forwards;
+}
+
+.processingProgress.disappearing {
+  animation: slideOutToTop 0.5s ease-in;
+}
+
+/* Enhanced progress bar animations */
+.progressBar {
+  transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+  position: relative;
+  overflow: hidden;
+}
+
+.progressBar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.progressBar.completed {
+  background: linear-gradient(90deg, #4CAF50, #66BB6A);
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+}
+
+.progressBar.error {
+  background: linear-gradient(90deg, #f44336, #ef5350);
+  box-shadow: 0 0 10px rgba(244, 67, 54, 0.3);
+}
+
+/* Status badge animations */
+.statusBadge {
+  transition: all 0.3s ease-in-out;
+  animation: pulse 2s infinite;
+}
+
+.statusBadge.completed {
+  background: #4CAF50;
+  color: white;
+  animation: none;
+}
+
+.statusBadge.error {
+  background: #f44336;
+  color: white;
+  animation: none;
+}
+
+.statusBadge.processing {
+  background: #2196F3;
+  color: white;
+}
+
+/* Progress details animations */
+.progressDetails {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+.fileInfo, .messageInfo {
+  animation: fadeIn 0.3s ease-in-out;
+  transition: all 0.2s ease-in-out;
+}
+
+.fileInfo:hover, .messageInfo:hover {
+  transform: translateX(2px);
+}
+
+/* Completion celebration animations */
+@keyframes celebrate {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  25% { transform: scale(1.05) rotate(-2deg); }
+  75% { transform: scale(1.05) rotate(2deg); }
+}
+
+@keyframes confetti {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(-100px) rotate(360deg); opacity: 0; }
+}
+
+.processingProgress.completed {
+  animation: celebrate 0.6s ease-in-out;
+}
+
+.processingProgress.completed h3 {
+  animation: celebrate 0.8s ease-in-out;
+}
+
+/* Enhanced completion styles */
+.processingProgress.completed .progressBar {
+  background: linear-gradient(90deg, #4CAF50, #66BB6A, #81C784);
+  box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+  animation: celebrate 0.6s ease-in-out;
+}
+
+.processingProgress.completed .statusBadge {
+  background: linear-gradient(45deg, #4CAF50, #66BB6A);
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
+  animation: celebrate 0.8s ease-in-out;
+}
+
+/* Error state animations */
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+.processingProgress.error {
+  animation: shake 0.5s ease-in-out;
+}
+
+.processingProgress.error .progressBar {
+  background: linear-gradient(90deg, #f44336, #ef5350);
+  box-shadow: 0 0 15px rgba(244, 67, 54, 0.4);
+}
+
+.processingProgress.error .statusBadge {
+  background: linear-gradient(45deg, #f44336, #ef5350);
+  box-shadow: 0 0 10px rgba(244, 67, 54, 0.3);
+}
+
 .container {
     min-height: 100vh;
     padding: 0 0.5rem;

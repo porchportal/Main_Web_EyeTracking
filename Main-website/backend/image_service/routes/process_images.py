@@ -100,18 +100,37 @@ def update_progress(userId, currentSet, totalSets, processedSets, status, messag
         # Write progress to file (this will be read by the frontend API)
         # Use the same path structure that the frontend API expects
         # The frontend reads from: backend/auth_service/resource_security/public/captures/{userId}/processing_progress.json
-        progress_file = f"/app/resource_security/public/captures/{userId}/processing_progress.json"
-        os.makedirs(os.path.dirname(progress_file), exist_ok=True)
+        # Write to both Docker path and local path to ensure frontend can read it
+        progress_file_docker = f"/app/resource_security/public/captures/{userId}/processing_progress.json"
+        progress_file_local = f"../auth_service/resource_security/public/captures/{userId}/processing_progress.json"
         
-        with open(progress_file, 'w') as f:
+        # Ensure both directories exist
+        os.makedirs(os.path.dirname(progress_file_docker), exist_ok=True)
+        os.makedirs(os.path.dirname(progress_file_local), exist_ok=True)
+        
+        # Write to both locations
+        progress_file = progress_file_docker
+        
+        # Write to Docker path (primary)
+        with open(progress_file_docker, 'w') as f:
             json.dump(progress_data, f, indent=2)
             f.flush()  # Ensure data is written to disk immediately
+        
+        # Also write to local path for frontend access
+        try:
+            with open(progress_file_local, 'w') as f:
+                json.dump(progress_data, f, indent=2)
+                f.flush()
+        except Exception as e:
+            print(f"Warning: Could not write to local path: {e}")
             
         print(f"🔄 Progress updated: {status} - {message} - Progress: {progress_percentage}%")
-        print(f"📁 Progress file written to: {progress_file}")
+        print(f"📁 Progress file written to: {progress_file_docker}")
+        print(f"📁 Progress file also written to: {progress_file_local}")
         print(f"📊 Progress data: {progress_data}")
         logging.info(f"Progress updated: {status} - {message} - Progress: {progress_percentage}%")
-        logging.info(f"Progress file written to: {progress_file}")
+        logging.info(f"Progress file written to: {progress_file_docker}")
+        logging.info(f"Progress file also written to: {progress_file_local}")
         logging.info(f"Progress data: {progress_data}")
         
     except Exception as e:
@@ -685,6 +704,25 @@ async def process_images(
                 "currentSet": set_numbers[-1],
                 "currentFile": f"webcam_{set_numbers[-1]:03d}.jpg"
             }
+            
+            # Clean up progress file after successful completion
+            try:
+                progress_file_docker = f"/app/resource_security/public/captures/{userId}/processing_progress.json"
+                progress_file_local = f"../auth_service/resource_security/public/captures/{userId}/processing_progress.json"
+                
+                # Remove progress files to indicate processing is complete
+                if os.path.exists(progress_file_docker):
+                    os.remove(progress_file_docker)
+                    print(f"🗑️ Cleaned up Docker progress file: {progress_file_docker}")
+                
+                if os.path.exists(progress_file_local):
+                    os.remove(progress_file_local)
+                    print(f"🗑️ Cleaned up local progress file: {progress_file_local}")
+                    
+                print(f"✅ Processing completed and progress files cleaned up for user: {userId}")
+            except Exception as e:
+                print(f"Warning: Could not clean up progress files: {e}")
+                logging.warning(f"Could not clean up progress files: {e}")
         
         else:
             yield {"success": False, "error": "No set_numbers provided for batch processing"}
@@ -692,6 +730,24 @@ async def process_images(
     except Exception as e:
         error_msg = f"Error processing images: {str(e)}"
         logging.error(error_msg)
+        
+        # Clean up progress file on error
+        try:
+            if userId:
+                progress_file_docker = f"/app/resource_security/public/captures/{userId}/processing_progress.json"
+                progress_file_local = f"../auth_service/resource_security/public/captures/{userId}/processing_progress.json"
+                
+                # Remove progress files to indicate processing failed
+                if os.path.exists(progress_file_docker):
+                    os.remove(progress_file_docker)
+                    print(f"🗑️ Cleaned up Docker progress file after error: {progress_file_docker}")
+                
+                if os.path.exists(progress_file_local):
+                    os.remove(progress_file_local)
+                    print(f"🗑️ Cleaned up local progress file after error: {progress_file_local}")
+        except Exception as cleanup_error:
+            print(f"Warning: Could not clean up progress files after error: {cleanup_error}")
+        
         yield {
             "status": "error",
             "message": error_msg,
