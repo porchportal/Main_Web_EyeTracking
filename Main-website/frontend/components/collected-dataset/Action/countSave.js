@@ -10,7 +10,6 @@ import { captureImagesAtPoint } from '../Helper/savefile';
  */
 export const createCountdownElement = (position, canvasRect) => {
   if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
-    console.warn('[createCountdownElement] Invalid position:', position);
     return null;
   }
 
@@ -221,7 +220,6 @@ export const showCapturePreview = (screenImage, webcamImage, point) => {
  */
 export const runCountdown = async (position, canvas, onStatusUpdate, onComplete) => {
   if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
-    console.warn('[runCountdown] Invalid position:', position);
     onStatusUpdate?.({
       processStatus: "Invalid dot position",
       countdownValue: null,
@@ -234,7 +232,6 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
   const countdownElement = createCountdownElement(position, canvasRect);
   
   if (!countdownElement) {
-    console.warn('[runCountdown] Countdown element could not be created.');
     return;
   }
 
@@ -358,7 +355,6 @@ export const captureImages = async (options) => {
     } = options;
   
     if (!position || typeof position.x !== 'number' || typeof position.y !== 'number') {
-      console.warn('[captureImages] Invalid position object:', position);
       setProcessStatus?.('Error: Invalid capture position');
       return null;
     }
@@ -373,8 +369,6 @@ export const captureImages = async (options) => {
         showCapturePreview
       });
   
-      console.log('Capture successful with ID:', result.captureId);
-      
       return {
         screenImage: result?.screenImage || '',
         webcamImage: result?.webcamImage || '',
@@ -382,7 +376,6 @@ export const captureImages = async (options) => {
         captureId: result?.captureId
       };
     } catch (err) {
-      console.error('[captureImages] Unexpected error:', err);
       setProcessStatus?.(`Error: ${err.message}`);
       return {
         screenImage: '',
@@ -434,12 +427,9 @@ export const calibrationCapture = async (options) => {
     } = options;
   
     try {
-      console.log(`Starting calibration capture for point ${pointIndex + 1}/${totalPoints}`);
-      
       // Get canvas
       const canvas = canvasRef.current;
       if (!canvas) {
-        console.error("Canvas reference is null in calibrationCapture");
         setProcessStatus?.(`Error: Canvas not available`);
         return { success: false };
       }
@@ -455,7 +445,6 @@ export const calibrationCapture = async (options) => {
       const countdownElement = createCountdownElement(point, canvasRect);
       
       if (!countdownElement) {
-        console.error("Failed to create countdown element");
         return { success: false };
       }
   
@@ -527,7 +516,6 @@ export const calibrationCapture = async (options) => {
       };
       
     } catch (error) {
-      console.error("Error in calibrationCapture:", error);
       setProcessStatus?.(`Error: ${error.message}`);
       
       // Always return a valid object with default values
@@ -559,7 +547,6 @@ export const captureAndPreviewProcess = async (options) => {
   try {
     const canvas = canvasRef?.current;
     if (!canvas) {
-      console.error("[captureAndPreviewProcess] Canvas reference is null");
       if (setProcessStatus) setProcessStatus('Error: Canvas is not available');
       return null;
     }
@@ -675,8 +662,6 @@ export const captureAndPreviewProcess = async (options) => {
     return captureResult;
 
   } catch (error) {
-    console.error("[captureAndPreviewProcess] Fatal error:", error);
-    
     if (setProcessStatus) {
       setProcessStatus(`Fatal error: ${error.message}`);
     }

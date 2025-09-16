@@ -278,8 +278,28 @@ const CameraAccess = ({
             processingInterval.current = setInterval(captureAndProcessFrame, 33); // ~30fps
           }
         } catch (playError) {
-          console.error('Error playing video:', playError);
-          setErrorMessage('Unable to start video stream. Please try again.');
+          // Handle specific play errors
+          if (playError.name === 'AbortError') {
+            console.log('Video play was interrupted (likely due to React StrictMode), retrying...');
+            // Retry after a short delay
+            setTimeout(async () => {
+              try {
+                await videoRef.current.play();
+                console.log('Video playing successfully after retry!');
+                setIsVideoReady(true);
+                
+                if (wsStatus === 'connected') {
+                  processingInterval.current = setInterval(captureAndProcessFrame, 33);
+                }
+              } catch (retryError) {
+                console.error('Error playing video after retry:', retryError);
+                setErrorMessage('Unable to start video stream. Please try again.');
+              }
+            }, 100);
+          } else {
+            console.error('Error playing video:', playError);
+            setErrorMessage('Unable to start video stream. Please try again.');
+          }
         }
       }
     } catch (error) {

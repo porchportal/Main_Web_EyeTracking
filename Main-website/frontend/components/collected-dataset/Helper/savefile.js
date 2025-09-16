@@ -50,36 +50,69 @@ const resizeImage = async (imageDataUrl, maxWidth = 800, maxHeight = 600, qualit
 };
 
 /**
+ * Get current user ID from various sources
+ * @returns {string|null} - Current user ID or null if not found
+ */
+const getCurrentUserId = () => {
+  // Try to get from global state
+  if (typeof window !== 'undefined' && window.currentUserId) {
+    return window.currentUserId;
+  }
+  
+  // Try to get from localStorage
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('currentUserId');
+    if (stored) {
+      return stored;
+    }
+  }
+  
+  // Try to get from URL parameters
+  if (typeof window !== 'undefined' && window.location) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const userId = urlParams.get('userId');
+    if (userId) {
+      return userId;
+    }
+  }
+  
+  return null;
+};
+
+/**
  * Save an image or data to the server with group ID to ensure consistent numbering
  * @param {string} imageData - Base64 encoded image data
  * @param {string} filename - Filename pattern to save as
  * @param {string} type - Type of file (screen, webcam, parameters)
- * @param {string} folder - Folder to save in
+ * @param {string} folder - Folder to save in (deprecated, kept for compatibility)
  * @param {string} captureGroup - Unique ID for grouping files from the same capture
  * @returns {Promise<Object>} - Server response
  */
 export const saveImageToServer = async (imageData, filename, type, folder = 'eye_tracking_captures', captureGroup = null) => {
   try {
-    const response = await fetch('/api/save-capture', {
+    const userId = getCurrentUserId();
+    
+    if (!userId) {
+      return { success: false, error: 'No user ID available' };
+    }
+    
+    const response = await fetch(`/api/user-captures/save/${userId}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
       },
       body: JSON.stringify({ 
         imageData, 
         filename, 
-        type, 
-        folder,
+        type,
         captureGroup // Include the capture group ID
       })
     });
     
     if (!response.ok) {
-      console.error(`Server returned ${response.status} for ${type}`);
-      
       // If the error is 413 (payload too large) and it's an image, try resizing
       if (response.status === 413 && type !== 'parameters') {
-        console.warn(`Image too large for server (413 error), will resize and retry`);
         
         // Start with higher quality and progressively reduce quality/size until it fits
         const sizes = [
@@ -93,26 +126,25 @@ export const saveImageToServer = async (imageData, filename, type, folder = 'eye
           const resizedImage = await resizeImage(imageData, width, height, quality);
           
           try {
-            const retryResponse = await fetch('/api/save-capture', {
+            const retryResponse = await fetch(`/api/user-captures/save/${userId}`, {
               method: 'POST',
               headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
               },
               body: JSON.stringify({ 
                 imageData: resizedImage, 
                 filename, 
-                type, 
-                folder,
+                type,
                 captureGroup
               })
             });
             
             if (retryResponse.ok) {
-              console.log(`Successfully saved resized ${type} at ${width}x${height}, quality ${quality}`);
               return await retryResponse.json();
             }
           } catch (retryError) {
-            console.error(`Error during retry for ${type}:`, retryError);
+            // Continue to next size
           }
         }
         
@@ -125,7 +157,6 @@ export const saveImageToServer = async (imageData, filename, type, folder = 'eye
     const result = await response.json();
     return result;
   } catch (error) {
-    console.error(`Error saving ${type}:`, error);
     return { success: false, error: error.message };
   }
 };
@@ -134,24 +165,59 @@ export const saveImageToServer = async (imageData, filename, type, folder = 'eye
  * Save CSV data to the server
  * @param {string} csvData - CSV data
  * @param {string} filename - Filename pattern to save as
- * @param {string} folder - Folder to save in
+ * @param {string} folder - Folder to save in (deprecated, kept for compatibility)
  * @param {string} captureGroup - Unique ID for grouping files from the same capture
  * @returns {Promise<Object>} - Server response
  */
 export const saveCSVToServer = async (csvData, filename, folder = 'eye_tracking_captures', captureGroup = null) => {
   try {
-    const csvBlob = new Blob([csvData], { type: 'text/csv' });
-    const reader = new FileReader();
-    const csvDataUrl = await new Promise((resolve) => {
-      reader.onloadend = () => resolve(reader.result);
-      reader.readAsDataURL(csvBlob);
-    });
-
-    const result = await saveImageToServer(csvDataUrl, filename, 'parameters', folder, captureGroup);
+    const userId = getCurrentUserId();
+    
+    if (!userId) {
+      return { success: false, error: 'No user ID available' };
+    }
+    
+    // Convert CSV data to base64
+    const base64Data = btoa(unescape(encodeURIComponent(csvData)));
+    const dataUrl = `data:text/csv;base64,${base64Data}`;
+    
+    const result = await saveImageToServer(dataUrl, filename, 'parameters', folder, captureGroup);
     return result;
   } catch (error) {
-    console.error('Error saving CSV:', error);
-    return null;
+    return { success: false, error: error.message };
+  }
+};
+
+/**
+ * Get user capture status
+ * @returns {Promise<Object>} - User capture status
+ */
+export const getUserCaptureStatus = async () => {
+  try {
+    const userId = getCurrentUserId();
+    
+    if (!userId) {
+      return { success: false, error: 'No user ID available' };
+    }
+    
+    const response = await fetch(`/api/user-captures/status/${userId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const result = await response.json();
+    return result;
+  } catch (error) {
+    return { success: false, error: error.message };
   }
 };
 
@@ -166,13 +232,11 @@ export const getHighestResolutionConstraints = async () => {
     const tempStream = await navigator.mediaDevices.getUserMedia({ video: true });
     const videoTrack = tempStream.getVideoTracks()[0];
     
-    // Get capabilities
-    const capabilities = videoTrack.getCapabilities?.();
-    console.log("Camera capabilities:", capabilities);
-    
-    // Get current settings to check aspect ratio
-    const settings = videoTrack.getSettings();
-    console.log("Current camera settings:", settings);
+        // Get capabilities
+        const capabilities = videoTrack.getCapabilities?.();
+        
+        // Get current settings to check aspect ratio
+        const settings = videoTrack.getSettings();
     
     // Stop the temporary stream
     videoTrack.stop();
@@ -183,9 +247,21 @@ export const getHighestResolutionConstraints = async () => {
       const maxHeight = capabilities.height.max;
       
       if (maxWidth === maxHeight && maxWidth > 100) {
-        console.warn(`Suspicious square aspect ratio in capabilities: ${maxWidth}×${maxHeight}`);
+        // Try to find a reasonable resolution from the supported constraints
+        if (capabilities.width && capabilities.width.max && capabilities.height && capabilities.height.max) {
+          // Calculate a reasonable 16:9 aspect ratio based on max width
+          const idealWidth = Math.min(maxWidth, 1920);
+          const idealHeight = Math.round(idealWidth * 9 / 16);
+          
+          return {
+            video: {
+              width: { ideal: idealWidth },
+              height: { ideal: idealHeight }
+            }
+          };
+        }
         
-        // Use one of the common non-square resolutions instead
+        // Fallback to standard resolution
         return {
           video: {
             width: { ideal: 1920 },
@@ -203,7 +279,7 @@ export const getHighestResolutionConstraints = async () => {
       };
     }
   } catch (err) {
-    console.log("Could not get camera capabilities:", err);
+    // Continue to fallback resolutions
   }
   
   // Fallback: try standard resolutions in order
@@ -233,11 +309,9 @@ export const getHighestResolutionConstraints = async () => {
       // Get the actual dimensions
       const videoTrack = stream.getVideoTracks()[0];
       const settings = videoTrack.getSettings();
-      console.log("Supported resolution:", settings.width, "x", settings.height);
       
       // Check for square aspect ratio in the actual settings
       if (settings.width === settings.height && settings.width > 100) {
-        console.warn(`Received suspicious square aspect ratio: ${settings.width}×${settings.height}`);
         // Continue to next resolution to avoid the square aspect ratio
         stream.getTracks().forEach(track => track.stop());
         continue;
@@ -248,7 +322,6 @@ export const getHighestResolutionConstraints = async () => {
       
       return constraints;
     } catch (err) {
-      console.log(`Resolution not supported: ${JSON.stringify(resolution)}`);
       // Continue to next resolution
     }
   }
@@ -265,23 +338,31 @@ export const getHighestResolutionConstraints = async () => {
 /**
  * Capture and save images at a specific point with consistent numbering
  * @param {Object} options - Capture options
+ * @param {Object} point - Point coordinates
+ * @param {number} captureCount - Current capture count
+ * @param {Object} canvasRef - Canvas reference
+ * @param {Function} setCaptureCount - Function to update capture count
+ * @param {Function} showCapturePreview - Function to show capture preview
+ * @param {string} userId - User ID for saving files
  * @returns {Promise<Object>} - Capture results
  */
-export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef, setCaptureCount, showCapturePreview }) => {
+export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef, setCaptureCount, showCapturePreview, userId = null }) => {
   try {
+    // Set userId globally if provided
+    if (userId && typeof window !== 'undefined') {
+      window.currentUserId = userId;
+      localStorage.setItem('currentUserId', userId);
+    }
+    
     const folder = 'eye_tracking_captures';
     
     // Create a unique ID for this capture group
     const captureGroupId = `capture-${Date.now()}`;
-    console.log(`Generated capture group ID: ${captureGroupId}`);
     
     // File patterns for saving
     const screenFilename = 'screen_001.jpg';  // Pattern only - server will assign number
     const webcamFilename = 'webcam_001.jpg';  // Pattern only - server will assign number
     const parameterFilename = 'parameter_001.csv';  // Pattern only - server will assign number
-    
-    // For logging
-    console.log("Starting capture with group ID:", captureGroupId);
     
     const canvas = canvasRef.current;
     let screenImage = null;
@@ -314,7 +395,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
           const videoTrack = videoElement.srcObject.getVideoTracks()[0];
           if (videoTrack) {
             trackSettings = videoTrack.getSettings();
-            console.log("Video track settings:", trackSettings);
           }
         }
         
@@ -322,23 +402,18 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
         if (trackSettings && trackSettings.width && trackSettings.height) {
           webcamWidth = trackSettings.width;
           webcamHeight = trackSettings.height;
-          console.log(`Using track settings dimensions: ${webcamWidth}x${webcamHeight}`);
         } else {
           webcamWidth = videoElement.videoWidth || 0;
           webcamHeight = videoElement.videoHeight || 0;
-          console.log(`Using video element dimensions: ${webcamWidth}x${webcamHeight}`);
         }
         
         // Sanity check - if both dimensions are the same, double-check
         if (webcamWidth === webcamHeight && webcamWidth > 100) {
-          console.warn("Suspicious square aspect ratio detected, double-checking dimensions");
-          
           // Try to get more reliable info
           if (videoElement.srcObject) {
             const videoTrack = videoElement.srcObject.getVideoTracks()[0];
             if (videoTrack) {
               const constraints = videoTrack.getConstraints();
-              console.log("Video constraints:", constraints);
               
               // If constraints have width/height, use those
               if (constraints.width && constraints.height) {
@@ -353,8 +428,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
                 } else if (typeof constraints.height.ideal === 'number') {
                   webcamHeight = constraints.height.ideal;
                 }
-                
-                console.log(`Updated dimensions from constraints: ${webcamWidth}x${webcamHeight}`);
               }
             }
           }
@@ -362,7 +435,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
         
         // Final reality check - make sure dimensions are reasonable
         if (webcamWidth <= 0 || webcamHeight <= 0) {
-          console.warn("Invalid webcam dimensions, using defaults");
           webcamWidth = 640;
           webcamHeight = 480;
         }
@@ -377,10 +449,7 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
         
         // Create lower-resolution version for preview
         webcamImagePreview = await resizeImage(webcamImage, 640, 480, 0.85);
-        
-        console.log(`Webcam capture complete at resolution: ${webcamWidth}x${webcamHeight}`);
       } catch (err) {
-        console.error("Error capturing from existing video element:", err);
         webcamWidth = videoElement.videoWidth || 640;
         webcamHeight = videoElement.videoHeight || 480;
       }
@@ -388,7 +457,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
       try {
         // Get highest resolution constraints for this device
         const constraints = await getHighestResolutionConstraints();
-        console.log("Using camera constraints:", constraints);
         
         // Try to get stream with highest resolution
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -396,7 +464,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
         // Get the actual dimensions from the track first
         const videoTrack = stream.getVideoTracks()[0];
         const trackSettings = videoTrack.getSettings();
-        console.log("Actual camera settings:", trackSettings);
         
         // Create temporary video element to get the stream
         const tempVideo = document.createElement('video');
@@ -423,16 +490,13 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
         if (trackSettings && trackSettings.width && trackSettings.height) {
           webcamWidth = trackSettings.width;
           webcamHeight = trackSettings.height;
-          console.log(`Using track settings for resolution: ${webcamWidth}x${webcamHeight}`);
         } else {
           webcamWidth = tempVideo.videoWidth || 0;
           webcamHeight = tempVideo.videoHeight || 0;
-          console.log(`Using video element for resolution: ${webcamWidth}x${webcamHeight}`);
         }
         
         // Reality check on dimensions
         if (webcamWidth <= 0 || webcamHeight <= 0) {
-          console.warn("Invalid webcam dimensions, trying to get from constraints");
           if (constraints.video && typeof constraints.video === 'object') {
             if (constraints.video.width && constraints.video.width.ideal) {
               webcamWidth = constraints.video.width.ideal;
@@ -443,7 +507,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
           }
           
           if (webcamWidth <= 0 || webcamHeight <= 0) {
-            console.warn("Still invalid dimensions, using defaults");
             webcamWidth = 640;
             webcamHeight = 480;
           }
@@ -451,7 +514,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
         
         // Final check for square aspect ratio which is usually incorrect
         if (webcamWidth === webcamHeight && webcamWidth > 100) {
-          console.warn("Square aspect ratio detected, may be incorrect");
           // Try to get more reliable dimensions
           const capabilities = videoTrack.getCapabilities?.();
           if (capabilities && capabilities.width && capabilities.height) {
@@ -461,10 +523,8 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
               
               if (Math.abs(aspectRatio - 1.33) < 0.1) { // Close to 4:3
                 webcamHeight = Math.round(webcamWidth / 1.33);
-                console.log(`Corrected to 4:3 aspect ratio: ${webcamWidth}x${webcamHeight}`);
               } else if (Math.abs(aspectRatio - 1.78) < 0.1) { // Close to 16:9
                 webcamHeight = Math.round(webcamWidth / 1.78);
-                console.log(`Corrected to 16:9 aspect ratio: ${webcamWidth}x${webcamHeight}`);
               }
             }
           }
@@ -481,13 +541,10 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
         // Create lower-resolution version for preview
         webcamImagePreview = await resizeImage(webcamImage, 640, 480, 0.85);
         
-        console.log(`High-resolution webcam capture complete: ${webcamWidth}x${webcamHeight}`);
-        
         // Clean up
         stream.getTracks().forEach(t => t.stop());
         tempVideo.remove();
       } catch (err) {
-        console.warn("High-resolution webcam capture failed:", err);
         
         // Try one more time with basic constraints
         try {
@@ -529,12 +586,9 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
           // Create lower-resolution version for preview
           webcamImagePreview = await resizeImage(webcamImage, 640, 480, 0.8);
           
-          console.log(`Basic webcam resolution captured: ${webcamWidth}x${webcamHeight}`);
-          
           stream.getTracks().forEach(t => t.stop());
           tempVideo.remove();
         } catch (fallbackErr) {
-          console.error("All webcam capture methods failed:", fallbackErr);
           webcamWidth = 640;
           webcamHeight = 480;
         }
@@ -563,7 +617,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
     
     if (paramResult && paramResult.success) {
       captureNumber = paramResult.number;
-      console.log(`Server assigned capture number: ${captureNumber} for group: ${captureGroupId}`);
     }
     
     // 2.2 Save screen image if available
@@ -588,7 +641,15 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
       setCaptureCount(prevCount => prevCount + 1);
     }
     
-    // 5. Return results - now including webcam resolution
+    // 5. Check capture status to verify files were saved
+    try {
+      const statusResult = await getUserCaptureStatus();
+      // Status check completed silently
+    } catch (statusError) {
+      // Status check failed silently
+    }
+
+    // 6. Return results - now including webcam resolution
     return {
       screenImage,
       webcamImage,
@@ -600,7 +661,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
       webcamHeight
     };
   } catch (err) {
-    console.error("captureImagesAtPoint failed:", err);
     return { 
       success: false, 
       error: err.message,

@@ -367,7 +367,10 @@ export default function HomePage() {
         break;
 
       case 'collected-dataset':
-        router.push('/collected-dataset');
+        router.push({
+          pathname: '/collected-dataset',
+          query: { userId: userId }
+        });
         break;
 
       case 'testing-model':

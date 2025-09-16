@@ -10,8 +10,6 @@ export default async function handler(req, res) {
   try {
     const { userId } = req.query;
 
-    console.log('🔍 Frontend API received status request for user:', userId);
-
     // Forward the request to the backend via nginx
     const backendResponse = await fetch(`${BACKEND_URL}/api/user-captures/status/${userId}`, {
       method: 'GET',
@@ -20,11 +18,8 @@ export default async function handler(req, res) {
       }
     });
 
-    console.log(`📥 Backend status response: ${backendResponse.status} ${backendResponse.statusText}`);
-
     if (!backendResponse.ok) {
       const errorData = await backendResponse.json();
-      console.error('❌ Backend error response:', errorData);
       return res.status(backendResponse.status).json({
         success: false,
         detail: errorData.detail || `Backend returned ${backendResponse.status}`
@@ -32,17 +27,10 @@ export default async function handler(req, res) {
     }
 
     const result = await backendResponse.json();
-    console.log(`✅ Successfully forwarded status request to backend for user ${userId}:`, result);
     
     return res.status(200).json(result);
 
   } catch (error) {
-    console.error('❌ Error in user-captures status API:', error);
-    console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
-      type: error.constructor.name
-    });
     return res.status(500).json({
       success: false,
       detail: error.message

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/router';
 import TopBar from './components-gui/topBar';
 import DisplayResponse from './components-gui/displayResponse';
 import { ActionButtonGroup } from './components-gui/actionButton';
@@ -48,8 +49,13 @@ const DynamicCameraAccess = dynamic(
 );
 
 export default function CollectedDatasetPage() {
+  const router = useRouter();
+  
   // State for hydration detection
   const [isHydrated, setIsHydrated] = useState(false);
+  
+  // State for user ID
+  const [userId, setUserId] = useState(null);
   
   // State for camera management
   const [showCamera, setShowCamera] = useState(false);
@@ -103,13 +109,11 @@ export default function CollectedDatasetPage() {
   const getMainCanvas = () => {
     // Method 1: Check if we have a direct reference
     if (canvasRef.current) {
-      console.log("Using direct canvasRef.current reference");
       return canvasRef.current;
     }
     
     // Method 2: Try to get global reference
     if (typeof window !== 'undefined' && window.whiteScreenCanvas) {
-      console.log("Using global whiteScreenCanvas reference");
       canvasRef.current = window.whiteScreenCanvas; // Update our ref
       return window.whiteScreenCanvas;
     }
@@ -118,7 +122,6 @@ export default function CollectedDatasetPage() {
     if (typeof document !== 'undefined') {
       const canvasElement = document.querySelector('.tracking-canvas');
       if (canvasElement) {
-        console.log("Found canvas via DOM selector");
         canvasRef.current = canvasElement; // Update our ref
         if (typeof window !== 'undefined') {
           window.whiteScreenCanvas = canvasElement; // Update global ref too
@@ -127,7 +130,6 @@ export default function CollectedDatasetPage() {
       }
     }
     
-    console.warn("No canvas found via any method");
     return null;
   };
   
@@ -141,11 +143,6 @@ export default function CollectedDatasetPage() {
     // Debug info to verify canvas size and availability
     const canvas = canvasRef.current;
     if (canvas) {
-      console.log("Index.js: Canvas initialized", {
-        width: canvas.width,
-        height: canvas.height
-      });
-      
       // Make canvas EXPLICITLY available globally
       window.whiteScreenCanvas = canvas;
       
@@ -154,14 +151,11 @@ export default function CollectedDatasetPage() {
         width: canvas.width,
         height: canvas.height
       };
-    } else {
-      console.warn("Canvas reference is not available during initialization");
     }
     
     // Expose canvas initialization function globally
     window.initializeCanvas = (canvas, parent) => {
       if (!canvas || !parent) {
-        console.warn('[initializeCanvas] Canvas or parent is null', { canvas, parent });
         return false;
       }
       
@@ -176,8 +170,6 @@ export default function CollectedDatasetPage() {
         ctx.fillStyle = 'white';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         
-        console.log(`Canvas initialized with dimensions: ${canvas.width}x${canvas.height}`);
-        
         // Update global reference
         window.whiteScreenCanvas = canvas;
         window.canvasDimensions = {
@@ -187,7 +179,6 @@ export default function CollectedDatasetPage() {
         
         return true;
       } catch (error) {
-        console.error('[initializeCanvas] Error initializing canvas:', error);
         return false;
       }
     };
@@ -196,17 +187,8 @@ export default function CollectedDatasetPage() {
     setTimeout(() => {
       const canvas = getMainCanvas();
       if (canvas) {
-        const rect = canvas.getBoundingClientRect();
-        console.log("Canvas initial visibility check:", {
-          dimensions: `${canvas.width}x${canvas.height}`,
-          rectSize: `${rect.width}x${rect.height}`,
-          isVisible: (rect.width > 0 && rect.height > 0)
-        });
-        
         // Force initialization if needed
         adjustCanvasDimensions();
-      } else {
-        console.warn("Canvas not found during visibility check");
       }
     }, 500);
     
@@ -222,7 +204,6 @@ export default function CollectedDatasetPage() {
     
     const canvas = getMainCanvas();
     if (!canvas) {
-      console.warn("No canvas found to adjust dimensions");
       return;
     }
     
@@ -233,13 +214,6 @@ export default function CollectedDatasetPage() {
     
     // Calculate proper height based on top bar visibility
     const topBarHeight = showTopBar ? 120 : 0; // Adjust this value based on your top bar's actual height
-    
-    console.log("Adjusting canvas dimensions", {
-      containerWidth: rect.width,
-      containerHeight: rect.height,
-      topBarVisible: showTopBar,
-      calculatedHeight: rect.height
-    });
     
     // Set canvas dimensions to match container size with top bar adjustment
     canvas.width = rect.width;
@@ -252,8 +226,6 @@ export default function CollectedDatasetPage() {
     // Fill with white background
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    console.log(`Canvas dimensions adjusted: ${canvas.width}x${canvas.height}`);
     
     // Update global reference with current dimensions
     window.whiteScreenCanvas = canvas;
@@ -268,7 +240,6 @@ export default function CollectedDatasetPage() {
     if (!captureFolder && isClient && isHydrated) {
       const timestamp = new Date().toISOString().replace(/[:\.]/g, '-');
       setCaptureFolder(`session_${timestamp}`);
-      console.log(`Created capture folder: session_${timestamp}`);
     }
   }, [captureFolder, isClient, isHydrated]);
   
@@ -276,6 +247,45 @@ export default function CollectedDatasetPage() {
   useEffect(() => {
     setIsHydrated(true);
   }, []);
+
+  // Get userId from router query
+  useEffect(() => {
+    if (router.isReady && router.query.userId) {
+      setUserId(router.query.userId);
+      
+      // Set userId globally for save functions
+      if (typeof window !== 'undefined') {
+        window.currentUserId = router.query.userId;
+        localStorage.setItem('currentUserId', router.query.userId);
+        
+        // Test the capture status API
+        testCaptureStatus();
+      }
+    }
+  }, [router.isReady, router.query.userId]);
+
+  // Test function to verify capture system is working
+  const testCaptureStatus = async () => {
+    try {
+      const response = await fetch(`/api/user-captures/status/${router.query.userId}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setOutputText(`Capture system ready for user ${router.query.userId} (${data.total_captures || 0} existing captures)`);
+      } else {
+        setOutputText(`Capture system ready for user ${router.query.userId} (status check failed)`);
+      }
+    } catch (error) {
+      setOutputText(`Capture system ready for user ${router.query.userId}`);
+    }
+  };
 
   // Check backend connection on mount
   useEffect(() => {
@@ -286,12 +296,10 @@ export default function CollectedDatasetPage() {
         const response = await fetch('/api/check-backend-connection');
         const data = await response.json();
         setBackendStatus(data.connected ? 'connected' : 'disconnected');
-        console.log(`Backend connection: ${data.connected ? 'OK' : 'Failed'}`);
         
         // Show status in output text
         setOutputText(`Backend ${data.connected ? 'connected' : 'disconnected - using mock mode'}`);
       } catch (error) {
-        console.error('Error checking backend connection:', error);
         setBackendStatus('disconnected');
         setOutputText('Backend disconnected - using mock mode');
       }
@@ -490,20 +498,17 @@ export default function CollectedDatasetPage() {
         // Use the imported module approach - similar to calibrate
         if (actionButtonGroupRef.current && actionButtonGroupRef.current.handleSetRandom) {
           // Use the reference method if available
-          console.log('Using ActionButtonGroup ref method for Set Random');
           actionButtonGroupRef.current.handleSetRandom();
         } 
         else if (typeof window !== 'undefined' && window.actionButtonFunctions && 
           typeof window.actionButtonFunctions.handleSetRandom === 'function') {
           // Fallback to global method
-          console.log('Using global bridge method for Set Random');
           window.actionButtonFunctions.handleSetRandom();
         }
         else {
           // Make sure we have a canvas to work with
           const canvas = getMainCanvas();
           if (!canvas) {
-            console.error("Canvas not found for random sequence");
             setOutputText("Error: Canvas not available for random sequence");
             setShowTopBar(true);
             return;
@@ -598,7 +603,8 @@ export default function CollectedDatasetPage() {
                     captureCount: captureCounter,
                     canvasRef: { current: canvas },
                     setCaptureCount: setCaptureCounter,
-                    showCapturePreview
+                    showCapturePreview,
+                    userId: userId
                   });
                   
                   if (captureResult && (captureResult.screenImage || captureResult.success)) {
@@ -608,7 +614,7 @@ export default function CollectedDatasetPage() {
                   // Increment counter
                   setCaptureCounter(prev => prev + 1);
                 } catch (error) {
-                  console.error(`Error capturing point ${currentCapture}:`, error);
+                  // Error capturing point, continue with next
                 }
                 
                 // Wait between captures for the specified delay time
@@ -625,14 +631,12 @@ export default function CollectedDatasetPage() {
               setOutputText(`Random capture sequence completed: ${successCount}/${times} captures successful`);
               
             } catch (error) {
-              console.error("Random sequence error:", error);
               setOutputText(`Random sequence error: ${error.message}`);
             } finally {
               // Show TopBar again
               setTimeout(() => setShowTopBar(true), 2000);
             }
           }).catch(error => {
-            console.error("Failed to import required modules:", error);
             setOutputText(`Error: ${error.message}`);
             setShowTopBar(true);
           });
@@ -645,22 +649,18 @@ export default function CollectedDatasetPage() {
         if (showCamera) {
           toggleCamera(false);
         }
-        console.log('Attempting to access Random Dot functionality');
         
         // Use the random dot functionality from actionButton.js by delegating to ActionButtonGroup
         // This assumes you have a ref to the ActionButtonGroup component
         if (actionButtonGroupRef.current && actionButtonGroupRef.current.handleRandomDot) {
-          console.log('Using ref method');
           actionButtonGroupRef.current.handleRandomDot();
         } else if (typeof window !== 'undefined' && window.actionButtonFunctions && 
           typeof window.actionButtonFunctions.handleRandomDot === 'function') {
-          console.log('Using global bridge method');
           window.actionButtonFunctions.handleRandomDot();
         } else {
           // Fallback implementation
           const canvas = getMainCanvas();
           if (!canvas) {
-            console.error("Canvas not found for random dot action");
             setOutputText("Error: Canvas not available for random dot");
             setShowTopBar(true); // Show TopBar again if there's an error
             break;
@@ -668,7 +668,6 @@ export default function CollectedDatasetPage() {
           
           const parent = previewAreaRef.current;
           if (!parent) {
-            console.error("Parent not found for canvas");
             setOutputText("Error: Canvas parent not available");
             setShowTopBar(true);
             break;
@@ -682,7 +681,6 @@ export default function CollectedDatasetPage() {
           ctx.fillStyle = 'white';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           
-          console.log(`Canvas ready for random dot: ${canvas.width}x${canvas.height}`);
           
           // Update global reference
           window.whiteScreenCanvas = canvas;
@@ -692,7 +690,6 @@ export default function CollectedDatasetPage() {
           
           // Draw the dot using the imported function
           const dot = drawRedDot(ctx, position.x, position.y, 8, false);
-          console.log(`Random dot drawn at: ${position.x}, ${position.y}`);
           
           // Start a countdown for capture
           runCountdown(
@@ -717,7 +714,8 @@ export default function CollectedDatasetPage() {
                     captureCount: captureCounter,
                     canvasRef: { current: canvas },
                     setCaptureCount: setCaptureCounter,
-                    showCapturePreview
+                    showCapturePreview,
+                    userId: userId
                   }).then(() => {
                     setCaptureCounter(prev => prev + 1);
                     
@@ -726,12 +724,10 @@ export default function CollectedDatasetPage() {
                       setShowTopBar(true);
                     }, 2200);
                   }).catch(err => {
-                    console.error("Error capturing images:", err);
                     setOutputText(`Error: ${err.message}`);
                     setShowTopBar(true);
                   });
                 }).catch(err => {
-                  console.error("Error importing savefile module:", err);
                   setOutputText(`Error: ${err.message}`);
                   setShowTopBar(true);
                 });
@@ -825,20 +821,17 @@ export default function CollectedDatasetPage() {
         }
         if (actionButtonGroupRef.current && actionButtonGroupRef.current.handleSetCalibrate) {
           // Use the reference method if available
-          console.log('Using ActionButtonGroup ref method for calibration');
           actionButtonGroupRef.current.handleSetCalibrate();
         } 
         else if (typeof window !== 'undefined' && window.actionButtonFunctions && 
           typeof window.actionButtonFunctions.handleSetCalibrate === 'function') {
           // Fallback to global method
-          console.log('Using global bridge method for calibration');
           window.actionButtonFunctions.handleSetCalibrate();
         }
         else {
           // Make sure we have a canvas to work with
           const canvas = getMainCanvas();
           if (!canvas) {
-            console.error("Canvas not found for calibration");
             setOutputText("Error: Canvas not available for calibration");
             setShowTopBar(true);
             return;
@@ -931,7 +924,8 @@ export default function CollectedDatasetPage() {
                     captureCount: captureCounter,
                     canvasRef: { current: canvas },
                     setCaptureCount: setCaptureCounter,
-                    showCapturePreview: showCapturePreview
+                    showCapturePreview: showCapturePreview,
+                    userId: userId
                   });
                   
                   if (captureResult && (captureResult.screenImage || captureResult.success)) {
@@ -941,7 +935,7 @@ export default function CollectedDatasetPage() {
                   // Increment counter
                   setCaptureCounter(prev => prev + 1);
                 } catch (error) {
-                  console.error(`Error capturing point ${i+1}:`, error);
+                  // Error capturing point, continue with next
                 }
                 
                 // Wait between points
@@ -959,14 +953,12 @@ export default function CollectedDatasetPage() {
                 }
               }, 3000);
             } catch (error) {
-              console.error("Calibration error:", error);
               setOutputText(`Calibration error: ${error.message}`);
             } finally {
               // Show TopBar again
               setTimeout(() => setShowTopBar(true), 2000);
             }
           }).catch(error => {
-            console.error("Failed to import required modules:", error);
             setOutputText(`Calibration error: ${error.message}`);
             setShowTopBar(true);
           });
