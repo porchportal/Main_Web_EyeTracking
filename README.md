@@ -318,7 +318,7 @@ For support and questions:
 - Create an issue in the repository
 - Check the troubleshooting section
 - Review the documentation files
-- Contact the development team
+- Contact the development team(me)
 
 ---
 
