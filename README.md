@@ -139,7 +139,7 @@ For detailed technical specifications, system requirements, and configuration de
 
 ### 1. Clone and Setup
 ```bash
-git clone <repository-url>
+git clone https://github.com/porchportal/Main_Web_EyeTracking.git
 cd Main_web_eyetracking
 ```
 
