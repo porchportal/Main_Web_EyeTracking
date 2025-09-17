@@ -298,17 +298,7 @@ This project relies on several open-source libraries and frameworks:
 
 ## 🏛️ Institutional Affiliation
 
-This project is developed under the **NECTEC IPU Lab** (National Electronics and Computer Technology Center - Intelligent Processing Unit Laboratory), Thailand. The research and development of this eye tracking system is part of ongoing work in computer vision and human-computer interaction technologies.
-
-## 🤗 Acknowledgement
-
-Thanks for all the contributors and the open-source community.
-
-### External Libraries
-- **Real-ESRGAN Team**: For providing an excellent image super-resolution library
-- **Google MediaPipe Team**: For the comprehensive facial landmark detection framework
-- **Next.js Team**: For the robust React framework
-- **FastAPI Team**: For the high-performance Python web framework
+This project is developed under the **NECTEC IPU Lab** (National Electronics and Computer Technology Center - IPU Laboratory), Thailand. The research and development of this eye tracking system is part of ongoing work in computer vision and human-computer interaction technologies.
 
 ## 🤝 Contributing
 
