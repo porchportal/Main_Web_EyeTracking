@@ -15,7 +15,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log("Processing request...");
     
     // Check if this is a batch processing request (has set_numbers)
     const contentType = req.headers['content-type'] || '';
@@ -101,7 +100,6 @@ async function handleBatchProcessing(req, res) {
 
 async function handleSingleImageUpload(req, res) {
   try {
-    console.log("Processing image upload request...");
     
     // Parse the multipart form data with updated formidable API
     const form = formidable({
@@ -116,7 +114,6 @@ async function handleSingleImageUpload(req, res) {
       });
     });
     
-    console.log("Form parsed successfully");
     
     // Get the uploaded file - in newer formidable versions, files is an object with arrays
     const fileArr = files.file;
@@ -125,12 +122,10 @@ async function handleSingleImageUpload(req, res) {
     }
     
     const file = fileArr[0]; // Get the first file from the array
-    console.log("File received:", file.originalFilename);
     
     try {
       // Check if the file path exists
       const filePath = file.filepath;
-      console.log("File path:", filePath);
       
       if (!fs.existsSync(filePath)) {
         return res.status(400).json({ error: 'File path does not exist' });
@@ -157,7 +152,6 @@ async function handleSingleImageUpload(req, res) {
         body: formData,
       });
       
-      console.log("Backend response status:", response.status);
       
       if (!response.ok) {
         const errorText = await response.text();

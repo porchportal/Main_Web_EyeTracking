@@ -67,7 +67,6 @@ export default async function handler(req, res) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
       
-      console.log(`Attempting to authenticate with backend: ${backendUrl}/api/admin/auth`);
       
       const response = await fetch(`${backendUrl}/api/admin/auth`, {
         method: 'POST',
@@ -80,7 +79,6 @@ export default async function handler(req, res) {
 
       clearTimeout(timeoutId);
       
-      console.log(`Backend response status: ${response.status}`);
 
       if (response.ok) {
         try {
@@ -98,7 +96,6 @@ export default async function handler(req, res) {
           // Set the httpOnly cookie with the same settings as the backend
           res.setHeader('Set-Cookie', `admin_session=${sessionToken}; HttpOnly; Path=/; SameSite=Strict; Max-Age=3600`);
           
-          console.log('Authentication successful, session cookie set');
           return res.status(200).json({ message: 'Authentication successful' });
         } catch (parseError) {
           console.error('Error parsing backend response:', parseError);
@@ -107,7 +104,6 @@ export default async function handler(req, res) {
       } else {
         try {
           const errorData = await response.json();
-          console.log('Backend authentication failed:', errorData);
           return res.status(401).json({ message: errorData.detail || 'Invalid credentials' });
         } catch (parseError) {
           console.error('Error parsing backend error response:', parseError);

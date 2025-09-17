@@ -82,7 +82,6 @@ export default async function handler(req, res) {
         currentCaptureNumber = null;
       }, CAPTURE_GROUP_TIMEOUT);
       
-      console.log(`Using existing capture group ${captureGroup} with number ${nextNumber}`);
     } 
     // If this is a new capture or the first file in a new group
     else {
@@ -101,7 +100,6 @@ export default async function handler(req, res) {
           currentCaptureNumber = null;
         }, CAPTURE_GROUP_TIMEOUT);
         
-        console.log(`Started new capture group ${captureGroup} with number ${nextNumber}`);
       }
     }
     
@@ -139,7 +137,6 @@ export default async function handler(req, res) {
     const filePath = path.join(sessionDir, finalFilename);
     fs.writeFileSync(filePath, buffer);
 
-    console.log(`✅ Saved ${type} file as ${finalFilename}`);
 
     res.status(200).json({
       success: true,

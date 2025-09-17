@@ -47,12 +47,10 @@ export default function HomePage() {
   // Fetch user data from MongoDB
   const fetchUserData = async () => {
     if (!userId) {
-      console.log('No userId available, skipping fetch');
       return;
     }
     
     try {
-      console.log(`Attempt ${retryCount + 1}/${MAX_RETRIES}: Fetching user data for ID: ${userId}`);
       // FIX: Use relative URL for browser fetch
       const response = await fetch(`/api/user-preferences/${userId}`, {
         headers: {
@@ -72,7 +70,6 @@ export default function HomePage() {
         });
 
         if (response.status === 404 && retryCount < MAX_RETRIES) {
-          console.log('User not found, attempting to create new profile');
           // Create new user profile
           const createResponse = await fetch(`/api/user-preferences/${userId}`, {
             method: 'POST',
@@ -112,7 +109,6 @@ export default function HomePage() {
             throw new Error(`Failed to create user profile: ${createErrorData.detail || 'Unknown error'}`);
           }
           
-          console.log('Successfully created new profile');
           // Fetch the newly created profile
           const newResponse = await fetch(`/api/user-preferences/${userId}`, {
             headers: {
@@ -126,7 +122,6 @@ export default function HomePage() {
           }
           
           const data = await newResponse.json();
-          console.log('Fetched new user data:', data);
           setUserData(data);
           
           // Fetch public_data_access from data center settings
@@ -138,7 +133,6 @@ export default function HomePage() {
         }
       } else {
         const data = await response.json();
-        console.log('Successfully fetched user data:', data);
         setUserData(data);
         
         // Fetch public_data_access from data center settings
@@ -163,7 +157,6 @@ export default function HomePage() {
       if (retryCount < MAX_RETRIES) {
         setRetryCount(prev => prev + 1);
         setTimeout(() => {
-          console.log(`Retrying fetch (attempt ${retryCount + 1}/${MAX_RETRIES})`);
           fetchUserData();
         }, 2000);
       } else {
@@ -176,12 +169,10 @@ export default function HomePage() {
   // Fetch public_data_access from data center settings
   const fetchPublicDataAccess = async () => {
     if (!userId) {
-      console.log('No userId available for public data access fetch');
       return;
     }
 
     try {
-      console.log(`Fetching public data access for user: ${userId}`);
       const response = await fetch(`/api/data-center/settings/${userId}`, {
         method: 'GET',
         headers: {
@@ -192,18 +183,14 @@ export default function HomePage() {
 
       if (response.ok) {
         const data = await response.json();
-        console.log('Data center settings response:', data);
         
         if (data.success && data.data) {
           const publicAccess = data.data.public_data_access || false;
-          console.log(`Setting public data access to: ${publicAccess}`);
           setPublicDataAccess(publicAccess);
         } else {
-          console.log('No data center settings found, defaulting to false');
           setPublicDataAccess(false);
         }
       } else {
-        console.log('Failed to fetch data center settings, defaulting to false');
         setPublicDataAccess(false);
       }
     } catch (error) {
@@ -241,7 +228,6 @@ export default function HomePage() {
     // Add effect to handle profile updates
     const handleAdminUpdate = (event) => {
       const { userId, profile } = event.detail;
-      console.log('Admin update received:', { userId, profile });
       
       // Check if profile is complete and update button state
       if (profile.isComplete) {
@@ -256,7 +242,6 @@ export default function HomePage() {
 
     const handleButtonStateUpdate = (event) => {
       const { userId, enabled } = event.detail;
-      console.log('Button state update received:', { userId, enabled });
       
       setButtonStates(prev => ({
         ...prev,
@@ -289,25 +274,21 @@ export default function HomePage() {
   // Add effect to handle admin override events
   useEffect(() => {
     const handleAdminOverride = (event) => {
-      console.log('Received admin override:', event.detail);
       if (event.detail && event.detail.type === 'adminOverride') {
         setButtonStates(prev => {
           const newState = {
             ...prev,
             [event.detail.userId]: event.detail.enabled
           };
-          console.log('Updated button states from admin:', newState);
           return newState;
         });
       }
     };
 
     const handlePublicAccessUpdate = (event) => {
-      console.log('Received public access update:', event.detail);
       if (event.detail && event.detail.type === 'publicAccessUpdate') {
         // Check if this update is for the current user
         if (event.detail.userId === userId) {
-          console.log(`Updating public data access for current user to: ${event.detail.enabled}`);
           setPublicDataAccess(event.detail.enabled);
         }
       }
@@ -326,7 +307,6 @@ export default function HomePage() {
   useEffect(() => {
     // Recheck consent when component mounts and consent hasn't been checked yet
     if (mounted && !consentChecked && !loading) {
-      console.log('Rechecking consent status on mount');
       recheckConsent();
     }
   }, [mounted, consentChecked, loading, recheckConsent]);
@@ -367,13 +347,11 @@ export default function HomePage() {
   const handleButtonClick = async (destination) => {
     // Check if button is disabled
     if (isButtonDisabled(destination)) {
-      console.log(`Button ${destination} is disabled`);
       return;
     }
 
     // Check consent status only for buttons that require it
     if (BUTTONS_REQUIRING_CONSENT.includes(destination) && consentStatus === null) {
-      console.log('Consent not set, showing banner');
       // Trigger consent recheck before showing banner
       recheckConsent();
       return;
@@ -479,7 +457,7 @@ export default function HomePage() {
           />
         </div>
         <h1 className={styles.title}>Eye Tracking Application</h1>
-        <p className={styles.description}>Select one of the options below to get started</p>
+        <p className={styles.description}>This website is for collecting datasets only. Select one of the options below to get started.</p>
 
         <div className={styles.buttonGrid}>
           <button className={styles.menuButton} onClick={() => handleButtonClick('testing-model')}>

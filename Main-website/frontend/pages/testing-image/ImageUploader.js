@@ -103,7 +103,6 @@ export default function ImageUploader({ enhanceFace, onEnhanceFaceChange, onFile
     e.preventDefault();
     if (!selectedFile) return;
     
-    console.log('ImageUploader handleSubmit - enhanceFace:', enhanceFace);
     setIsLoading(true);
     setError(null);
 

@@ -108,7 +108,6 @@ export const saveImageToServer = async (imageData, filename, type, folder = 'eye
             });
             
             if (retryResponse.ok) {
-              console.log(`Successfully saved resized ${type} at ${width}x${height}, quality ${quality}`);
               return await retryResponse.json();
             }
           } catch (retryError) {
@@ -168,11 +167,9 @@ export const getHighestResolutionConstraints = async () => {
     
     // Get capabilities
     const capabilities = videoTrack.getCapabilities?.();
-    console.log("Camera capabilities:", capabilities);
     
     // Get current settings to check aspect ratio
     const settings = videoTrack.getSettings();
-    console.log("Current camera settings:", settings);
     
     // Stop the temporary stream
     videoTrack.stop();
@@ -192,7 +189,6 @@ export const getHighestResolutionConstraints = async () => {
       };
     }
   } catch (err) {
-    console.log("Could not get camera capabilities:", err);
   }
   
   // Fallback: try standard resolutions in order
@@ -223,14 +219,12 @@ export const getHighestResolutionConstraints = async () => {
       // Get the actual dimensions
       const videoTrack = stream.getVideoTracks()[0];
       const settings = videoTrack.getSettings();
-      console.log("Supported resolution:", settings.width, "x", settings.height);
       
       // Stop the test stream immediately
       stream.getTracks().forEach(track => track.stop());
       
       return constraints;
     } catch (err) {
-      console.log(`Resolution not supported: ${JSON.stringify(resolution)}`);
       // Continue to next resolution
     }
   }
@@ -256,7 +250,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
     
     // Create a unique ID for this capture group
     const captureGroupId = `capture-${Date.now()}`;
-    console.log(`Generated capture group ID: ${captureGroupId}`);
     
     // File patterns for saving
     const screenFilename = 'screen_001.jpg';  // Pattern only - server will assign number
@@ -264,7 +257,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
     const parameterFilename = 'parameter_001.csv';  // Pattern only - server will assign number
     
     // For logging
-    console.log("Starting capture with group ID:", captureGroupId);
     
     const canvas = canvasRef.current;
     let screenImage = null;
@@ -297,7 +289,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
           const videoTrack = videoElement.srcObject.getVideoTracks()[0];
           if (videoTrack) {
             trackSettings = videoTrack.getSettings();
-            console.log("Video track settings:", trackSettings);
           }
         }
         
@@ -305,11 +296,9 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
         if (trackSettings && trackSettings.width && trackSettings.height) {
           webcamWidth = trackSettings.width;
           webcamHeight = trackSettings.height;
-          console.log(`Using track settings dimensions: ${webcamWidth}x${webcamHeight}`);
         } else {
           webcamWidth = videoElement.videoWidth || 0;
           webcamHeight = videoElement.videoHeight || 0;
-          console.log(`Using video element dimensions: ${webcamWidth}x${webcamHeight}`);
         }
         
         // Sanity check - if both dimensions are the same, double-check
@@ -321,7 +310,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
             const videoTrack = videoElement.srcObject.getVideoTracks()[0];
             if (videoTrack) {
               const constraints = videoTrack.getConstraints();
-              console.log("Video constraints:", constraints);
               
               // If constraints have width/height, use those
               if (constraints.width && constraints.height) {
@@ -337,7 +325,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
                   webcamHeight = constraints.height.ideal;
                 }
                 
-                console.log(`Updated dimensions from constraints: ${webcamWidth}x${webcamHeight}`);
               }
             }
           }
@@ -361,7 +348,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
         // Create lower-resolution version for preview
         webcamImagePreview = await resizeImage(webcamImage, 640, 480, 0.85);
         
-        console.log(`Webcam capture complete at resolution: ${webcamWidth}x${webcamHeight}`);
       } catch (err) {
         console.error("Error capturing from existing video element:", err);
         webcamWidth = videoElement.videoWidth || 640;
@@ -371,7 +357,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
       try {
         // Get highest resolution constraints for this device
         const constraints = await getHighestResolutionConstraints();
-        console.log("Using camera constraints:", constraints);
         
         // Try to get stream with highest resolution
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -379,7 +364,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
         // Get the actual dimensions from the track first
         const videoTrack = stream.getVideoTracks()[0];
         const trackSettings = videoTrack.getSettings();
-        console.log("Actual camera settings:", trackSettings);
         
         // Create temporary video element to get the stream
         const tempVideo = document.createElement('video');
@@ -406,11 +390,9 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
         if (trackSettings && trackSettings.width && trackSettings.height) {
           webcamWidth = trackSettings.width;
           webcamHeight = trackSettings.height;
-          console.log(`Using track settings for resolution: ${webcamWidth}x${webcamHeight}`);
         } else {
           webcamWidth = tempVideo.videoWidth || 0;
           webcamHeight = tempVideo.videoHeight || 0;
-          console.log(`Using video element for resolution: ${webcamWidth}x${webcamHeight}`);
         }
         
         // Reality check on dimensions
@@ -444,10 +426,8 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
               
               if (Math.abs(aspectRatio - 1.33) < 0.1) { // Close to 4:3
                 webcamHeight = Math.round(webcamWidth / 1.33);
-                console.log(`Corrected to 4:3 aspect ratio: ${webcamWidth}x${webcamHeight}`);
               } else if (Math.abs(aspectRatio - 1.78) < 0.1) { // Close to 16:9
                 webcamHeight = Math.round(webcamWidth / 1.78);
-                console.log(`Corrected to 16:9 aspect ratio: ${webcamWidth}x${webcamHeight}`);
               }
             }
           }
@@ -464,7 +444,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
         // Create lower-resolution version for preview
         webcamImagePreview = await resizeImage(webcamImage, 640, 480, 0.85);
         
-        console.log(`High-resolution webcam capture complete: ${webcamWidth}x${webcamHeight}`);
         
         // Clean up
         stream.getTracks().forEach(t => t.stop());
@@ -512,7 +491,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
           // Create lower-resolution version for preview
           webcamImagePreview = await resizeImage(webcamImage, 640, 480, 0.8);
           
-          console.log(`Basic webcam resolution captured: ${webcamWidth}x${webcamHeight}`);
           
           stream.getTracks().forEach(t => t.stop());
           tempVideo.remove();
@@ -546,7 +524,6 @@ export const captureImagesAtPoint = async ({ point, captureCount = 1, canvasRef,
     
     if (paramResult && paramResult.success) {
       captureNumber = paramResult.number;
-      console.log(`Server assigned capture number: ${captureNumber} for group: ${captureGroupId}`);
     }
     
     // 2.2 Save screen image if available

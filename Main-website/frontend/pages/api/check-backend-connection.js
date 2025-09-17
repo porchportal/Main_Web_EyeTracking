@@ -7,7 +7,7 @@ import subprocess from 'child_process';
 // Use internal API URL for server-side calls (HTTPS for nginx proxy)
 const BACKEND_URL = process.env.INTERNAL_API_URL || process.env.BACKEND_URL;
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY || process.env.BACKEND_API_KEY;
-const TIMEOUT_MS = 10000; // Increased timeout to 10 seconds
+const TIMEOUT_MS = 5000; // Reduced timeout to 5 seconds for better responsiveness
 
 
 // Create a custom agent that ignores SSL certificate errors for internal Docker communication
@@ -70,14 +70,42 @@ export default async function handler(req, res) {
   }
 
   try {
-    // First try the health check endpoint
-    const healthResponse = await fetchWithTimeout(`${BACKEND_URL}/health`);
-    if (!healthResponse.ok) {
-      throw new Error(`Health check failed with status ${healthResponse.status}`);
+    // First try the health check endpoint with retry logic
+    let healthResponse;
+    let retryCount = 0;
+    const maxRetries = 2;
+    
+    while (retryCount <= maxRetries) {
+      try {
+        healthResponse = await fetchWithTimeout(`${BACKEND_URL}/health`);
+        if (healthResponse.ok) {
+          break; // Success, exit retry loop
+        }
+        
+        // If not 503, don't retry
+        if (healthResponse.status !== 503) {
+          throw new Error(`Health check failed with status ${healthResponse.status}`);
+        }
+        
+        retryCount++;
+        if (retryCount <= maxRetries) {
+          // Wait before retry (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+        }
+      } catch (err) {
+        if (retryCount >= maxRetries) {
+          throw err;
+        }
+        retryCount++;
+        await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+      }
+    }
+    
+    if (!healthResponse || !healthResponse.ok) {
+      throw new Error(`Health check failed after ${maxRetries + 1} attempts`);
     }
 
-    // For now, just check if health endpoint is working
-    // The data center endpoint has redirect issues in Docker
+    // Parse health data
     const healthData = await healthResponse.json();
     
     const response = {
@@ -85,18 +113,24 @@ export default async function handler(req, res) {
       authValid: true, // Set to true if health check passes
       status: 'ok',
       backendUrl: BACKEND_URL,
-      serverInfo: healthData
+      serverInfo: healthData,
+      retryCount: retryCount
     };
     
     return res.status(200).json(response);
   } catch (error) {
     console.error('Backend connection error:', error);
-    return res.status(500).json({
+    
+    // Return 503 for service unavailable, 500 for other errors
+    const statusCode = error.message.includes('503') || error.message.includes('unavailable') ? 503 : 500;
+    
+    return res.status(statusCode).json({
       connected: false,
       authValid: false,
       error: error.message,
       backendUrl: BACKEND_URL,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      retryCount: 0
     });
   }
 }

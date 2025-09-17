@@ -14,7 +14,6 @@ const getCurrentUserId = () => {
     
     // Generate a default user ID if none exists
     const defaultUserId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    console.log('Generated default user ID:', defaultUserId);
     return defaultUserId;
   } catch (error) {
     console.error('Error getting user ID:', error);
@@ -36,13 +35,10 @@ const loadSelectedCamerasFromStorage = () => {
       if (storedCameras) {
         const parsedCameras = JSON.parse(storedCameras);
         if (Array.isArray(parsedCameras) && parsedCameras.length > 0) {
-          console.log('Loaded selected cameras from localStorage for capture:', parsedCameras);
-          
           // Load camera data with tags if available
           if (storedCameraData) {
             try {
               const parsedCameraData = JSON.parse(storedCameraData);
-              console.log('Loaded camera data with tags for capture:', parsedCameraData);
             } catch (dataError) {
               console.warn('Error parsing camera data for capture:', dataError);
             }
@@ -65,7 +61,6 @@ const loadSelectedCamerasFromStorage = () => {
  */
 const getHighestResolutionConstraints = async (deviceId = null) => {
   try {
-    console.log('🔍 Getting highest resolution constraints for device:', deviceId);
     
     // Get all video input devices
     const devices = await navigator.mediaDevices.enumerateDevices();
@@ -86,7 +81,6 @@ const getHighestResolutionConstraints = async (deviceId = null) => {
       return { video: { width: { ideal: 1280 }, height: { ideal: 720 } } };
     }
     
-    console.log('🎯 Using device:', targetDevice.label || targetDevice.deviceId);
     
     // Try to get capabilities for the target device
     const constraints = { 
@@ -109,13 +103,11 @@ const getHighestResolutionConstraints = async (deviceId = null) => {
     
     // Get the actual settings being used
     const settings = videoTrack.getSettings();
-    console.log('📊 Actual video settings:', settings);
     
     // Get capabilities if available
     let capabilities = null;
     if (videoTrack.getCapabilities) {
       capabilities = videoTrack.getCapabilities();
-      console.log('📊 Video capabilities:', capabilities);
     }
     
     // Stop the test stream
@@ -129,19 +121,16 @@ const getHighestResolutionConstraints = async (deviceId = null) => {
       // Use the maximum available resolution
       bestWidth = Math.max(...capabilities.width.values);
       bestHeight = Math.max(...capabilities.height.values);
-      console.log('🎯 Maximum supported resolution:', bestWidth, 'x', bestHeight);
     } else if (settings.width && settings.height) {
       // Use the settings from the test stream
       bestWidth = settings.width;
       bestHeight = settings.height;
-      console.log('🎯 Test stream resolution:', bestWidth, 'x', bestHeight);
     }
     
     // Ensure minimum resolution of 640x480
     bestWidth = Math.max(bestWidth, 640);
     bestHeight = Math.max(bestHeight, 480);
     
-    console.log('✅ Final resolution constraints:', bestWidth, 'x', bestHeight);
     
     return {
       video: {
@@ -176,13 +165,6 @@ export const saveImageToUserServer = async (imageData, filename, type, captureGr
   try {
     const userId = getCurrentUserId();
     
-    console.log(`🔄 Attempting to save ${type} file for user ${userId}:`, {
-      filename,
-      type,
-      captureGroup,
-      imageDataLength: imageData?.length || 0,
-      hasImageData: !!imageData
-    });
     
     const requestBody = { 
       imageData, 
@@ -191,8 +173,6 @@ export const saveImageToUserServer = async (imageData, filename, type, captureGr
       captureGroup
     };
     
-    console.log('📤 Sending request to:', `/api/user-captures/save/${userId}`);
-    console.log('📤 Request body keys:', Object.keys(requestBody));
     
     const response = await fetch(`/api/user-captures/save/${userId}`, {
       method: 'POST',
@@ -203,7 +183,6 @@ export const saveImageToUserServer = async (imageData, filename, type, captureGr
       body: JSON.stringify(requestBody)
     });
     
-    console.log(`📥 Response status: ${response.status} ${response.statusText}`);
     
     if (!response.ok) {
       const errorData = await response.json();
@@ -212,7 +191,6 @@ export const saveImageToUserServer = async (imageData, filename, type, captureGr
     }
     
     const result = await response.json();
-    console.log(`✅ Successfully saved ${type} file for user ${userId}:`, result);
     return result;
   } catch (error) {
     console.error(`❌ Error saving ${type} file:`, error);
@@ -236,18 +214,11 @@ export const saveCSVToUserServer = async (csvData, filename, captureGroup = null
   try {
     const userId = getCurrentUserId();
     
-    console.log(`🔄 Attempting to save CSV file for user ${userId}:`, {
-      filename,
-      captureGroup,
-      csvDataLength: csvData?.length || 0,
-      hasCsvData: !!csvData
-    });
     
     // Convert CSV data to base64
     const base64Data = btoa(unescape(encodeURIComponent(csvData)));
     const dataUrl = `data:text/csv;base64,${base64Data}`;
     
-    console.log('📤 Sending CSV request to:', `/api/user-captures/save/${userId}`);
     
     const response = await fetch(`/api/user-captures/save/${userId}`, {
       method: 'POST',
@@ -263,7 +234,6 @@ export const saveCSVToUserServer = async (csvData, filename, captureGroup = null
       })
     });
     
-    console.log(`📥 CSV Response status: ${response.status} ${response.statusText}`);
     
     if (!response.ok) {
       const errorData = await response.json();
@@ -272,7 +242,6 @@ export const saveCSVToUserServer = async (csvData, filename, captureGroup = null
     }
     
     const result = await response.json();
-    console.log(`✅ Successfully saved CSV file for user ${userId}:`, result);
     return result;
   } catch (error) {
     console.error(`❌ Error saving CSV file:`, error);
@@ -307,7 +276,6 @@ export const getUserCaptureStatus = async () => {
     }
     
     const result = await response.json();
-    console.log(`📊 Capture status for user ${userId}:`, result);
     return result;
   } catch (error) {
     console.error(`❌ Error getting capture status:`, error);
@@ -337,7 +305,6 @@ export const clearUserCaptures = async () => {
     }
     
     const result = await response.json();
-    console.log(`🗑️ Cleared captures for user ${userId}:`, result);
     return result;
   } catch (error) {
     console.error(`❌ Error clearing captures:`, error);
@@ -353,12 +320,9 @@ export const clearUserCaptures = async () => {
 export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvasRef, setCaptureCount, showCapturePreview }) => {
   try {
     const userId = getCurrentUserId();
-    console.log(`🎯 Starting user-specific capture for user: ${userId}`);
-    console.log(`📍 Capture point: x=${point.x}, y=${point.y}`);
     
     // Create a unique ID for this capture group
     const captureGroupId = `capture-${Date.now()}-${userId}`;
-    console.log(`🆔 Generated capture group ID: ${captureGroupId}`);
     
     // File patterns for saving - will be updated with actual numbers by backend
     const screenFilename = 'screen_001.jpg';
@@ -375,14 +339,12 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
     let webcamWidth = 0;
     let webcamHeight = 0;
     
-    console.log('📸 Starting image capture process...');
     
     // 1. Prepare all data first
     
     // 1.1 Canvas/screen image
     if (canvas) {
       screenImage = canvas.toDataURL('image/png');
-      console.log(`📱 Screen image captured, length: ${screenImage.length}`);
     } else {
       console.warn('⚠️ No canvas available for screen capture');
     }
@@ -404,17 +366,6 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
     // If subVideoElement not found, try to find all video elements and get the second one
     if (!subVideoElement) {
       const allVideoElements = document.querySelectorAll('video');
-      console.log('🔍 All video elements found:', allVideoElements.length);
-      console.log('🔍 Video elements details:', Array.from(allVideoElements).map((video, index) => ({
-        index,
-        videoWidth: video.videoWidth,
-        videoHeight: video.videoHeight,
-        readyState: video.readyState,
-        srcObject: !!video.srcObject,
-        cameraIndex: video.getAttribute('data-camera-index'),
-        cameraTag: video.getAttribute('data-camera-tag'),
-        isMainVideo: video === videoElement
-      })));
       
       if (allVideoElements.length > 1) {
         // Find the video element that's not the main one
@@ -422,45 +373,12 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
           const video = allVideoElements[i];
           if (video !== videoElement && video.srcObject) {
             subVideoElement = video;
-            console.log('✅ Found sub video element at index:', i);
-            console.log('✅ Sub video element details:', {
-              videoWidth: video.videoWidth,
-              videoHeight: video.videoHeight,
-              readyState: video.readyState,
-              srcObject: !!video.srcObject,
-              cameraIndex: video.getAttribute('data-camera-index'),
-              cameraTag: video.getAttribute('data-camera-tag')
-            });
             break;
           }
         }
       }
     }
     
-    console.log('📹 Video elements for capture:', {
-      mainVideo: {
-      found: !!videoElement,
-      videoWidth: videoElement?.videoWidth,
-      videoHeight: videoElement?.videoHeight,
-      readyState: videoElement?.readyState,
-        srcObject: !!videoElement?.srcObject,
-        cameraIndex: videoElement?.getAttribute('data-camera-index'),
-        cameraTag: videoElement?.getAttribute('data-camera-tag')
-      },
-      subVideo: {
-        found: !!subVideoElement,
-        videoWidth: subVideoElement?.videoWidth,
-        videoHeight: subVideoElement?.videoHeight,
-        readyState: subVideoElement?.readyState,
-        srcObject: !!subVideoElement?.srcObject,
-        cameraIndex: subVideoElement?.getAttribute('data-camera-index'),
-        cameraTag: subVideoElement?.getAttribute('data-camera-tag')
-      },
-      allVideoElements: document.querySelectorAll('video').length,
-      selectedCameras: selectedCameras,
-      windowVideoElement: !!window.videoElement,
-      windowSubVideoElement: !!window.subVideoElement
-    });
     
     // Debug: Check if we should have a sub camera
     if (selectedCameras.length > 1 && !subVideoElement) {
@@ -482,7 +400,6 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         const mainCameraId = selectedCameras.length > 0 ? selectedCameras[0] : null;
         const mainConstraints = await getHighestResolutionConstraints(mainCameraId);
         
-        console.log('📷 Main camera constraints:', mainConstraints);
         
         // Create a temporary canvas to capture main webcam
         const tempCanvas = document.createElement('canvas');
@@ -500,13 +417,11 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         tempCanvas.width = Math.max(tempCanvas.width, 640);
         tempCanvas.height = Math.max(tempCanvas.height, 480);
         
-        console.log('📷 Main camera capture resolution:', tempCanvas.width, 'x', tempCanvas.height);
         
         // Store main webcam resolution
         webcamWidth = tempCanvas.width;
         webcamHeight = tempCanvas.height;
         
-        console.log('📷 Main camera capture resolution:', webcamWidth, 'x', webcamHeight);
         
         // Draw video frame to canvas - remove horizontal mirroring for capture
         tempCtx.save();
@@ -517,11 +432,6 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         
         // Get high-resolution image
         webcamImage = tempCanvas.toDataURL('image/jpeg', 0.95);
-        console.log('📷 Main webcam image captured successfully:', {
-          width: tempCanvas.width,
-          height: tempCanvas.height,
-          imageLength: webcamImage.length
-        });
         
         // Create lower resolution version for preview
         const previewCanvas = document.createElement('canvas');
@@ -536,11 +446,6 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         previewCtx.restore();
         webcamImagePreview = previewCanvas.toDataURL('image/jpeg', 0.8);
         
-        console.log('🖼️ Main preview image created:', {
-          width: previewCanvas.width,
-          height: previewCanvas.height,
-          imageLength: webcamImagePreview.length
-        });
         
         // Clean up temporary canvas
         tempCanvas.remove();
@@ -586,22 +491,12 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
     // Capture sub camera (tag: submain) if available
     if (subVideoElement) {
       try {
-        console.log('📷 Sub video element found, attempting capture...');
-        console.log('📷 Sub video element details:', {
-          videoWidth: subVideoElement.videoWidth,
-          videoHeight: subVideoElement.videoHeight,
-          readyState: subVideoElement.readyState,
-          srcObject: !!subVideoElement.srcObject,
-          cameraIndex: subVideoElement.getAttribute('data-camera-index'),
-          cameraTag: subVideoElement.getAttribute('data-camera-tag')
-        });
         
         // Get the highest resolution constraints for sub camera
         const selectedCameras = loadSelectedCamerasFromStorage();
         const subCameraId = selectedCameras.length > 1 ? selectedCameras[1] : null;
         const subConstraints = await getHighestResolutionConstraints(subCameraId);
         
-        console.log('📷 Sub camera constraints:', subConstraints);
         
         // Create a temporary canvas to capture sub webcam
         const tempCanvas = document.createElement('canvas');
@@ -619,13 +514,11 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         tempCanvas.width = Math.max(tempCanvas.width, 640);
         tempCanvas.height = Math.max(tempCanvas.height, 480);
         
-        console.log('📷 Sub camera capture resolution:', tempCanvas.width, 'x', tempCanvas.height);
         
         // Store sub webcam resolution
         webcamWidth1 = tempCanvas.width;
         webcamHeight1 = tempCanvas.height;
         
-        console.log('📷 Sub camera capture resolution:', webcamWidth1, 'x', webcamHeight1);
         
         // Draw video frame to canvas - remove horizontal mirroring for capture
         tempCtx.save();
@@ -636,11 +529,6 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         
         // Get high-resolution image
         subWebcamImage = tempCanvas.toDataURL('image/jpeg', 0.95);
-        console.log('📷 Sub webcam image captured successfully:', {
-          width: tempCanvas.width,
-          height: tempCanvas.height,
-          imageLength: subWebcamImage.length
-        });
         
         // Create lower resolution version for preview
         const previewCanvas = document.createElement('canvas');
@@ -655,11 +543,6 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         previewCtx.restore();
         subWebcamImagePreview = previewCanvas.toDataURL('image/jpeg', 0.8);
         
-        console.log('🖼️ Sub preview image created:', {
-          width: previewCanvas.width,
-          height: previewCanvas.height,
-          imageLength: subWebcamImagePreview.length
-        });
         
         // Clean up temporary canvas
         tempCanvas.remove();
@@ -699,7 +582,6 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         }
       }
     } else {
-      console.log('ℹ️ No sub video element found - single camera mode');
     }
 
     // 1.3 Parameter data - Now including webcam resolution, user ID, and selected camera info with tags
@@ -747,23 +629,15 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
     
     const csvData = csvDataArray.join('\n');
     
-    console.log('📊 Parameter data prepared:', {
-      userId,
-      captureGroupId,
-      csvDataLength: csvData.length
-    });
     
     // 2. Save all files with the same group ID so they get the same number
     
-    console.log('💾 Starting file save process...');
     
     // 2.1 Save parameter file
-    console.log('📄 Saving parameter file...');
     const paramResult = await saveCSVToUserServer(csvData, parameterFilename, captureGroupId);
     
     if (paramResult && paramResult.success) {
       captureNumber = paramResult.number;
-      console.log(`✅ Server assigned capture number: ${captureNumber} for group: ${captureGroupId}`);
     } else {
       console.error('❌ Failed to save parameter file');
     }
@@ -771,10 +645,8 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
     // 2.2 Save screen image if available
     let screenResult = null;
     if (screenImage) {
-      console.log('📱 Saving screen image...');
       screenResult = await saveImageToUserServer(screenImage, screenFilename, 'screen', captureGroupId);
       if (screenResult && screenResult.success) {
-        console.log('✅ Screen image saved successfully');
       } else {
         console.error('❌ Failed to save screen image');
       }
@@ -785,10 +657,8 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
     // 2.3 Save main webcam image if available (tag: main)
     let webcamResult = null;
     if (webcamImage) {
-      console.log('📷 Saving main webcam image...');
       webcamResult = await saveImageToUserServer(webcamImage, webcamFilename, 'webcam', captureGroupId);
       if (webcamResult && webcamResult.success) {
-        console.log('✅ Main webcam image saved successfully');
       } else {
         console.error('❌ Failed to save main webcam image');
       }
@@ -799,40 +669,22 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
     // 2.4 Save sub webcam image if available (tag: submain)
     let subWebcamResult = null;
     if (subWebcamImage) {
-      console.log('📷 Saving sub webcam image...');
-      console.log('📷 Sub webcam image details:', {
-        hasImage: !!subWebcamImage,
-        imageLength: subWebcamImage?.length || 0,
-        filename: subWebcamFilename,
-        type: 'webcam_sub',
-        captureGroupId
-      });
       subWebcamResult = await saveImageToUserServer(subWebcamImage, subWebcamFilename, 'webcam_sub', captureGroupId);
       if (subWebcamResult && subWebcamResult.success) {
-        console.log('✅ Sub webcam image saved successfully');
       } else {
         console.error('❌ Failed to save sub webcam image');
       }
     } else {
-      console.log('ℹ️ No sub webcam image to save (single camera mode)');
-      console.log('ℹ️ Sub webcam image check:', {
-        hasSubWebcamImage: !!subWebcamImage,
-        subWebcamImageLength: subWebcamImage?.length || 0,
-        selectedCameras: selectedCameras,
-        hasSubVideoElement: !!subVideoElement
-      });
     }
     
     // 3. Show preview if needed - use the lower resolution version for preview
     if (showCapturePreview && typeof showCapturePreview === 'function') {
-      console.log('🖼️ Showing capture preview...');
       showCapturePreview(screenImage, webcamImagePreview || webcamImage, subWebcamImagePreview || subWebcamImage, point);
     }
     
     // 4. Increment counter for next capture
     if (setCaptureCount && typeof setCaptureCount === 'function') {
       setCaptureCount(prevCount => prevCount + 1);
-      console.log('🔢 Capture counter incremented');
     }
     
     // 5. Return results
@@ -852,20 +704,6 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
       }
     };
     
-    console.log('🎉 Capture completed successfully:', {
-      captureId: captureGroupId,
-      captureNumber: captureNumber,
-      hasScreenImage: !!screenImage,
-      hasWebcamImage: !!webcamImage,
-      hasSubWebcamImage: !!subWebcamImage,
-      userId: userId,
-      saveResults: {
-        parameter: paramResult?.success,
-        screen: screenResult?.success,
-        webcam: webcamResult?.success,
-        subWebcam: subWebcamResult?.success
-      }
-    });
     
     return result;
     

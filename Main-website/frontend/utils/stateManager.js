@@ -66,7 +66,9 @@ export function BackendConnectionProvider({ children }) {
     isChecking: false,
     lastChecked: null,
     serverInfo: {},
-    error: null
+    error: null,
+    retryCount: 0,
+    connectionStatus: 'disconnected' // 'connected', 'disconnected', 'checking', 'error'
   });
   const [checkTimer, setCheckTimer] = useState(null);
 
@@ -76,7 +78,7 @@ export function BackendConnectionProvider({ children }) {
     if (connectionState.isChecking || 
         (!force && 
          connectionState.lastChecked && 
-         Date.now() - connectionState.lastChecked < 10000)) { // Increased to 10 seconds
+         Date.now() - connectionState.lastChecked < 5000)) { // Reduced to 5 seconds for better responsiveness
       return;
     }
 
@@ -97,7 +99,8 @@ export function BackendConnectionProvider({ children }) {
     setConnectionState(prev => ({
       ...prev,
       isChecking: true,
-      error: null
+      error: null,
+      connectionStatus: 'checking'
     }));
 
     try {
@@ -115,11 +118,24 @@ export function BackendConnectionProvider({ children }) {
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        // Handle specific error codes
+        // Handle specific error codes with more graceful degradation
         if (response.status === 503) {
-          throw new Error('Backend service unavailable (503). Please check if all services are running.');
+          // Service temporarily unavailable - don't treat as critical error
+          setConnectionState(prev => ({
+            ...prev,
+            isConnected: false,
+            authValid: false,
+            isChecking: false,
+            lastChecked: Date.now(),
+            error: 'Backend service temporarily unavailable. Some features may be limited.'
+          }));
+          return; // Don't throw error, just update state
         } else if (response.status === 404) {
           throw new Error('Backend endpoint not found (404). Please check service configuration.');
+        } else if (response.status === 502) {
+          throw new Error('Bad Gateway (502). Backend service may be starting up.');
+        } else if (response.status === 504) {
+          throw new Error('Gateway Timeout (504). Backend service is not responding.');
         } else {
           throw new Error(`HTTP error! Status: ${response.status}`);
         }
@@ -133,7 +149,9 @@ export function BackendConnectionProvider({ children }) {
         isChecking: false,
         lastChecked: Date.now(),
         serverInfo: data.serverInfo || {},
-        error: null
+        error: null,
+        retryCount: 0, // Reset retry count on successful connection
+        connectionStatus: data.connected ? 'connected' : 'disconnected'
       });
     } catch (err) {
       if (err.name === 'AbortError') {
@@ -144,7 +162,8 @@ export function BackendConnectionProvider({ children }) {
           authValid: false,
           isChecking: false,
           lastChecked: Date.now(),
-          error: 'Connection timeout. Please check if the backend service is running.'
+          error: 'Connection timeout. Please check if the backend service is running.',
+          connectionStatus: 'error'
         }));
       } else {
         console.error("Backend connection check failed:", err);
@@ -154,7 +173,8 @@ export function BackendConnectionProvider({ children }) {
           authValid: false,
           isChecking: false,
           lastChecked: Date.now(),
-          error: err.message || "Failed to connect to backend"
+          error: err.message || "Failed to connect to backend",
+          connectionStatus: 'error'
         }));
       }
     }
@@ -162,8 +182,16 @@ export function BackendConnectionProvider({ children }) {
 
   // Initial connection check on mount and set up periodic checks
   useEffect(() => {
-    // Check immediately on first load
-    checkConnection(true);
+    // Check if this is a page refresh
+    const isPageRefresh = performance.navigation && performance.navigation.type === 1;
+    
+    // Check immediately on first load, with slight delay for page refresh
+    if (isPageRefresh) {
+      // Small delay for page refresh to allow services to stabilize
+      setTimeout(() => checkConnection(true), 1000);
+    } else {
+      checkConnection(true);
+    }
     
     // Set up periodic checks
     const intervalId = setInterval(() => {
@@ -177,19 +205,27 @@ export function BackendConnectionProvider({ children }) {
     };
   }, []);
 
-  // Auto-reconnect when disconnected
+  // Auto-reconnect when disconnected with exponential backoff
   useEffect(() => {
     if (!connectionState.isConnected && !connectionState.isChecking && !checkTimer) {
-      // Wait 5 seconds before retrying
+      // Use exponential backoff: 2s, 4s, 8s, 16s, max 30s
+      const retryCount = connectionState.retryCount || 0;
+      const delay = Math.min(2000 * Math.pow(2, retryCount), 30000);
+      
       const timer = setTimeout(() => {
         checkConnection(true);
         setCheckTimer(null);
-      }, 5000);
+        // Increment retry count for exponential backoff
+        setConnectionState(prev => ({
+          ...prev,
+          retryCount: (prev.retryCount || 0) + 1
+        }));
+      }, delay);
       
       setCheckTimer(timer);
       return () => clearTimeout(timer);
     }
-  }, [connectionState.isConnected, connectionState.isChecking]);
+  }, [connectionState.isConnected, connectionState.isChecking, connectionState.retryCount]);
 
   // Check connection when tab becomes visible again
   useEffect(() => {

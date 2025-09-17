@@ -29,7 +29,6 @@ export default async function handler(req, res) {
       }
 
       const existingData = await response.json();
-      console.log(`Retrieved ${existingData.length} consent records from auth service`);
       
       return res.status(200).json(existingData);
     } catch (error) {
@@ -54,7 +53,6 @@ export default async function handler(req, res) {
       }
 
       const result = await response.json();
-      console.log(`Saved consent data for user ${consentData.userId} via auth service`);
       
       return res.status(200).json(result);
     } catch (error) {

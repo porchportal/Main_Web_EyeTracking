@@ -364,7 +364,6 @@ class CanvasImageManager {
       this.currentImageTimes = this.parsedImages[index].times;
       this.buttonClickCount = 0; // Reset button count for new image
       this.saveProgressToStorage();
-      console.log(`Switched to image index ${index}, times: ${this.currentImageTimes}, button count reset to 0`);
     }
   }
 
@@ -375,18 +374,14 @@ class CanvasImageManager {
 
   // Move to next image if current is complete
   async moveToNextImage() {
-    console.log(`🔍 moveToNextImage called - Current index: ${this.currentImageIndex}, Total images: ${this.parsedImages.length}`);
     
     if (!this.isCurrentImageComplete()) {
-      console.log(`❌ Current image not complete yet: ${this.buttonClickCount}/${this.currentImageTimes}`);
       return false; // Current image not complete yet
     }
 
     const nextIndex = this.currentImageIndex + 1;
-    console.log(`📈 Next index would be: ${nextIndex}`);
     
     if (nextIndex >= this.parsedImages.length) {
-      console.log('🏁 All images completed! Falling back to normal canvas (blue background)');
       
       // Clear canvas and reset to normal blue background
       this.clearCanvas();
@@ -400,16 +395,13 @@ class CanvasImageManager {
     }
 
     // Move to next image
-    console.log(`🔄 Setting current image index to: ${nextIndex}`);
     this.setCurrentImageIndex(nextIndex);
     const nextImage = this.parsedImages[nextIndex];
     
-    console.log(`📸 Moving to image ${nextIndex + 1}: ${nextImage.path} (times: ${nextImage.times})`);
     
     // Load the next image
     const success = await this.setImageBackground(nextImage.path);
     if (success) {
-      console.log(`✅ Successfully switched to next image: ${nextImage.path}`);
       if (this.onImageComplete) {
         this.onImageComplete('image_switched', {
           previousIndex: this.currentImageIndex - 1,
@@ -450,7 +442,6 @@ class CanvasImageManager {
     // Load the first image
     const success = await this.setImageBackground(firstImage.path);
     if (success) {
-      console.log(`Reset to first image: ${firstImage.path}`);
       return true;
     } else {
       console.error(`Failed to load first image: ${firstImage.path}`);
@@ -476,13 +467,9 @@ class CanvasImageManager {
     // Save progress to localStorage
     this.saveProgressToStorage();
     
-    console.log(`🔄 Button clicked: ${buttonName}, Total clicks: ${this.buttonClickCount}, Current image times: ${this.currentImageTimes}`);
-    console.log(`📊 Current image index: ${this.currentImageIndex}, Total images: ${this.parsedImages.length}`);
     
     // Check if current image is complete and move to next image
     if (this.isCurrentImageComplete()) {
-      console.log(`✅ Image ${this.currentImageIndex + 1} completed! Moving to next image...`);
-      console.log(`📋 Parsed images available:`, this.parsedImages.map((img, idx) => `${idx}: ${img.path} (${img.times} times)`));
       
       const movedToNext = await this.moveToNextImage();
       
@@ -492,19 +479,15 @@ class CanvasImageManager {
           // Reset button click count for the new image
           this.buttonClickCount = 0;
           this.saveProgressToStorage();
-          console.log(`🎯 Successfully switched to image ${this.currentImageIndex + 1}, reset button count to 0`);
         } else {
           // All images completed, reset button count and clear image
           this.buttonClickCount = 0;
           this.currentImage = null;
           this.saveProgressToStorage();
-          console.log(`🏁 All images completed! Reset to normal canvas (blue background)`);
         }
       } else {
-        console.log(`❌ Failed to switch to next image`);
       }
     } else {
-      console.log(`⏳ Image not complete yet: ${this.buttonClickCount}/${this.currentImageTimes}`);
     }
   }
 
@@ -536,7 +519,6 @@ class CanvasImageManager {
       try {
         const storageKey = this.userId ? `progress_${this.userId}` : 'progress';
         localStorage.setItem(storageKey, JSON.stringify(progressData));
-        console.log('Saved progress to localStorage:', progressData);
       } catch (error) {
         console.error('Error saving progress to localStorage:', error);
       }
@@ -549,7 +531,6 @@ class CanvasImageManager {
     
     // Check if data is stale (older than 24 hours)
     if (isProgressDataStale(progressData, 24)) {
-      console.log('Progress data is stale, resetting to default');
       this.buttonClickCount = 0;
       this.currentImageTimes = 1;
       this.parsedImages = [];
@@ -573,19 +554,12 @@ class CanvasImageManager {
       this.currentImageTimes = this.parsedImages[this.currentImageIndex].times;
     }
     
-    console.log('Loaded progress from localStorage:', {
-      buttonClickCount: this.buttonClickCount,
-      currentImageTimes: this.currentImageTimes,
-      parsedImagesCount: this.parsedImages.length,
-      currentImageIndex: this.currentImageIndex
-    });
   }
 
   // Reset button click count
   resetButtonClickCount() {
     this.buttonClickCount = 0;
     this.saveProgressToStorage(); // Save the reset state
-    console.log('Button click count reset');
   }
 
   // Update image background paths and reset progress
@@ -607,7 +581,6 @@ class CanvasImageManager {
     // Save the reset progress to localStorage
     this.saveProgressToStorage();
     
-    console.log('Updated image background paths:', this.parsedImages);
   }
 
   // Validate image path
@@ -675,7 +648,6 @@ class CanvasImageManager {
       // Clear canvas if background change is disabled - NO IMAGE LOADING
       this.clearCanvas();
       this.currentImage = null; // Ensure no image is set
-      console.log('Background change disabled, using normal canvas (blue background)');
       return;
     }
 
@@ -700,7 +672,6 @@ class CanvasImageManager {
       // Clear canvas as fallback (blue background is handled in index.js)
       this.clearCanvas();
       this.currentImage = null;
-      console.log('Default or empty image paths, using normal canvas (blue background)');
       return;
     }
 
@@ -724,7 +695,6 @@ class CanvasImageManager {
       // Clear canvas as fallback (blue background is handled in index.js)
       this.clearCanvas();
       this.currentImage = null;
-      console.log('No valid image paths, using normal canvas (blue background)');
       return;
     }
 
@@ -756,7 +726,6 @@ class CanvasImageManager {
       // Clear canvas if image loading failed (blue background is handled in index.js)
       this.clearCanvas();
       this.currentImage = null;
-      console.log('Image loading failed, using normal canvas (blue background)');
     }
   }
 

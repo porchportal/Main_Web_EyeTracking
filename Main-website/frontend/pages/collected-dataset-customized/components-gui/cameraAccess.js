@@ -253,13 +253,11 @@ const CameraAccessComponent = ({
         if (storedCameras) {
           const parsedCameras = JSON.parse(storedCameras);
           if (Array.isArray(parsedCameras) && parsedCameras.length > 0) {
-            console.log('Loaded selected cameras from localStorage:', parsedCameras);
             
             // Load camera data with tags if available
             if (storedCameraData) {
               try {
                 const parsedCameraData = JSON.parse(storedCameraData);
-                console.log('Loaded camera data with tags:', parsedCameraData);
               } catch (dataError) {
                 console.warn('Error parsing camera data:', dataError);
               }
@@ -413,7 +411,6 @@ const CameraAccessComponent = ({
           ...constraints.video,
           deviceId: { exact: effectiveSelectedCameras[cameraIndex] }
         };
-        console.log(`Using camera ${cameraIndex + 1}/${effectiveSelectedCameras.length}: ${effectiveSelectedCameras[cameraIndex]}`);
       }
 
       // 9. Add Fallback Constraints
@@ -524,10 +521,8 @@ const CameraAccessComponent = ({
           // Set up global video element references based on camera index
           if (cameraIndex === 0) {
             window.videoElement = video;
-            console.log('📹 Main video element set to global scope');
           } else if (cameraIndex === 1) {
             window.subVideoElement = video;
-            console.log('📹 Sub video element set to global scope');
           }
           
           // Also set data attributes for identification

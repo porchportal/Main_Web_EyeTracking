@@ -54,7 +54,6 @@ export default async function handler(req, res) {
       throw new Error(`Auth service responded with status: ${response.status}`);
     }
 
-    console.log(`Deleted consent data for user ${userId} via auth service`);
 
     // Delete from individual consent file (keep this local as it's in frontend public folder)
     const consentDir = path.join(process.cwd(), 'public', 'consent');
@@ -62,7 +61,6 @@ export default async function handler(req, res) {
 
     if (fs.existsSync(userConsentFile)) {
       fs.unlinkSync(userConsentFile);
-      console.log(`Deleted individual consent file for user ${userId}`);
     }
 
     return res.status(200).json({ success: true });

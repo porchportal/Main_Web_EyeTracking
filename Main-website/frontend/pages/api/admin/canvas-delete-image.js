@@ -33,17 +33,7 @@ export default async function handler(req, res) {
     // URL encode the image path to handle special characters
     const encodedImagePath = encodeURIComponent(imagePath);
     
-    console.log('Environment check:', {
-      BACKEND_URL: backendUrl ? 'Set' : 'Not set',
-      API_KEY: apiKey ? 'Set' : 'Not set'
-    });
     
-    console.log('Deleting canvas image:', {
-      userId,
-      imagePath,
-      encodedImagePath,
-      backendUrl: `${backendUrl}/api/canvas-admin/image/${userId}/${encodedImagePath}`
-    });
 
     // Call the backend canvas admin service to delete the image
     const response = await fetch(`${backendUrl}/api/canvas-admin/image/${userId}/${encodedImagePath}`, {
@@ -54,7 +44,6 @@ export default async function handler(req, res) {
       }
     });
 
-    console.log('Backend response status:', response.status);
 
     if (!response.ok) {
       let errorData;
@@ -84,11 +73,6 @@ export default async function handler(req, res) {
 
     const result = await response.json();
     
-    console.log('Successfully deleted image:', {
-      userId,
-      imagePath,
-      result
-    });
     
     return res.status(200).json({
       success: true,

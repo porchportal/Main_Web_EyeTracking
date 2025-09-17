@@ -8,9 +8,7 @@ const ConsentContext = createContext();
 const isLocalhost = () => {
   if (typeof window === 'undefined') return false;
   const hostname = window.location.hostname;
-  console.log('🔍 Checking hostname:', hostname);
   const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '192.168.1.156';
-  console.log('🔍 Is localhost/IP:', isLocal);
   return isLocal;
 };
 
@@ -105,11 +103,9 @@ export function ConsentProvider({ children }) {
     // Get consent data from cookies
     const initializeConsent = async () => {
       try {
-        console.log('🚀 Initializing consent...');
         // If running on localhost, automatically set consent
         // DISABLED: Allow banner to show for testing
         if (false && isLocalhost()) {
-          console.log('🏠 Running on localhost/IP - auto-enabling consent (DISABLED)');
           const userId = getOrCreateUserId();
           const autoConsentData = {
             userId,
@@ -142,13 +138,10 @@ export function ConsentProvider({ children }) {
         }
 
         // Normal flow for non-localhost (or when auto-consent is disabled)
-        console.log('🌐 Running normal flow - banner should appear if no consent found');
         const userId = getOrCreateUserId();
-        console.log('🆔 Generated/retrieved userId:', userId);
         
         // Enhanced consent checking
         const consentCheck = await checkConsentStatus(userId);
-        console.log('🔍 Enhanced consent check result:', consentCheck);
         
         if (consentCheck.hasConsent) {
           // User has already given consent
@@ -165,7 +158,6 @@ export function ConsentProvider({ children }) {
           });
         } else if (consentCheck.source === 'none') {
           // No consent found, show banner
-          console.log('❌ No consent found - showing banner');
           startTransition(() => {
             setConsentState({
               loading: false,
@@ -180,7 +172,6 @@ export function ConsentProvider({ children }) {
         } else {
           // Fallback to original logic
           const consentData = await getUserConsent();
-          console.log('Fallback consent data:', consentData);
           
           if (!consentData || consentData.consentStatus === null) {
             startTransition(() => {
@@ -232,7 +223,6 @@ export function ConsentProvider({ children }) {
   // Listen for consent reset events
   useEffect(() => {
     const handleConsentReset = () => {
-      console.log('🍪 ConsentContext: Consent reset event received');
       startTransition(() => {
         setConsentState(prev => ({
           ...prev,
@@ -255,10 +245,8 @@ export function ConsentProvider({ children }) {
   const updateConsent = async (status) => {
     try {
       const userId = consentState.userId || getOrCreateUserId();
-      console.log('Updating consent with userId:', userId);
       
       const updatedConsent = await updateUserConsent(status, { userId });
-      console.log('Updated consent data:', updatedConsent);
       
       // If consent is being accepted, check if user data is initialized
       if (status === true) {
@@ -272,7 +260,6 @@ export function ConsentProvider({ children }) {
           
           if (checkResponse.ok) {
             const checkData = await checkResponse.json();
-            console.log('User initialization status:', checkData);
           }
         } catch (error) {
           console.warn('Could not check user initialization status:', error);
@@ -316,7 +303,6 @@ export function ConsentProvider({ children }) {
     
     try {
       const consentCheck = await checkConsentStatus(consentState.userId);
-      console.log('Recheck consent result:', consentCheck);
       
       startTransition(() => {
         setConsentState(prev => ({

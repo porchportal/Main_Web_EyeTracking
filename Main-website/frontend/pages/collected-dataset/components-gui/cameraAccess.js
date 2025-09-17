@@ -31,7 +31,6 @@ const CameraAccess = ({
   // WebSocket connection
   const connectWebSocket = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected');
       return;
     }
 
@@ -54,7 +53,6 @@ const CameraAccess = ({
       }, 5000);
 
       ws.onopen = () => {
-        console.log('WebSocket connected to FastAPI backend');
         clearTimeout(connectionTimeout);
         setWsStatus('connected');
         setErrorMessage('');
@@ -83,7 +81,6 @@ const CameraAccess = ({
       };
 
       ws.onclose = (event) => {
-        console.log('WebSocket disconnected:', event.code, event.reason);
         clearTimeout(connectionTimeout);
         setWsStatus('disconnected');
         setIsLinked(false);
@@ -248,18 +245,14 @@ const CameraAccess = ({
         throw new Error('Camera access requires HTTPS or localhost. Please use HTTPS or run the application on localhost.');
       }
 
-      console.log('Starting camera access with highest resolution...');
-
       // Get highest resolution constraints
       const constraints = await getHighestResolutionConstraints();
-      console.log('Using camera constraints:', constraints);
 
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         ...constraints,
         audio: false
       });
 
-      console.log('High resolution camera access granted!');
       setStream(mediaStream);
 
       if (videoRef.current) {
@@ -270,7 +263,6 @@ const CameraAccess = ({
 
         try {
           await videoRef.current.play();
-          console.log('Video playing successfully!');
           setIsVideoReady(true);
           
           // Start frame processing if WebSocket is connected
@@ -280,12 +272,10 @@ const CameraAccess = ({
         } catch (playError) {
           // Handle specific play errors
           if (playError.name === 'AbortError') {
-            console.log('Video play was interrupted (likely due to React StrictMode), retrying...');
             // Retry after a short delay
             setTimeout(async () => {
               try {
                 await videoRef.current.play();
-                console.log('Video playing successfully after retry!');
                 setIsVideoReady(true);
                 
                 if (wsStatus === 'connected') {
@@ -403,14 +393,12 @@ const CameraAccess = ({
     const video = videoRef.current;
     
     const handleLoadedMetadata = () => {
-      console.log('Video metadata loaded');
       setIsVideoReady(true);
       
       // Get video dimensions
       const videoWidth = video.videoWidth || 640;
       const videoHeight = video.videoHeight || 480;
       
-      console.log(`Video dimensions: ${videoWidth}x${videoHeight}`);
       
       // Setup canvas for processing
       if (canvasRef.current) {

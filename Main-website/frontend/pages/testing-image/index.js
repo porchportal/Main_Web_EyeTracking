@@ -19,7 +19,6 @@ export default function TestingModel() {
       return;
     }
 
-    console.log('handleProcessImage - enhanceFace:', enhanceFace);
     setIsProcessing(true);
     try {
       const formData = new FormData();

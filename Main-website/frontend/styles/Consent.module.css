@@ -816,14 +816,14 @@
 }
 
 .modalButton {
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
   border: 1px solid transparent;
-  min-width: 120px;
+  min-width: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1105,7 +1105,7 @@
   .modalButton {
     width: 100%;
     min-width: auto;
-    padding: 12px 20px;
+    padding: 10px 16px;
     font-size: 0.9rem;
   }
   

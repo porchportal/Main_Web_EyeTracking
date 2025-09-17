@@ -263,7 +263,6 @@ export default function PrivacyPolicyModal({ isOpen, onClose }) {
             </p>
           </div>
 
-
           {/* Policy Updates Section */}
           <div className={styles.policySection}>
             <h3 className={styles.sectionTitle}>📋 Policy Updates</h3>

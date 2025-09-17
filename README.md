@@ -1,6 +1,12 @@
 # Eye Tracking Web Application
 
-A comprehensive web-based eye tracking system built with Next.js frontend and Python backend services, featuring real-time face detection, head pose estimation, and image enhancement capabilities.
+A comprehensive web-based eye tracking system built with Next.js frontend and Python backend services, featuring real-time face detection, head pose estimation, and image enhancement capabilities. **Note**: This website is designed for collecting datasets only. The video processing service is currently under development.
+
+*Developed under NECTEC IPU Lab (National Electronics and Computer Technology Center - IPU Laboratory), Thailand.*
+
+## ⚠️ Important Notice
+
+**This website is designed for collecting datasets only.** The video processing service (Port 8011) is currently under development and not available. Please use the available data collection features for your research needs.
 
 ## 🏗️ Architecture Overview
 
@@ -38,14 +44,14 @@ The application follows a microservices architecture with the following componen
   - Image enhancement using Real-ESRGAN
   - Batch processing capabilities
 
-#### 3. Video Service (Port 8011)
+#### 3. Video Service (Port 8011) ⚠️ **CURRENTLY UNAVAILABLE**
 - **Purpose**: Real-time video processing and analysis
 - **Key Features**:
   - Real-time video stream processing
   - Video-based eye tracking analysis
   - Continuous frame processing
   - Video enhancement capabilities
-- **Status**: Currently unavailable (under development)
+- **Status**: 🚧 **UNDER DEVELOPMENT** - This service is not yet implemented and will be available in future releases
 
 #### 4. Nginx Reverse Proxy (Ports 80, 443, 8443)
 - **Purpose**: Load balancing, SSL termination, security headers
@@ -289,6 +295,10 @@ This project relies on several open-source libraries and frameworks:
 - **MongoDB**: NoSQL database for user data and session management
 - **Docker**: Containerization for microservices architecture
 - **Nginx**: Reverse proxy and load balancer
+
+## 🏛️ Institutional Affiliation
+
+This project is developed under the **NECTEC IPU Lab** (National Electronics and Computer Technology Center - Intelligent Processing Unit Laboratory), Thailand. The research and development of this eye tracking system is part of ongoing work in computer vision and human-computer interaction technologies.
 
 ## 🤗 Acknowledgement
 

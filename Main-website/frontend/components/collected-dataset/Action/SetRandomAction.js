@@ -74,7 +74,6 @@ const SetRandomAction = ({ canvasRef, onStatusUpdate }) => {
 
   // Simulate capturing an image
   const captureImage = (position) => {
-    console.log('Capturing image at dot position:', position);
     
     // In a real implementation, this would access the webcam and save
     setTimeout(() => {

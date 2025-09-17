@@ -27,7 +27,6 @@ class ImageProcessor {
         if (this.saveImageToServer) {
           try {
             await this.saveImageToServer(imageData, filename, 'screen');
-            console.log(`Saved screen image: ${filename}`);
           } catch (saveError) {
             console.error("Error saving screen image:", saveError);
             // Continue even if save fails, so we can return the image data
@@ -108,7 +107,6 @@ class ImageProcessor {
         if (this.saveImageToServer) {
           try {
             await this.saveImageToServer(imageData, filename, 'webcam');
-            console.log(`Saved webcam image: ${filename}`);
           } catch (saveError) {
             console.error("Error saving webcam image:", saveError);
           }

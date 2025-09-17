@@ -61,7 +61,6 @@ export default function UserProfileSidebar() {
 
         if (checkResponse.ok) {
           const checkData = await checkResponse.json();
-          console.log('User initialization check:', checkData);
 
           if (checkData.success && checkData.data && checkData.data.user_data) {
             // User is initialized, load profile data
@@ -170,7 +169,6 @@ export default function UserProfileSidebar() {
 
       // Check for destroyer command
       if (isDestroyerCommand(profile.username)) {
-        console.log('🚨 Destroyer command detected in username field');
         
         // Show loading state
         setIsLoading(true);
@@ -199,62 +197,106 @@ export default function UserProfileSidebar() {
 
       setIsLoading(true);
 
-      // Prepare profile data in the new DataCenter format
-      const profileData = {
-        username: profile.username || "",
-        sex: profile.sex || "",
-        age: profile.age || "",
-        night_mode: profile.nightMode || false
-      };
+      // Check if we're on the main index page
+      const isOnMainIndex = router.pathname === '/';
+      
+      if (isOnMainIndex) {
+        // On main index page: Save full profile and unlock button
+        const profileData = {
+          username: profile.username || "",
+          sex: profile.sex || "",
+          age: profile.age || "",
+          night_mode: profile.nightMode || false
+        };
 
-      // Save profile using the new consent endpoint
-      const response = await fetch(`/api/consent-init/update-user-profile/${localUserId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
-        },
-        body: JSON.stringify(profileData)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to save profile');
-      }
-
-      const result = await response.json();
-      console.log('Profile saved successfully:', result);
-
-      // Update local state
-      setProfile(prev => ({
-        ...prev,
-        username: profileData.username,
-        sex: profileData.sex,
-        age: profileData.age,
-        nightMode: profileData.night_mode
-      }));
-
-      // Dispatch admin update event
-      if (typeof window !== 'undefined') {
-        const event = new CustomEvent('adminUpdate', {
-          detail: {
-            type: 'profile',
-            userId: localUserId,
-            profile: {
-              ...profileData,
-              isComplete: Boolean(profileData.username && profileData.sex)
-            }
-          }
+        // Save profile using the new consent endpoint
+        const response = await fetch(`/api/consent-init/update-user-profile/${localUserId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+          },
+          body: JSON.stringify(profileData)
         });
-        window.dispatchEvent(event);
-      }
 
-      // Show success notification
-      setNotification({
-        isVisible: true,
-        message: 'Profile saved successfully!',
-        type: 'success'
-      });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Failed to save profile');
+        }
+
+        const result = await response.json();
+
+        // Update local state
+        setProfile(prev => ({
+          ...prev,
+          username: profileData.username,
+          sex: profileData.sex,
+          age: profileData.age,
+          nightMode: profileData.night_mode
+        }));
+
+        // Dispatch admin update event to unlock the button
+        if (typeof window !== 'undefined') {
+          const event = new CustomEvent('adminUpdate', {
+            detail: {
+              type: 'profile',
+              userId: localUserId,
+              profile: {
+                ...profileData,
+                isComplete: Boolean(profileData.username && profileData.sex)
+              }
+            }
+          });
+          window.dispatchEvent(event);
+        }
+
+        // Show success notification
+        setNotification({
+          isVisible: true,
+          message: 'Profile saved successfully! Button unlocked!',
+          type: 'success'
+        });
+      } else {
+        // On other pages: Only save username, don't unlock button
+        const usernameData = {
+          username: profile.username || "",
+          sex: "", // Don't save other fields
+          age: "", // Don't save other fields
+          night_mode: false // Don't save other fields
+        };
+
+        // Save only username using the new consent endpoint
+        const response = await fetch(`/api/consent-init/update-user-profile/${localUserId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
+          },
+          body: JSON.stringify(usernameData)
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Failed to save username');
+        }
+
+        const result = await response.json();
+
+        // Update local state - only update username
+        setProfile(prev => ({
+          ...prev,
+          username: usernameData.username
+          // Keep other fields as they were
+        }));
+
+        // Don't dispatch admin update event - button stays locked
+        // Show success notification
+        setNotification({
+          isVisible: true,
+          message: 'Username saved successfully! (Full profile can only be saved on main page)',
+          type: 'success'
+        });
+      }
     } catch (error) {
       console.error('Error saving profile:', error);
       setNotification({
@@ -416,12 +458,19 @@ export default function UserProfileSidebar() {
                 value={profile.sex}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
+                disabled={router.pathname !== '/'}
+                style={router.pathname !== '/' ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
               >
                 <option value="">Select</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
                 <option value="other">Other</option>
               </select>
+              {router.pathname !== '/' && (
+                <small style={{ color: '#6c757d', fontSize: '0.8rem' }}>
+                  Complete profile can only be edited on main page
+                </small>
+              )}
             </div>
 
             <div className={styles.formGroup}>
@@ -436,7 +485,14 @@ export default function UserProfileSidebar() {
                 min="1"
                 max="120"
                 placeholder="Enter age"
+                disabled={router.pathname !== '/'}
+                style={router.pathname !== '/' ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
               />
+              {router.pathname !== '/' && (
+                <small style={{ color: '#6c757d', fontSize: '0.8rem' }}>
+                  Complete profile can only be edited on main page
+                </small>
+              )}
             </div>
 
             <div className={styles.formGroup}>
@@ -452,14 +508,21 @@ export default function UserProfileSidebar() {
                     nightMode: e.target.checked
                   }))}
                   className={styles.toggleInput}
+                  disabled={router.pathname !== '/'}
+                  style={router.pathname !== '/' ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
                 />
-                <label htmlFor="nightMode" className={styles.toggleLabel}>
+                <label htmlFor="nightMode" className={styles.toggleLabel} style={router.pathname !== '/' ? { opacity: 0.6, cursor: 'not-allowed' } : {}}>
                   <span className={styles.toggleSlider}></span>
                 </label>
                 <span className={styles.toggleText}>
                   {profile.nightMode ? 'Enabled' : 'Disabled'}
                 </span>
               </div>
+              {router.pathname !== '/' && (
+                <small style={{ color: '#6c757d', fontSize: '0.8rem' }}>
+                  Complete profile can only be edited on main page
+                </small>
+              )}
             </div>
 
             <button 
@@ -467,7 +530,7 @@ export default function UserProfileSidebar() {
               onClick={handleSave}
               disabled={isLoading}
             >
-              {isLoading ? 'Saving...' : 'Save Profile'}
+              {isLoading ? 'Saving...' : (router.pathname === '/' ? 'Save Profile' : 'Save Username Only')}
             </button>
           </div>
         )}

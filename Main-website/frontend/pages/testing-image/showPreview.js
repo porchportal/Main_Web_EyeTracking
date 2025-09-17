@@ -6,8 +6,6 @@ export default function ShowPreview({ result, enhanceFace, onClose }) {
   const [showPositions, setShowPositions] = useState(false);
   
   // Debug logging
-  console.log('ShowPreview - enhanceFace prop:', enhanceFace);
-  console.log('ShowPreview - result:', result);
 
   useEffect(() => {
     // Trigger animation when component mounts

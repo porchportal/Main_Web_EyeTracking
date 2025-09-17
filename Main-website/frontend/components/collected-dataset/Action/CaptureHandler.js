@@ -51,7 +51,7 @@ class CaptureHandler {
         `;
         
         // Event listeners for image loading
-        img.onload = () => console.log(`${label} image loaded successfully`);
+        img.onload = () => {};
         img.onerror = (e) => console.error(`Error loading ${label} image:`, e);
         
         const textLabel = document.createElement('div');
@@ -206,7 +206,6 @@ class CaptureHandler {
         // Get actual video dimensions
         const videoWidth = tempVideo.videoWidth || 640;
         const videoHeight = tempVideo.videoHeight || 480;
-        console.log(`Capturing at resolution: ${videoWidth}x${videoHeight}`);
         
         // Capture the frame at full resolution
         const tempCanvas = document.createElement('canvas');
@@ -256,7 +255,6 @@ class CaptureHandler {
         // Save the image
         if (this.saveImageToServer) {
           const saveResponse = await this.saveImageToServer(imageData, filename, 'screen', this.captureFolder);
-          console.log(`Saved screen image: ${filename}, response:`, saveResponse);
           return { imageData, saveResponse };
         }
         
@@ -291,7 +289,6 @@ class CaptureHandler {
         // Save CSV using the API
         if (this.saveImageToServer) {
           const saveResponse = await this.saveImageToServer(csvDataUrl, filename, 'parameters', this.captureFolder);
-          console.log(`Saved parameter CSV: ${filename}`);
           return saveResponse;
         }
         
@@ -305,7 +302,6 @@ class CaptureHandler {
     // Main capture and show process
     async captureAndShowPreview(captureCounter, canvasRef, position) {
       try {
-        console.log(`Starting capture process with counter: ${captureCounter}`);
         
         // Step 1: Capture screen image
         const { imageData: screenImage, saveResponse: screenResponse } = await this.captureScreenImage(canvasRef, captureCounter);
@@ -314,7 +310,6 @@ class CaptureHandler {
         let usedCaptureNumber = captureCounter;
         if (screenResponse && screenResponse.captureNumber) {
           usedCaptureNumber = screenResponse.captureNumber;
-          console.log(`Server assigned capture number: ${usedCaptureNumber}`);
         }
         
         // Step 2: Capture webcam image (and immediately stop stream)

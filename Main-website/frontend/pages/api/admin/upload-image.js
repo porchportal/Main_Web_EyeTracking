@@ -31,8 +31,6 @@ export default async function handler(req, res) {
       });
     });
 
-    console.log('Parsed fields:', fields);
-    console.log('Parsed files:', files);
 
     const userId = Array.isArray(fields.userId) ? fields.userId[0] : fields.userId;
     const fileCount = parseInt(Array.isArray(fields.fileCount) ? fields.fileCount[0] : fields.fileCount, 10);
@@ -58,7 +56,6 @@ export default async function handler(req, res) {
       const file = files[fileKey];
       
       if (!file) {
-        console.log(`No file found for key: ${fileKey}`);
         continue;
       }
 
@@ -67,7 +64,6 @@ export default async function handler(req, res) {
       
       for (const singleFile of fileArray) {
         if (!singleFile || !singleFile.filepath) {
-          console.log('Invalid file object:', singleFile);
           continue;
         }
 
@@ -86,7 +82,6 @@ export default async function handler(req, res) {
           const imagePath = `/canva/${filename}`;
           imagePaths[`Image_path_${i + 1}`] = imagePath;
           
-          console.log(`Successfully processed file: ${filename}`);
         } catch (fileError) {
           console.error(`Error processing file ${originalName}:`, fileError);
           throw new Error(`Failed to process file ${originalName}: ${fileError.message}`);
@@ -118,7 +113,6 @@ export default async function handler(req, res) {
         existingImages = existingData.data?.image_pdf_canva || {};
       }
     } catch (error) {
-      console.log('Could not fetch existing images, starting fresh:', error.message);
     }
 
     // Generate unique keys for new images to avoid conflicts
@@ -159,7 +153,6 @@ export default async function handler(req, res) {
       }
     };
 
-    console.log('Sending data to backend:', updateData);
 
     // Send the image paths to the backend API
     const backendResponse = await fetch(`${backendUrl}/api/admin/update`, {
@@ -178,7 +171,6 @@ export default async function handler(req, res) {
     }
 
     const backendData = await backendResponse.json();
-    console.log('Backend update successful:', backendData);
 
     res.status(200).json({ 
       success: true,

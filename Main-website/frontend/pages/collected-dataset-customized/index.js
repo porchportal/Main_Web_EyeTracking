@@ -663,11 +663,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           }
         } else if (hasStoredCameras) {
           // Cameras are already selected from localStorage, don't auto-select
-          console.log('Cameras already selected from localStorage, skipping auto-selection');
         } else if (skipAutoSelect) {
-          console.log('Auto-selection skipped by user preference');
         } else if (autoSelectDisabled) {
-          console.log('Auto-selection disabled by user setting');
         }
         
         return cameras;
@@ -903,7 +900,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           if (setOnImageComplete) {
             setOnImageComplete((eventType, data) => {
               if (eventType === 'image_switched') {
-                console.log('Image switched:', data);
                 setProcessStatus(`Switched to image ${data.currentIndex + 1}: ${data.imagePath.split('/').pop()}`);
                 
                 // Update overlay image path if using overlay
@@ -911,7 +907,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                   setOverlayImagePath(data.imagePath);
                 }
               } else if (eventType === 'all_complete') {
-                console.log('All images completed! Falling back to normal canvas (blue background)');
                 setProcessStatus('All images completed! 🎉 Using normal canvas (blue background)');
                 
                 // Clear overlay image path since we're back to normal canvas
@@ -924,7 +919,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                   canvasManager.clearCanvas();
                 }
               } else if (eventType === 'image_load_failed') {
-                console.log('Image load failed, falling back to normal canvas:', data);
                 setProcessStatus(`Image load failed, using normal canvas (blue background)`);
                 
                 // Clear overlay image path since image loading failed
@@ -1658,7 +1652,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         resetProgress: () => {
           // Clear both state and localStorage
           clearClickedButtons();
-          console.log('Button progress reset - all checkmarks cleared');
         },
         getStorageInfo: () => {
           if (typeof window !== 'undefined') {
@@ -1687,18 +1680,15 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           if (imageIndex !== null) {
             const storageKey = currentUserId ? `buttonCounter_${currentUserId}_image_${imageIndex}` : `buttonCounter_image_${imageIndex}`;
             localStorage.removeItem(storageKey);
-            console.log(`Button counter for image ${imageIndex + 1} reset to 0`);
           } else {
             const storageKey = currentUserId ? `buttonCounter_${currentUserId}` : 'buttonCounter';
             localStorage.removeItem(storageKey);
-            console.log('Global button counter reset to 0');
           }
         },
         resetAllImageCounters: () => resetAllImageCounters(currentUserId),
         
         // Test image switching functionality
         testImageSwitching: async () => {
-          console.log('🧪 Testing image switching functionality...');
           
           if (!canvasImageManager) {
             console.error('CanvasImageManager not available');
@@ -1711,38 +1701,31 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             "[56]-/istockphoto-517188688-612x612.jpg"
           ];
           
-          console.log('📋 Test data:', testImagePaths);
           
           // Parse the images
           const parsedImages = canvasImageManager.getAllParsedImages(testImagePaths);
-          console.log('📊 Parsed images:', parsedImages);
           
           // Set up the canvas with test data
           canvasImageManager.updateImageBackgroundPaths(testImagePaths);
           
           // Get current state
           const progressInfo = canvasImageManager.getProgressInfo();
-          console.log('📈 Current progress:', progressInfo);
           
           // Simulate button clicks to complete first image
-          console.log('🔄 Simulating button clicks to complete first image...');
           
           for (let i = 0; i < 56; i++) {
             await canvasImageManager.trackButtonClick('Test Random Dot', testImagePaths);
             
             const currentProgress = canvasImageManager.getProgressInfo();
-            console.log(`Click ${i + 1}/56: ${currentProgress.progress}`);
             
             // Check if we switched to next image
             if (canvasImageManager.getCurrentImageIndex() > 0) {
-              console.log('✅ Successfully switched to second image!');
               break;
             }
           }
           
           // Final state
           const finalProgress = canvasImageManager.getProgressInfo();
-          console.log('🎯 Final progress:', finalProgress);
           
           return {
             success: true,
@@ -1753,7 +1736,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         
         // Quick test to simulate completion of first image
         quickTestImageSwitch: async () => {
-          console.log('⚡ Quick test: Simulating first image completion...');
           
           if (!canvasImageManager) {
             console.error('CanvasImageManager not available');
@@ -1774,12 +1756,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           canvasImageManager.currentImageTimes = 56;
           canvasImageManager.saveProgressToStorage();
           
-          console.log('📊 Before switch:', canvasImageManager.getProgressInfo());
           
           // Trigger one more button click to complete first image
           await canvasImageManager.trackButtonClick('Test Random Dot', testImagePaths);
           
-          console.log('📊 After switch:', canvasImageManager.getProgressInfo());
           
           return {
             success: true,
@@ -1799,15 +1779,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           const progressInfo = canvasImageManager.getProgressInfo();
           const currentImage = canvasImageManager.getCurrentImage();
           
-          console.log('🔍 Current Image State:');
-          console.log('  - Current Image Index:', progressInfo.currentImageIndex);
-          console.log('  - Total Images:', progressInfo.totalImages);
-          console.log('  - Current Image Path:', progressInfo.currentImagePath);
-          console.log('  - Button Click Count:', progressInfo.buttonClickCount);
-          console.log('  - Current Image Times:', progressInfo.currentImageTimes);
-          console.log('  - Progress:', progressInfo.progress);
-          console.log('  - Is Complete:', progressInfo.isComplete);
-          console.log('  - Canvas Current Image:', currentImage);
           
           return {
             currentImageIndex: progressInfo.currentImageIndex,
@@ -1828,7 +1799,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             return;
           }
           
-          console.log(`🔄 Force switching to image ${imageIndex + 1}...`);
           
           // Set the image index
           canvasImageManager.setCurrentImageIndex(imageIndex);
@@ -1838,13 +1808,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           const targetImage = progressInfo.parsedImages[imageIndex];
           
           if (targetImage) {
-            console.log(`📸 Loading image: ${targetImage.path} (times: ${targetImage.times})`);
             
             // Load the image
             const success = await canvasImageManager.setImageBackground(targetImage.path);
             
             if (success) {
-              console.log(`✅ Successfully switched to image ${imageIndex + 1}`);
               return {
                 success: true,
                 message: `Switched to image ${imageIndex + 1}`,
@@ -2156,7 +2124,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       const currentImageIndex = canvasImageManager ? canvasImageManager.getCurrentImageIndex() : 0;
       const counterResult = counter(1, currentUserId, currentImageIndex);
       if (counterResult.success) {
-        console.log(`Random Dot completed - Counter: ${counterResult.newCount} (Image ${currentImageIndex + 1})`);
       }
       
     } catch (error) {
@@ -2215,10 +2182,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           if (userSettings) {
             times = Number(userSettings.times_set_random);
             delay = Number(userSettings.delay_set_random);
-            console.log(`[handleSetRandom] Fetched from MongoDB - times: ${times}, delay: ${delay}`);
           }
         } catch (error) {
-          console.log(`[handleSetRandom] Error fetching settings, using defaults`);
         }
       }
       
@@ -2231,7 +2196,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       }
       
       // Debug log to check final delay value
-      console.log(`[handleSetRandom] Final values - times: ${times}, delay: ${delay} seconds`);
       
       // Import and use SetRandomAction
       const { default: SetRandomAction } = await import('../../components/collected-dataset-customized/Action/SetRandomAction.jsx');
@@ -2273,7 +2237,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       const currentImageIndex = canvasImageManager ? canvasImageManager.getCurrentImageIndex() : 0;
       const counterResult = counter(1, currentUserId, currentImageIndex);
       if (counterResult.success) {
-        console.log(`Set Random completed - Counter: ${counterResult.newCount} (Image ${currentImageIndex + 1})`);
       }
     } catch (error) {
       console.error("Random sequence error:", error);
@@ -2371,7 +2334,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       const currentImageIndex = canvasImageManager ? canvasImageManager.getCurrentImageIndex() : 0;
       const counterResult = counter(1, currentUserId, currentImageIndex);
       if (counterResult.success) {
-        console.log(`Set Calibrate completed - Counter: ${counterResult.newCount} (Image ${currentImageIndex + 1})`);
       }
       
     } catch (error) {

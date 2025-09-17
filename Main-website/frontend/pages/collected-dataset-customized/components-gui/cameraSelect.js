@@ -16,22 +16,18 @@ const CameraSelect = ({
       try {
         const storedCameras = localStorage.getItem('selectedCameras');
         const storedCameraData = localStorage.getItem('selectedCamerasData');
-        console.log('Loading cameras from localStorage:', { storedCameras, storedCameraData });
         
         if (storedCameras) {
           const parsedCameras = JSON.parse(storedCameras);
-          console.log('Parsed cameras from localStorage:', parsedCameras);
           if (Array.isArray(parsedCameras) && parsedCameras.length > 0) {
             // Remove any duplicates that might have been saved
             const uniqueCameras = [...new Set(parsedCameras)];
-            console.log('Unique cameras after deduplication:', uniqueCameras);
             setSelectedCameras(uniqueCameras);
             
             // Load camera data if available
             if (storedCameraData) {
               try {
                 const parsedCameraData = JSON.parse(storedCameraData);
-                console.log('Loaded camera data with tags:', parsedCameraData);
               } catch (dataError) {
                 console.warn('Error parsing camera data:', dataError);
               }
@@ -48,20 +44,16 @@ const CameraSelect = ({
 
   const handleCameraSelection = useCallback((cameraId, isSelected) => {
     setSelectedCameras(prev => {
-      console.log('Camera selection change:', { cameraId, isSelected, currentSelected: prev });
       
       let newSelectedCameras;
       if (isSelected) {
         if (!prev.includes(cameraId) && prev.length < 2) {
           newSelectedCameras = [...prev, cameraId];
-          console.log('Added camera:', { cameraId, newSelected: newSelectedCameras });
         } else {
-          console.log('Camera not added - already exists or limit reached:', { cameraId, prev });
           return prev;
         }
       } else {
         newSelectedCameras = prev.filter(id => id !== cameraId);
-        console.log('Removed camera:', { cameraId, newSelected: newSelectedCameras });
       }
       
       // Create camera data with tags for localStorage
@@ -76,7 +68,6 @@ const CameraSelect = ({
         try {
           localStorage.setItem('selectedCameras', JSON.stringify(newSelectedCameras));
           localStorage.setItem('selectedCamerasData', JSON.stringify(cameraData));
-          console.log('Saved to localStorage:', { cameras: newSelectedCameras, data: cameraData });
         } catch (error) {
           console.warn('Error saving selected cameras to localStorage:', error);
         }
@@ -94,7 +85,6 @@ const CameraSelect = ({
     if (selectedCameras.length > 0) {
       // Ensure selectedCameras is an array before mapping and remove duplicates
       const camerasArray = Array.isArray(selectedCameras) ? [...new Set(selectedCameras)] : [];
-      console.log('Applying camera selection:', camerasArray);
       
       // Create camera data with tags
       const cameraData = camerasArray.map((id, index) => ({
@@ -115,7 +105,6 @@ const CameraSelect = ({
           localStorage.setItem('selectedCameras', JSON.stringify(camerasArray));
           localStorage.setItem('selectedCamerasData', JSON.stringify(cameraData));
           localStorage.setItem('selectedCamerasTimestamp', Date.now().toString());
-          console.log('Saved cameras to localStorage:', { cameras: camerasArray, data: cameraData });
         } catch (error) {
           console.warn('Error saving selected cameras to localStorage:', error);
         }
@@ -129,14 +118,12 @@ const CameraSelect = ({
   }, [selectedCameras, availableCameras, setProcessStatus, closeCameraSelector]);
 
   const handleClearSelection = useCallback(() => {
-    console.log('Clearing camera selection');
     setSelectedCameras([]);
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem('selectedCameras');
         localStorage.removeItem('selectedCamerasData');
         localStorage.removeItem('selectedCamerasTimestamp');
-        console.log('Cleared cameras from localStorage');
       } catch (error) {
         console.warn('Error clearing selected cameras from localStorage:', error);
       }

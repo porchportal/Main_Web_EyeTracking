@@ -32,8 +32,6 @@ export default async function handler(req, res) {
       });
     });
 
-    console.log('Parsed fields:', fields);
-    console.log('Parsed files:', files);
 
     const userId = Array.isArray(fields.userId) ? fields.userId[0] : fields.userId;
     const fileCount = parseInt(Array.isArray(fields.fileCount) ? fields.fileCount[0] : fields.fileCount, 10);
@@ -61,7 +59,6 @@ export default async function handler(req, res) {
       const file = files[fileKey];
       
       if (!file) {
-        console.log(`No file found for key: ${fileKey}`);
         continue;
       }
 
@@ -70,7 +67,6 @@ export default async function handler(req, res) {
       
       for (const singleFile of fileArray) {
         if (!singleFile || !singleFile.filepath) {
-          console.log('Invalid file object:', singleFile);
           continue;
         }
 
@@ -86,17 +82,9 @@ export default async function handler(req, res) {
       }
     }
 
-    console.log('Uploading files to backend canvas service...');
-    console.log('FormData created with user_id:', userId);
-    console.log('Number of files to upload:', fileCount);
 
     // Send to backend canvas service using node-fetch
     const fetch = require('node-fetch');
-    console.log('Sending request to:', `${backendUrl}/api/canvas-admin/upload-images`);
-    console.log('Request headers:', {
-      'X-API-Key': apiKey,
-      ...formData.getHeaders()
-    });
     
     let backendResponse;
     try {
@@ -128,7 +116,6 @@ export default async function handler(req, res) {
               try {
                 fs.unlinkSync(singleFile.filepath);
               } catch (unlinkError) {
-                console.log('Error cleaning up temp file:', unlinkError);
               }
             }
           }
@@ -149,7 +136,6 @@ export default async function handler(req, res) {
               try {
                 fs.unlinkSync(singleFile.filepath);
               } catch (unlinkError) {
-                console.log('Error cleaning up temp file:', unlinkError);
               }
             }
           }
@@ -162,8 +148,6 @@ export default async function handler(req, res) {
       throw new Error(`Network error: ${fetchError.message}`);
     }
     
-    console.log('Backend response status:', backendResponse.status);
-    console.log('Backend response headers:', backendResponse.headers.raw());
 
     if (!backendResponse.ok) {
       const errorData = await backendResponse.json().catch(() => ({}));
@@ -183,7 +167,6 @@ export default async function handler(req, res) {
     }
 
     const backendData = await backendResponse.json();
-    console.log('Backend canvas upload successful:', backendData);
 
     // Get existing images to merge with new ones
     let existingImages = {};
@@ -201,7 +184,6 @@ export default async function handler(req, res) {
         existingImages = existingData.data?.image_pdf_canva || {};
       }
     } catch (error) {
-      console.log('Could not fetch existing images, starting fresh:', error.message);
     }
 
     // Merge existing and new images
@@ -222,10 +204,8 @@ export default async function handler(req, res) {
       }
     };
 
-    console.log('Sending updated data to backend:', updateData);
 
     // Temporarily disabled to test if error comes from canvas upload or admin update
-    console.log('Skipping admin update for testing...');
     const settingsData = { skipped: true };
 
     // Create appropriate message based on backend response

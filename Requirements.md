@@ -224,6 +224,9 @@ resource_security/
 - **Resource constraints**: CPU and memory limits for optimal performance
 - **Resource reservations**: Guaranteed minimum resources per service
 - **Optimized allocation**: 4 CPU cores, 16GB memory total distribution
+- **Performance tuning**: Thread optimization, memory management, and caching
+- **Multi-user optimization**: Enhanced rate limiting and connection pooling
+- **Error resilience**: Graceful error handling and automatic recovery
 
 ### Nginx Configuration (`Main-website/backend/config/nginx.conf`)
 - Reverse proxy setup
@@ -489,18 +492,21 @@ const cookieManager = {
 
 #### Current Implementation Details
 
-##### Privacy Policy Page (`/preferences/privacy-policy`)
-- **Location**: Moved to preferences folder for better organization
+##### Privacy Policy Modal (`PrivacyPolicyModal.js`)
+- **Location**: `Main-website/frontend/components/consent_ui/PrivacyPolicyModal.js`
+- **Integration**: Used as a modal component within the main application layout
 - **Features**:
   - Real-time consent status display with timestamp
   - Interactive cookie management buttons
   - Clear visual hierarchy with emojis and color coding
   - Responsive design for all devices
   - Direct integration with consent management system
+  - Modal overlay with keyboard navigation support (ESC key)
+  - Dynamic content loading and consent status updates
 
 ##### Cookie Management Buttons
-- **← Back**: Returns to previous page
-- **⚙️ Configure Cookie Preferences**: Links to detailed consent setup
+- **Close**: Closes the privacy policy modal
+- **⚙️ Configure Cookie Preferences**: Links to detailed consent setup (`/preferences/consent-setup`)
 - **✅ Accept All Cookies**: Accepts all cookie categories
 - **❌ Reject Non-Essential**: Rejects optional cookies, keeps essential
 
@@ -516,7 +522,7 @@ const cookieManager = {
 - **Change Notifications**: Notify users of significant changes
 - **Consent Renewal**: Re-request consent for new data uses
 - **Audit Trail**: Maintain records of consent changes
-- **Last Updated**: Dynamic date display on privacy policy page
+- **Last Updated**: Dynamic date display in privacy policy modal
 
 #### Browser Compatibility
 
@@ -585,6 +591,15 @@ const cookieManager = {
 - Image processing caching
 - CDN integration ready
 
+### Performance Optimizations (Latest Updates)
+- **Thread Optimization**: OpenMP/MKL thread control for AI processing
+- **Memory Management**: Node.js memory optimization and Python unbuffered output
+- **Connection Pooling**: Nginx keepalive connections and upstream optimization
+- **Rate Limiting**: Enhanced rate limits for multi-user support
+- **Error Handling**: Graceful 503 error handling with exponential backoff
+- **Page Refresh**: Smart handling with stabilization delays
+- **Health Checks**: Improved health check endpoints with retry logic
+
 ### Scaling
 - Horizontal scaling support
 - Load balancing configuration
@@ -593,6 +608,9 @@ const cookieManager = {
 - **Resource-constrained deployment**: Optimized for 4-core, 16GB systems
 - **Resource monitoring**: Built-in resource limits and reservations
 - **Performance optimization**: CPU and memory allocation per service
+- **Multi-user support**: Enhanced rate limiting and connection pooling
+- **Error handling**: Graceful 503 error handling and automatic recovery
+- **Page refresh optimization**: Smart handling of page refreshes with stabilization delays
 
 ## 🐛 Troubleshooting
 
@@ -625,6 +643,14 @@ docker stats
 
 # Monitor specific service resources
 docker stats backend_image_service backend_auth_service frontend_main mongodb backend_nginx
+
+# Test health checks
+curl -f http://localhost:3010/health
+curl -f http://localhost:8010/health
+curl -f http://localhost:8108/health
+
+# Check connection status
+curl -f http://localhost:3010/api/check-backend-connection
 ```
 
 ## 📚 Key Dependencies
@@ -660,12 +686,13 @@ docker stats backend_image_service backend_auth_service frontend_main mongodb ba
 ### Resource Allocation (Docker Compose)
 - **Total CPU Limit**: 4 cores maximum
 - **Total Memory Limit**: 16GB maximum
-- **Service Distribution**:
-  - nginx: 0.5 CPU cores, 512MB RAM
-  - image_service: 2.0 CPU cores, 4GB RAM
-  - auth_service: 1.5 CPU cores, 3GB RAM
-  - frontend: 1.0 CPU cores, 2GB RAM
-  - mongodb: 1.0 CPU cores, 2GB RAM
+- **Optimized Distribution**: Balanced allocation for multi-user support and performance
+- **Service Distribution** (Optimized for Multi-User Support):
+  - **nginx**: 0.5 CPU cores, 1GB RAM (enhanced caching)
+  - **image_service**: 1.5 CPU cores, 6GB RAM (AI processing priority)
+  - **auth_service**: 1.0 CPU cores, 4GB RAM (authentication & data management)
+  - **frontend**: 0.75 CPU cores, 3GB RAM (Next.js optimization)
+  - **mongodb**: 0.75 CPU cores, 2GB RAM (database operations)
 
 ### Network Requirements
 - **Ports**: 80, 443, 8443, 3010, 8010, 8011, 8108

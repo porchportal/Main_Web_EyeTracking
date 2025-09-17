@@ -52,7 +52,6 @@ export default function ConsentBanner({ onShowPrivacyModal }) {
         consentStatus: true
       };
       
-      console.log('🍪 ConsentBanner: Sending consent request:', requestBody);
       
       // Update consent status through the proper consent API
       const consentResponse = await fetch('/api/preferences/consent', {
@@ -61,7 +60,6 @@ export default function ConsentBanner({ onShowPrivacyModal }) {
         body: JSON.stringify(requestBody)
       });
       
-      console.log('🍪 ConsentBanner: Response status:', consentResponse.status);
       
       if (!consentResponse.ok) {
         const errorText = await consentResponse.text();
@@ -70,7 +68,6 @@ export default function ConsentBanner({ onShowPrivacyModal }) {
       }
       
       const consentData = await consentResponse.json();
-      console.log('🍪 ConsentBanner: Success response:', consentData);
       
       // Update local consent state
       await updateConsent(true);
@@ -94,7 +91,6 @@ export default function ConsentBanner({ onShowPrivacyModal }) {
         consentStatus: false
       };
       
-      console.log('🍪 ConsentBanner: Sending decline request:', requestBody);
       
       // Update consent status through the proper consent API
       const consentResponse = await fetch('/api/preferences/consent', {
@@ -103,7 +99,6 @@ export default function ConsentBanner({ onShowPrivacyModal }) {
         body: JSON.stringify(requestBody)
       });
       
-      console.log('🍪 ConsentBanner: Decline response status:', consentResponse.status);
       
       if (!consentResponse.ok) {
         const errorText = await consentResponse.text();
@@ -112,7 +107,6 @@ export default function ConsentBanner({ onShowPrivacyModal }) {
       }
       
       const consentData = await consentResponse.json();
-      console.log('🍪 ConsentBanner: Decline success response:', consentData);
       
       // Update local consent state
       await updateConsent(false);
@@ -152,7 +146,7 @@ export default function ConsentBanner({ onShowPrivacyModal }) {
     <div className={styles.bannerContainer}>
       <div className={styles.bannerContent}>
         <span className={styles.bannerText}>
-          🍪 We use cookies to collect information about how you interact with our site—such as your preferences and usage data—to improve your experience. By clicking “Accept,” you agree to our use of cookies. Please note: if you choose not to accept cookies, we will be unable to collect the dataset necessary for our eye-tracking project.
+          🍪 We use cookies to collect information about how you interact with our site—like your preferences and usage data—to improve your experience. By clicking "Accept", you agree to our use of cookies.
         </span>
         <div className={styles.bannerButtons}>
           <button 

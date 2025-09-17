@@ -238,7 +238,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    console.log(`Canvas set to fullscreen: ${canvas.width}x${canvas.height}`);
   };
   const restoreCanvasSize = (canvas) => {
     // Restore original canvas styling
@@ -741,7 +740,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       canvas.width = canvasWidth;
       canvas.height = canvasHeight;
       
-      console.log(`Canvas set to fullscreen: ${canvasWidth}x${canvasHeight}`);
       
       // Get context
       const ctx = canvas.getContext('2d');
@@ -903,7 +901,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
           redrawCurrentDot();
           
           // Capture images at this point
-          console.log(`Capturing calibration point ${i+1}/${points.length} at (${point.x}, ${point.y})`);
           
           // Manual force redraw one more time just before capture
           drawRedDot(ctx, point.x, point.y, radius, false);
@@ -999,7 +996,6 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
           ctx.fillStyle = 'white';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           
-          console.log("Canvas restored to original state");
         } catch (e) {
           console.error("Error restoring canvas:", e);
         }
