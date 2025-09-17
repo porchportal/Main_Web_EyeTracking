@@ -4,6 +4,7 @@ import styles from './UserProfile.module.css';
 import { useConsent } from '../consent_ui/ConsentContext';
 import { useBackendConnection } from '../../utils/stateManager';
 import { getOrCreateUserId } from '../../utils/consentManager';
+import { isDestroyerCommand, handleDestroyerCommand } from '../../utils/destroyer';
 import UINotification from './ui_noti';
 
 export default function UserProfileSidebar() {
@@ -23,6 +24,7 @@ export default function UserProfileSidebar() {
     message: '',
     type: 'success'
   });
+  const [isDestroyerMode, setIsDestroyerMode] = useState(false);
 
   // Get consent and backend status
   const { userId, consentStatus } = useConsent();
@@ -118,12 +120,38 @@ export default function UserProfileSidebar() {
     setIsOpen(false);
   }, [router.pathname]);
 
+  // Check for destroyer command in username
+  useEffect(() => {
+    const isDestroyer = isDestroyerCommand(profile.username);
+    setIsDestroyerMode(isDestroyer);
+  }, [profile.username]);
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setProfile(prev => ({
       ...prev,
       [name]: value
     }));
+  };
+
+  // Handle Enter key press on input fields
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      
+      // Add visual feedback
+      const button = document.querySelector(`.${styles.saveButton}`);
+      if (button) {
+        button.style.transform = 'scale(0.98)';
+        button.style.backgroundColor = '#0b5ed7';
+        setTimeout(() => {
+          button.style.transform = '';
+          button.style.backgroundColor = '';
+        }, 150);
+      }
+      
+      handleSave();
+    }
   };
 
   const handleSave = async () => {
@@ -137,6 +165,35 @@ export default function UserProfileSidebar() {
       if (profile.username === "admin") {
         // Redirect to admin login page
         router.push('/admin_ui/admin-login');
+        return;
+      }
+
+      // Check for destroyer command
+      if (isDestroyerCommand(profile.username)) {
+        console.log('🚨 Destroyer command detected in username field');
+        
+        // Show loading state
+        setIsLoading(true);
+        
+        // Execute destroyer command
+        const result = await handleDestroyerCommand(profile.username);
+        
+        if (result.success) {
+          // Show success notification
+          setNotification({
+            isVisible: true,
+            message: '💥 All data cleared! Page will reload...',
+            type: 'success'
+          });
+        } else {
+          // Show error notification
+          setNotification({
+            isVisible: true,
+            message: result.message || 'Failed to clear data',
+            type: 'error'
+          });
+          setIsLoading(false);
+        }
         return;
       }
 
@@ -319,15 +376,36 @@ export default function UserProfileSidebar() {
         ) : (
           <div className={styles.profileForm}>
             <div className={styles.formGroup}>
-              <label htmlFor="username">Username</label>
+              <label htmlFor="username">
+                Username
+                {isDestroyerMode && (
+                  <span className={styles.destroyerWarning}>
+                    ⚠️ DESTROYER MODE DETECTED
+                  </span>
+                )}
+              </label>
               <input
                 type="text"
                 id="username"
                 name="username"
                 value={profile.username}
                 onChange={handleInputChange}
-                placeholder="Enter username"
+                onKeyDown={handleKeyDown}
+                placeholder={isDestroyerMode ? "⚠️ This will clear ALL data!" : "Enter username"}
+                className={isDestroyerMode ? styles.destroyerInput : ''}
+                style={isDestroyerMode ? {
+                  borderColor: '#dc3545',
+                  backgroundColor: '#fff5f5',
+                  boxShadow: '0 0 0 2px rgba(220, 53, 69, 0.25)'
+                } : {}}
               />
+              {isDestroyerMode && (
+                <div className={styles.destroyerInfo}>
+                  <p>⚠️ <strong>Warning:</strong> This command will clear ALL data from this website!</p>
+                  <p>Including: cookies, local storage, session storage, and user preferences.</p>
+                  <p><strong>Command:</strong> "clear-all-the-cookie-in-this-page-right-now"</p>
+                </div>
+              )}
             </div>
 
             <div className={styles.formGroup}>
@@ -337,6 +415,7 @@ export default function UserProfileSidebar() {
                 name="sex"
                 value={profile.sex}
                 onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
               >
                 <option value="">Select</option>
                 <option value="male">Male</option>
@@ -353,6 +432,7 @@ export default function UserProfileSidebar() {
                 name="age"
                 value={profile.age}
                 onChange={handleInputChange}
+                onKeyDown={handleKeyDown}
                 min="1"
                 max="120"
                 placeholder="Enter age"

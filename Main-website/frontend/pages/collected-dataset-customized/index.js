@@ -911,8 +911,31 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                   setOverlayImagePath(data.imagePath);
                 }
               } else if (eventType === 'all_complete') {
-                console.log('All images completed!');
-                setProcessStatus('All images completed! 🎉');
+                console.log('All images completed! Falling back to normal canvas (blue background)');
+                setProcessStatus('All images completed! 🎉 Using normal canvas (blue background)');
+                
+                // Clear overlay image path since we're back to normal canvas
+                if (setOverlayImagePath) {
+                  setOverlayImagePath(null);
+                }
+                
+                // Ensure canvas is cleared and shows blue background
+                if (canvasManager) {
+                  canvasManager.clearCanvas();
+                }
+              } else if (eventType === 'image_load_failed') {
+                console.log('Image load failed, falling back to normal canvas:', data);
+                setProcessStatus(`Image load failed, using normal canvas (blue background)`);
+                
+                // Clear overlay image path since image loading failed
+                if (setOverlayImagePath) {
+                  setOverlayImagePath(null);
+                }
+                
+                // Ensure canvas is cleared and shows blue background
+                if (canvasManager) {
+                  canvasManager.clearCanvas();
+                }
               }
             });
           }

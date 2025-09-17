@@ -147,6 +147,23 @@
   box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25);
 }
 
+/* Add subtle hint for Enter key support */
+.formGroup input::placeholder {
+  color: #999;
+  font-style: italic;
+}
+
+.formGroup input[placeholder*="Enter"]::placeholder {
+  color: #6c757d;
+  font-size: 13px;
+}
+
+.formGroup input[placeholder*="Enter"]::placeholder::after {
+  content: " (Press Enter to save)";
+  color: #6c757d;
+  font-size: 11px;
+}
+
 .saveButton {
   width: 100%;
   padding: 12px;
@@ -157,11 +174,31 @@
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.3s ease;
+  transition: all 0.3s ease;
+  position: relative;
 }
 
 .saveButton:hover {
   background: #0b5ed7;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(13, 110, 253, 0.3);
+}
+
+.saveButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(13, 110, 253, 0.2);
+}
+
+/* Add a subtle indicator that this button responds to Enter key */
+.saveButton::after {
+  content: "⏎";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  opacity: 0.7;
+  font-weight: normal;
 }
 
 /* Responsive styles */
@@ -431,4 +468,49 @@
   color: #666;
   font-weight: 500;
   min-width: 60px;
+}
+
+/* Destroyer Mode Styles */
+.destroyerWarning {
+  color: #dc3545;
+  font-weight: bold;
+  font-size: 12px;
+  margin-left: 8px;
+  animation: pulse 1s infinite;
+}
+
+.destroyerInput {
+  border-color: #dc3545 !important;
+  background-color: #fff5f5 !important;
+  box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25) !important;
+}
+
+.destroyerInfo {
+  margin-top: 8px;
+  padding: 12px;
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #856404;
+}
+
+.destroyerInfo p {
+  margin: 0 0 4px 0;
+}
+
+.destroyerInfo p:last-child {
+  margin-bottom: 0;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
 }

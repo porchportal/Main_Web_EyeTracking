@@ -221,6 +221,9 @@ resource_security/
 - Volume mounts for persistent data
 - Health checks and dependencies
 - Port mappings and environment variables
+- **Resource constraints**: CPU and memory limits for optimal performance
+- **Resource reservations**: Guaranteed minimum resources per service
+- **Optimized allocation**: 4 CPU cores, 16GB memory total distribution
 
 ### Nginx Configuration (`Main-website/backend/config/nginx.conf`)
 - Reverse proxy setup
@@ -269,6 +272,297 @@ resource_security/
 - User data deletion
 - Audit logging
 
+## 🍪 Privacy & Cookie Policy
+
+### Cookie Management System
+
+The application implements a comprehensive cookie management system with user consent tracking and privacy compliance.
+
+#### Cookie Types Implemented
+
+| Cookie Type | Purpose | Storage Duration | Essential |
+|-------------|---------|------------------|-----------|
+| **Essential Cookies** | Basic website functionality, navigation, secure areas | Session-based | ✅ Yes |
+| **Analytics Cookies** | Anonymous visitor interaction tracking, website improvement | 30 days | ❌ No |
+| **Preference Cookies** | User choices, personalized features, settings | 90 days | ❌ No |
+| **Marketing Cookies** | Cross-website tracking, relevant advertising | 180 days | ❌ No |
+
+#### Cookie Storage Structure
+
+```javascript
+// Essential cookies (always active)
+{
+  "sessionId": "uuid-session-id",
+  "userId": "user-unique-id", 
+  "consentStatus": "granted|denied|pending",
+  "cameraSettings": "selected-cameras-array"
+}
+
+// Analytics cookies (with consent)
+{
+  "analyticsId": "anonymous-tracking-id",
+  "pageViews": "count",
+  "sessionDuration": "milliseconds",
+  "buttonClicks": "tracked-actions"
+}
+
+// Preference cookies (with consent)
+{
+  "theme": "light|dark",
+  "language": "en|es|fr",
+  "cameraPreferences": "user-camera-settings",
+  "canvasSettings": "background-preferences"
+}
+
+// Marketing cookies (with consent)
+{
+  "marketingId": "advertising-id",
+  "campaigns": "tracked-campaigns",
+  "conversions": "conversion-events"
+}
+```
+
+#### Consent Management Implementation
+
+```javascript
+// Consent levels and their implications
+const CONSENT_LEVELS = {
+  ESSENTIAL: {
+    required: true,
+    description: "Required for basic website functionality",
+    cookies: ["sessionId", "userId", "consentStatus"]
+  },
+  ANALYTICS: {
+    required: false,
+    description: "Anonymous usage analytics and website improvement",
+    cookies: ["analyticsId", "pageViews", "sessionDuration"]
+  },
+  PREFERENCES: {
+    required: false,
+    description: "Personalized features and user settings",
+    cookies: ["theme", "language", "cameraPreferences"]
+  },
+  MARKETING: {
+    required: false,
+    description: "Relevant advertising and cross-site tracking",
+    cookies: ["marketingId", "campaigns", "conversions"]
+  }
+};
+```
+
+#### Privacy Policy Features
+
+##### 1. **Cookie Information Display**
+- Clear explanation of each cookie type with emojis for visual appeal
+- Purpose and duration of each cookie category
+- User-friendly descriptions of data collection
+- Real-time consent status display with timestamp
+- Visual indicators for essential vs. optional cookies
+
+##### 2. **Consent Management**
+- Granular consent controls for each cookie type
+- Easy-to-use consent interface with toggle switches
+- One-click accept/reject all options
+- Consent withdrawal functionality
+- Real-time consent status updates
+- Persistent consent storage in localStorage
+- **Banner Persistence**: Banner remains visible when declined, allowing users to change their mind
+- **Logo Positioning**: Automatic logo adjustment when banner is visible to prevent overlapping
+
+##### 3. **Data Protection Measures**
+- **Data Minimization**: Only collect necessary data
+- **Purpose Limitation**: Use data only for stated purposes
+- **Storage Limitation**: Automatic data deletion after specified periods
+- **Transparency**: Clear privacy notices and cookie information
+- **User Control**: Complete control over cookie preferences
+
+##### 4. **User Rights Implementation**
+- **Right to Access**: Users can view their stored data
+- **Right to Rectification**: Users can correct inaccurate data
+- **Right to Erasure**: Users can request data deletion
+- **Right to Portability**: Users can export their data
+- **Right to Object**: Users can opt-out of processing
+- **Right to Withdraw Consent**: Easy consent withdrawal at any time
+
+#### Cookie Configuration Interface
+
+```javascript
+// Cookie preferences configuration
+const cookiePreferences = {
+  essential: {
+    enabled: true,        // Always enabled
+    description: "Required for website functionality",
+    cannotDisable: true
+  },
+  analytics: {
+    enabled: false,       // User choice
+    description: "Anonymous usage analytics",
+    canDisable: true,
+    impact: "May affect website improvement insights"
+  },
+  preferences: {
+    enabled: false,       // User choice
+    description: "Personalized features and settings",
+    canDisable: true,
+    impact: "May affect personalized experience"
+  },
+  marketing: {
+    enabled: false,       // User choice
+    description: "Relevant advertising",
+    canDisable: true,
+    impact: "May affect ad relevance"
+  }
+};
+```
+
+#### Privacy Compliance Features
+
+##### 1. **GDPR Compliance**
+- ✅ Explicit consent before data processing
+- ✅ Clear privacy notices
+- ✅ Data subject rights implementation
+- ✅ Data protection by design
+- ✅ Privacy impact assessments
+
+##### 2. **CCPA Compliance**
+- ✅ Right to know about data collection
+- ✅ Right to delete personal information
+- ✅ Right to opt-out of data sale
+- ✅ Non-discrimination for privacy choices
+
+##### 3. **Cookie Law Compliance**
+- ✅ Clear cookie information
+- ✅ Granular consent controls
+- ✅ Easy consent withdrawal
+- ✅ Regular consent renewal
+
+#### Data Retention Policies
+
+| Data Type | Retention Period | Deletion Method | Legal Basis |
+|-----------|------------------|-----------------|-------------|
+| **Session Data** | 24 hours | Automatic | Legitimate Interest |
+| **User Preferences** | 90 days | Automatic | Consent |
+| **Analytics Data** | 30 days | Automatic | Consent |
+| **Marketing Data** | 180 days | Automatic | Consent |
+| **Eye Tracking Data** | 1 year | Manual | Research Consent |
+
+#### Privacy Contact Information
+
+- **Privacy Officer**: privacy@eyetrackingapp.com
+- **Data Protection Officer**: dpo@eyetrackingapp.com
+- **General Inquiries**: support@eyetrackingapp.com
+- **Data Deletion Requests**: deletion@eyetrackingapp.com
+
+#### Cookie Management API
+
+```javascript
+// Cookie management functions
+const cookieManager = {
+  // Set cookie with consent check
+  setCookie: (name, value, category, days) => {
+    if (hasConsent(category)) {
+      // Set cookie with appropriate settings
+    }
+  },
+  
+  // Get cookie value
+  getCookie: (name) => {
+    // Retrieve cookie value safely
+  },
+  
+  // Delete cookie
+  deleteCookie: (name) => {
+    // Remove cookie from browser
+  },
+  
+  // Check consent for category
+  hasConsent: (category) => {
+    // Verify user consent for cookie category
+  },
+  
+  // Update consent preferences
+  updateConsent: (preferences) => {
+    // Update user consent settings
+  }
+};
+```
+
+#### Current Implementation Details
+
+##### Privacy Policy Page (`/preferences/privacy-policy`)
+- **Location**: Moved to preferences folder for better organization
+- **Features**:
+  - Real-time consent status display with timestamp
+  - Interactive cookie management buttons
+  - Clear visual hierarchy with emojis and color coding
+  - Responsive design for all devices
+  - Direct integration with consent management system
+
+##### Cookie Management Buttons
+- **← Back**: Returns to previous page
+- **⚙️ Configure Cookie Preferences**: Links to detailed consent setup
+- **✅ Accept All Cookies**: Accepts all cookie categories
+- **❌ Reject Non-Essential**: Rejects optional cookies, keeps essential
+
+##### Visual Design Elements
+- **Color Coding**: Green for accepted, red for rejected, blue for informational
+- **Emoji Icons**: Visual indicators for different cookie types
+- **Status Display**: Real-time consent status with last updated timestamp
+- **Warning Messages**: Clear warnings about essential cookie requirements
+
+#### Privacy Policy Updates
+
+- **Version Control**: Track policy changes with version numbers
+- **Change Notifications**: Notify users of significant changes
+- **Consent Renewal**: Re-request consent for new data uses
+- **Audit Trail**: Maintain records of consent changes
+- **Last Updated**: Dynamic date display on privacy policy page
+
+#### Browser Compatibility
+
+| Browser | Cookie Support | Local Storage | Session Storage | IndexedDB |
+|---------|----------------|---------------|-----------------|-----------|
+| **Chrome** | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| **Firefox** | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| **Safari** | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| **Edge** | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+| **Mobile Safari** | ✅ Full | ✅ Full | ✅ Full | ✅ Full |
+
+#### Privacy Impact Assessment
+
+##### High-Risk Processing Activities
+1. **Eye Tracking Data Collection**
+   - Risk Level: High
+   - Mitigation: Explicit consent, data anonymization
+   - Legal Basis: Research consent
+
+2. **Camera Access and Processing**
+   - Risk Level: High
+   - Mitigation: User control, secure processing
+   - Legal Basis: Legitimate interest + consent
+
+3. **Cross-Site Tracking**
+   - Risk Level: Medium
+   - Mitigation: Granular consent, opt-out options
+   - Legal Basis: Consent
+
+#### Cookie Data Management
+
+##### Safety Features
+- **Double Confirmation**: User must confirm destruction
+- **Visual Warnings**: Clear indication when destroyer command is detected
+- **Graceful Fallback**: System handles errors during clearing
+- **Consent Banner Reset**: Ensures banner reappears after clearing
+
+#### Data Breach Response
+
+1. **Detection**: Automated monitoring and alerting
+2. **Assessment**: Risk evaluation within 24 hours
+3. **Notification**: Authorities within 72 hours
+4. **Communication**: Users within 72 hours
+5. **Documentation**: Complete incident records
+6. **Remediation**: Security improvements and testing
+
 ## 🔍 Monitoring and Logging
 
 ### Health Checks
@@ -296,6 +590,9 @@ resource_security/
 - Load balancing configuration
 - Database replication ready
 - Microservices architecture
+- **Resource-constrained deployment**: Optimized for 4-core, 16GB systems
+- **Resource monitoring**: Built-in resource limits and reservations
+- **Performance optimization**: CPU and memory allocation per service
 
 ## 🐛 Troubleshooting
 
@@ -322,6 +619,12 @@ docker exec backend_nginx nginx -t
 
 # Run without log
 docker-compose up --build > /dev/null
+
+# Check resource usage
+docker stats
+
+# Monitor specific service resources
+docker stats backend_image_service backend_auth_service frontend_main mongodb backend_nginx
 ```
 
 ## 📚 Key Dependencies
@@ -349,10 +652,20 @@ docker-compose up --build > /dev/null
 - MongoDB v8.0.8 (for database)
 
 ### Hardware Requirements
-- **RAM**: Minimum 8GB (16GB recommended for AI processing)
+- **RAM**: 16GB (optimized resource allocation)
 - **Storage**: Minimum 20GB free space (for models and data)
-- **CPU**: Multi-core processor (AI processing is CPU intensive)
+- **CPU**: 4-core processor (resource-constrained configuration)
 - **GPU**: Optional but recommended for faster AI processing
+
+### Resource Allocation (Docker Compose)
+- **Total CPU Limit**: 4 cores maximum
+- **Total Memory Limit**: 16GB maximum
+- **Service Distribution**:
+  - nginx: 0.5 CPU cores, 512MB RAM
+  - image_service: 2.0 CPU cores, 4GB RAM
+  - auth_service: 1.5 CPU cores, 3GB RAM
+  - frontend: 1.0 CPU cores, 2GB RAM
+  - mongodb: 1.0 CPU cores, 2GB RAM
 
 ### Network Requirements
 - **Ports**: 80, 443, 8443, 3010, 8010, 8011, 8108
@@ -365,16 +678,12 @@ docker-compose up --build > /dev/null
 
 ```bash
 # Frontend Environment Configuration
-# This file contains environment variables for the Next.js frontend
-
 # API Configuration
-# NEXT_PUBLIC_API_URL=https://(ip)
 NEXT_PUBLIC_API_URL=https://(ip)
 
 NEXT_PUBLIC_API_KEY=(api-key)
 
 # WebSocket URL for real-time features
-# NEXT_PUBLIC_WS_URL=wss://(ip)/ws
 NEXT_PUBLIC_WS_URL=wss://(ip)/ws
 
 # Development settings
@@ -406,7 +715,6 @@ ALLOWED_DEV_ORIGINS=(ip),172.18.0.0/16,192.168.0.0/16,localhost,127.0.0.1
 API_KEY=(api-key)
 
 # MongoDB settings
-# MONGODB_URL=mongodb://localhost:27017
 MONGODB_URL=mongodb://mongodb:27017 
 
 MONGODB_DB_NAME=eye_tracking
@@ -417,7 +725,6 @@ ADMIN_PASSWORD=(admin-password)
 
 # CORS settings
 ALLOWED_ORIGINS=http://localhost:3010
-# CORS_ORIGINS=["http://localhost:3010", "http://frontend:3010"]
 
 # Logging settings
 LOG_LEVEL=INFO

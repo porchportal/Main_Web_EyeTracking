@@ -386,12 +386,17 @@ class CanvasImageManager {
     console.log(`📈 Next index would be: ${nextIndex}`);
     
     if (nextIndex >= this.parsedImages.length) {
-      console.log('🏁 All images completed!');
-      // All images are complete
+      console.log('🏁 All images completed! Falling back to normal canvas (blue background)');
+      
+      // Clear canvas and reset to normal blue background
+      this.clearCanvas();
+      this.currentImage = null;
+      
+      // All images are complete - notify and fall back to normal canvas
       if (this.onImageComplete) {
         this.onImageComplete('all_complete');
       }
-      return false;
+      return true; // Return true to indicate successful completion
     }
 
     // Move to next image
@@ -415,8 +420,21 @@ class CanvasImageManager {
       }
       return true;
     } else {
-      console.error(`❌ Failed to load next image: ${nextImage.path}`);
-      return false;
+      console.error(`❌ Failed to load next image: ${nextImage.path}, falling back to normal canvas`);
+      
+      // If image loading fails, fall back to normal canvas
+      this.clearCanvas();
+      this.currentImage = null;
+      
+      if (this.onImageComplete) {
+        this.onImageComplete('image_load_failed', {
+          previousIndex: this.currentImageIndex - 1,
+          currentIndex: this.currentImageIndex,
+          imagePath: nextImage.path,
+          times: nextImage.times
+        });
+      }
+      return true; // Return true to indicate we handled the failure gracefully
     }
   }
 
@@ -469,10 +487,19 @@ class CanvasImageManager {
       const movedToNext = await this.moveToNextImage();
       
       if (movedToNext) {
-        // Reset button click count for the new image
-        this.buttonClickCount = 0;
-        this.saveProgressToStorage();
-        console.log(`🎯 Successfully switched to image ${this.currentImageIndex + 1}, reset button count to 0`);
+        // Check if we actually moved to a new image or if all images are completed
+        if (this.currentImageIndex < this.parsedImages.length) {
+          // Reset button click count for the new image
+          this.buttonClickCount = 0;
+          this.saveProgressToStorage();
+          console.log(`🎯 Successfully switched to image ${this.currentImageIndex + 1}, reset button count to 0`);
+        } else {
+          // All images completed, reset button count and clear image
+          this.buttonClickCount = 0;
+          this.currentImage = null;
+          this.saveProgressToStorage();
+          console.log(`🏁 All images completed! Reset to normal canvas (blue background)`);
+        }
       } else {
         console.log(`❌ Failed to switch to next image`);
       }
@@ -648,6 +675,7 @@ class CanvasImageManager {
       // Clear canvas if background change is disabled - NO IMAGE LOADING
       this.clearCanvas();
       this.currentImage = null; // Ensure no image is set
+      console.log('Background change disabled, using normal canvas (blue background)');
       return;
     }
 
@@ -671,6 +699,8 @@ class CanvasImageManager {
       
       // Clear canvas as fallback (blue background is handled in index.js)
       this.clearCanvas();
+      this.currentImage = null;
+      console.log('Default or empty image paths, using normal canvas (blue background)');
       return;
     }
 
@@ -693,6 +723,8 @@ class CanvasImageManager {
       
       // Clear canvas as fallback (blue background is handled in index.js)
       this.clearCanvas();
+      this.currentImage = null;
+      console.log('No valid image paths, using normal canvas (blue background)');
       return;
     }
 
@@ -723,6 +755,8 @@ class CanvasImageManager {
     if (!success) {
       // Clear canvas if image loading failed (blue background is handled in index.js)
       this.clearCanvas();
+      this.currentImage = null;
+      console.log('Image loading failed, using normal canvas (blue background)');
     }
   }
 

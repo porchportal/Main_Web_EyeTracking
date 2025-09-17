@@ -34,7 +34,7 @@ export default function HomePage() {
   const router = useRouter();
   const { isProcessReady, toggleProcessStatus } = useProcessStatus();
   const { isConnected, authValid, checkConnection } = useBackendConnection();
-  const { consentStatus, userId, loading, consentChecked, recheckConsent } = useConsent();
+  const { consentStatus, userId, loading, consentChecked, recheckConsent, showBanner } = useConsent();
   const [isAdminOverride, setIsAdminOverride] = useState(false);
   const [buttonStates, setButtonStates] = useState({});
   const [mounted, setMounted] = useState(false);
@@ -450,12 +450,13 @@ export default function HomePage() {
     return `${styles.menuButton} ${styles.largerButton} ${readyClass}`;
   }, [mounted, isProcessReady, isConnected, authValid, styles.menuButton, styles.largerButton, styles.readyButton, styles.notReadyButton]);
 
+
   
 
   return (
     <div className={styles.container}>
       <main className={styles.main}>
-        <div className={styles.logoContainer}>
+        <div className={`${styles.logoContainer} ${showBanner ? styles.logoContainerWithBanner : ''}`}>
           <Image
             src="/logo.png"
             alt="Logo"

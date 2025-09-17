@@ -80,6 +80,19 @@ export function BackendConnectionProvider({ children }) {
       return;
     }
 
+    // Skip backend checks if disabled (e.g., after data clearing)
+    if (typeof window !== 'undefined' && window.disableBackendChecks) {
+      console.log('🔧 Backend checks disabled - skipping connection check');
+      setConnectionState(prev => ({
+        ...prev,
+        isConnected: false,
+        authValid: false,
+        isChecking: false,
+        error: 'Backend checks temporarily disabled'
+      }));
+      return;
+    }
+
     // Update checking state
     setConnectionState(prev => ({
       ...prev,

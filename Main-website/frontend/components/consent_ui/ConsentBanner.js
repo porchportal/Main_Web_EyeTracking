@@ -11,7 +11,7 @@ const CONSENT_HEADERS = Object.freeze({
   'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
 });
 
-export default function ConsentBanner() {
+export default function ConsentBanner({ onShowPrivacyModal }) {
   const { showBanner, updateConsent, consentChecked, loading: contextLoading } = useConsent();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -76,9 +76,6 @@ export default function ConsentBanner() {
       await updateConsent(true);
       
       // User data will be initialized automatically when they first save their profile
-      
-      // Redirect to consent setup page
-      router.push('/preferences/consent-setup');
     } catch (error) {
       console.error('Error handling cookie acceptance:', error);
     } finally {
@@ -127,12 +124,26 @@ export default function ConsentBanner() {
   };
 
   const handleLearnMore = () => {
+    if (onShowPrivacyModal) {
+      onShowPrivacyModal();
+    } else {
+      // Fallback to navigation if modal handler not provided
+      try {
+        router.push('/preferences/privacy-policy');
+      } catch (error) {
+        console.error('Navigation error:', error);
+        window.location.href = '/preferences/privacy-policy';
+      }
+    }
+  };
+
+  const handleConfigCookie = () => {
     try {
-      router.push('/privacy-policy');
+      router.push('/preferences/consent-setup');
     } catch (error) {
       console.error('Navigation error:', error);
       // Fallback to window.location if router fails
-      window.location.href = '/privacy-policy';
+      window.location.href = '/preferences/consent-setup';
     }
   };
 
@@ -141,7 +152,7 @@ export default function ConsentBanner() {
     <div className={styles.bannerContainer}>
       <div className={styles.bannerContent}>
         <span className={styles.bannerText}>
-          🍪 We use cookies to collect information about how you interact with our site—like your preferences and usage data—to improve your experience. By clicking "Accept", you agree to our use of cookies.
+          🍪 We use cookies to collect information about how you interact with our site—such as your preferences and usage data—to improve your experience. By clicking “Accept,” you agree to our use of cookies. Please note: if you choose not to accept cookies, we will be unable to collect the dataset necessary for our eye-tracking project.
         </span>
         <div className={styles.bannerButtons}>
           <button 
@@ -157,6 +168,12 @@ export default function ConsentBanner() {
             disabled={loading}
           >
             Decline
+          </button>
+          <button 
+            className={`${styles.bannerButton} ${styles.configButton}`}
+            onClick={handleConfigCookie}
+          >
+            Config Cookie
           </button>
           <button 
             className={`${styles.bannerButton} ${styles.learnMoreButton}`}

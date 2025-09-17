@@ -132,6 +132,16 @@
     text-decoration: underline;
 }
 
+.configButton {
+    background-color: transparent;
+    color: black;
+    border: 1px solid #ffffff;
+}
+
+.configButton:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
 /* Styles for the preferences form page */
 .preferencesContainer {
     max-width: 800px;
@@ -592,6 +602,7 @@
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 14px;
+  appearance: textfield; /* Standard */
   -moz-appearance: textfield; /* Firefox */
 }
 
@@ -716,6 +727,395 @@
 
 .userSelectionInput option {
   padding: 8px;
+}
+
+/* Privacy Policy Modal Styles */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: modalFadeIn 0.3s ease-out;
+}
+
+.modalContent {
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 900px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: modalSlideIn 0.3s ease-out;
+  overflow: hidden;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px 32px;
+  border-bottom: 1px solid #e5e7eb;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.modalTitle {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  line-height: 1;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.closeButton:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.modalBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px;
+  background: white;
+}
+
+.modalFooter {
+  display: flex;
+  gap: 12px;
+  padding: 24px 32px;
+  border-top: 1px solid #e5e7eb;
+  background: #f9fafb;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.modalButton {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  min-width: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.modalButton:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.modalButton:active {
+  transform: translateY(0);
+}
+
+.primaryButton {
+  background-color: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.primaryButton:hover {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.successButton {
+  background-color: #10b981;
+  color: white;
+  border-color: #10b981;
+}
+
+.successButton:hover {
+  background-color: #059669;
+  border-color: #059669;
+}
+
+.dangerButton {
+  background-color: #ef4444;
+  color: white;
+  border-color: #ef4444;
+}
+
+.dangerButton:hover {
+  background-color: #dc2626;
+  border-color: #dc2626;
+}
+
+.modalButton:not(.primaryButton):not(.successButton):not(.dangerButton) {
+  background-color: #6b7280;
+  color: white;
+  border-color: #6b7280;
+}
+
+.modalButton:not(.primaryButton):not(.successButton):not(.dangerButton):hover {
+  background-color: #4b5563;
+  border-color: #4b5563;
+}
+
+/* Consent Status Card */
+.consentStatusCard {
+  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border: 1px solid #10b981;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.consentStatusTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #065f46;
+  margin: 0 0 8px 0;
+}
+
+.consentStatusText {
+  color: #065f46;
+  margin: 0 0 8px 0;
+  font-weight: 500;
+}
+
+.consentStatusDate {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* Policy Sections */
+.policySection {
+  margin-bottom: 32px;
+}
+
+.sectionTitle {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 16px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sectionText {
+  color: #4b5563;
+  line-height: 1.7;
+  margin: 0 0 16px 0;
+  font-size: 1rem;
+}
+
+/* Cookie Types Container */
+.cookieTypesContainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+  margin: 24px 0;
+}
+
+.cookieTypeCard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.2s ease;
+}
+
+.cookieTypeCard:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+}
+
+.cookieTypeHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.cookieTypeIcon {
+  font-size: 1.5rem;
+}
+
+.cookieTypeTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.cookieTypeContent {
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.cookieTypePurpose,
+.cookieTypeExamples,
+.cookieTypeDuration {
+  margin: 0 0 12px 0;
+  font-size: 0.95rem;
+}
+
+.cookieTypeWarning {
+  color: #dc2626;
+  font-weight: 600;
+  margin: 16px 0 0 0;
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.cookieTypeInfo {
+  color: #2563eb;
+  font-weight: 500;
+  margin: 16px 0 0 0;
+  padding: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+/* Lists */
+.protectionList,
+.rightsList,
+.contactList,
+.managementList {
+  color: #4b5563;
+  line-height: 1.7;
+  padding-left: 20px;
+  margin: 0 0 16px 0;
+}
+
+.protectionList li,
+.rightsList li,
+.contactList li,
+.managementList li {
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+}
+
+.managementWarning {
+  color: #dc2626;
+  font-weight: 600;
+  margin: 16px 0 0 0;
+  padding: 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.datasetWarning {
+  color: #b45309;
+  font-weight: 600;
+  margin: 16px 0 0 0;
+  padding: 12px;
+  background: #fffbeb;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.lastUpdated {
+  color: #6b7280;
+  font-size: 0.9rem;
+  font-style: italic;
+  margin: 16px 0 0 0;
+}
+
+/* Animations */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .modalOverlay {
+    padding: 10px;
+  }
+  
+  .modalContent {
+    max-height: 95vh;
+  }
+  
+  .modalHeader {
+    padding: 20px;
+  }
+  
+  .modalTitle {
+    font-size: 1.5rem;
+  }
+  
+  .modalBody {
+    padding: 24px 20px;
+  }
+  
+  .modalFooter {
+    padding: 20px;
+    flex-direction: column;
+  }
+  
+  .modalButton {
+    width: 100%;
+    min-width: auto;
+    padding: 12px 20px;
+    font-size: 0.9rem;
+  }
+  
+  .cookieTypesContainer {
+    grid-template-columns: 1fr;
+  }
+  
+  .sectionTitle {
+    font-size: 1.2rem;
+  }
 }
 
 

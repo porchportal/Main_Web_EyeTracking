@@ -51,6 +51,11 @@
   position: absolute;
   top: 2rem;
   left: 2rem;
+  transition: top 0.3s ease;
+}
+
+.logoContainerWithBanner {
+  top: 5rem; /* Move down when banner is visible */
 }
 
 .logo {
@@ -285,6 +290,10 @@
     left: 2rem;
   }
   
+  .logoContainerWithBanner {
+    top: 4rem; /* Adjust for tablet when banner is visible */
+  }
+  
   .logo {
     height: 50px;
   }
@@ -322,6 +331,10 @@
     gap: 0.6rem;
     top: 0.8rem;
     left: 1.5rem;
+  }
+  
+  .logoContainerWithBanner {
+    top: 3.5rem; /* Adjust for mobile when banner is visible */
   }
   
   .logo {

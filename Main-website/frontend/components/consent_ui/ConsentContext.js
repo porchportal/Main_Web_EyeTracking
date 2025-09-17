@@ -229,6 +229,29 @@ export function ConsentProvider({ children }) {
     initializeConsent();
   }, [isHydrated]);
 
+  // Listen for consent reset events
+  useEffect(() => {
+    const handleConsentReset = () => {
+      console.log('🍪 ConsentContext: Consent reset event received');
+      startTransition(() => {
+        setConsentState(prev => ({
+          ...prev,
+          consentStatus: null,
+          showBanner: true,
+          consentChecked: true,
+          loading: false
+        }));
+      });
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('consentReset', handleConsentReset);
+      return () => {
+        window.removeEventListener('consentReset', handleConsentReset);
+      };
+    }
+  }, []);
+
   const updateConsent = async (status) => {
     try {
       const userId = consentState.userId || getOrCreateUserId();
@@ -263,7 +286,7 @@ export function ConsentProvider({ children }) {
           consentStatus: updatedConsent.consentStatus,
           consentUpdatedAt: updatedConsent.consentUpdatedAt,
           consentDetails: updatedConsent.consentDetails,
-          showBanner: false
+          showBanner: status === false ? true : false // Keep banner visible if declined
         }));
       });
       
