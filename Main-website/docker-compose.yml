@@ -21,6 +21,16 @@ services:
     restart: unless-stopped
     environment:
       - NGINX_ENTRYPOINT_QUIET_LOGS=1
+      - NGINX_WORKER_PROCESSES=auto
+      - NGINX_WORKER_CONNECTIONS=512
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
 
   image_service:
     build: 
@@ -38,6 +48,9 @@ services:
     environment:
       - PORT=8010
       - IMAGE_SERVICE_URL=http://backend_image_service:8010
+      - PYTHONUNBUFFERED=1
+      - OMP_NUM_THREADS=2
+      - MKL_NUM_THREADS=2
     networks:
       - app-network
     restart: unless-stopped
@@ -47,6 +60,14 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 6G
+        reservations:
+          cpus: '0.75'
+          memory: 3G
 
 
   # video_service:
@@ -79,6 +100,9 @@ services:
       - ./backend/.env.backend
     environment:
       - IMAGE_SERVICE_URL=http://backend_image_service:8010
+      - PYTHONUNBUFFERED=1
+      - OMP_NUM_THREADS=1
+      - MKL_NUM_THREADS=1
     depends_on:
       mongodb:
         condition: service_healthy
@@ -91,6 +115,14 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 2G
 
   frontend:
     build:
@@ -124,6 +156,14 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 3G
+        reservations:
+          cpus: '0.25'
+          memory: 1G
 
   mongodb:
     image: mongo:latest
@@ -135,6 +175,7 @@ services:
       - ./backend/config/mongod.conf:/etc/mongod.conf:ro
     environment:
       - MONGO_INITDB_DATABASE=eye_tracking
+
     healthcheck:
       test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
       interval: 10s
@@ -144,10 +185,25 @@ services:
     restart: unless-stopped
     networks:
       - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 1G
 
 networks:
   app-network:
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.bridge.host_binding_ipv4: "0.0.0.0"
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
 
 volumes:
   mongodb_data:
