@@ -168,12 +168,44 @@ sequenceDiagram
 
 ## Data Flow Architecture
 
-```
-User Input → Frontend → Nginx → Auth Service → MongoDB
-                ↓
-            Image Service → File System
-                ↓
-            Enhanced Data → Complete Storage
+```mermaid
+flowchart TD
+    A[User Browser] -->|HTTPS Request| B[Nginx Reverse Proxy<br/>Ports 80/443/8443]
+    B -->|Route to Frontend| C[Next.js Frontend<br/>Port 3010]
+    B -->|API Requests| D[Auth Service<br/>Port 8108]
+    B -->|Image Processing| E[Image Service<br/>Port 8010]
+    
+    C -->|User Interface| A
+    C -->|API Calls| B
+    
+    D -->|User Data| F[MongoDB Database]
+    D -->|File Operations| G[File System<br/>resource_security/]
+    
+    E -->|AI Processing| G
+    E -->|Processing Status| D
+    
+    F -->|User Preferences| D
+    G -->|Enhanced Images| H[Complete Storage<br/>resource_security/public/complete/]
+    
+    subgraph "Data Storage"
+        G
+        H
+        I[Captures<br/>resource_security/public/captures/]
+        J[Enhanced<br/>resource_security/public/enhance/]
+    end
+    
+    G --> I
+    G --> J
+    J --> H
+    
+    style A fill:#e1f5fe
+    style B fill:#fff3e0
+    style C fill:#f3e5f5
+    style D fill:#e8f5e8
+    style E fill:#fff8e1
+    style F fill:#fce4ec
+    style G fill:#f1f8e9
+    style H fill:#e0f2f1
 ```
 
 ## Security Considerations
