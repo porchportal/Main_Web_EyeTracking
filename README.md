@@ -6,7 +6,12 @@ A comprehensive web-based eye tracking system built with Next.js frontend and Py
 
 ## ⚠️ Important Notice
 
-**This website is designed for collecting datasets only.** The video processing service (Port 8011) is currently under development and not available. Please use the available data collection features for your research needs.
+**This website is designed for collecting datasets only.** The following features are currently unavailable or under development:
+
+- **Video Processing Service (Port 8011)**: Currently under development and not available
+- **Image Background Auto-Change**: This feature is temporarily unavailable and will be restored in future updates
+
+Please use the available data collection features for your research needs.
 
 ## 🏗️ Architecture Overview
 
@@ -274,6 +279,7 @@ For multi-user access, ensure your server is accessible from other devices on th
 ## 📚 Documentation
 
 - **📋 Technical Requirements**: [Requirements.md](Requirements.md) - Complete technical specifications and configuration details
+- **🏗️ Architecture & API Flow**: [ARCHITECTURE_SEQUENCE_DIAGRAM.md](ARCHITECTURE_SEQUENCE_DIAGRAM.md) - Comprehensive time sequence diagram showing service interactions and API flow
 - **Environment Setup**: [Main-website/ENVIRONMENT_SETUP.md](Main-website/ENVIRONMENT_SETUP.md)
 - **SSL & Camera Setup**: [Main-website/backend/config/SSL_SETUP_README.md](Main-website/backend/config/SSL_SETUP_README.md) - Comprehensive SSL and HTTPS camera access guide
 - **Consent System**: [Main-website/backend/auth_service/CONSENT_INITIALIZATION_README.md](Main-website/backend/auth_service/CONSENT_INITIALIZATION_README.md)
