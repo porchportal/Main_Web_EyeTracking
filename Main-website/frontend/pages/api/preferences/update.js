@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 
   // Get the backend URL and API key from environment variables
   const backendUrl = process.env.AUTH_SERVICE_URL;
-  const apiKey = process.env.API_KEY;
+  const apiKey = process.env.BACKEND_API_KEY;
 
   try {
     const { userId, username, sex, age, night_mode, ...otherPreferences } = req.body;

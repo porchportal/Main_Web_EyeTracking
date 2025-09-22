@@ -327,11 +327,30 @@ class FrameShow_head_face:
         return all_element, (pitch, yaw, roll), (frame_width, frame_height), face_landmarks, frame
     
     def enhance_image_set(self, frame, face_box, timestamp_ms: int = 0, isVideo=None):
-        # Use the new method that pastes the enhanced face back into the original frame
-        enhanced_frame = self.enhancer.main_process_with_paste_back(frame.copy(), face_box=face_box)
-        if not isinstance(enhanced_frame, np.ndarray):
-            enhanced_frame = np.array(enhanced_frame)
-        return self.set_functional_process(enhanced_frame, timestamp_ms, isVideo)
+        # Enhance the entire image using the FaceEnhancer
+        try:
+            print(f"DEBUG - enhance_image_set: Starting enhancement with face_box: {face_box}")
+            
+            # Check if face_box is valid
+            if face_box is None:
+                print("WARNING - enhance_image_set: face_box is None, proceeding with enhancement anyway")
+            
+            # Use the FaceEnhancer to enhance the entire image
+            enhanced_frame = self.enhancer.enhance_entire_image(frame)
+            if not isinstance(enhanced_frame, np.ndarray):
+                enhanced_frame = np.array(enhanced_frame)
+            
+            print(f"DEBUG - enhance_image_set: Enhanced frame shape: {enhanced_frame.shape}")
+            
+            # Process the enhanced frame and return the enhanced frame (not original)
+            all_element, (pitch, yaw, roll), (frame_width, frame_height), face_landmarks, _ = self.set_functional_process(enhanced_frame, timestamp_ms, isVideo)
+            return all_element, (pitch, yaw, roll), (frame_width, frame_height), face_landmarks, enhanced_frame
+        except Exception as e:
+            print(f"Error enhancing entire image: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fallback to original frame if enhancement fails
+            return self.set_functional_process(frame, timestamp_ms, isVideo)
 
     def process_frame(self, frame, timestamp_ms: int = 0, isVideo=None, isEnhanceFace=None)-> Tuple[Optional[all_data_output], np.ndarray]:
         """Process frame and return frame with face landmarks and head pose angles"""
@@ -344,11 +363,12 @@ class FrameShow_head_face:
         all_element, (pitch, yaw, roll), (frame_width, frame_height), face_landmarks, frame = self.set_functional_process(frame, timestamp_ms, isVideo)
         # print(f"DEBUG - After set_functional_process - frame type: {type(frame)}, shape: {frame.shape if hasattr(frame, 'shape') else 'Unknown'}")
     
+        # Check if face enhancement is enabled
         if self.isEnhanceFace:
+            # Face enhancement is enabled, processing frame with enhancement
             # self.Face_bounding_box = True
             # self.face_Label_display = True
-            all_element, (pitch, yaw, roll), (frame_width, frame_height), face_landmarks, frame = self.enhance_image_set(frame, all_element.face_box)
-            # print(f"DEBUG - After enhance_image_set - frame type: {type(frame)}, shape: {frame.shape if hasattr(frame, 'shape') else 'Unknown'}")
+            all_element, (pitch, yaw, roll), (frame_width, frame_height), face_landmarks, frame = self.enhance_image_set(frame, all_element.face_box, timestamp_ms, isVideo)
 
         if frame.dtype != np.uint8:
             frame = frame.astype(np.uint8)

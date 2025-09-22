@@ -181,7 +181,7 @@ const AdminAIProcess = ({ userId, onClose }) => {
         }
         
         // Check if processing is needed using process_set function
-        const processingResult = await checkFilesNeedProcessing(userId);
+        const processingResult = await checkFilesNeedProcessing(userId, enhanceFace);
         if (processingResult.success) {
           setIsProcessReady(processingResult.needsProcessing);
           setFilesChecked(true);
@@ -255,7 +255,7 @@ const AdminAIProcess = ({ userId, onClose }) => {
     
     try {
       // Get the processing status using process_set function
-      const result = await checkFilesNeedProcessing(userId);
+      const result = await checkFilesNeedProcessing(userId, enhanceFace);
       if (!result.success) {
         throw new Error('Failed to get processing status');
       }
@@ -284,39 +284,19 @@ const AdminAIProcess = ({ userId, onClose }) => {
         throw new Error(processResult.error || 'Processing failed');
       }
 
-      // Update progress with results
-      const processedSets = processResult.data.results
-        .filter(r => r.status === 'success')
-        .map(r => r.setNumber);
-
-      setProgressData(prev => ({
-        ...prev,
-        processedSets,
-        progress: Math.round((processedSets.length / prev.totalSets) * 100),
-        status: 'completed',
-        message: `Processed ${processResult.data.processedCount} of ${processResult.data.totalSets} sets`
-      }));
-
-      // Show notifications for any errors
-      processResult.data.results
-        .filter(r => r.status === 'error')
-        .forEach(r => {
-          safeShowNotification(r.message, 'error');
-        });
-
-      // Show completion notification
-      safeShowNotification('Processing completed successfully', 'success');
-      
-      // Refresh the files list
-      await loadFiles();
+      // The progress polling will handle updating the progress bar in real-time
+      // and will show completion notification when processing is done
+      // We don't need to manually update progress data here since polling handles it
       
     } catch (error) {
       console.error('Error during processing:', error);
       safeShowNotification(error.message || 'Error during processing', 'error');
-    } finally {
+      // On error, immediately stop processing and clear progress
       setIsProcessing(false);
       setProgressData(null);
     }
+    // Note: We don't clear isProcessing and progressData in finally block
+    // because the progress polling will handle completion detection
   };
 
   // Handle enhance face toggle
@@ -332,6 +312,76 @@ const AdminAIProcess = ({ userId, onClose }) => {
     }, 300);
   };
 
+  // Add progress polling effect
+  useEffect(() => {
+    let progressInterval = null;
+    
+    if (isProcessing) {
+      // Set up interval to check processing progress when processing is active
+      progressInterval = setInterval(async () => {
+        try {
+          const result = await checkProcessingStatus(userId);
+          if (result.success && result.isProcessing === false) {
+            setIsProcessing(false);
+            setProgressData(null);
+            return;
+          }
+          
+          // Check if we have progress data and update accordingly
+          if (result.progress && (result.progress.status === 'processing' || result.progress.status === 'starting')) {
+            const progressData = {
+              currentSet: result.progress.currentSet || 0,
+              totalSets: result.progress.totalSets || 0,
+              processedSets: result.progress.processedSets || [],
+              currentFile: result.progress.currentFile || '',
+              progress: result.progress.progress || 0,
+              status: result.progress.status || 'unknown',
+              message: result.progress.message || '',
+              userId: userId
+            };
+            
+            // Update progress data if we have meaningful progress
+            if (progressData.progress > 0 || progressData.status === 'processing' || progressData.status === 'starting') {
+              setProgressData({
+                ...progressData,
+                timestamp: Date.now()
+              });
+            }
+            
+            // If processing is completed, update state and clear progress after delay
+            if (result.progress.status === 'completed') {
+              safeShowNotification('Processing completed successfully', 'success');
+              
+              // Set a timeout to clear progress after 3 seconds, then refresh files
+              setTimeout(async () => {
+                setIsProcessing(false);
+                setProgressData(null);
+                await loadFiles();
+              }, 3000);
+            } else if (result.progress.status === 'error') {
+              safeShowNotification('Processing failed: ' + result.progress.message, 'error');
+              
+              // Set a timeout to clear progress after 3 seconds for errors
+              setTimeout(() => {
+                setIsProcessing(false);
+                setProgressData(null);
+              }, 3000);
+            }
+          }
+        } catch (error) {
+          console.error('Error in progress polling:', error);
+        }
+      }, 2000); // Check every 2 seconds when processing
+    }
+    
+    // Clean up interval when isProcessing changes or component unmounts
+    return () => {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+    };
+  }, [isProcessing, userId]);
+
   // Initialize on mount
   useEffect(() => {
     if (userId) {
@@ -339,6 +389,13 @@ const AdminAIProcess = ({ userId, onClose }) => {
       loadFiles();
     }
   }, [userId]);
+
+  // Refresh files when enhanceFace state changes
+  useEffect(() => {
+    if (userId && filesChecked) {
+      loadFiles();
+    }
+  }, [enhanceFace]);
 
   return (
     <div className={`${styles.aiProcessSection} ${isClosing ? styles.closing : ''}`}>

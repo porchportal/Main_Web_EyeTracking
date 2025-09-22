@@ -6,18 +6,10 @@ const nextConfig = {
   // Disable development indicators (Next.js badge)
   devIndicators: false,
   
-  // Remove experimental features that cause issues
-  experimental: {
-    // Remove problematic optimisticClientCache
-  },
-  
   // Add proper configuration for Docker development
   output: 'standalone',
   
-  // Configure allowed development origins from environment variables
-  allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS ? 
-    process.env.ALLOWED_DEV_ORIGINS.split(',').map(origin => origin.trim()) : 
-    [],
+  // Note: Development origin restrictions should be handled at the server level or through middleware
   
   // Image configuration for Next.js 16 compatibility
   images: {
@@ -40,6 +32,32 @@ const nextConfig = {
       });
     }
     return config;
+  },
+  
+  // Note: devServer configuration is not valid in Next.js config
+  // Development server settings should be configured via command line flags or environment variables
+  
+  // Headers configuration for CORS
+  async headers() {
+    return [
+      {
+        source: '/_next/:path*',
+        headers: [
+          {
+            key: 'Access-Control-Allow-Origin',
+            value: '*',
+          },
+          {
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET, POST, PUT, DELETE, OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
+            value: 'Content-Type, Authorization',
+          },
+        ],
+      },
+    ];
   },
   
   // Environment variables for backend configuration

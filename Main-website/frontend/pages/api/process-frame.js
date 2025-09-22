@@ -76,7 +76,7 @@ export default async function handler(req, res) {
       formData.append('showParameters', showParameters.toString());
       
       // Get backend URL and API key from environment or use defaults
-      const apiKey = process.env.API_KEY;
+      const apiKey = process.env.BACKEND_API_KEY;
       
       // Send to FastAPI backend
       let response;

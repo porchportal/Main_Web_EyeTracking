@@ -4,14 +4,23 @@ import fetch from 'node-fetch';
 export default async function handler(req, res) {
   // Get the backend URL and API key from environment variables
   const backendUrl = process.env.AUTH_SERVICE_URL || 'http://backend_auth_service:8108';
-  const apiKey = process.env.API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV';
+  const apiKey = process.env.BACKEND_API_KEY;
   
   console.log('🔧 Environment check:', {
     AUTH_SERVICE_URL: process.env.AUTH_SERVICE_URL,
-    API_KEY: process.env.API_KEY ? 'SET' : 'NOT SET',
+    BACKEND_API_KEY: process.env.BACKEND_API_KEY ? 'SET' : 'NOT SET',
     backendUrl,
     apiKey: apiKey ? 'SET' : 'NOT SET'
   });
+
+  // Check if API key is available
+  if (!apiKey) {
+    console.error('❌ BACKEND_API_KEY is not set in environment variables');
+    return res.status(500).json({
+      success: false,
+      message: 'API key not configured'
+    });
+  }
 
   try {
     if (req.method === 'GET') {

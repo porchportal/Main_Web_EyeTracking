@@ -100,7 +100,7 @@ export const saveImageToServer = async (imageData, filename, type, folder = 'eye
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
       },
       body: JSON.stringify({ 
         imageData, 
@@ -130,7 +130,7 @@ export const saveImageToServer = async (imageData, filename, type, folder = 'eye
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+                'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
               },
               body: JSON.stringify({ 
                 imageData: resizedImage, 
@@ -205,7 +205,7 @@ export const getUserCaptureStatus = async () => {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY || 'A1B2C3D4-E5F6-7890-GHIJ-KLMNOPQRSTUV'
+        'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
       }
     });
     

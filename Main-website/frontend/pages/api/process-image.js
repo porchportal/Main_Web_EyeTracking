@@ -141,7 +141,7 @@ async function handleSingleImageUpload(req, res) {
       
       // In the backend request section
       const backendUrl = process.env.BACKEND_URL;
-      const apiKey = process.env.API_KEY;
+      const apiKey = process.env.BACKEND_API_KEY;
 
       // Send the request to the FastAPI backend with API key
       const response = await fetch(`${backendUrl}/process-image`, {
