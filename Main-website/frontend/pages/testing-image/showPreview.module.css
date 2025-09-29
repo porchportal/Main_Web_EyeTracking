@@ -418,6 +418,20 @@
   min-height: 200px;
 }
 
+.imageError {
+  padding: 2rem;
+  background: #fef2f2;
+  border: 2px dashed #fca5a5;
+  border-radius: 8px;
+  color: #dc2626;
+  text-align: center;
+}
+
+.imageError p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+
 /* Position Overlay */
 .positionOverlay {
   position: absolute;

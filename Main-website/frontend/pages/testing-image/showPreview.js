@@ -4,8 +4,20 @@ import styles from './showPreview.module.css';
 export default function ShowPreview({ result, enhanceFace, onClose }) {
   const [isVisible, setIsVisible] = useState(false);
   const [showPositions, setShowPositions] = useState(false);
+  const [imageScale, setImageScale] = useState({ scaleX: 1, scaleY: 1 });
   
   // Debug logging
+  console.log('🔧 DEBUG - ShowPreview received data:');
+  console.log('   ✨ enhanceFace:', enhanceFace);
+  console.log('   📊 result:', result);
+  console.log('   🎯 face_detected:', result?.face_detected);
+  console.log('   📏 image dimensions:', result?.image?.width, 'x', result?.image?.height);
+  console.log('   📐 original dimensions:', result?.image?.original_width, 'x', result?.image?.original_height);
+  console.log('   🖼️ image data length:', result?.image?.data?.length);
+  console.log('   📦 metrics available:', Object.keys(result?.metrics || {}));
+  console.log('   🎯 face_box:', result?.metrics?.face_box);
+  console.log('   👁️ left_eye_box:', result?.metrics?.left_eye_box);
+  console.log('   👁️ right_eye_box:', result?.metrics?.right_eye_box);
 
   useEffect(() => {
     // Trigger animation when component mounts
@@ -23,6 +35,27 @@ export default function ShowPreview({ result, enhanceFace, onClose }) {
     if (e.key === 'Escape') {
       onClose();
     }
+  };
+
+  const handleImageLoad = (e) => {
+    console.log('✅ Image loaded successfully');
+    
+    // Calculate scale ratio between original image and displayed image
+    const img = e.target;
+    const originalWidth = result.image.width;
+    const originalHeight = result.image.height;
+    const displayedWidth = img.clientWidth;
+    const displayedHeight = img.clientHeight;
+    
+    const scaleX = displayedWidth / originalWidth;
+    const scaleY = displayedHeight / originalHeight;
+    
+    console.log('📏 DEBUG - Image scale calculation:');
+    console.log('   📐 Original dimensions:', originalWidth, 'x', originalHeight);
+    console.log('   🖼️ Displayed dimensions:', displayedWidth, 'x', displayedHeight);
+    console.log('   📊 Scale ratios:', { scaleX, scaleY });
+    
+    setImageScale({ scaleX, scaleY });
   };
 
   useEffect(() => {
@@ -209,22 +242,46 @@ export default function ShowPreview({ result, enhanceFace, onClose }) {
               </div>
               <div className={styles.imageContainer}>
                 <div className={styles.imageWrapper}>
-                  <img 
-                    src={`data:image/jpeg;base64,${result.image.data}`} 
-                    alt="Processed face image with AI annotations" 
-                    className={styles.processedImage}
-                  />
+                  {result.image && result.image.data ? (
+                    <img 
+                      src={`data:image/jpeg;base64,${result.image.data}`} 
+                      alt="Processed face image with AI annotations" 
+                      className={styles.processedImage}
+                      onLoad={handleImageLoad}
+                      onError={(e) => console.error('❌ Image failed to load:', e)}
+                    />
+                  ) : (
+                    <div className={styles.imageError}>
+                      <p>❌ No processed image data available</p>
+                      <p>Image data: {result.image ? 'Present' : 'Missing'}</p>
+                      <p>Data length: {result.image?.data?.length || 0}</p>
+                    </div>
+                  )}
                   {showPositions && result.metrics && (
                     <div className={styles.positionOverlay}>
+                      {console.log('🎯 DEBUG - Rendering position overlays:', {
+                        showPositions,
+                        hasMetrics: !!result.metrics,
+                        imageScale,
+                        faceBox: result.metrics.face_box,
+                        leftEyeBox: result.metrics.left_eye_box,
+                        rightEyeBox: result.metrics.right_eye_box,
+                        scaledFaceBox: result.metrics.face_box ? {
+                          left: result.metrics.face_box.min[0] * imageScale.scaleX,
+                          top: result.metrics.face_box.min[1] * imageScale.scaleY,
+                          width: (result.metrics.face_box.max[0] - result.metrics.face_box.min[0]) * imageScale.scaleX,
+                          height: (result.metrics.face_box.max[1] - result.metrics.face_box.min[1]) * imageScale.scaleY
+                        } : null
+                      })}
                       {/* Face Box */}
                       {result.metrics.face_box && (
                         <div 
                           className={styles.positionBox}
                           style={{
-                            left: `${result.metrics.face_box.min[0]}px`,
-                            top: `${result.metrics.face_box.min[1]}px`,
-                            width: `${result.metrics.face_box.max[0] - result.metrics.face_box.min[0]}px`,
-                            height: `${result.metrics.face_box.max[1] - result.metrics.face_box.min[1]}px`,
+                            left: `${result.metrics.face_box.min[0] * imageScale.scaleX}px`,
+                            top: `${result.metrics.face_box.min[1] * imageScale.scaleY}px`,
+                            width: `${(result.metrics.face_box.max[0] - result.metrics.face_box.min[0]) * imageScale.scaleX}px`,
+                            height: `${(result.metrics.face_box.max[1] - result.metrics.face_box.min[1]) * imageScale.scaleY}px`,
                           }}
                         >
                           <span className={styles.positionLabel}>Face</span>
@@ -236,10 +293,10 @@ export default function ShowPreview({ result, enhanceFace, onClose }) {
                         <div 
                           className={styles.positionBox}
                           style={{
-                            left: `${result.metrics.left_eye_box.min[0]}px`,
-                            top: `${result.metrics.left_eye_box.min[1]}px`,
-                            width: `${result.metrics.left_eye_box.max[0] - result.metrics.left_eye_box.min[0]}px`,
-                            height: `${result.metrics.left_eye_box.max[1] - result.metrics.left_eye_box.min[1]}px`,
+                            left: `${result.metrics.left_eye_box.min[0] * imageScale.scaleX}px`,
+                            top: `${result.metrics.left_eye_box.min[1] * imageScale.scaleY}px`,
+                            width: `${(result.metrics.left_eye_box.max[0] - result.metrics.left_eye_box.min[0]) * imageScale.scaleX}px`,
+                            height: `${(result.metrics.left_eye_box.max[1] - result.metrics.left_eye_box.min[1]) * imageScale.scaleY}px`,
                           }}
                         >
                           <span className={styles.positionLabel}>L Eye</span>
@@ -251,10 +308,10 @@ export default function ShowPreview({ result, enhanceFace, onClose }) {
                         <div 
                           className={styles.positionBox}
                           style={{
-                            left: `${result.metrics.right_eye_box.min[0]}px`,
-                            top: `${result.metrics.right_eye_box.min[1]}px`,
-                            width: `${result.metrics.right_eye_box.max[0] - result.metrics.right_eye_box.min[0]}px`,
-                            height: `${result.metrics.right_eye_box.max[1] - result.metrics.right_eye_box.min[1]}px`,
+                            left: `${result.metrics.right_eye_box.min[0] * imageScale.scaleX}px`,
+                            top: `${result.metrics.right_eye_box.min[1] * imageScale.scaleY}px`,
+                            width: `${(result.metrics.right_eye_box.max[0] - result.metrics.right_eye_box.min[0]) * imageScale.scaleX}px`,
+                            height: `${(result.metrics.right_eye_box.max[1] - result.metrics.right_eye_box.min[1]) * imageScale.scaleY}px`,
                           }}
                         >
                           <span className={styles.positionLabel}>R Eye</span>
@@ -266,8 +323,8 @@ export default function ShowPreview({ result, enhanceFace, onClose }) {
                         <div 
                           className={styles.positionPoint}
                           style={{
-                            left: `${result.metrics.left_eye_position_x}px`,
-                            top: `${result.metrics.left_eye_position_y}px`,
+                            left: `${result.metrics.left_eye_position_x * imageScale.scaleX}px`,
+                            top: `${result.metrics.left_eye_position_y * imageScale.scaleY}px`,
                           }}
                         >
                           <span className={styles.positionLabel}>L Center</span>
@@ -278,8 +335,8 @@ export default function ShowPreview({ result, enhanceFace, onClose }) {
                         <div 
                           className={styles.positionPoint}
                           style={{
-                            left: `${result.metrics.right_eye_position_x}px`,
-                            top: `${result.metrics.right_eye_position_y}px`,
+                            left: `${result.metrics.right_eye_position_x * imageScale.scaleX}px`,
+                            top: `${result.metrics.right_eye_position_y * imageScale.scaleY}px`,
                           }}
                         >
                           <span className={styles.positionLabel}>R Center</span>
@@ -291,8 +348,8 @@ export default function ShowPreview({ result, enhanceFace, onClose }) {
                         <div 
                           className={styles.positionPoint}
                           style={{
-                            left: `${result.metrics.nose_position_x}px`,
-                            top: `${result.metrics.nose_position_y}px`,
+                            left: `${result.metrics.nose_position_x * imageScale.scaleX}px`,
+                            top: `${result.metrics.nose_position_y * imageScale.scaleY}px`,
                           }}
                         >
                           <span className={styles.positionLabel}>Nose</span>
@@ -304,8 +361,8 @@ export default function ShowPreview({ result, enhanceFace, onClose }) {
                         <div 
                           className={styles.positionPoint}
                           style={{
-                            left: `${result.metrics.chin_position_x}px`,
-                            top: `${result.metrics.chin_position_y}px`,
+                            left: `${result.metrics.chin_position_x * imageScale.scaleX}px`,
+                            top: `${result.metrics.chin_position_y * imageScale.scaleY}px`,
                           }}
                         >
                           <span className={styles.positionLabel}>Chin</span>

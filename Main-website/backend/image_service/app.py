@@ -106,12 +106,29 @@ async def process_single_image_endpoint(
 ):
     """Process a single uploaded image with AI face analysis"""
     try:
+        # Debug logging for received parameters
+        print(f"🎯 DEBUG - Backend received parameters:")
+        print(f"   📁 File: {file.filename}")
+        print(f"   🎯 show_head_pose: '{show_head_pose}' (raw, type: {type(show_head_pose)})")
+        print(f"   📦 show_bounding_box: '{show_bounding_box}' (raw, type: {type(show_bounding_box)})")
+        print(f"   🎭 show_mask: '{show_mask}' (raw, type: {type(show_mask)})")
+        print(f"   📊 show_parameters: '{show_parameters}' (raw, type: {type(show_parameters)})")
+        print(f"   ✨ enhance_face: '{enhance_face}' (raw, type: {type(enhance_face)})")
+        
         # Convert string parameters to boolean
         show_head_pose_bool = show_head_pose.lower() == "true"
         show_bounding_box_bool = show_bounding_box.lower() == "true"
         show_mask_bool = show_mask.lower() == "true"
         show_parameters_bool = show_parameters.lower() == "true"
         enhance_face_bool = enhance_face.lower() == "true"
+        
+        # Debug logging for converted parameters
+        print(f"🔄 DEBUG - Converted parameters:")
+        print(f"   🎯 show_head_pose_bool: {show_head_pose_bool} (type: {type(show_head_pose_bool)})")
+        print(f"   📦 show_bounding_box_bool: {show_bounding_box_bool} (type: {type(show_bounding_box_bool)})")
+        print(f"   🎭 show_mask_bool: {show_mask_bool} (type: {type(show_mask_bool)})")
+        print(f"   📊 show_parameters_bool: {show_parameters_bool} (type: {type(show_parameters_bool)})")
+        print(f"   ✨ enhance_face_bool: {enhance_face_bool} (type: {type(enhance_face_bool)})")
         
         # Process the image using the individualProcess module
         result = await process_single_image(

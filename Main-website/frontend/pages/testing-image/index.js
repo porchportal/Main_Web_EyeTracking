@@ -19,6 +19,7 @@ export default function TestingModel() {
       return;
     }
 
+
     setIsProcessing(true);
     try {
       const formData = new FormData();
@@ -109,17 +110,6 @@ export default function TestingModel() {
           </label>
         </div>
       </div>
-
-      <footer className={styles.footer}>
-        <a 
-          href="https://yourwebsite.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className={styles.footerLink}
-        >
-        </a>
-      </footer>
-
       {/* Show Preview Modal */}
       {showPreview && analysisResult && (
         <ShowPreview

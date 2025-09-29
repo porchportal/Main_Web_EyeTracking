@@ -28,13 +28,14 @@ def get_face_tracker():
     global image_face_tracker
     if image_face_tracker is None:
         try:
+            # Initialize with ALL visualization disabled to prevent OpenCV errors
             image_face_tracker = FrameShow_head_face(
                 isVideo=False,  # Set to False for image processing
-                isHeadposeOn=True,
-                isFaceOn=True
+                isHeadposeOn=False,  # Disable head pose visualization
+                isFaceOn=False       # Disable face visualization
             )
         except Exception as e:
-            pass
+            print(f"❌ ERROR - Failed to initialize face tracker: {str(e)}")
             raise
         
     return image_face_tracker
@@ -161,11 +162,31 @@ async def process_single_image(
         # Get the face tracker
         face_tracker = get_face_tracker()
         
+        
         # Configure the face tracker based on parameters
-        face_tracker.set_IsShowHeadpose(show_head_pose)
-        face_tracker.set_IsShowBox(show_bounding_box)
-        face_tracker.set_IsMaskOn(show_mask)
-        face_tracker.set_labet_face_element(show_parameters)
+        # Disable OpenCV visualization since we have a better preview component (showPreview.js)
+        # This prevents OpenCV errors and provides cleaner processed images
+        
+        # Disable all visualization settings to prevent OpenCV errors
+        face_tracker.set_IsShowHeadpose(False)  # Disable head pose arrows
+        face_tracker.set_IsShowBox(False)       # Disable bounding boxes  
+        face_tracker.set_IsMaskOn(False)        # Disable face masks
+        face_tracker.set_labet_face_element(False)  # Disable face labels
+        
+        # Also disable the main visualization flags directly
+        face_tracker.isHeadposeOn = False       # Disable head pose processing
+        face_tracker.isFaceOn = False           # Disable face visualization
+        face_tracker.draw_headpose = False      # Disable head pose drawing (CRITICAL for arrowedLine)
+        face_tracker.Head_isMaskOn = False      # Disable mask drawing
+        face_tracker.face_Label_display = False # Disable label display
+        face_tracker.Face_bounding_box = False  # Disable bounding box display
+        
+        # Force disable any remaining drawing flags
+        if hasattr(face_tracker, 'draw_headpose'):
+            face_tracker.draw_headpose = False
+        if hasattr(face_tracker, 'show_visualization'):
+            face_tracker.show_visualization = False
+        
         
         tmp_path = None
         try:
@@ -305,12 +326,14 @@ async def process_single_image(
             
             # Process the image
             timestamp_ms = int(1000)
+            
             metrics, processed_image = face_tracker.process_frame(
                 image,
                 timestamp_ms,
                 isVideo=False,
                 isEnhanceFace=enhanceFace
             )
+            
             
             # Convert processed image to base64
             _, buffer = cv2.imencode('.jpg', processed_image)

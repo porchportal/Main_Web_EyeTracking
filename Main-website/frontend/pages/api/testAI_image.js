@@ -48,11 +48,13 @@ export default async function handler(req, res) {
     }
     
     // Get processing options from form fields
-    const showHeadPose = fields.show_head_pose === 'true';
-    const showBoundingBox = fields.show_bounding_box === 'true';
-    const showMask = fields.show_mask === 'true';
-    const showParameters = fields.show_parameters === 'true';
-    const enhanceFace = fields.enhance_face === 'true'; // Default to false
+    // Note: formidable returns fields as arrays, so we need to access the first element
+    const showHeadPose = fields.show_head_pose?.[0] === 'true';
+    const showBoundingBox = fields.show_bounding_box?.[0] === 'true';
+    const showMask = fields.show_mask?.[0] === 'true';
+    const showParameters = fields.show_parameters?.[0] === 'true';
+    const enhanceFace = fields.enhance_face?.[0] === 'true'; // Default to false
+    
     
     try {
       // Check if the file path exists
@@ -78,12 +80,23 @@ export default async function handler(req, res) {
       formData.append('enhance_face', enhanceFace.toString());
       
       // Get backend configuration from environment variables
-      // Use internal Docker network URL for backend communication
-      const backendUrl = process.env.BACKEND_URL || 'http://backend_image_service:8010';
+      // Use direct image service URL for backend communication
+      const backendUrl = process.env.IMAGE_SERVICE_URL;
       const apiKey = process.env.NEXT_PUBLIC_API_KEY;
 
+      // Validate required environment variables
+      if (!backendUrl) {
+        return res.status(500).json({ 
+          error: 'Server configuration error: IMAGE_SERVICE_URL not configured' 
+        });
+      }
+      if (!apiKey) {
+        return res.status(500).json({ 
+          error: 'Server configuration error: NEXT_PUBLIC_API_KEY not configured' 
+        });
+      }
       
-      // Send the request to the FastAPI backend
+      // Send the request directly to the image service
       const response = await fetch(`${backendUrl}/process-single-image`, {
         method: 'POST',
         headers: {

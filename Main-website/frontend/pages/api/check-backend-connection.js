@@ -6,7 +6,7 @@ import subprocess from 'child_process';
 
 // Use internal API URL for server-side calls (HTTPS for nginx proxy)
 const BACKEND_URL = process.env.INTERNAL_API_URL || process.env.BACKEND_URL;
-const API_KEY = process.env.NEXT_PUBLIC_API_KEY || process.env.BACKEND_API_KEY;
+const API_KEY = process.env.NEXT_PUBLIC_API_KEY;
 const TIMEOUT_MS = 5000; // Reduced timeout to 5 seconds for better responsiveness
 
 
