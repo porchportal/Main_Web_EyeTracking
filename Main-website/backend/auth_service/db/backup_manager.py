@@ -59,6 +59,11 @@ class BackupManager:
     
     def _start_backup_thread(self):
         """Start background backup thread"""
+        # Disable automatic backup for now to avoid asyncio conflicts
+        # Can be enabled later if needed
+        logger.info("Automatic backup thread disabled to avoid asyncio conflicts")
+        return
+        
         if not self._running:
             self._running = True
             self._backup_thread = threading.Thread(target=self._backup_loop, daemon=True)
@@ -71,7 +76,15 @@ class BackupManager:
             try:
                 # Perform backup every 5 minutes
                 time.sleep(300)
-                asyncio.run(self.perform_backup())
+                # Create a new event loop for this thread
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(self.perform_backup())
+                except Exception as backup_error:
+                    logger.error(f"Backup error in thread: {backup_error}")
+                finally:
+                    loop.close()
             except Exception as e:
                 logger.error(f"Error in backup loop: {e}")
                 time.sleep(60)  # Wait 1 minute before retrying

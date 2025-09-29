@@ -13,33 +13,35 @@ export const createCountdownElement = (position, canvasRect) => {
     return null;
   }
 
-  const existingCountdowns = document.querySelectorAll('.calibrate-countdown, .forced-countdown, .center-countdown-backup');
+  const existingCountdowns = document.querySelectorAll('.calibrate-countdown, .forced-countdown, .center-countdown-backup, .dot-countdown');
   existingCountdowns.forEach(el => el.remove());
 
+  // Calculate the exact position to center the countdown on the dot
   const absoluteX = canvasRect.left + position.x;
-  const absoluteY = canvasRect.top + position.y;
+  const absoluteY = canvasRect.top + position.y; // Position above the dot
 
   const countdownElement = document.createElement('div');
   countdownElement.className = 'dot-countdown';
   countdownElement.style.cssText = `
     position: fixed;
     left: ${absoluteX}px;
-    top: ${absoluteY - 60}px;
-    transform: translateX(-50%);
+    top: ${absoluteY}px;
+    transform: translate(-50%, -50%);
     color: red;
-    font-size: 36px;
+    font-size: 13px;
     font-weight: bold;
     text-shadow: 0 0 10px white, 0 0 20px white;
     z-index: 9999;
-    background-color: rgba(255, 255, 255, 0.8);
-    border: 2px solid red;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 3px solid red;
     border-radius: 50%;
-    width: 50px;
-    height: 50px;
+    width: 20px;
+    height: 20px;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
   `;
 
   document.body.appendChild(countdownElement);
@@ -249,7 +251,7 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
 
   // Create redrawInterval for keeping dot visible during countdown
   let redrawInterval = setInterval(() => {
-    drawRedDot(ctx, position.x, position.y, 12, false);
+    drawRedDot(ctx, position.x, position.y, 6, false);
   }, 200);
 
   return new Promise((resolve) => {
@@ -270,7 +272,7 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
           if (countdownElement.parentNode) {
             countdownElement.parentNode.removeChild(countdownElement);
           }
-          drawRedDot(ctx, position.x, position.y, 12, false);
+          drawRedDot(ctx, position.x, position.y, 6, false);
 
           // Clear the redrawInterval we defined above
           if (redrawInterval) {
@@ -278,7 +280,7 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
           }
 
           if (onComplete) {
-            drawRedDot(ctx, position.x, position.y, 12, false);
+            drawRedDot(ctx, position.x, position.y, 6, false);
             onComplete();
           }
           resolve();
@@ -305,13 +307,14 @@ export const runCountdown = async (position, canvas, onStatusUpdate, onComplete)
  * @param {boolean} clearCanvas - Whether to clear the canvas before drawing (default: true)
  * @returns {Object} - {x, y} position
  */
-export const drawRedDot = (ctx, x, y, radius = 12, clearCanvas = true) => {
+export const drawRedDot = (ctx, x, y, radius = 6, clearCanvas = true) => {
   const canvas = ctx.canvas;
   
   // Clear the canvas if requested (default behavior)
   if (clearCanvas) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'white';
+    // Use the same background color as the main canvas (#CCFFF5)
+    ctx.fillStyle = '#CCFFF5';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }
   
@@ -450,7 +453,7 @@ export const calibrationCapture = async (options) => {
   
       // Create a redrawInterval for keeping the dot visible
       let redrawInterval = setInterval(() => {
-        drawRedDot(ctx, point.x, point.y, 12, false);
+        drawRedDot(ctx, point.x, point.y, 6, false);
       }, 200);
   
       // Run the same countdown as random dot
@@ -459,7 +462,7 @@ export const calibrationCapture = async (options) => {
         setProcessStatus?.(`Point ${pointIndex + 1}/${totalPoints} - countdown ${count}`);
         
         // Redraw the dot at each step to ensure it remains visible
-        drawRedDot(ctx, point.x, point.y, 12, false);
+        drawRedDot(ctx, point.x, point.y, 6, false);
         
         await new Promise(resolve => setTimeout(resolve, 800));
       }
@@ -563,35 +566,18 @@ export const captureAndPreviewProcess = async (options) => {
       });
     }
 
-    // Create a custom countdown element
+    // Create a custom countdown element using the same positioning as createCountdownElement
     const canvasRect = canvas.getBoundingClientRect();
-    const countdownElement = document.createElement('div');
-    countdownElement.className = 'calibrate-countdown';
-    countdownElement.style.cssText = `
-      position: fixed;
-      left: ${canvasRect.left + position.x}px;
-      top: ${canvasRect.top + position.y - 60}px;
-      transform: translateX(-50%);
-      color: red;
-      font-size: 36px;
-      font-weight: bold;
-      text-shadow: 0 0 10px white, 0 0 20px white;
-      z-index: 9999;
-      background-color: rgba(255, 255, 255, 0.8);
-      border: 2px solid red;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-    `;
-    document.body.appendChild(countdownElement);
+    const countdownElement = createCountdownElement(position, canvasRect);
+    
+    if (!countdownElement) {
+      if (setProcessStatus) setProcessStatus('Error: Could not create countdown element');
+      return null;
+    }
 
     // Create a redrawInterval for keeping the dot visible
     let redrawInterval = setInterval(() => {
-      drawRedDot(ctx, position.x, position.y, 12, false);
+      drawRedDot(ctx, position.x, position.y, 6, false);
     }, 200);
 
     // Manual countdown

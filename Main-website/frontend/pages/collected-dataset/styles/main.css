@@ -19,7 +19,7 @@
   align-items: flex-start;
   box-shadow: 0 0 50px 10px rgba(120, 242, 255, 0.5);
   position: relative;
-  z-index: 10;
+  z-index: 100;
 }
 .topbar-hidden .preview-area {
   height: 100vh;
@@ -334,23 +334,24 @@
   gap: 10px;
 }
 
-/* Canvas container */
+/* Canvas container - Full screen */
 .canvas-container {
-  position: absolute;
+  position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   border: none !important; /* Remove border that causes lines */
-  background-color: yellow;
+  background-color: #CCFFF5;
   overflow: hidden;
+  z-index: 10;
 }
 
 .tracking-canvas {
   width: 100%;
   height: 100%;
   display: block; /* Removes inline spacing issues */
-  background-color: yellow;
+  background-color: #CCFFF5;
 }
 
 /* Responsive adjustments */

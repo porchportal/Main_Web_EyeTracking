@@ -53,6 +53,11 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
+
+# Configure uvicorn access logger to be less verbose
+access_logger = logging.getLogger("uvicorn.access")
+access_logger.setLevel(logging.WARNING)  # Only show warnings and errors
+
 logger = logging.getLogger(__name__)
 
 # Load environment variables

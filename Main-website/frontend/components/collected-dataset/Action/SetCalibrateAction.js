@@ -72,11 +72,16 @@ const SetRandomAction = ({
           isCapturing: true
         });
         
-        // Clear canvas before each capture
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Clear canvas before each capture using utility function
+        if (typeof window !== 'undefined' && window.clearCanvasWithBackground) {
+          window.clearCanvasWithBackground(canvas);
+        } else {
+          // Fallback if utility function is not available
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = '#CCFFF5';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
         
         // Generate random position for this capture
         const position = getRandomPosition(canvas, 20);

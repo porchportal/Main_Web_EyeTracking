@@ -114,10 +114,15 @@ const CameraAccess = ({
         clearInterval(processingInterval.current);
         processingInterval.current = null;
       }
-      // Clear the canvas to remove any overlays
-      if (canvasRef.current) {
+      // Clear the canvas to remove any overlays and restore light green background
+      if (canvasRef.current && typeof window !== 'undefined' && window.clearCanvasWithBackground) {
+        window.clearCanvasWithBackground(canvasRef.current);
+      } else if (canvasRef.current) {
+        // Fallback if utility function is not available
         const ctx = canvasRef.current.getContext('2d');
         ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+        ctx.fillStyle = '#CCFFF5';
+        ctx.fillRect(0, 0, canvasRef.current.width, canvasRef.current.height);
       }
     }
   };
@@ -143,7 +148,7 @@ const CameraAccess = ({
 
     // Only draw on canvas if WebSocket is connected
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      // Clear canvas
+      // Clear canvas and set background color
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Save the current context state
@@ -263,7 +268,8 @@ const CameraAccess = ({
 
         try {
           await videoRef.current.play();
-          setIsVideoReady(true);
+          // Don't set isVideoReady here - let handleLoadedMetadata do it
+          // setIsVideoReady(true);
           
           // Start frame processing if WebSocket is connected
           if (wsStatus === 'connected') {
@@ -276,7 +282,8 @@ const CameraAccess = ({
             setTimeout(async () => {
               try {
                 await videoRef.current.play();
-                setIsVideoReady(true);
+                // Don't set isVideoReady here - let handleLoadedMetadata do it
+                // setIsVideoReady(true);
                 
                 if (wsStatus === 'connected') {
                   processingInterval.current = setInterval(captureAndProcessFrame, 33);
@@ -445,7 +452,7 @@ const CameraAccess = ({
     processingInterval.current = setInterval(() => {
       if (video.readyState !== 4) return;
       
-      // Clear canvas
+      // Clear canvas and set background color
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       // Save the current context state

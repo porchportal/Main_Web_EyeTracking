@@ -32,17 +32,24 @@ class MongoDB:
                 return False
 
             cls._connection_attempts += 1
-            logger.info(f"Attempting to connect to MongoDB (attempt {cls._connection_attempts})")
+            logger.info("Connecting to MongoDB")
             
-            cls._client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
-            cls._db = cls._client[os.getenv("MONGODB_DB_NAME")]
+            # Use environment variable or fallback to default connection string
+            mongodb_url = os.getenv("MONGODB_URL", "mongodb://mongodb:27017/eye_tracking")
+            mongodb_db_name = os.getenv("MONGODB_DB_NAME", "eye_tracking")
+            
+            logger.info(f"Connecting to MongoDB URL: {mongodb_url}")
+            logger.info(f"Using database: {mongodb_db_name}")
+            
+            cls._client = AsyncIOMotorClient(mongodb_url)
+            cls._db = cls._client[mongodb_db_name]
             
             # Verify connection
             await cls._client.admin.command('ping')
             logger.info("Successfully connected to MongoDB")
             
             # Initialize backup manager
-            await backup_manager.initialize(cls._client, os.getenv("MONGODB_DB_NAME"))
+            await backup_manager.initialize(cls._client, mongodb_db_name)
             
             # Reset connection attempts on success
             cls._connection_attempts = 0

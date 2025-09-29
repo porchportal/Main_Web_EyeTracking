@@ -10,10 +10,34 @@ import { ActionButtonGroup } from './components-gui/actionButton';
 import { showCapturePreview, captureImagesAtPoint, drawRedDot, getRandomPosition, runCountdown } from '../../components/collected-dataset/Action/countSave';
 import { useConsent } from '../../components/consent_ui/ConsentContext';
 
+// Centralized canvas clearing utility function
+const clearCanvasWithBackground = (canvas, backgroundColor = '#CCFFF5') => {
+  if (!canvas) {
+    console.warn('clearCanvasWithBackground: No canvas provided');
+    return false;
+  }
+  
+  try {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = backgroundColor;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    
+    return true;
+  } catch (error) {
+    console.error('Error clearing canvas:', error);
+    return false;
+  }
+};
+
 // Dynamically load the video processor component (not the hook directly)
 const VideoProcessorComponent = dynamic(
-  () => import('./components-gui/VideoProcessorComponent'),
-  { ssr: false }
+  () => import('./components-gui/VideoProcessor'),
+  { 
+    ssr: false,
+    loading: () => null
+  }
 );
 
 // Dynamically import the camera component with SSR disabled
@@ -164,11 +188,8 @@ export default function CollectedDatasetPage() {
         canvas.width = parent.clientWidth || 800;
         canvas.height = parent.clientHeight || 600;
         
-        // Clear canvas and set white background
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Clear canvas and set light green background using utility function
+        clearCanvasWithBackground(canvas);
         
         // Update global reference
         window.whiteScreenCanvas = canvas;
@@ -183,6 +204,9 @@ export default function CollectedDatasetPage() {
       }
     };
     
+    // Expose utility functions globally
+    window.clearCanvasWithBackground = clearCanvasWithBackground;
+    
     // Check canvas visibility and force initialization after a brief delay
     setTimeout(() => {
       const canvas = getMainCanvas();
@@ -196,36 +220,29 @@ export default function CollectedDatasetPage() {
       delete window.whiteScreenCanvas;
       delete window.canvasDimensions;
       delete window.initializeCanvas;
+      delete window.clearCanvasWithBackground;
     };
   }, [isHydrated]);
-  // Improved canvas dimensions adjustment
+  // Improved canvas dimensions adjustment - Full screen canvas
   const adjustCanvasDimensions = () => {
-    if (!isClient || !isHydrated || !previewAreaRef.current) return;
+    if (!isClient || !isHydrated) return;
     
     const canvas = getMainCanvas();
     if (!canvas) {
       return;
     }
     
-    const container = previewAreaRef.current;
+    // Set canvas to full screen dimensions regardless of TopBar visibility
+    const fullScreenWidth = window.innerWidth;
+    const fullScreenHeight = window.innerHeight;
     
-    // Get the size of the preview area
-    const rect = container.getBoundingClientRect();
+    // Set canvas dimensions to full screen
+    canvas.width = fullScreenWidth;
+    canvas.height = fullScreenHeight;
     
-    // Calculate proper height based on top bar visibility
-    const topBarHeight = showTopBar ? 120 : 0; // Adjust this value based on your top bar's actual height
     
-    // Set canvas dimensions to match container size with top bar adjustment
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-    
-    // Clear the canvas
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Fill with white background
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Clear the canvas using utility function
+    clearCanvasWithBackground(canvas);
     
     // Update global reference with current dimensions
     window.whiteScreenCanvas = canvas;
@@ -233,6 +250,13 @@ export default function CollectedDatasetPage() {
       width: canvas.width,
       height: canvas.height
     };
+    
+    // Update metrics with canvas dimensions
+    setMetrics(prev => ({
+      ...prev,
+      width: canvas.width,
+      height: canvas.height
+    }));
   };
 
   // Create a capture folder on component mount
@@ -246,6 +270,22 @@ export default function CollectedDatasetPage() {
   // Set hydrated state after mount to prevent hydration mismatch
   useEffect(() => {
     setIsHydrated(true);
+    
+    // Add global error handler for router navigation errors
+    const handleGlobalError = (event) => {
+      if (event.error && event.error.message && 
+          event.error.message.includes('Invariant: attempted to hard navigate to the same URL')) {
+        console.log('Caught router navigation error, preventing default behavior');
+        event.preventDefault();
+        return false;
+      }
+    };
+    
+    window.addEventListener('error', handleGlobalError);
+    
+    return () => {
+      window.removeEventListener('error', handleGlobalError);
+    };
   }, []);
 
   // Get userId from router query
@@ -263,6 +303,33 @@ export default function CollectedDatasetPage() {
       }
     }
   }, [router.isReady, router.query.userId]);
+
+  // Prevent router navigation errors by adding error boundary
+  useEffect(() => {
+    const handleRouteChangeError = (err, url) => {
+      if (err.cancelled) {
+        console.log('Route change was cancelled');
+      } else {
+        console.error('Route change error:', err);
+      }
+    };
+
+    const handleRouteChangeStart = (url) => {
+      // Prevent navigation to the same URL
+      if (url === router.asPath) {
+        console.log('Preventing navigation to same URL:', url);
+        return false;
+      }
+    };
+
+    router.events.on('routeChangeError', handleRouteChangeError);
+    router.events.on('routeChangeStart', handleRouteChangeStart);
+    
+    return () => {
+      router.events.off('routeChangeError', handleRouteChangeError);
+      router.events.off('routeChangeStart', handleRouteChangeStart);
+    };
+  }, [router.events, router.asPath]);
 
   // Test function to verify capture system is working
   const testCaptureStatus = async () => {
@@ -558,16 +625,14 @@ export default function CollectedDatasetPage() {
                 // Update status for current capture
                 setOutputText(`Capture ${currentCapture} of ${times}`);
                 
-                // Clear canvas before each capture
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // Clear canvas before each capture using utility function
+                clearCanvasWithBackground(canvas);
                 
                 // Generate random position for this capture
                 const position = getRandomPosition(canvas, 20);
                 
-                // Draw the dot
+                // Get canvas context and draw the dot
+                const ctx = canvas.getContext('2d');
                 drawRedDot(ctx, position.x, position.y);
                 
                 // Create a redrawInterval to ensure dot stays visible
@@ -676,10 +741,7 @@ export default function CollectedDatasetPage() {
           // Initialize canvas explicitly
           canvas.width = parent.clientWidth || 800;
           canvas.height = parent.clientHeight || 600;
-          const ctx = canvas.getContext('2d');
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.fillStyle = 'white';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          clearCanvasWithBackground(canvas);
           
           
           // Update global reference
@@ -688,7 +750,8 @@ export default function CollectedDatasetPage() {
           // Generate random position
           const position = getRandomPosition(canvas, 20);
           
-          // Draw the dot using the imported function
+          // Get canvas context and draw the dot using the imported function
+          const ctx = canvas.getContext('2d');
           const dot = drawRedDot(ctx, position.x, position.y, 8, false);
           
           // Start a countdown for capture
@@ -866,13 +929,11 @@ export default function CollectedDatasetPage() {
                 statusIndicator.textContent = `Calibration: Point ${i + 1}/${points.length}`;
                 setOutputText(`Processing calibration point ${i + 1}/${points.length}`);
                 
-                // Clear the canvas before drawing new point
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = 'white';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // Clear the canvas before drawing new point using utility function
+                clearCanvasWithBackground(canvas);
                 
-                // Draw the dot
+                // Get canvas context and draw the dot
+                const ctx = canvas.getContext('2d');
                 drawRedDot(ctx, point.x, point.y);
                 
                 // Run countdown
@@ -938,13 +999,9 @@ export default function CollectedDatasetPage() {
         break;
         
       case 'clearAll':
-        // Clear canvas
-        // const canvas = getMainCanvas();
+        // Clear canvas using utility function
         if (canvas) {
-          const ctx = canvas.getContext('2d');
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.fillStyle = 'white';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          clearCanvasWithBackground(canvas);
           setOutputText('Canvas cleared');
         }
         break;
@@ -979,12 +1036,29 @@ export default function CollectedDatasetPage() {
   const handleCameraReady = (dimensions) => {
     if (!isClient || !isHydrated) return;
     
-    setMetrics({
-      width: dimensions.width,
-      height: dimensions.height,
-      distance: dimensions.distance || '---'
-    });
-    setOutputText(`Camera ready: ${dimensions.width}x${dimensions.height}`);
+    // Get the actual canvas dimensions instead of camera preview dimensions
+    const canvas = getMainCanvas();
+    if (canvas) {
+      const canvasWidth = canvas.width;
+      const canvasHeight = canvas.height;
+      
+      // console.log(`📷 Camera ready - Canvas dimensions: ${canvasWidth} x ${canvasHeight}`);
+      
+      setMetrics({
+        width: canvasWidth,
+        height: canvasHeight,
+        distance: dimensions.distance || '---'
+      });
+      setOutputText(`Camera ready: Canvas ${canvasWidth}x${canvasHeight} (Camera: ${dimensions.width}x${dimensions.height})`);
+    } else {
+      // Fallback to camera dimensions if canvas not available
+      setMetrics({
+        width: dimensions.width,
+        height: dimensions.height,
+        distance: dimensions.distance || '---'
+      });
+      setOutputText(`Camera ready: ${dimensions.width}x${dimensions.height}`);
+    }
   };
 
   // Toggle top bar function
@@ -1087,15 +1161,17 @@ export default function CollectedDatasetPage() {
       
       {/* TopBar component with onButtonClick handler - conditionally rendered */}
       {showTopBar && (
-        <TopBar 
-          onButtonClick={handleActionButtonClick}
-          onCameraAccess={() => setShowPermissionPopup(true)}
-          outputText={statusMessage || outputText}
-          onOutputChange={(text) => setOutputText(text)}
-          onToggleTopBar={toggleTopBar}
-          onToggleMetrics={toggleMetrics}
-          canvasRef={canvasRef}
-        />
+        <div style={{ position: 'relative', zIndex: 100 }}>
+          <TopBar 
+            onButtonClick={handleActionButtonClick}
+            onCameraAccess={() => setShowPermissionPopup(true)}
+            outputText={statusMessage || outputText}
+            onOutputChange={(text) => setOutputText(text)}
+            onToggleTopBar={toggleTopBar}
+            onToggleMetrics={toggleMetrics}
+            canvasRef={canvasRef}
+          />
+        </div>
       )}
       
       {/* Show restore button when TopBar is hidden - positioned at top right */}
@@ -1156,84 +1232,31 @@ export default function CollectedDatasetPage() {
           overflow: 'hidden'
         }}
       >
-        {!showCamera ? (
-          <>
-            <div className="camera-preview-message" style={{
-              padding: '20px',
-              textAlign: 'center',
-              position: showTopBar ? 'relative' : 'absolute',
-              width: '100%',
-              zIndex: 5
-            }}>
-              <p>Camera preview will appear here</p>
-              <p className="camera-size-indicator">Current window: {windowSize.percentage}% of screen width</p>
-              
-              {/* Camera placeholder square - small version */}
-              {isHydrated && showCameraPlaceholder && (
-                <div 
-                  className="camera-placeholder-square"
-                  style={{
-                    width: '180px',
-                    height: '135px',
-                    margin: '20px auto',
-                    border: '2px dashed #666',
-                    borderRadius: '4px',
-                    backgroundColor: '#f5f5f5',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  <div style={{ fontSize: '1.5rem' }}>📷</div>
-                </div>
-              )}
-              
-              {/* Action buttons for camera control */}
-              <div className="camera-action-buttons-container" style={{ 
-                marginTop: '30px', 
-                maxWidth: '600px',
-                margin: '30px auto'
-              }}>
-                <ActionButtonGroup
-                  ref={actionButtonGroupRef}
-                  triggerCameraAccess={triggerCameraAccess}
-                  isCompactMode={windowSize.width < 768}
-                  onActionClick={handleActionButtonClick}
-                  showHeadPose={showHeadPose}
-                  showBoundingBox={showBoundingBox}
-                  showMask={showMask}
-                  showParameters={showParameters}
-                />
-              </div>
-            </div>
-            
-            {/* Canvas for eye tracking dots */}
-            <div 
-              className="canvas-container" 
-              style={{ 
-                position: 'absolute', 
-                top: 0,
-                left: 0,
-                width: '100%', 
-                height: '100%',
-                backgroundColor: 'white',
-                overflow: 'hidden',
-                border: 'none',
-                zIndex: 10 
-              }}
-            >
-              <canvas 
-                ref={canvasRef}
-                className="tracking-canvas"
-                style={{ 
-                  width: '100%', 
-                  height: '100%',
-                  display: 'block' 
-                }}
-              />
-            </div>
-          </>
-        ) : null}
+        {/* Canvas for eye tracking dots - Always present, Full screen */}
+        <div 
+          className="canvas-container" 
+          style={{ 
+            position: 'fixed', 
+            top: 0,
+            left: 0,
+            width: '100vw', 
+            height: '100vh',
+            backgroundColor: '#CCFFF5',
+            overflow: 'hidden',
+            border: 'none',
+            zIndex: 10 
+          }}
+        >
+          <canvas 
+            ref={canvasRef}
+            className="tracking-canvas"
+            style={{ 
+              width: '100%', 
+              height: '100%',
+              display: 'block' 
+            }}
+          />
+        </div>
               
         {/* Metrics info - conditionally rendered */}
         {isHydrated && showMetrics && (

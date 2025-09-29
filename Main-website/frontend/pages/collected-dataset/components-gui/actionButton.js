@@ -172,11 +172,16 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       canvas.width = parent.clientWidth || 800;
       canvas.height = parent.clientHeight || 600;
       
-      // Clear canvas and set white background
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Clear canvas and set light green background using utility function
+      if (typeof window !== 'undefined' && window.clearCanvasWithBackground) {
+        window.clearCanvasWithBackground(canvas);
+      } else {
+        // Fallback if utility function is not available
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#CCFFF5';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
       
       // console.log(`Canvas initialized with dimensions: ${canvas.width}x${canvas.height}`);
       return true;
@@ -232,11 +237,16 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     
-    // Clear and prepare canvas again
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Clear and prepare canvas again using utility function
+    if (typeof window !== 'undefined' && window.clearCanvasWithBackground) {
+      window.clearCanvasWithBackground(canvas);
+    } else {
+      // Fallback if utility function is not available
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#CCFFF5';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     
   };
   const restoreCanvasSize = (canvas) => {
@@ -287,11 +297,16 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
     canvas.width = originalParent.clientWidth || 800;
     canvas.height = originalParent.clientHeight || 600;
     
-    // Clear the canvas and fill with a white background
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Clear the canvas and fill with a light green background using utility function
+    if (typeof window !== 'undefined' && window.clearCanvasWithBackground) {
+      window.clearCanvasWithBackground(canvas);
+    } else {
+      // Fallback if utility function is not available
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#CCFFF5';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
   };
 
 
@@ -303,10 +318,16 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       return;
     }
     
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Use utility function if available
+    if (typeof window !== 'undefined' && window.clearCanvasWithBackground) {
+      window.clearCanvasWithBackground(canvas);
+    } else {
+      // Fallback if utility function is not available
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#CCFFF5';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
     setCurrentDot(null);
   };
   // Add this function to actionButton.js
@@ -390,11 +411,18 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       canvas.width = canvasWidth;
       canvas.height = canvasHeight;
       
-      // Clear canvas with white background
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      // Clear canvas with light green background using utility function
+      if (typeof window !== 'undefined' && window.clearCanvasWithBackground) {
+        console.log('Using centralized canvas clearing function');
+        window.clearCanvasWithBackground(canvas);
+      } else {
+        console.log('Using fallback canvas clearing - global function not available');
+        // Fallback if utility function is not available
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+        ctx.fillStyle = '#CCFFF5';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      }
       
       // Get position for the dot - either use provided position or generate random one
       const dotPosition = useRandomPosition 
@@ -514,9 +542,15 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
         canvas.height = originalParent.clientHeight || 600;
       }
       
-      // Clear canvas
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      // Clear canvas using utility function
+      if (typeof window !== 'undefined' && window.clearCanvasWithBackground) {
+        window.clearCanvasWithBackground(canvas);
+      } else {
+        // Fallback if utility function is not available
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#CCFFF5';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
       
       // Update status
       onStatusUpdate?.({
@@ -744,10 +778,15 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
       // Get context
       const ctx = canvas.getContext('2d');
       
-      // Clear canvas with white background
-      ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      // Clear canvas with light green background using utility function
+      if (typeof window !== 'undefined' && window.clearCanvasWithBackground) {
+        window.clearCanvasWithBackground(canvas);
+      } else {
+        // Fallback if utility function is not available
+        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+        ctx.fillStyle = '#CCFFF5';
+        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+      }
 
       // Generate calibration points based on the canvas size
       const { generateCalibrationPoints } = await import('../../../components/collected-dataset/Action/CalibratePoints.jsx');
@@ -809,10 +848,15 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
           canvas.style.zIndex = '10';
         }
         
-        // Clear canvas with white background
-        ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        // Clear canvas with light green background using utility function
+        if (typeof window !== 'undefined' && window.clearCanvasWithBackground) {
+          window.clearCanvasWithBackground(canvas);
+        } else {
+          // Fallback if utility function is not available
+          ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+          ctx.fillStyle = '#CCFFF5';
+          ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        }
         
         // Draw the calibration point
         const radius = 14; // Slightly larger for better visibility
@@ -824,7 +868,7 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
           if (canvas.width !== canvasWidth || canvas.height !== canvasHeight) {
             canvas.width = canvasWidth;
             canvas.height = canvasHeight;
-            ctx.fillStyle = 'white';
+            ctx.fillStyle = '#CCFFF5';
             ctx.fillRect(0, 0, canvasWidth, canvasHeight);
           }
           
@@ -990,11 +1034,16 @@ const ActionButtonGroupInner = forwardRef(({ triggerCameraAccess, isCompactMode,
             canvas.height = 600;
           }
           
-          // Clear canvas with white background
-          const ctx = canvas.getContext('2d');
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.fillStyle = 'white';
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          // Clear canvas with light green background using utility function
+          if (typeof window !== 'undefined' && window.clearCanvasWithBackground) {
+            window.clearCanvasWithBackground(canvas);
+          } else {
+            // Fallback if utility function is not available
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#CCFFF5';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
           
         } catch (e) {
           console.error("Error restoring canvas:", e);

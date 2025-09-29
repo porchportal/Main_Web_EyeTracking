@@ -42,14 +42,14 @@ const CameraAccessComponent = ({
     const currentPort = window.location.port;
     // Only redirect if we're on HTTPS and not already on camera port
     // But don't redirect for main application routes - only for camera-specific functionality
-    return isSecure && currentPort !== '8443' && window.location.pathname.includes('/camera');
+    return isSecure && currentPort !== '9444' && window.location.pathname.includes('/camera');
   };
   
   // Redirect to camera port if needed (only for camera-specific routes)
   const redirectToCameraPort = () => {
     if (shouldUseCameraPort()) {
       const hostname = window.location.hostname;
-      const newUrl = `https://${hostname}:8443${window.location.pathname}${window.location.search}`;
+      const newUrl = `https://${hostname}:9444${window.location.pathname}${window.location.search}`;
       window.location.href = newUrl;
       return true;
     }
@@ -72,9 +72,9 @@ const CameraAccessComponent = ({
       let wsUrl;
       if (isSecure) {
         // Use WSS for HTTPS connections
-        if (currentPort === '8443') {
+        if (currentPort === '9444') {
           // Camera-specific port
-          wsUrl = `wss://${hostname}:8443`;
+          wsUrl = `wss://${hostname}:9444`;
         } else {
           // Main HTTPS port
           wsUrl = `wss://${hostname}:443`;
@@ -376,7 +376,7 @@ const CameraAccessComponent = ({
                       process.env.NODE_ENV === 'development';
       
       if (!isSecure) {
-        throw new Error(`Camera access requires HTTPS or localhost. Current protocol: ${window.location.protocol}, hostname: ${window.location.hostname}. Please access via https://${window.location.hostname}:8443 for camera access.`);
+        throw new Error(`Camera access requires HTTPS or localhost. Current protocol: ${window.location.protocol}, hostname: ${window.location.hostname}. Please access via https://${window.location.hostname}:9444 for camera access.`);
       }
 
       // 6. Enhanced Permission Handling
@@ -953,12 +953,12 @@ const CameraAccessComponent = ({
           <div className={styles.cameraHttpsIcon}>🔒</div>
           <div className={styles.cameraHttpsTitle}>Camera Access Required</div>
           <div className={styles.cameraHttpsMessage}>
-            For security, camera access requires HTTPS on port 8443.
+            For security, camera access requires HTTPS on port 9444.
           </div>
           <button
             onClick={() => {
               const hostname = window.location.hostname;
-              const newUrl = `https://${hostname}:8443${window.location.pathname}${window.location.search}`;
+              const newUrl = `https://${hostname}:9444${window.location.pathname}${window.location.search}`;
               window.location.href = newUrl;
             }}
             className={styles.cameraHttpsButton}
@@ -967,11 +967,6 @@ const CameraAccessComponent = ({
           </button>
         </div>
       )}
-
-
-
-
-
       {/* Status indicator */}
       <div className={styles.cameraStatus}>
         {isVideoReady ? `Camera ${cameraIndex + 1} Ready` : isStarting ? 'Starting...' : 'Camera Off'}
