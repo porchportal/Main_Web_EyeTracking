@@ -390,12 +390,19 @@ const AdminAIProcess = ({ userId, onClose }) => {
     }
   }, [userId]);
 
-  // Refresh files when enhanceFace state changes
+  // Only update process ready state when enhanceFace changes (no refetch needed)
   useEffect(() => {
-    if (userId && filesChecked) {
-      loadFiles();
+    if (userId && filesChecked && captureLoaded) {
+      // Just check if processing is needed without reloading files
+      const checkProcessingNeeded = async () => {
+        const processingResult = await checkFilesNeedProcessing(userId, enhanceFace);
+        if (processingResult.success) {
+          setIsProcessReady(processingResult.needsProcessing);
+        }
+      };
+      checkProcessingNeeded();
     }
-  }, [enhanceFace]);
+  }, [enhanceFace, userId, filesChecked, captureLoaded]);
 
   return (
     <div className={`${styles.aiProcessSection} ${isClosing ? styles.closing : ''}`}>

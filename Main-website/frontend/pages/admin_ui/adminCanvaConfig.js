@@ -10,6 +10,9 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
   const [loadingExisting, setLoadingExisting] = useState(true);
   const fileInputRef = useRef(null);
 
+  // Cache for canvas images to prevent unnecessary refetches
+  const canvasImageCache = useRef({});
+
   // Function to get base image name without numeric suffixes
   const getBaseImageName = (filename) => {
     if (!filename) return '';
@@ -35,53 +38,61 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
         return;
       }
 
+      // Check cache first
+      if (canvasImageCache.current[userId]) {
+        console.log('Using cached canvas images for user:', userId);
+        setExistingPreviews(canvasImageCache.current[userId]);
+        setLoadingExisting(false);
+        return;
+      }
+
       try {
         setLoadingExisting(true);
-        
+
         // Fetch images from the backend canvas service
         const response = await fetch(`/api/admin/view-canvas-image?userId=${userId}`);
-        
+
         if (!response.ok) {
           throw new Error(`Failed to fetch canvas images: ${response.status}`);
         }
-        
+
         const data = await response.json();
-        
+
         if (data.success && data.images) {
           // Convert backend paths to preview format
           const previews = data.images
             .filter(path => {
               // Filter out non-image entries (like user IDs) and default backgrounds
-              return path && 
-                     typeof path === 'string' && 
+              return path &&
+                     typeof path === 'string' &&
                      !path.includes('/backgrounds/default.jpg') && // Exclude default background
-                     (path.startsWith('/canvas/') || 
-                      path.startsWith('http') || 
-                      path.includes('.jpg') || 
-                      path.includes('.jpeg') || 
-                      path.includes('.png') || 
+                     (path.startsWith('/canvas/') ||
+                      path.startsWith('http') ||
+                      path.includes('.jpg') ||
+                      path.includes('.jpeg') ||
+                      path.includes('.png') ||
                       path.includes('.gif') ||
                       path.includes('.webp'));
             })
-                          .map((path, index) => {
-                // Convert backend path to frontend accessible URL
-                // Use the correct URL structure for canvas images
-                let imageUrl;
-                if (path.startsWith('/canvas/')) {
-                  // For canvas images, construct the correct URL using backend API
-                  const filename = path.replace('/canvas/', '');
-                  // Use the backend API endpoint to serve canvas images
-                  imageUrl = `/api/admin/canvas-image/${filename}`;
-                } else if (path.startsWith('http')) {
-                  imageUrl = path;
-                } else {
-                  // Fallback for other paths
-                  imageUrl = path;
-                }
-              
+            .map((path, index) => {
+              // Convert backend path to frontend accessible URL
+              // Use the correct URL structure for canvas images
+              let imageUrl;
+              if (path.startsWith('/canvas/')) {
+                // For canvas images, construct the correct URL using backend API
+                const filename = path.replace('/canvas/', '');
+                // Use the backend API endpoint to serve canvas images
+                imageUrl = `/api/admin/canvas-image/${filename}`;
+              } else if (path.startsWith('http')) {
+                imageUrl = path;
+              } else {
+                // Fallback for other paths
+                imageUrl = path;
+              }
+
               const filename = path.split('/').pop() || `image_${index + 1}`;
               const baseName = getBaseImageName(filename);
-              
+
               return {
                 url: imageUrl,
                 name: filename,
@@ -91,7 +102,10 @@ export default function AdminCanvaConfig({ onImageSave, onClose, userId, existin
                 originalPath: path
               };
             });
-          
+
+          // Cache the previews
+          canvasImageCache.current[userId] = previews;
+
           setExistingPreviews(previews);
         } else {
           setExistingPreviews([]);

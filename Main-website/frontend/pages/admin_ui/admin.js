@@ -88,6 +88,9 @@ export default function AdminPage({ initialSettings }) {
   const [showAIProcess, setShowAIProcess] = useState(false);
   const [showDownloadPopup, setShowDownloadPopup] = useState(false);
 
+  // Cache for user settings and canvas images to prevent unnecessary refetches
+  const userDataCache = useRef({});
+
   // Debug effect to track modal state changes
   useEffect(() => {
     console.log('showCanvasImageOrder state changed:', showCanvasImageOrder);
@@ -105,15 +108,12 @@ export default function AdminPage({ initialSettings }) {
 
   // Check authentication on page load
   useEffect(() => {
-    const checkAuthAndLoadData = async () => {
+    const checkAuth = async () => {
       try {
-        setLoading(true);
-        
         // Check authentication first - suppress console errors
         let authResponse;
         try {
           authResponse = await fetch('/api/admin/auth', {
-            // Add headers to prevent console logging
             headers: {
               'X-Suppress-Errors': 'true'
             }
@@ -123,60 +123,20 @@ export default function AdminPage({ initialSettings }) {
           router.replace('/admin_ui/admin-login');
           return;
         }
-        
+
         if (!authResponse.ok) {
-          if (authResponse.status === 401) {
-            // Silent redirect without error notification
-            router.replace('/admin_ui/admin-login');
-            return;
-          } else {
-            // Other errors, redirect to login
-            router.replace('/admin_ui/admin-login');
-            return;
-          }
-        }
-        
-        // Check if this is a fallback response
-        const authData = await authResponse.json();
-        if (authData.suppressErrors && !authData.authenticated) {
-          // This is a fallback response, redirect silently
           router.replace('/admin_ui/admin-login');
           return;
         }
-        
-        setIsAuthenticated(true);
-        
-        // Load consent data immediately after authentication
-        try {
-          const consentResponse = await fetch('/api/admin/consent-data', {
-            headers: {
-              'Content-Type': 'application/json',
-              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY,
-              'X-Suppress-Errors': 'true'
-            }
-          });
 
-          if (!consentResponse.ok) {
-            if (consentResponse.status === 401) {
-              // Silent redirect without error notification
-              router.replace('/admin_ui/admin-login');
-              return;
-            } else {
-              const errorText = await consentResponse.text();
-              console.error('Consent data response error:', errorText);
-              throw new Error(`Failed to load consent data: ${consentResponse.status} ${consentResponse.statusText}`);
-            }
-          }
-
-          const data = await consentResponse.json();
-          setConsentData(Array.isArray(data) ? data : []);
-        } catch (error) {
-          console.error('Error loading consent data:', error);
-          setError(error.message);
-        } finally {
-          setLoading(false);
+        // Check if this is a fallback response
+        const authData = await authResponse.json();
+        if (authData.suppressErrors && !authData.authenticated) {
+          router.replace('/admin_ui/admin-login');
+          return;
         }
-        
+
+        setIsAuthenticated(true);
       } catch (error) {
         // Only log non-fetch errors
         if (error.name !== 'TypeError' && error.message !== 'fetch') {
@@ -187,8 +147,48 @@ export default function AdminPage({ initialSettings }) {
       }
     };
 
-    checkAuthAndLoadData();
+    checkAuth();
   }, [router]);
+
+  // Load consent data separately after authentication
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const loadConsentData = async () => {
+      try {
+        setLoading(true);
+
+        const consentResponse = await fetch('/api/admin/consent-data', {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY,
+            'X-Suppress-Errors': 'true'
+          }
+        });
+
+        if (!consentResponse.ok) {
+          if (consentResponse.status === 401) {
+            router.replace('/admin_ui/admin-login');
+            return;
+          } else {
+            const errorText = await consentResponse.text();
+            console.error('Consent data response error:', errorText);
+            throw new Error(`Failed to load consent data: ${consentResponse.status} ${consentResponse.statusText}`);
+          }
+        }
+
+        const data = await consentResponse.json();
+        setConsentData(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error('Error loading consent data:', error);
+        setError(error.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadConsentData();
+  }, [isAuthenticated, router]);
 
   // Add this effect to sync settings with adminSettings hook
   useEffect(() => {
@@ -756,216 +756,167 @@ export default function AdminPage({ initialSettings }) {
     }
   }, [selectedUserId]);
 
-  // Update the user selection handler
+  // Update the user selection handler with caching
   const handleUserSelect = async (e) => {
     const newUserId = e.target.value;
     console.log('User selected:', newUserId);
     console.log('Available users from consent data:', consentData.map(d => d.userId));
     setSelectedUserId(newUserId);
-    
-    if (newUserId) {
-      try {
-        // Fetch settings from data center
-        const response = await fetch(`/api/data-center/settings/${newUserId}`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        });
 
-        let userSettings = {};
-        
-        if (response.ok) {
-          const result = await response.json();
-          userSettings = result.data || {};
-          
-          console.log('Data center settings loaded for user:', newUserId, userSettings);
-          console.log('image_background_paths from data center:', userSettings.image_background_paths);
-          
-          // Update tempSettings with data center data (backend already provides defaults)
-          setTempSettings(prev => ({
-            ...prev,
-            [newUserId]: userSettings
-          }));
-
-          // Update settings through the hook
-          updateSettings(newUserId);
-          
-          // Update system control states
-          setPublicAccessEnabled(userSettings.public_data_access || false);
-          setBackendChangeEnabled(userSettings.enable_background_change || false);
-          
-          safeShowNotification('Settings loaded successfully from data center!', 'success');
-        } else {
-          // If no settings found, backend will provide defaults
-          setTempSettings(prev => ({
-            ...prev,
-            [newUserId]: {}
-          }));
-          
-          // Update settings through the hook (will be populated when user interacts)
-          updateSettings(newUserId);
-          
-          // Initialize system controls to false for new users
-          setPublicAccessEnabled(false);
-          setBackendChangeEnabled(false);
-          
-          safeShowNotification('New user - settings will be created when you save', 'success');
-        }
-
-        // Additionally, check for existing canvas images for this user
-        try {
-          const canvasResponse = await fetch(`/api/admin/view-canvas-image?userId=${newUserId}`, {
-            headers: {
-              'X-Suppress-Errors': 'true'
-            }
-          });
-          
-          if (canvasResponse.ok) {
-            const canvasData = await canvasResponse.json();
-            
-            if (canvasData.success && canvasData.images && canvasData.images.length > 0) {
-              // Convert canvas images to the expected format (image_1, image_2, etc.)
-              const canvasImages = {};
-              canvasData.images.forEach((imagePath, index) => {
-                canvasImages[`image_${index + 1}`] = imagePath;
-              });
-              
-              // Merge canvas images with data center image_background_paths if available
-              let mergedCanvasImages = { ...canvasImages };
-              if (userSettings.image_background_paths && Array.isArray(userSettings.image_background_paths)) {
-                // Parse image_background_paths to extract times and merge with canvas images
-                userSettings.image_background_paths.forEach((pathWithTimes, index) => {
-                  if (pathWithTimes && typeof pathWithTimes === 'string') {
-                    // Parse format like "[10]-/Overall_porch.png" or "[10]-/canvas/Overall_porch.png"
-                    const match = pathWithTimes.match(/^\[(\d+)\]-(.+)$/);
-                    if (match) {
-                      const times = parseInt(match[1], 10);
-                      let imagePath = match[2];
-                      
-                      // Ensure the path has the /canvas/ prefix if it's a canvas image
-                      if (!imagePath.startsWith('/canvas/') && !imagePath.startsWith('http')) {
-                        imagePath = `/canvas${imagePath}`;
-                      }
-                      
-                      const imageKey = `image_${index + 1}`;
-                      
-                      // Update the canvas image with times information
-                      mergedCanvasImages[imageKey] = imagePath;
-                      mergedCanvasImages[`${imageKey}_times`] = times;
-                    }
-                  }
-                });
-              }
-              
-              // Update tempSettings with canvas images in a single state update
-              setTempSettings(prev => {
-                const updatedSettings = {
-                  ...prev,
-                  [newUserId]: {
-                    ...userSettings,
-                    image_pdf_canva: mergedCanvasImages,
-                    // Also update the primary image if none exists
-                    image_path: userSettings.image_path && 
-                               userSettings.image_path !== "/asfgrebvxcv" && 
-                               userSettings.image_path !== "" 
-                               ? userSettings.image_path 
-                               : mergedCanvasImages['image_1'] || "",
-                    updateImage: userSettings.updateImage && 
-                                userSettings.updateImage !== "" 
-                                ? userSettings.updateImage 
-                                : (mergedCanvasImages['image_1'] ? mergedCanvasImages['image_1'].split('/').pop() : "")
-                  }
-                };
-                return updatedSettings;
-              });
-              
-              const actualImageCount = canvasData.images.filter(path => 
-                path && 
-                typeof path === 'string' && 
-                !path.includes('/backgrounds/default.jpg') && 
-                !path.includes('default.jpg')
-              ).length;
-              safeShowNotification(`Canvas images loaded: ${actualImageCount} images found`, 'success');
-            } else {
-              // Check if we have image_background_paths from data center even without canvas images
-              if (userSettings.image_background_paths && Array.isArray(userSettings.image_background_paths) && userSettings.image_background_paths.length > 0) {
-                // Convert image_background_paths to canvas images format
-                const canvasImagesFromDataCenter = {};
-                userSettings.image_background_paths.forEach((pathWithTimes, index) => {
-                  if (pathWithTimes && typeof pathWithTimes === 'string') {
-                    // Parse format like "[10]-/Overall_porch.png" or "[10]-/canvas/Overall_porch.png"
-                    const match = pathWithTimes.match(/^\[(\d+)\]-(.+)$/);
-                    if (match) {
-                      const times = parseInt(match[1], 10);
-                      let imagePath = match[2];
-                      
-                      // Ensure the path has the /canvas/ prefix if it's a canvas image
-                      if (!imagePath.startsWith('/canvas/') && !imagePath.startsWith('http')) {
-                        imagePath = `/canvas${imagePath}`;
-                      }
-                      
-                      const imageKey = `image_${index + 1}`;
-                      
-                      canvasImagesFromDataCenter[imageKey] = imagePath;
-                      canvasImagesFromDataCenter[`${imageKey}_times`] = times;
-                    }
-                  }
-                });
-                
-                // Update tempSettings with data center canvas images
-                setTempSettings(prev => ({
-                  ...prev,
-                  [newUserId]: {
-                    ...userSettings,
-                    image_pdf_canva: canvasImagesFromDataCenter
-                  }
-                }));
-                
-                const actualDataCenterImageCount = userSettings.image_background_paths.filter(path => 
-                  path && 
-                  typeof path === 'string' && 
-                  !path.includes('/backgrounds/default.jpg') && 
-                  !path.includes('default.jpg')
-                ).length;
-                safeShowNotification(`Canvas images loaded from data center: ${actualDataCenterImageCount} images found`, 'success');
-              } else {
-                safeShowNotification('No canvas images found for this user', 'info');
-              }
-            }
-          } else if (canvasResponse.status === 401) {
-            // Silent redirect without error notification
-            router.replace('/admin_ui/admin-login');
-            return;
-          }
-        } catch (canvasError) {
-          console.error('Error loading canvas images:', canvasError);
-          // This is not a critical error, just log it
-        }
-        
-      } catch (error) {
-        console.error('Error loading user settings:', error);
-        safeShowNotification('Failed to load user settings. Using defaults.', 'error');
-        
-        // Initialize with empty object on error (backend will provide defaults)
-        setTempSettings(prev => ({
-          ...prev,
-          [newUserId]: {}
-        }));
-        
-        // Update settings through the hook (will be populated when user interacts)
-        updateSettings(newUserId);
-        
-        // Initialize system controls to false on error
-        setPublicAccessEnabled(false);
-        setBackendChangeEnabled(false);
-      }
-    } else {
+    if (!newUserId) {
       // Clear settings when no user is selected
       setTempSettings(prev => ({
         ...prev,
         [newUserId]: null
       }));
+      return;
+    }
+
+    // Check cache first
+    if (userDataCache.current[newUserId]) {
+      console.log('Using cached data for user:', newUserId);
+      const cachedData = userDataCache.current[newUserId];
+
+      setTempSettings(prev => ({
+        ...prev,
+        [newUserId]: cachedData.settings
+      }));
+      updateSettings(newUserId);
+      setPublicAccessEnabled(cachedData.settings.public_data_access || false);
+      setBackendChangeEnabled(cachedData.settings.enable_background_change || false);
+
+      safeShowNotification('Settings loaded from cache!', 'success');
+      return;
+    }
+
+    try {
+      // Fetch both settings and canvas images in parallel
+      const [settingsResponse, canvasResponse] = await Promise.all([
+        fetch(`/api/data-center/settings/${newUserId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }),
+        fetch(`/api/admin/view-canvas-image?userId=${newUserId}`, {
+          headers: {
+            'X-Suppress-Errors': 'true'
+          }
+        })
+      ]);
+
+      let userSettings = {};
+
+      if (settingsResponse.ok) {
+        const result = await settingsResponse.json();
+        userSettings = result.data || {};
+        console.log('Data center settings loaded for user:', newUserId, userSettings);
+      }
+
+      // Process canvas images
+      let canvasImages = {};
+      if (canvasResponse.ok) {
+        const canvasData = await canvasResponse.json();
+
+        if (canvasData.success && canvasData.images && canvasData.images.length > 0) {
+          // Convert canvas images to the expected format
+          canvasData.images.forEach((imagePath, index) => {
+            canvasImages[`image_${index + 1}`] = imagePath;
+          });
+
+          // Merge with image_background_paths if available
+          if (userSettings.image_background_paths && Array.isArray(userSettings.image_background_paths)) {
+            userSettings.image_background_paths.forEach((pathWithTimes, index) => {
+              if (pathWithTimes && typeof pathWithTimes === 'string') {
+                const match = pathWithTimes.match(/^\[(\d+)\]-(.+)$/);
+                if (match) {
+                  const times = parseInt(match[1], 10);
+                  let imagePath = match[2];
+
+                  if (!imagePath.startsWith('/canvas/') && !imagePath.startsWith('http')) {
+                    imagePath = `/canvas${imagePath}`;
+                  }
+
+                  const imageKey = `image_${index + 1}`;
+                  canvasImages[imageKey] = imagePath;
+                  canvasImages[`${imageKey}_times`] = times;
+                }
+              }
+            });
+          }
+        } else if (userSettings.image_background_paths && Array.isArray(userSettings.image_background_paths) && userSettings.image_background_paths.length > 0) {
+          // Use data center image_background_paths if no canvas images
+          userSettings.image_background_paths.forEach((pathWithTimes, index) => {
+            if (pathWithTimes && typeof pathWithTimes === 'string') {
+              const match = pathWithTimes.match(/^\[(\d+)\]-(.+)$/);
+              if (match) {
+                const times = parseInt(match[1], 10);
+                let imagePath = match[2];
+
+                if (!imagePath.startsWith('/canvas/') && !imagePath.startsWith('http')) {
+                  imagePath = `/canvas${imagePath}`;
+                }
+
+                const imageKey = `image_${index + 1}`;
+                canvasImages[imageKey] = imagePath;
+                canvasImages[`${imageKey}_times`] = times;
+              }
+            }
+          });
+        }
+      } else if (canvasResponse.status === 401) {
+        router.replace('/admin_ui/admin-login');
+        return;
+      }
+
+      // Build final settings object
+      const finalSettings = {
+        ...userSettings,
+        image_pdf_canva: Object.keys(canvasImages).length > 0 ? canvasImages : userSettings.image_pdf_canva,
+        image_path: userSettings.image_path &&
+                   userSettings.image_path !== "/asfgrebvxcv" &&
+                   userSettings.image_path !== ""
+                   ? userSettings.image_path
+                   : canvasImages['image_1'] || "",
+        updateImage: userSettings.updateImage &&
+                    userSettings.updateImage !== ""
+                    ? userSettings.updateImage
+                    : (canvasImages['image_1'] ? canvasImages['image_1'].split('/').pop() : "")
+      };
+
+      // Cache the data
+      userDataCache.current[newUserId] = {
+        settings: finalSettings,
+        timestamp: Date.now()
+      };
+
+      // Update state
+      setTempSettings(prev => ({
+        ...prev,
+        [newUserId]: finalSettings
+      }));
+      updateSettings(newUserId);
+      setPublicAccessEnabled(finalSettings.public_data_access || false);
+      setBackendChangeEnabled(finalSettings.enable_background_change || false);
+
+      const imageCount = Object.keys(canvasImages).filter(key => !key.includes('_times')).length;
+      if (imageCount > 0) {
+        safeShowNotification(`Settings loaded with ${imageCount} canvas images!`, 'success');
+      } else {
+        safeShowNotification('Settings loaded successfully!', 'success');
+      }
+
+    } catch (error) {
+      console.error('Error loading user settings:', error);
+      safeShowNotification('Failed to load user settings. Using defaults.', 'error');
+
+      setTempSettings(prev => ({
+        ...prev,
+        [newUserId]: {}
+      }));
+      updateSettings(newUserId);
+      setPublicAccessEnabled(false);
+      setBackendChangeEnabled(false);
     }
   };
 

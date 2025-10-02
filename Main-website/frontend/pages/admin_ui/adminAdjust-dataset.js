@@ -67,10 +67,17 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
   ];
 
   useEffect(() => {
-    if (userId) {
+    if (!userId) return;
+
+    // Only load preview data if NOT in dataset view mode
+    if (viewMode !== 'dataset') {
       loadPreviewData();
+    } else {
+      // Load datasets if in dataset view mode
+      setError(null);
+      loadDatasets();
     }
-    
+
     // Clear CSV cache when userId changes
     return () => {
       csvDataCache.current.clear();
@@ -79,15 +86,7 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
         clearTimeout(refreshTimeoutRef.current);
       }
     };
-  }, [userId, selectedDataType]);
-
-  useEffect(() => {
-    if (viewMode === 'dataset' && userId) {
-      // Clear any previous errors and load datasets when switching to dataset view
-      setError(null);
-      loadDatasets();
-    }
-  }, [viewMode, userId]); // Only trigger when switching view modes or userId changes
+  }, [userId, selectedDataType, viewMode]); // Combine all dependencies to prevent duplicate fetches
 
   const loadPreviewData = async () => {
     setLoading(true);
@@ -466,15 +465,16 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
     const [csvData, setCsvData] = useState(null);
     const [csvLoading, setCsvLoading] = useState(false);
     const [csvError, setCsvError] = useState(null);
-    
+
     // Create a cache key for this specific file
     const cacheKey = `${userId}_${filename}`;
-    
+
     // Check if we already have this data cached
     const cachedData = csvDataCache.current.get(cacheKey);
-    
+
     // Use ref to track if component is mounted
     const isMounted = useRef(true);
+    const abortControllerRef = useRef(null);
 
     useEffect(() => {
       // If we have cached data, use it immediately
@@ -487,33 +487,46 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
       if (csvLoading) return;
 
       const loadCSVData = async () => {
+        // Abort any previous request
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+
+        // Create new AbortController for this request
+        abortControllerRef.current = new AbortController();
+
         setCsvLoading(true);
         setCsvError(null);
-        
+
         try {
-          const response = await fetch(`/api/admin/dataset_viewerEdit?user_id=${userId}&filename=${encodeURIComponent(filename)}`);
-          
+          const response = await fetch(`/api/admin/dataset_viewerEdit?user_id=${userId}&filename=${encodeURIComponent(filename)}`, {
+            signal: abortControllerRef.current.signal
+          });
+
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
-          
+
           const csvText = await response.text();
-          
+
           // Parse CSV data (simple parsing for display)
           const lines = csvText.split('\n').filter(line => line.trim());
           const rows = lines.map(line => {
             const [key, value] = line.split(',').map(cell => cell.trim());
             return { key, value };
           });
-          
+
           // Cache the parsed data
           csvDataCache.current.set(cacheKey, rows);
-          
+
           // Only update state if component is still mounted
           if (isMounted.current) {
             setCsvData(rows);
           }
         } catch (err) {
+          // Ignore abort errors
+          if (err.name === 'AbortError') return;
+
           if (isMounted.current) {
             setCsvError('Failed to load CSV data');
             console.error('Error loading CSV:', err);
@@ -528,12 +541,15 @@ const AdminAdjustDataset = ({ userId, onClose }) => {
       if (userId && filename) {
         loadCSVData();
       }
-      
+
       // Cleanup function
       return () => {
         isMounted.current = false;
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
       };
-    }, [userId, filename, csvLoading]); // Added csvLoading to prevent multiple simultaneous requests
+    }, [userId, filename]); // Removed csvLoading from deps, using abortController instead
     
     // Memoize the component to prevent unnecessary re-renders
     const memoizedComponent = React.useMemo(() => {

@@ -34,13 +34,24 @@ class MongoDB:
             cls._connection_attempts += 1
             logger.info("Connecting to MongoDB")
             
-            # Use environment variable or fallback to default connection string
-            mongodb_url = os.getenv("MONGODB_URL", "mongodb://mongodb:27017/eye_tracking")
+            # Get MongoDB credentials from environment
+            mongo_username = os.getenv("MONGO_USERNAME")
+            mongo_password = os.getenv("MONGO_PASSWORD")
+            mongodb_host = os.getenv("MONGODB_HOST", "mongodb")
+            mongodb_port = os.getenv("MONGODB_PORT", "27017")
             mongodb_db_name = os.getenv("MONGODB_DB_NAME", "eye_tracking")
-            
-            logger.info(f"Connecting to MongoDB URL: {mongodb_url}")
+
+            # Build authenticated connection string
+            if mongo_username and mongo_password:
+                mongodb_url = f"mongodb://{mongo_username}:{mongo_password}@{mongodb_host}:{mongodb_port}/{mongodb_db_name}?authSource={mongodb_db_name}"
+                logger.info(f"Connecting to MongoDB with authentication at {mongodb_host}:{mongodb_port}")
+            else:
+                # Fallback for development without auth (not recommended for production)
+                mongodb_url = f"mongodb://{mongodb_host}:{mongodb_port}/{mongodb_db_name}"
+                logger.warning("Connecting to MongoDB WITHOUT authentication - not recommended for production!")
+
             logger.info(f"Using database: {mongodb_db_name}")
-            
+
             cls._client = AsyncIOMotorClient(mongodb_url)
             cls._db = cls._client[mongodb_db_name]
             
