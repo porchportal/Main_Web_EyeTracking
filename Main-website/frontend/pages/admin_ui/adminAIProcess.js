@@ -36,8 +36,8 @@ import {
   EnhanceFaceToggle
 } from '../process_set/sectionPreview';
 
-// Import notification component from admin UI
-import NotiMessage from './notiMessage';
+// Import notification component from utils
+import NotiMessage from '../../utils/notiMessage';
 
 const AdminAIProcess = ({ userId, onClose }) => {
   const [isClosing, setIsClosing] = useState(false);

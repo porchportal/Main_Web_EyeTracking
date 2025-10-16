@@ -3,7 +3,8 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import styles from './sectionPreview.module.css';
 import { useEffect, useState } from 'react';
-import { useNotification } from './NotificationMessage';
+// Notification component is now in utils
+// import { useNotification } from './NotificationMessage';
 
 // Import API functions (only backend connection and processing)
 import {
@@ -65,8 +66,13 @@ export default function ProcessSet() {
     complete: false 
   });
   const [autoRefreshTriggered, setAutoRefreshTriggered] = useState(false);
-  
-  const [showNotification, NotificationComponent] = useNotification();
+
+  // Use global notification from NotiMessage component
+  const showNotification = (message, type = 'info', duration = 5000) => {
+    if (typeof window !== 'undefined' && window.showNotification) {
+      window.showNotification(message, type);
+    }
+  };
 
   // Get user ID - prioritize passed user ID, fallback to getCurrentUserId
   const getUserId = async () => {
@@ -876,8 +882,6 @@ export default function ProcessSet() {
         <h1 className={styles.title}>
           Process Image Folder
         </h1>
-        
-        {NotificationComponent}
         
         <div className={styles.statusDisplay}>
           <div className={styles.statusIndicator}>

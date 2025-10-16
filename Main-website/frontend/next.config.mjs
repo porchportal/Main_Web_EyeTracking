@@ -17,20 +17,77 @@ const nextConfig = {
     formats: ['image/webp', 'image/avif'],
   },
   
-  // Webpack configuration for HMR
+  // Disable source maps completely (both dev and production)
+  productionBrowserSourceMaps: false,
+
+  // Disable generate source maps during development too
+  generateBuildId: async () => {
+    // Use a random ID to make it harder to track builds
+    return Math.random().toString(36).substring(7);
+  },
+
+  // Webpack configuration - DISABLE ALL SOURCE MAPS (console will work normally)
   webpack: (config, { dev, isServer }) => {
+    // ALWAYS disable source maps (both dev and production)
+    config.devtool = false;
+
     if (dev && !isServer) {
       // Configure HMR for HTTPS
       config.watchOptions = {
         poll: 1000,
         aggregateTimeout: 300,
       };
-      
+
       // Disable Next.js development tools badge
       config.plugins = config.plugins.filter(plugin => {
         return plugin.constructor.name !== 'NextJsDevToolsPlugin';
       });
     }
+
+    // Apply aggressive minification and obfuscation to BOTH dev and production
+    config.optimization = {
+      ...config.optimization,
+      minimize: true,
+    };
+
+    // Configure existing Terser minimizer (Next.js has it built-in)
+    if (config.optimization.minimizer) {
+      config.optimization.minimizer.forEach((minimizer) => {
+        if (minimizer.constructor.name === 'TerserPlugin') {
+          minimizer.options.terserOptions = {
+            ...minimizer.options.terserOptions,
+            compress: {
+              ...minimizer.options.terserOptions.compress,
+              drop_console: false, // Keep console working
+              drop_debugger: true,
+              passes: 3,
+            },
+            mangle: {
+              toplevel: true,
+              safari10: true,
+            },
+            output: {
+              comments: false,
+              ascii_only: true,
+            },
+            keep_classnames: false,
+            keep_fnames: false,
+          };
+          minimizer.options.extractComments = false;
+        }
+      });
+    }
+
+    // Remove source map related plugins
+    config.plugins = config.plugins.filter(plugin => {
+      return plugin.constructor.name !== 'SourceMapDevToolPlugin';
+    });
+
+    // Disable file names in output
+    if (!isServer) {
+      config.output.pathinfo = false;
+    }
+
     return config;
   },
   

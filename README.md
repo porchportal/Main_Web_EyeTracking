@@ -58,7 +58,7 @@ The application follows a microservices architecture with the following componen
   - Video enhancement capabilities
 - **Status**: 🚧 **UNDER DEVELOPMENT** - This service is not yet implemented and will be available in future releases
 
-#### 4. Nginx Reverse Proxy (Ports 80, 443, 8443)
+#### 4. Nginx Reverse Proxy (Ports 80, 443, 8443, 9443)
 - **Purpose**: Load balancing, SSL termination, security headers
 - **Features**:
   - HTTPS redirection
@@ -66,6 +66,7 @@ The application follows a microservices architecture with the following componen
   - CORS handling
   - Security headers (CSP, HSTS, etc.)
   - Camera access control via port separation
+  - Multiple HTTPS ports (443, 9443) for flexible access
 
 ## 📁 Storage System (`resource_security/`)
 
@@ -219,35 +220,31 @@ docker-compose logs -f
 #### Multi-User Access URLs
 Replace `YOUR_SERVER_IP` with your configured server IP address:
 
-- **Main Application**: `https://YOUR_SERVER_IP` (port 443)
+- **Main Application (Alternative Port)**: `https://YOUR_SERVER_IP:9443` (port 9443)
 - **Camera Access**: `https://YOUR_SERVER_IP:8443` (port 8443)
 - **HTTP Redirect**: `http://YOUR_SERVER_IP` → `https://YOUR_SERVER_IP`
 
-#### Local Development Access
-- **Direct Frontend**: `http://localhost:3010` (Next.js development server)
-- **Main Application**: `https://localhost` (port 443 - via nginx)
-- **Camera Access**: `https://localhost:8443` (port 8443 - via nginx)
-- **HTTP Redirect**: `http://localhost` → `https://localhost`
-
 #### Example with IP 192.168.1.100
-- **Main Application**: `https://192.168.1.100`
+- **Main Application**: `https://192.168.1.100:9443`
 - **Camera Access**: `https://192.168.1.100:8443`
 - **HTTP Redirect**: `http://192.168.1.100` → `https://192.168.1.100`
 
 #### Access Methods Summary
 | Access Type | URL | Port | Description |
 |-------------|-----|------|-------------|
-| **Multi-User HTTPS** | `https://YOUR_SERVER_IP` | 443 | Full application via nginx (recommended) |
+| **Multi-User HTTPS** | `https://YOUR_SERVER_IP` | 443 | Full application via nginx (standard port) |
+| **Multi-User HTTPS (Alt)** | `https://YOUR_SERVER_IP:9443` | 9443 | Full application via nginx (alternative port) |
 | **Multi-User Camera** | `https://YOUR_SERVER_IP:8443` | 8443 | Camera access via nginx |
 | **Local Development** | `http://localhost:3010` | 3010 | Direct Next.js dev server |
 | **Local HTTPS** | `https://localhost` | 443 | Local application via nginx |
+| **Local HTTPS (Alt)** | `https://localhost:9443` | 9443 | Local application via nginx (alternative port) |
 
 ## 👥 Multi-User Deployment
 
 ### Network Configuration
 For multi-user access, ensure your server is accessible from other devices on the network:
 
-1. **Firewall Configuration**: Open ports 80, 443, and 8443
+1. **Firewall Configuration**: Open ports 80, 443, 8443, and 9443
 2. **Network Access**: Ensure devices can reach the server IP
 3. **SSL Certificates**: Include server IP in certificate SAN (Subject Alternative Name)
 

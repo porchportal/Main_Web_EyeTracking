@@ -5,7 +5,7 @@ import { useConsent } from '../consent_ui/ConsentContext';
 import { useBackendConnection } from '../../utils/stateManager';
 import { getOrCreateUserId } from '../../utils/consentManager';
 import { isDestroyerCommand, handleDestroyerCommand } from '../../utils/destroyer';
-import UINotification from './ui_noti';
+import NotiMessage from '../../utils/notiMessage';
 
 export default function UserProfileSidebar() {
   const router = useRouter();
@@ -19,12 +19,14 @@ export default function UserProfileSidebar() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [localUserId, setLocalUserId] = useState(null);
-  const [notification, setNotification] = useState({
-    isVisible: false,
-    message: '',
-    type: 'success'
-  });
   const [isDestroyerMode, setIsDestroyerMode] = useState(false);
+
+  // Use global notification function from NotiMessage
+  const showNotification = (message, type = 'success') => {
+    if (typeof window !== 'undefined' && window.showNotification) {
+      window.showNotification(message, type);
+    }
+  };
 
   // Get consent and backend status
   const { userId, consentStatus } = useConsent();
@@ -178,18 +180,10 @@ export default function UserProfileSidebar() {
         
         if (result.success) {
           // Show success notification
-          setNotification({
-            isVisible: true,
-            message: '💥 All data cleared! Page will reload...',
-            type: 'success'
-          });
+          showNotification('💥 All data cleared! Page will reload...', 'success');
         } else {
           // Show error notification
-          setNotification({
-            isVisible: true,
-            message: result.message || 'Failed to clear data',
-            type: 'error'
-          });
+          showNotification(result.message || 'Failed to clear data', 'error');
           setIsLoading(false);
         }
         return;
@@ -251,11 +245,7 @@ export default function UserProfileSidebar() {
         }
 
         // Show success notification
-        setNotification({
-          isVisible: true,
-          message: 'Profile saved successfully! Button unlocked!',
-          type: 'success'
-        });
+        showNotification('Profile saved successfully! Button unlocked!', 'success');
       } else {
         // On other pages: Only save username, don't unlock button
         const usernameData = {
@@ -291,30 +281,14 @@ export default function UserProfileSidebar() {
 
         // Don't dispatch admin update event - button stays locked
         // Show success notification
-        setNotification({
-          isVisible: true,
-          message: 'Username saved successfully! (Full profile can only be saved on main page)',
-          type: 'success'
-        });
+        showNotification('Username saved successfully! (Full profile can only be saved on main page)', 'success');
       }
     } catch (error) {
       console.error('Error saving profile:', error);
-      setNotification({
-        isVisible: true,
-        message: error.message || 'Failed to save profile. Please try again.',
-        type: 'error'
-      });
+      showNotification(error.message || 'Failed to save profile. Please try again.', 'error');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Handle notification close
-  const handleNotificationClose = () => {
-    setNotification(prev => ({
-      ...prev,
-      isVisible: false
-    }));
   };
 
   // Don't render anything if consent is not accepted
@@ -324,14 +298,7 @@ export default function UserProfileSidebar() {
 
   return (
     <>
-      <UINotification
-        message={notification.message}
-        type={notification.type}
-        isVisible={notification.isVisible}
-        onClose={handleNotificationClose}
-        duration={4000}
-        sidebarOpen={isOpen}
-      />
+      <NotiMessage />
       <div style={{ position: 'fixed', bottom: '20px', right: '20px', zIndex: 100 }}>
       <button 
         className={styles.toggleButton}

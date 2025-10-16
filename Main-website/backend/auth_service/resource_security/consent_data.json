@@ -262,5 +262,89 @@
     "status": true,
     "timestamp": "2025-09-16T07:31:53.319205",
     "receivedAt": "2025-09-16T07:31:53.319975"
+  },
+  {
+    "userId": "8aea7184-92f2-4437-ab26-951203d36f61",
+    "status": true,
+    "timestamp": "2025-09-17T01:37:01.270000+00:00",
+    "receivedAt": "2025-09-17T01:37:01.284032"
+  },
+  {
+    "userId": "d9bd3c45-bfb1-480f-b6a1-04d681955a04",
+    "status": true,
+    "timestamp": "2025-09-17T02:12:57.986307",
+    "receivedAt": "2025-09-17T02:12:57.987202"
+  },
+  {
+    "userId": "d7460270-2e19-47dc-adf8-70df13297ca9",
+    "status": true,
+    "timestamp": "2025-09-17T02:27:46.506000+00:00",
+    "receivedAt": "2025-09-17T02:27:46.534062"
+  },
+  {
+    "userId": "c4d1a325-5c36-4eb6-a88c-1ddbaf4790d1",
+    "status": true,
+    "timestamp": "2025-09-17T02:27:46.541000+00:00",
+    "receivedAt": "2025-09-17T02:27:46.690695"
+  },
+  {
+    "userId": "0790a5d9-e22c-4fc4-b8b3-c5c6fc0b0d7b",
+    "status": true,
+    "timestamp": "2025-09-17T02:29:33.490000+00:00",
+    "receivedAt": "2025-09-17T02:29:33.503199"
+  },
+  {
+    "userId": "40f346d4-fb6b-4f61-89fe-4805462f0220",
+    "status": true,
+    "timestamp": "2025-09-17T02:36:26.371449",
+    "receivedAt": "2025-09-17T02:36:26.372140"
+  },
+  {
+    "userId": "0489e5bd-577d-4878-9a04-48f95a40786b",
+    "status": true,
+    "timestamp": "2025-09-17T03:19:17.876000+00:00",
+    "receivedAt": "2025-09-17T03:19:17.884150"
+  },
+  {
+    "userId": "f01694b9-f7e7-4645-8127-b33ee3212d6d",
+    "status": true,
+    "timestamp": "2025-09-17T04:07:14.838234",
+    "receivedAt": "2025-09-17T04:07:14.838947"
+  },
+  {
+    "userId": "8dfe5887-4ac2-4284-acfa-5abd0fe9b711",
+    "status": true,
+    "timestamp": "2025-09-18T03:06:42.983000+00:00",
+    "receivedAt": "2025-09-18T03:06:43.003073"
+  },
+  {
+    "userId": "0ea2b342-bc08-4400-9afe-6bec3301b544",
+    "status": true,
+    "timestamp": "2025-09-18T03:06:43.013000+00:00",
+    "receivedAt": "2025-09-18T03:06:43.270168"
+  },
+  {
+    "userId": "ce11c445-cc97-435b-9de5-08dc08f9b549",
+    "status": true,
+    "timestamp": "2025-09-29T04:51:15.414000+00:00",
+    "receivedAt": "2025-09-29T04:51:15.432251"
+  },
+  {
+    "userId": "de019363-52de-4e20-8132-892425491192",
+    "status": true,
+    "timestamp": "2025-09-29T04:52:00.240784",
+    "receivedAt": "2025-09-29T04:52:00.241403"
+  },
+  {
+    "userId": "63e905a9-714b-48f6-86e4-48b837a19987",
+    "status": true,
+    "timestamp": "2025-10-16T16:19:30.722000+00:00",
+    "receivedAt": "2025-10-16T16:19:30.737682"
+  },
+  {
+    "userId": "bd2f1b36-ebce-4e95-80d5-46f408c3edd4",
+    "status": true,
+    "timestamp": "2025-10-16T16:21:30.755791",
+    "receivedAt": "2025-10-16T16:21:30.756412"
   }
 ]

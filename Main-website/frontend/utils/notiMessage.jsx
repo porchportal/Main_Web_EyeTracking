@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import styles from './style/Admin.module.css';
+import styles from './noti.module.css';
 
 const NotiMessage = () => {
   const [notifications, setNotifications] = useState([]);

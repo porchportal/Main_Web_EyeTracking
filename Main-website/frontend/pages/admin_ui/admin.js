@@ -11,7 +11,7 @@ import path from 'path';
 import DragDropPriorityList from './adminDrag&Drop';
 import AdminCanvaConfig from './adminCanvaConfig';
 import AdminAdjustDataset from './adminAdjust-dataset';
-import NotiMessage from './notiMessage';
+import NotiMessage from '../../utils/notiMessage';
 import CanvasImageOrder from './CanvasImageOrder';
 import AdminAIProcess from './adminAIProcess';
 import DownloadPopup from './popup';
