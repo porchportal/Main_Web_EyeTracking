@@ -207,10 +207,322 @@
 }
 
 /* Responsive adjustments */
-@media (max-width: 768px) {
+
+/* iPad and Tablet devices (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .camera-component {
+    max-width: 85vw;
+    aspect-ratio: 16/9;
+  }
+
+  .camera-selector-dialog {
+    max-width: 480px;
+    width: 85%;
+  }
+
+  .camera-permission-dialog {
+    width: 380px;
+  }
+
+  .camera-loading-placeholder {
+    width: 420px;
+    height: 315px;
+  }
+
+  .countdown-number {
+    font-size: 28px;
+  }
+
+  .camera-notification-banner {
+    font-size: 13px;
+    padding: 10px;
+  }
+}
+
+/* Tablet portrait (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
   .camera-component {
     max-width: 90vw;
     aspect-ratio: 4/3;
+  }
+
+  .camera-selector-dialog {
+    max-width: 420px;
+    width: 88%;
+    padding: 20px;
+  }
+
+  .camera-selector-title {
+    font-size: 18px;
+  }
+
+  .camera-selector-item {
+    padding: 10px;
+  }
+
+  .camera-permission-dialog {
+    width: 90%;
+    max-width: 360px;
+  }
+
+  .camera-permission-title {
+    font-size: 17px;
+  }
+
+  .camera-permission-message {
+    font-size: 13px;
+  }
+
+  .camera-loading-placeholder {
+    width: 90vw;
+    height: auto;
+    aspect-ratio: 4/3;
+  }
+
+  .main-preview-area.with-topbar {
+    top: 140px;
+  }
+
+  .countdown-number {
+    font-size: 26px;
+  }
+
+  .countdown-icon {
+    font-size: 22px;
+  }
+
+  .camera-notification-banner {
+    font-size: 13px;
+    padding: 10px;
+  }
+
+  .camera-preview-area {
+    height: calc(100vh - 140px);
+  }
+}
+
+/* Mobile devices (up to 480px) */
+@media (max-width: 480px) {
+  .camera-component {
+    max-width: 95vw;
+    aspect-ratio: 4/3;
+    border-width: 1px;
+  }
+
+  .camera-selector-dialog {
+    max-width: 95%;
+    width: 95%;
+    padding: 16px;
+    max-height: 85vh;
+  }
+
+  .camera-selector-header {
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+  }
+
+  .camera-selector-title {
+    font-size: 16px;
+  }
+
+  .camera-selector-close-btn {
+    font-size: 20px;
+  }
+
+  .camera-selector-section {
+    margin-bottom: 15px;
+  }
+
+  .camera-selector-section-title {
+    font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  .camera-selector-item {
+    padding: 8px;
+  }
+
+  .camera-selector-item-label {
+    font-size: 13px;
+  }
+
+  .camera-selector-item-id {
+    font-size: 11px;
+  }
+
+  .camera-selector-checkbox {
+    transform: scale(1.1);
+    margin-right: 8px;
+  }
+
+  .camera-selector-actions {
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 12px;
+  }
+
+  .camera-selector-btn {
+    width: 100%;
+    padding: 10px 15px;
+    font-size: 13px;
+  }
+
+  .camera-permission-dialog {
+    width: 92%;
+    max-width: 320px;
+    padding: 16px;
+  }
+
+  .camera-permission-title {
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+
+  .camera-permission-message {
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .camera-permission-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .camera-btn {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 13px;
+  }
+
+  .camera-loading-placeholder {
+    width: 95vw;
+    height: auto;
+    aspect-ratio: 4/3;
+  }
+
+  .main-preview-area.with-topbar {
+    top: 150px;
+  }
+
+  .countdown-container {
+    padding: 16px;
+    min-width: 100px;
+  }
+
+  .countdown-number {
+    font-size: 24px;
+  }
+
+  .countdown-icon {
+    font-size: 20px;
+    margin-bottom: 6px;
+  }
+
+  .countdown-message {
+    font-size: 11px;
+  }
+
+  .camera-notification-banner {
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  .camera-preview-area {
+    height: calc(100vh - 150px);
+  }
+
+  .camera-restore-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+  }
+
+  .camera-action-buttons-container {
+    gap: 8px;
+    padding: 0 8px;
+  }
+
+  .warning-banner {
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  .backend-connection-banner {
+    font-size: 12px;
+    padding: 5px 0;
+  }
+}
+
+/* Extra small mobile devices (up to 360px) */
+@media (max-width: 360px) {
+  .camera-selector-dialog {
+    padding: 12px;
+  }
+
+  .camera-selector-title {
+    font-size: 14px;
+  }
+
+  .camera-selector-section-title {
+    font-size: 13px;
+  }
+
+  .camera-selector-item {
+    padding: 6px;
+  }
+
+  .camera-selector-item-label {
+    font-size: 12px;
+  }
+
+  .camera-selector-item-id {
+    font-size: 10px;
+  }
+
+  .camera-selector-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .camera-permission-dialog {
+    padding: 12px;
+  }
+
+  .camera-permission-title {
+    font-size: 14px;
+  }
+
+  .camera-permission-message {
+    font-size: 12px;
+  }
+
+  .camera-btn {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+
+  .countdown-container {
+    padding: 12px;
+    min-width: 80px;
+  }
+
+  .countdown-number {
+    font-size: 20px;
+  }
+
+  .countdown-icon {
+    font-size: 18px;
+  }
+
+  .camera-notification-banner {
+    font-size: 11px;
+    padding: 6px;
+  }
+
+  .camera-restore-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
   }
 }
 
@@ -558,4 +870,31 @@
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+/* Styles migrated from cameraAccess.js inline styles */
+.cameraContainerOverride {
+  position: relative;
+  transform: none;
+  top: auto;
+  left: auto;
+}
+
+/* Loading container */
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  font-size: 18px;
+  color: #666;
+}
+
+/* TopBar container */
+.topbar-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 15;
 }

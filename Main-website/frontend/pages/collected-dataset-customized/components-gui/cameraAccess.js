@@ -1,7 +1,7 @@
 // Unified Camera Access Component
 import React, { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { getHighestResolutionConstraints } from '../../../components/collected-dataset-customized/Helper/savefile';
+import { getHighestResolutionConstraints } from '../../../components/collected-dataset-customized/Helper/cameraUtils';
 import styles from '../styles/camera-ui.module.css';
 
 // Create the main camera component
@@ -430,18 +430,16 @@ const CameraAccessComponent = ({
       }
 
       // 8. Get Camera Constraints with selected camera
-      const constraints = await getHighestResolutionConstraints();
-      
       // Load selected cameras from localStorage
       const effectiveSelectedCameras = loadSelectedCamerasFromStorage();
-      
-      // Add deviceId constraint if a specific camera is selected
-      if (effectiveSelectedCameras && effectiveSelectedCameras.length > 0 && cameraIndex < effectiveSelectedCameras.length) {
-        constraints.video = {
-          ...constraints.video,
-          deviceId: { exact: effectiveSelectedCameras[cameraIndex] }
-        };
-      }
+
+      // Get the device ID for the current camera index
+      const targetDeviceId = (effectiveSelectedCameras && effectiveSelectedCameras.length > 0 && cameraIndex < effectiveSelectedCameras.length)
+        ? effectiveSelectedCameras[cameraIndex]
+        : null;
+
+      // Get highest resolution constraints for the specific camera
+      const constraints = await getHighestResolutionConstraints(targetDeviceId);
 
       // 9. Add Fallback Constraints
       const fallbackConstraints = {
@@ -959,13 +957,7 @@ const CameraAccessComponent = ({
     <>
     <div
       ref={containerRef}
-      className={`${styles.cameraContainer} ${selectedCameras.length > 1 ? styles.dualCamera : ''} ${isHidden ? styles.hidden : ''}`}
-      style={{
-        position: 'relative',
-        transform: 'none',
-        top: 'auto',
-        left: 'auto'
-      }}
+      className={`${styles.cameraContainer} ${styles.cameraContainerOverride} ${selectedCameras.length > 1 ? styles.dualCamera : ''} ${isHidden ? styles.hidden : ''}`}
     >
       <video
         ref={videoRef}

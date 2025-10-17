@@ -444,61 +444,430 @@
 }
 
 /* Responsive adjustments */
-@media (max-width: 992px) {
+
+/* Tablet landscape and small desktops (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
   .topbar {
-    padding: 8px 15px;
+    padding: 10px 15px;
   }
-  
-  .notes-container {
-    width: 200px;
-  }
-  
+
   .logo-text {
     font-size: 28px;
   }
+
+  .notes-container {
+    width: 220px;
+    height: 75px;
+  }
+
+  .btn {
+    font-size: 13px;
+    padding: 7px 10px;
+  }
+
+  .button-groups {
+    gap: 15px;
+  }
+
+  .metrics-display {
+    right: 15px;
+    top: 8px;
+    padding: 10px;
+    font-size: 13px;
+  }
+
+  .metrics-display p {
+    font-size: 14px;
+    margin: 6px 0;
+  }
 }
 
-@media (max-width: 768px) {
+/* Tablet portrait and smaller screens (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
   .topbar {
     flex-wrap: wrap;
+    padding: 8px 12px;
   }
-  
+
+  .topbar-left {
+    margin-right: 20px;
+  }
+
+  .logo-text {
+    font-size: 26px;
+  }
+
+  .controls-container {
+    gap: 10px;
+  }
+
   .topbar-middle {
     order: 3;
     width: 100%;
-    margin-top: 10px;
+    margin-top: 12px;
   }
-  
+
+  .button-groups {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .button-group {
+    gap: 8px;
+  }
+
   .notes-container {
     width: 180px;
+    height: 70px;
+  }
+
+  .output-display {
+    font-size: 13px;
+    padding: 7px;
+  }
+
+  .btn {
+    font-size: 13px;
+    padding: 7px 10px;
+  }
+
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .icon-text {
+    font-size: 16px;
+  }
+
+  .metrics-display {
+    right: 10px;
+    top: 8px;
+    padding: 10px;
+    font-size: 13px;
+  }
+
+  .metrics-display p {
+    font-size: 14px;
+    margin: 6px 0;
+  }
+
+  .restore-btn {
+    width: 18px;
+    height: 18px;
+    font-size: 20px;
+  }
+
+  .preview-area {
+    height: calc(100vh - 140px);
   }
 }
 
-@media (max-width: 576px) {
+/* Mobile devices (up to 480px) */
+@media (max-width: 480px) {
   .topbar {
-    padding: 8px;
+    flex-wrap: wrap;
+    padding: 6px 8px;
   }
-  
+
   .topbar-left {
-    margin-right: 15px;
+    margin-right: 10px;
+    width: 100%;
+    margin-bottom: 8px;
   }
-  
+
+  .logo {
+    margin-bottom: 8px;
+  }
+
   .logo-text {
-    font-size: 24px;
+    font-size: 22px;
   }
-  
-  .notes-container {
-    width: 150px;
-    height: 70px;
+
+  .controls-container {
+    flex-direction: row;
+    gap: 8px;
+    flex-wrap: wrap;
   }
-  
-  .output-display {
+
+  .control-group {
+    flex: 0 0 auto;
+  }
+
+  .control-label {
     font-size: 12px;
+  }
+
+  .control-input {
+    width: 35px;
+    height: 28px;
+  }
+
+  .control-input-field {
+    font-size: 12px;
+  }
+
+  .topbar-middle {
+    order: 3;
+    width: 100%;
+    margin-top: 8px;
+  }
+
+  .button-groups {
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .button-group {
+    gap: 6px;
+  }
+
+  .button-row {
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .topbar-right {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .notes-container {
+    width: 140px;
+    height: 65px;
+  }
+
+  .output-display {
+    font-size: 11px;
+    padding: 5px;
+  }
+
+  .control-buttons {
+    gap: 6px;
+  }
+
+  .icon-btn {
+    width: 28px;
+    height: 28px;
+    margin-bottom: 3px;
+  }
+
+  .icon-text {
+    font-size: 14px;
+  }
+
+  .btn {
+    font-size: 11px;
+    padding: 5px 8px;
+    white-space: normal;
+    line-height: 1.2;
+  }
+
+  .metrics-display {
+    right: 8px;
+    top: 6px;
+    padding: 8px;
+    font-size: 11px;
+    min-width: 120px;
+  }
+
+  .metrics-display p {
+    font-size: 12px;
+    margin: 4px 0;
+  }
+
+  .restore-btn {
+    width: 16px;
+    height: 16px;
+    font-size: 18px;
+  }
+
+  .preview-area {
+    height: calc(100vh - 150px);
+  }
+
+  .permission-dialog {
+    width: 95%;
+    padding: 15px;
+  }
+
+  .permission-title {
+    font-size: 18px;
+  }
+
+  .permission-message {
+    font-size: 14px;
+  }
+
+  .permission-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .permission-buttons .btn {
+    width: 100%;
+  }
+}
+
+/* Extra small mobile devices (up to 360px) */
+@media (max-width: 360px) {
+  .logo-text {
+    font-size: 18px;
+  }
+
+  .notes-container {
+    width: 120px;
+    height: 60px;
+  }
+
+  .output-display {
+    font-size: 10px;
+    padding: 4px;
+  }
+
+  .btn {
+    font-size: 10px;
+    padding: 4px 6px;
+  }
+
+  .icon-btn {
+    width: 24px;
+    height: 24px;
+  }
+
+  .icon-text {
+    font-size: 12px;
+  }
+
+  .control-label {
+    font-size: 11px;
+  }
+
+  .control-input {
+    width: 32px;
+    height: 26px;
+  }
+
+  .metrics-display {
+    font-size: 10px;
     padding: 6px;
   }
-  
-  .btn {
-    font-size: 12px;
-    padding: 6px 8px;
+
+  .metrics-display p {
+    font-size: 11px;
+    margin: 3px 0;
+  }
+}
+
+/* Styles migrated from index.js <style jsx> */
+
+/* Ensure main canvas is properly positioned and centered */
+#main-canvas {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 10 !important;
+  background-color: #CCFFF5 !important;
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  outline: none !important;
+  pointer-events: none !important;
+}
+
+/* Camera preview container for multiple cameras */
+.camera-preview-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  gap: 20px;
+  z-index: 25;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+/* Single camera layout */
+.camera-preview-container:has(> *:only-child) {
+  flex-direction: column;
+}
+
+/* Dual camera layout */
+.camera-preview-container:has(> *:nth-child(2)) {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Canvas notification animation */
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Responsive adjustments for camera preview container */
+
+/* iPad and Tablet landscape (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .camera-preview-container {
+    gap: 16px;
+    max-width: 88vw;
+    max-height: 88vh;
+  }
+}
+
+/* Tablet portrait (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+  .camera-preview-container {
+    gap: 15px;
+    max-width: 92vw;
+    max-height: 85vh;
+  }
+}
+
+/* Mobile devices (up to 480px) */
+@media (max-width: 480px) {
+  .camera-preview-container {
+    gap: 10px;
+    max-width: 96vw;
+    max-height: 80vh;
+    flex-direction: column;
+  }
+
+  .camera-preview-container:has(> *:nth-child(2)) {
+    flex-direction: column;
+  }
+
+  #main-canvas {
+    height: 100dvh !important;
+  }
+}
+
+/* Extra small mobile devices (up to 360px) */
+@media (max-width: 360px) {
+  .camera-preview-container {
+    gap: 8px;
+    max-width: 98vw;
+    max-height: 75vh;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .camera-preview-container {
+    max-height: 95vh;
+    gap: 12px;
   }
 }

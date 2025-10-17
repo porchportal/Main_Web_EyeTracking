@@ -1,5 +1,6 @@
 // user_savefile.js - User-specific capture file saving
 import { getOrCreateUserId } from '../../../utils/consentManager';
+import { loadSelectedCamerasFromStorage, getHighestResolutionConstraints } from './cameraUtils';
 
 /**
  * Get current user ID or generate a default one
@@ -19,137 +20,6 @@ const getCurrentUserId = () => {
     console.error('Error getting user ID:', error);
     // Fallback to timestamp-based ID
     return `user_${Date.now()}`;
-  }
-};
-
-/**
- * Load selected cameras from localStorage
- * @returns {Array} - Array of selected camera IDs
- */
-const loadSelectedCamerasFromStorage = () => {
-  if (typeof window !== 'undefined') {
-    try {
-      const storedCameras = localStorage.getItem('selectedCameras');
-      const storedCameraData = localStorage.getItem('selectedCamerasData');
-      
-      if (storedCameras) {
-        const parsedCameras = JSON.parse(storedCameras);
-        if (Array.isArray(parsedCameras) && parsedCameras.length > 0) {
-          // Load camera data with tags if available
-          if (storedCameraData) {
-            try {
-              const parsedCameraData = JSON.parse(storedCameraData);
-            } catch (dataError) {
-              console.warn('Error parsing camera data for capture:', dataError);
-            }
-          }
-          
-          return parsedCameras;
-        }
-      }
-    } catch (error) {
-      console.warn('Error loading selected cameras from localStorage:', error);
-    }
-  }
-  return [];
-};
-
-/**
- * Get highest resolution camera constraints for a specific device
- * @param {string} deviceId - Camera device ID
- * @returns {Promise<Object>} - Camera constraints with highest resolution
- */
-const getHighestResolutionConstraints = async (deviceId = null) => {
-  try {
-    
-    // Get all video input devices
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-    
-    if (videoDevices.length === 0) {
-      console.warn('No video devices found, using default constraints');
-      return { video: { width: { ideal: 1280 }, height: { ideal: 720 } } };
-    }
-    
-    // Use specified device or first available
-    const targetDevice = deviceId ? 
-      videoDevices.find(device => device.deviceId === deviceId) : 
-      videoDevices[0];
-    
-    if (!targetDevice) {
-      console.warn('Target device not found, using first available');
-      return { video: { width: { ideal: 1280 }, height: { ideal: 720 } } };
-    }
-    
-    
-    // Try to get capabilities for the target device
-    const constraints = { 
-      video: { 
-        deviceId: { exact: targetDevice.deviceId },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 }
-      } 
-    };
-    
-    // Test the constraints to see what's actually supported
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    const videoTrack = stream.getVideoTracks()[0];
-    
-    if (!videoTrack) {
-      stream.getTracks().forEach(track => track.stop());
-      console.warn('No video track found, using fallback constraints');
-      return { video: { deviceId: { exact: targetDevice.deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } } };
-    }
-    
-    // Get the actual settings being used
-    const settings = videoTrack.getSettings();
-    
-    // Get capabilities if available
-    let capabilities = null;
-    if (videoTrack.getCapabilities) {
-      capabilities = videoTrack.getCapabilities();
-    }
-    
-    // Stop the test stream
-    stream.getTracks().forEach(track => track.stop());
-    
-    // Determine the best resolution
-    let bestWidth = 1280; // Default minimum
-    let bestHeight = 720;
-    
-    if (capabilities && capabilities.width && capabilities.height) {
-      // Use the maximum available resolution
-      bestWidth = Math.max(...capabilities.width.values);
-      bestHeight = Math.max(...capabilities.height.values);
-    } else if (settings.width && settings.height) {
-      // Use the settings from the test stream
-      bestWidth = settings.width;
-      bestHeight = settings.height;
-    }
-    
-    // Ensure minimum resolution of 640x480
-    bestWidth = Math.max(bestWidth, 640);
-    bestHeight = Math.max(bestHeight, 480);
-    
-    
-    return {
-      video: {
-        deviceId: { exact: targetDevice.deviceId },
-        width: { ideal: bestWidth },
-        height: { ideal: bestHeight },
-        frameRate: { ideal: 30 }
-      }
-    };
-    
-  } catch (error) {
-    console.warn('Error getting camera constraints, using fallback:', error);
-    return { 
-      video: { 
-        deviceId: deviceId ? { exact: deviceId } : true,
-        width: { ideal: 1280 }, 
-        height: { ideal: 720 } 
-      } 
-    };
   }
 };
 
@@ -399,25 +269,49 @@ export const captureImagesAtUserPoint = async ({ point, captureCount = 1, canvas
         const selectedCameras = loadSelectedCamerasFromStorage();
         const mainCameraId = selectedCameras.length > 0 ? selectedCameras[0] : null;
         const mainConstraints = await getHighestResolutionConstraints(mainCameraId);
-        
-        
+
+
+        // Check if we need to upgrade the video stream resolution
+        const currentWidth = videoElement.videoWidth || 0;
+        const currentHeight = videoElement.videoHeight || 0;
+        const targetWidth = mainConstraints.video.width?.ideal || 1920;
+        const targetHeight = mainConstraints.video.height?.ideal || 1080;
+
+
+        // Upgrade to highest resolution if current resolution is lower
+        if (currentWidth < targetWidth * 0.9 || currentHeight < targetHeight * 0.9) {
+          try {
+            // Stop old stream
+            if (videoElement.srcObject) {
+              videoElement.srcObject.getTracks().forEach(track => track.stop());
+            }
+
+            // Get new high-resolution stream
+            const highResStream = await navigator.mediaDevices.getUserMedia(mainConstraints);
+            videoElement.srcObject = highResStream;
+            await videoElement.play();
+
+            // Wait for video to be ready with new resolution
+            await new Promise(resolve => setTimeout(resolve, 200));
+
+          } catch (upgradeError) {
+            console.warn('⚠️ Failed to upgrade main camera resolution, using current:', upgradeError);
+          }
+        }
+
         // Create a temporary canvas to capture main webcam
         const tempCanvas = document.createElement('canvas');
         const tempCtx = tempCanvas.getContext('2d');
-        
-        // Use the highest resolution from constraints or video element dimensions
-        const idealWidth = mainConstraints.video.width?.ideal || videoElement.videoWidth || 1920;
-        const idealHeight = mainConstraints.video.height?.ideal || videoElement.videoHeight || 1080;
-        
-        // Set canvas size to the higher of ideal resolution or current video dimensions
-        tempCanvas.width = Math.max(idealWidth, videoElement.videoWidth || 1280);
-        tempCanvas.height = Math.max(idealHeight, videoElement.videoHeight || 720);
-        
+
+        // Use actual video dimensions (now upgraded to highest available)
+        tempCanvas.width = videoElement.videoWidth || 1280;
+        tempCanvas.height = videoElement.videoHeight || 720;
+
         // Ensure minimum resolution of 640x480
         tempCanvas.width = Math.max(tempCanvas.width, 640);
         tempCanvas.height = Math.max(tempCanvas.height, 480);
-        
-        
+
+
         // Store main webcam resolution
         webcamWidth = tempCanvas.width;
         webcamHeight = tempCanvas.height;

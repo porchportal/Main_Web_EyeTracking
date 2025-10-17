@@ -3,6 +3,7 @@
 import React from 'react';
 import html2canvas from 'html2canvas';
 import { captureImagesAtUserPoint } from '../Helper/user_savefile';
+import { loadSelectedCamerasFromStorage, getHighestResolutionConstraints } from '../Helper/cameraUtils';
 
 /**
  * Get canvas using the centralized CanvasUtils from index.js
@@ -16,46 +17,46 @@ const getCanvas = () => {
 };
 
 /**
- * Capture the entire screen using html2canvas
+ * Capture the screen - tries canvas first, then falls back to html2canvas if needed
  * @returns {Promise<string>} Base64 data URL of the screen capture
  */
 const captureScreenWithHtml2Canvas = async () => {
   try {
-    
-    // Configure html2canvas options for better capture
+    // Try to use the main canvas directly first (faster and no warnings)
+    const canvas = getCanvas();
+    if (canvas) {
+      return canvas.toDataURL('image/png');
+    }
+
+    // Fallback to html2canvas if canvas is not available
+    // Configure html2canvas options with logging disabled to suppress warnings
     const options = {
       useCORS: true,
       allowTaint: true,
-      scale: 1, // Use 1:1 scale for better quality
-      logging: false,
+      scale: 1,
+      logging: false, // Disable logging to reduce console noise
       backgroundColor: '#ffffff',
       removeContainer: true,
       foreignObjectRendering: true,
-      // Capture the entire viewport
       width: window.innerWidth,
       height: window.innerHeight,
       scrollX: 0,
       scrollY: 0
     };
 
-    
-    // Capture the entire document body
-    const canvas = await html2canvas(document.body, options);
-    
-    // Convert to data URL
-    const dataURL = canvas.toDataURL('image/png', 1.0);
-    
-    
+    const html2canvasResult = await html2canvas(document.body, options);
+    const dataURL = html2canvasResult.toDataURL('image/png', 1.0);
+
     return dataURL;
   } catch (error) {
-    console.error('❌ html2canvas capture failed:', error);
-    
-    // Fallback to canvas capture if html2canvas fails
+    console.error('❌ Screen capture failed:', error);
+
+    // Last resort fallback
     const canvas = getCanvas();
     if (canvas) {
       return canvas.toDataURL('image/png');
     }
-    
+
     throw new Error(`Screen capture failed: ${error.message}`);
   }
 };
@@ -639,139 +640,6 @@ export const drawRedDot = (ctx, x, y, radius = 6, clearCanvas = true) => {
   ctx.stroke();
   
   return { x, y };
-};
-
-/**
- * Load selected cameras from localStorage
- * @returns {Array} - Array of selected camera IDs
- */
-const loadSelectedCamerasFromStorage = () => {
-  if (typeof window !== 'undefined') {
-    try {
-      const storedCameras = localStorage.getItem('selectedCameras');
-      const storedCameraData = localStorage.getItem('selectedCamerasData');
-      
-      if (storedCameras) {
-        const parsedCameras = JSON.parse(storedCameras);
-        if (Array.isArray(parsedCameras) && parsedCameras.length > 0) {
-          
-          // Load camera data with tags if available
-          if (storedCameraData) {
-            try {
-              const parsedCameraData = JSON.parse(storedCameraData);
-            } catch (dataError) {
-              console.warn('Error parsing camera data for capture:', dataError);
-            }
-          }
-          
-          return parsedCameras;
-        }
-      }
-    } catch (error) {
-      console.warn('Error loading selected cameras from localStorage:', error);
-    }
-  }
-  return [];
-};
-
-/**
- * Get highest resolution camera constraints with selected camera support
- * @returns {Promise<Object>} - Camera constraints
- */
-const getHighestResolutionConstraints = async () => {
-  try {
-    // Load selected cameras from localStorage
-    const selectedCameras = loadSelectedCamerasFromStorage();
-    
-    // Get all video input devices
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoDevices = devices.filter(device => device.kind === 'videoinput');
-    
-    if (videoDevices.length === 0) {
-      console.warn('No video devices found, using default constraints');
-      return { video: { width: { ideal: 1280 }, height: { ideal: 720 } } };
-    }
-    
-    // Use selected camera if available, otherwise use first available camera
-    let targetDeviceId = null;
-    if (selectedCameras.length > 0) {
-      // Use the first selected camera
-      targetDeviceId = selectedCameras[0];
-    }
-    
-    // Find the target device
-    const targetDevice = targetDeviceId ? 
-      videoDevices.find(device => device.deviceId === targetDeviceId) : 
-      videoDevices[0];
-    
-    if (!targetDevice) {
-      console.warn('Target device not found, using first available');
-      return { video: { width: { ideal: 1280 }, height: { ideal: 720 } } };
-    }
-    
-    
-    // Try to get capabilities for the target device
-    const constraints = { 
-      video: { 
-        deviceId: { exact: targetDevice.deviceId },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 }
-      } 
-    };
-    
-    // Test the constraints to see what's actually supported
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    const videoTrack = stream.getVideoTracks()[0];
-    
-    if (!videoTrack) {
-      stream.getTracks().forEach(track => track.stop());
-      console.warn('No video track found, using fallback constraints');
-      return { video: { deviceId: { exact: targetDevice.deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } } };
-    }
-    
-    // Get the actual settings being used
-    const settings = videoTrack.getSettings();
-    
-    // Get capabilities if available
-    let capabilities = null;
-    if (videoTrack.getCapabilities) {
-      capabilities = videoTrack.getCapabilities();
-    }
-    
-    // Stop the test stream
-    stream.getTracks().forEach(track => track.stop());
-    
-    // Determine the best resolution
-    let bestWidth = 1280; // Default minimum
-    let bestHeight = 720;
-    
-    if (capabilities && capabilities.width && capabilities.height) {
-      // Use the maximum available resolution
-      bestWidth = Math.max(...capabilities.width.values);
-      bestHeight = Math.max(...capabilities.height.values);
-    } else if (settings.width && settings.height) {
-      // Use the settings from the test stream
-      bestWidth = settings.width;
-      bestHeight = settings.height;
-    }
-    
-    // Ensure minimum resolution of 640x480
-    bestWidth = Math.max(bestWidth, 640);
-    bestHeight = Math.max(bestHeight, 480);
-    
-    
-    return {
-      video: {
-        deviceId: { exact: targetDevice.deviceId },
-        width: { ideal: bestWidth },
-        height: { ideal: bestHeight },
-        frameRate: { ideal: 30 }
-      }
-    };
-  } catch (error) {
-    console.warn('Error getting camera constraints, falling back to default:', error);
-    return { video: { width: { ideal: 1280 }, height: { ideal: 720 } } };
-  }
 };
 
 /**

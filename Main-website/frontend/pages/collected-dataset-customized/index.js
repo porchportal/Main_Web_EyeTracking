@@ -16,21 +16,148 @@ import { useRouter } from 'next/router';
 import { useAdminSettings } from './components-gui/adminSettings';
 import { counter, debugButtonStorage, getAllImageCounters, resetAllImageCounters } from './components-gui/count&mark.js';
 import styles from './styles/main-canvas.module.css';
+import './styles/main.module.css';
+import cameraModuleStyles from './styles/camera.module.css';
 
 // Camera preview component is now imported above
+
+// UTILITY FUNCTIONS - Consolidating duplicate code
+
+// Utility: Clear camera activation from localStorage (used 7 times in original code)
+const clearCameraActivationStorage = () => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('cameraActivated');
+    localStorage.removeItem('cameraActivationTime');
+  }
+};
+
+// Utility: Clean up page styles on navigation/unload (used in lines 1132-1169 and 1219-1263)
+const cleanupPageStyles = () => {
+  if (typeof window !== 'undefined') {
+    // Remove canvas completely from DOM
+    const canvas = document.querySelector('#main-canvas');
+    if (canvas && canvas.parentNode) {
+      canvas.parentNode.removeChild(canvas);
+    }
+
+    // Cleanup global canvas manager
+    if (window.globalCanvasManager) {
+      window.globalCanvasManager.destroy();
+      delete window.globalCanvasManager;
+    }
+
+    // Cleanup canvas utilities
+    if (window.canvasUtils) {
+      delete window.canvasUtils;
+    }
+
+    // Reset any global styles that might have been applied
+    document.body.style.position = '';
+    document.body.style.overflow = '';
+    document.body.style.height = '';
+    document.body.style.width = '';
+    document.body.style.margin = '';
+    document.body.style.padding = '';
+    document.documentElement.style.overflow = '';
+    document.documentElement.style.position = '';
+    document.documentElement.style.height = '';
+    document.documentElement.style.width = '';
+
+    // Remove any classes that might affect other pages
+    document.body.classList.remove('collected-dataset-customized-page');
+    document.documentElement.classList.remove('collected-dataset-customized-page');
+    document.body.classList.remove('main-container');
+    document.documentElement.classList.remove('main-container');
+  }
+};
+
+// Utility: Restore canvas and image after tab visibility change (used in lines 1088-1115 and 1175-1192)
+const restoreCanvasAndImage = (canvasManager, canvasImageManager, handleTabVisibilityChange, settings, currentUserId) => {
+  if (canvasManager && canvasImageManager) {
+    const canvas = canvasManager.restoreCanvas();
+    if (canvas) {
+      canvasImageManager.initialize(canvas);
+      if (handleTabVisibilityChange) {
+        handleTabVisibilityChange(true);
+      }
+      const currentImage = canvasImageManager.getCurrentImage();
+      if (currentImage) {
+        canvasImageManager.forceRedrawCurrentImage();
+      } else if (settings && currentUserId) {
+        canvasImageManager.forceCheckMongoDBSettings(settings, currentUserId);
+      } else {
+        canvasManager.clearCanvas();
+      }
+    }
+  }
+};
+
+// Utility: Validate camera activation before action (consolidates camera validation logic)
+const validateCameraForAction = (isCameraActivated, isCountdownActive, actionName, showCameraRequiredNotification, setProcessStatus) => {
+  // Check if countdown is active - block action during countdown
+  if (isCountdownActive) {
+    setProcessStatus('Please wait for camera activation countdown to complete...');
+    return false;
+  }
+
+  // Check if camera is activated - show notification and return early if not
+  if (!isCameraActivated) {
+    showCameraRequiredNotification(actionName);
+    return false;
+  }
+
+  return true;
+};
+
+// Utility: Hide camera UI before capture (consolidates duplicate camera hiding logic)
+const hideCameraForCapture = (showCamera, setShowCamera, setCameraActivation, setIsCameraActive, setProcessStatus) => {
+  if (showCamera === true) {
+    setShowCamera(false);
+    setCameraActivation(true);
+    setIsCameraActive(true);
+    setProcessStatus('Camera preview hidden for capture action');
+
+    // Ensure video element is available for capture
+    setTimeout(() => {
+      const videoElement = window.videoElement || document.querySelector('video');
+      if (!videoElement || !videoElement.srcObject) {
+        console.warn('Camera not ready for capture, attempting to ensure camera is active...');
+        if (typeof window !== 'undefined' && window.cameraStateManager) {
+          window.cameraStateManager.setActivation(true);
+        }
+      }
+    }, 500);
+  }
+};
+
+// Utility: Clear canvas with settings check (consolidates canvas clearing logic)
+const clearCanvasWithSettings = (canvasImageManager, canvasManager, settings, currentUserId) => {
+  if (!canvasImageManager || !canvasImageManager.currentImage) {
+    // Always set blue background
+    canvasManager.clearCanvas();
+
+    // Check if background change is disabled
+    const userSettings = settings?.[currentUserId];
+    const enableBackgroundChange = userSettings?.enable_background_change || false;
+
+    if (!enableBackgroundChange && canvasImageManager) {
+      canvasImageManager.currentImage = null;
+    }
+  }
+};
 
 // Add deep comparison utility
 const isEqual = (obj1, obj2) => {
   if (obj1 === obj2) return true;
   if (typeof obj1 !== 'object' || typeof obj2 !== 'object') return false;
   if (obj1 === null || obj2 === null) return false;
-  
+
   const keys1 = Object.keys(obj1);
   const keys2 = Object.keys(obj2);
-  
+
   if (keys1.length !== keys2.length) return false;
-  
-  return keys1.every(key => 
+
+  return keys1.every(key =>
     keys2.includes(key) && isEqual(obj1[key], obj2[key])
   );
 };
@@ -39,10 +166,6 @@ const isEqual = (obj1, obj2) => {
 const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabled = false, active = false }) => {
   const [isAbbreviated, setIsAbbreviated] = useState(false);
   const { settings } = useAdminSettings();
-  const [currentUserId, setCurrentUserId] = useState('default');
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [captureCounter, setCaptureCounter] = useState(1);
-  const [processStatus, setProcessStatus] = useState('');
 
   // Memoize button props to prevent unnecessary re-renders
   const buttonProps = useMemo(() => ({
@@ -55,7 +178,7 @@ const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabl
   // Check window size and set abbreviated mode with debounce
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     let timeoutId;
     const handleResize = () => {
       clearTimeout(timeoutId);
@@ -64,41 +187,19 @@ const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabl
         setIsAbbreviated(width < 768);
       }, 100);
     };
-    
+
     window.addEventListener('resize', handleResize);
     handleResize(); // Initial call
-    
+
     return () => {
       window.removeEventListener('resize', handleResize);
       clearTimeout(timeoutId);
     };
   }, []);
 
-  // Add effect to listen for user ID changes with optimization
-  useEffect(() => {
-    const handleUserIdChange = (event) => {
-      if (event.detail && event.detail.type === 'userIdChange') {
-        const newUserId = event.detail.userId;
-        if (newUserId !== currentUserId) {
-          setCurrentUserId(newUserId);
-        }
-      }
-    };
-
-    window.addEventListener('userIdChange', handleUserIdChange);
-    return () => {
-      window.removeEventListener('userIdChange', handleUserIdChange);
-    };
-  }, [currentUserId]);
-
   return (
     <button {...buttonProps}>
       {isAbbreviated ? abbreviatedText : text}
-      {processStatus && (
-        <div className="process-status">
-          {processStatus}
-        </div>
-      )}
     </button>
   );
 };
@@ -107,52 +208,52 @@ const ActionButton = ({ text, abbreviatedText, onClick, customClass = '', disabl
 const CanvasUtils = {
   // Default canvas background color
   DEFAULT_BACKGROUND_COLOR: '#CCFFF5',
-  
+
   // Clear canvas with specified background color
   clearCanvas: (canvas, backgroundColor = CanvasUtils.DEFAULT_BACKGROUND_COLOR) => {
     if (!canvas) return false;
-    
+
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = backgroundColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     return true;
   },
-  
+
   // Draw red dot on canvas
   drawRedDot: (canvas, x, y, radius = 6, clearCanvas = true) => {
     if (!canvas) return { x: 0, y: 0 };
-    
+
     const ctx = canvas.getContext('2d');
-    
+
     // Clear canvas if requested
     if (clearCanvas) {
       CanvasUtils.clearCanvas(canvas);
     }
-    
+
     // Draw the dot with a bright red color
     ctx.beginPath();
     ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fillStyle = 'red';
     ctx.fill();
-    
+
     // Add glow effect for better visibility
     ctx.beginPath();
     ctx.arc(x, y, radius + 2, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
     ctx.lineWidth = 3;
     ctx.stroke();
-    
+
     // Add a second larger glow for even better visibility
     ctx.beginPath();
     ctx.arc(x, y, radius + 4, 0, Math.PI * 2);
     ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
     ctx.lineWidth = 2;
     ctx.stroke();
-    
+
     return { x, y };
   },
-  
+
   // Get canvas using global canvas manager
   getCanvas: () => {
     if (typeof window !== 'undefined' && window.globalCanvasManager) {
@@ -160,7 +261,7 @@ const CanvasUtils = {
     }
     return document.querySelector('#main-canvas');
   },
-  
+
   // Get canvas dimensions
   getDimensions: (canvas) => {
     if (!canvas) return { width: 0, height: 0 };
@@ -169,7 +270,7 @@ const CanvasUtils = {
       height: canvas.height
     };
   },
-  
+
   // Set canvas background color
   setBackgroundColor: (canvas, color = CanvasUtils.DEFAULT_BACKGROUND_COLOR) => {
     if (!canvas) return false;
@@ -197,19 +298,19 @@ class GlobalCanvasManager {
 
     // Try to find existing canvas first
     let canvas = document.querySelector('#main-canvas');
-    
+
     if (canvas) {
       this.canvas = canvas;
       canvas.classList.add(styles.mainCanvas);
       return canvas;
     }
-    
+
     // Create new canvas if none exists
     canvas = document.createElement('canvas');
     canvas.className = styles.mainCanvas;
     canvas.id = 'main-canvas';
     this.canvas = canvas;
-    
+
     return canvas;
   }
 
@@ -219,10 +320,10 @@ class GlobalCanvasManager {
     if (!canvas) {
       return null;
     }
-    
+
     // Set up canvas with proper dimensions
     this.setupCanvas(canvas);
-    
+
     // Add to body if not already there
     if (!canvas.parentNode) {
       document.body.appendChild(canvas);
@@ -280,7 +381,7 @@ class GlobalCanvasManager {
 
     // Ensure canvas is properly set up
     this.setupCanvas(canvas);
-    
+
     // Add to body if not already there
     if (!canvas.parentNode) {
       document.body.appendChild(canvas);
@@ -300,10 +401,10 @@ class GlobalCanvasManager {
   clearCanvas(canvas = null) {
     const targetCanvas = canvas || this.getCanvas();
     if (!targetCanvas) return;
-    
+
     // Use centralized CanvasUtils for consistent background color
     CanvasUtils.clearCanvas(targetCanvas);
-    
+
     // If we have a canvas image manager, check if it has an image to redraw
     if (this.canvasImageManager && this.canvasImageManager.currentImage) {
       const cachedImage = this.canvasImageManager.imageCache.get(this.canvasImageManager.currentImage);
@@ -361,10 +462,10 @@ class GlobalCanvasManager {
     // Update canvas dimensions
     canvas.width = newWidth;
     canvas.height = newHeight;
-    
+
     // Always set blue background first
     this.clearCanvas(canvas);
-    
+
     // If we have a canvas image manager, let it handle the image redraw
     if (this.canvasImageManager) {
       // Pass settings and userId to the resize handler for MongoDB image restoration
@@ -382,13 +483,13 @@ class GlobalCanvasManager {
     hiddenElements.forEach(el => {
       el.style.display = '';
       el.removeAttribute('data-hidden-by-canvas');
-      
+
       if (el.classList.contains('topbar')) {
         el.style.zIndex = '12';
         el.style.position = 'relative';
       }
     });
-    
+
     const topbar = document.querySelector('.topbar');
     if (topbar) {
       topbar.style.zIndex = '12';
@@ -400,7 +501,7 @@ class GlobalCanvasManager {
   getDimensions() {
     const canvas = this.getCanvas();
     if (!canvas) return { width: 0, height: 0 };
-    
+
     return {
       width: canvas.width,
       height: canvas.height
@@ -439,19 +540,15 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const router = useRouter();
   const { userId: consentUserId } = useConsent();
   const { settings, updateSettings, fetchSettings, currentSettings, currentUserId: adminCurrentUserId } = useAdminSettings(ref, consentUserId);
-  
-  // State management
-  const [userData, setUserData] = useState(null);
+
+  // State management - REMOVED UNUSED STATES
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const [backendStatus, setBackendStatus] = useState('checking');
   const [showTopBar, setShowTopBar] = useState(true);
   const [showWarning, setShowWarning] = useState(false);
   const [warningMessage, setWarningMessage] = useState('');
-  const [statusMessage, setStatusMessage] = useState('');
   const [outputText, setOutputText] = useState('');
-  const [showMetrics, setShowMetrics] = useState(true);
   const [showPermissionPopup, setShowPermissionPopup] = useState(false);
   const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
@@ -462,55 +559,50 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const [windowSize, setWindowSize] = useState({ width: 0, height: 0, percentage: 100 });
   const [metrics, setMetrics] = useState({ width: 0, height: 0, distance: '---' });
   const [captureCounter, setCaptureCounter] = useState(1);
-  const [captureFolder, setCaptureFolder] = useState('');
   const [currentUserId, setCurrentUserId] = useState('default');
   const [showSettings, setShowSettings] = useState(false);
   const [isPageActive, setIsPageActive] = useState(true);
-  const [captureCount, setCaptureCount] = useState(1);
-  
+
   // Camera state management
   const [isCameraActivated, setIsCameraActivated] = useState(false);
   const [showCameraNotification, setShowCameraNotification] = useState(false);
   const [cameraNotificationMessage, setCameraNotificationMessage] = useState('');
-  
+
   // Countdown timer state for camera activation
   const [showCountdown, setShowCountdown] = useState(false);
   const [countdownValue, setCountdownValue] = useState(2);
   const [isCountdownActive, setIsCountdownActive] = useState(false);
   const [hasShownFirstTimeCountdown, setHasShownFirstTimeCountdown] = useState(false);
-  
+
   // Button action states
   const [randomTimes, setRandomTimes] = useState();
   const [delaySeconds, setDelaySeconds] = useState();
   const [processStatus, setProcessStatus] = useState('');
-  const [currentDot, setCurrentDot] = useState(null);
-  const [calibrationPoints, setCalibrationPoints] = useState([]);
   const [remainingCaptures, setRemainingCaptures] = useState(0);
   const [showCanvas, setShowCanvas] = useState(true);
-  const [calibrationHandler, setCalibrationHandler] = useState(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
-  
+
   // Track clicked buttons for OrderRequire component
   const [clickedButtons, setClickedButtons] = useState(new Set());
-  
+
   // Global canvas manager instance - initialize only once
   const canvasManager = useMemo(() => {
     // Create a singleton canvas manager
     if (typeof window !== 'undefined' && window.globalCanvasManager) {
       return window.globalCanvasManager;
     }
-    
+
     const manager = new GlobalCanvasManager();
-    
+
     // Store globally for other components to use
     if (typeof window !== 'undefined') {
       window.globalCanvasManager = manager;
     }
-    
+
     return manager;
   }, []);
-  
+
   // Canvas image management hook with overlay support
   const canvas = canvasManager.getCanvas();
   const {
@@ -529,7 +621,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     moveToNextImage,
     resetToFirstImage
   } = useCanvasImageWithOverlay(canvas, currentUserId, settings, adminCurrentUserId);
-  
+
   // Function to track button clicks
   const trackButtonClick = useCallback(async (buttonName) => {
     setClickedButtons(prev => {
@@ -540,7 +632,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       }
       return newSet;
     });
-    
+
     // Also track in CanvasImage manager (but exclude 'Show preview' from counter)
     if (canvasImageManager && canvasImageManager.trackButtonClick && buttonName !== 'Show preview') {
       const userSettings = settings?.[currentUserId];
@@ -548,7 +640,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       await canvasImageManager.trackButtonClick(buttonName, imageBackgroundPaths);
     }
   }, [canvasImageManager, settings, currentUserId]);
-  
+
   // Function to clear clicked buttons (useful for resetting progress)
   const clearClickedButtons = useCallback(() => {
     setClickedButtons(new Set());
@@ -556,13 +648,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     if (typeof window !== 'undefined') {
       localStorage.removeItem('clickedButtons');
     }
-    
+
     // Also reset CanvasImage manager
     if (canvasImageManager && canvasImageManager.resetButtonClickCount) {
       canvasImageManager.resetButtonClickCount();
     }
   }, [canvasImageManager]);
-  
+
   // Function to load clicked buttons from localStorage
   const loadClickedButtonsFromStorage = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -593,35 +685,33 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     };
   }, [canvasImageManager]);
 
-  // Refs
+  // Refs - REMOVED UNUSED REFS
   const previewAreaRef = useRef(null);
-  const canvasRef = useRef(null);
   const videoRef = useRef(null);
-  const actionButtonGroupRef = useRef(null);
 
   // Add cache for settings
   const settingsCache = useRef(new Map());
   const lastSettingsUpdate = useRef(new Map());
-  
+
   // Camera selection and management functions
   const getAvailableCameras = useCallback(async (skipAutoSelect = false) => {
     try {
       if (typeof navigator !== 'undefined' && navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        
+
         const cameras = videoDevices.map((device, index) => ({
           id: device.deviceId,
           label: device.label || `Camera ${index + 1}`,
           index: index
         }));
-        
+
         setAvailableCameras(cameras);
-        
+
         // Auto-select camera based on availability - only if no cameras are already selected and not skipped
         const hasStoredCameras = typeof window !== 'undefined' && localStorage.getItem('selectedCameras');
         const autoSelectDisabled = typeof window !== 'undefined' && localStorage.getItem('disableCameraAutoSelect') === 'true';
-        
+
         if (!skipAutoSelect && !hasStoredCameras && !autoSelectDisabled) {
           if (cameras.length === 1) {
             // If only one camera and no stored selection, auto-select it
@@ -637,7 +727,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         } else if (skipAutoSelect) {
         } else if (autoSelectDisabled) {
         }
-        
+
         return cameras;
       }
     } catch (error) {
@@ -651,16 +741,16 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     setShowCameraSelector(true);
     getAvailableCameras(true); // Skip auto-selection when opening selector
   }, [getAvailableCameras]);
-  
+
   // Countdown timer function for camera activation
   const startCameraActivationCountdown = useCallback(() => {
     if (hasShownFirstTimeCountdown) return; // Only show countdown on first activation
-    
+
     setShowCountdown(true);
     setIsCountdownActive(true);
     setCountdownValue(2);
     setProcessStatus('Camera activation countdown starting...');
-    
+
     const countdownInterval = setInterval(() => {
       setCountdownValue(prev => {
         if (prev <= 1) {
@@ -680,51 +770,45 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   // Camera state management functions
   const checkCameraActivation = useCallback(() => {
     if (typeof window === 'undefined') return false;
-    
+
     // Always return false on page refresh/load to deactivate camera
-    // Clear any existing camera activation data
-    localStorage.removeItem('cameraActivated');
-    localStorage.removeItem('cameraActivationTime');
+    clearCameraActivationStorage();
     return false;
   }, []);
 
   const setCameraActivation = useCallback((activated) => {
     if (typeof window === 'undefined') return;
-    
+
     if (activated) {
       // Start countdown timer for first-time activation
       startCameraActivationCountdown();
-      
+
       // Don't persist camera activation to localStorage
       // This ensures camera deactivates on page refresh
       setIsCameraActivated(true);
       setShowCameraNotification(false);
       setCameraNotificationMessage('');
     } else {
-      // Clear any existing activation data
-      localStorage.removeItem('cameraActivated');
-      localStorage.removeItem('cameraActivationTime');
+      clearCameraActivationStorage();
       setIsCameraActivated(false);
     }
   }, [startCameraActivationCountdown]);
 
   const restoreCameraState = useCallback(() => {
     if (typeof window === 'undefined') return;
-    
+
     // Always deactivate camera on page load/refresh
     setIsCameraActivated(false);
     setIsCameraActive(false);
     setShowCamera(false);
-    
-    // Clear any existing camera activation data
-    localStorage.removeItem('cameraActivated');
-    localStorage.removeItem('cameraActivationTime');
+
+    clearCameraActivationStorage();
   }, []);
 
   const showCameraRequiredNotification = useCallback((actionName) => {
     setCameraNotificationMessage(`Please activate camera first by clicking "Show Preview" button to use ${actionName} functionality.`);
     setShowCameraNotification(true);
-    
+
     // Auto-hide notification after 5 seconds
     setTimeout(() => {
       setShowCameraNotification(false);
@@ -738,27 +822,23 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     setIsCameraActive(false);
     setShowCamera(false);
     setProcessStatus('Camera activation cleared');
-    // Clear any existing activation data
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('cameraActivated');
-      localStorage.removeItem('cameraActivationTime');
-    }
+    clearCameraActivationStorage();
   }, [setCameraActivation]);
 
   // Function to fetch settings directly from MongoDB with caching
   const fetchSettingsFromMongoDB = useCallback(async (userId) => {
     if (!userId) return null;
-    
+
     // Check cache first to avoid redundant requests
     const cachedSettings = settingsCache.current.get(userId);
     const lastUpdate = lastSettingsUpdate.current.get(userId);
     const now = Date.now();
-    
+
     // If we have cached settings and they're recent (less than 30 seconds), use them
     if (cachedSettings && lastUpdate && (now - lastUpdate < 30000)) {
       return cachedSettings;
     }
-    
+
     try {
       const response = await fetch(`/api/data-center/settings/${userId}`, {
         headers: {
@@ -767,41 +847,41 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
         }
       });
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch settings: ${response.status}`);
       }
-      
+
       const result = await response.json();
       const userSettings = result.data || {};
-      
+
       // Extract the specific fields we need
       const timesSetRandom = Number(userSettings.times_set_random) || 1;
       const delaySetRandom = Number(userSettings.delay_set_random) || 3;
-      
+
       // Update local state
       setRandomTimes(timesSetRandom);
       setDelaySeconds(delaySetRandom);
-      
+
       // Update settings cache
       settingsCache.current.set(userId, userSettings);
       lastSettingsUpdate.current.set(userId, now);
-      
+
       // Update the settings in the admin settings hook
       if (settings && typeof updateSettings === 'function') {
         await updateSettings(userSettings, userId);
       }
-      
+
       return userSettings;
     } catch (error) {
       return null;
     }
   }, [settings, updateSettings]);
-  
+
   // Function to save settings to MongoDB
   const saveSettingsToMongoDB = useCallback(async (userId, newSettings) => {
     if (!userId) return false;
-    
+
     try {
       const response = await fetch(`/api/data-center/settings/${userId}`, {
         method: 'POST',
@@ -812,138 +892,176 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         },
         body: JSON.stringify(newSettings)
       });
-      
+
       if (!response.ok) {
         throw new Error(`Failed to save settings: ${response.status}`);
       }
-      
+
       const result = await response.json();
-      
+
       // Update local cache
       settingsCache.current.set(userId, newSettings);
       lastSettingsUpdate.current.set(userId, Date.now());
-      
+
       return true;
     } catch (error) {
       console.error(`[saveSettingsToMongoDB] Error saving settings for user ${userId}:`, error);
       return false;
     }
   }, []);
-  
-
-
 
   // Simplified canvas utilities - only essential functions
   const canvasUtils = useMemo(() => ({
     // Get or create canvas
     getCanvas: () => canvasManager.getCanvas(),
-    
+
     // Clear canvas
     clear: () => {
       canvasManager.clearCanvas();
     },
-    
+
     // Get canvas dimensions
     getDimensions: () => {
       return canvasManager.getDimensions();
     },
-    
+
     // Initialize canvas
     initialize: () => {
       return canvasManager.initializeCanvas();
     }
   }), [canvasManager]);
 
-  // Make canvas utilities globally available and integrate canvas image manager
+  // OPTIMIZED: Merged two canvas initialization effects (lines 860-968 and 1383-1439) into one
   useEffect(() => {
+    // Only initialize canvas if page is active
+    if (!isPageActive) return;
+
     if (typeof window !== 'undefined') {
       window.canvasUtils = canvasUtils;
       window.canvasManager = canvasManager;
-      
-        // Integrate canvas image manager with canvas manager
-        if (canvasImageManager) {
-          canvasManager.setCanvasImageManager(canvasImageManager);
-          // Set settings and userId for resize operations
-          canvasManager.setSettingsAndUserId(settings, currentUserId);
-          window.canvasImageManager = canvasImageManager;
-          
-          // Set up image completion callback
-          if (setOnImageComplete) {
-            setOnImageComplete((eventType, data) => {
-              if (eventType === 'image_switched') {
-                setProcessStatus(`Switched to image ${data.currentIndex + 1}: ${data.imagePath.split('/').pop()}`);
-                
-                // Update overlay image path if using overlay
-                if (setOverlayImagePath) {
-                  setOverlayImagePath(data.imagePath);
-                }
-              } else if (eventType === 'all_complete') {
-                setProcessStatus('All images completed! 🎉 Using normal canvas (blue background)');
-                
-                // Clear overlay image path since we're back to normal canvas
-                if (setOverlayImagePath) {
-                  setOverlayImagePath(null);
-                }
-                
-                // Ensure canvas is cleared and shows blue background
-                if (canvasManager) {
-                  canvasManager.clearCanvas();
-                }
-              } else if (eventType === 'image_load_failed') {
-                setProcessStatus(`Image load failed, using normal canvas (blue background)`);
-                
-                // Clear overlay image path since image loading failed
-                if (setOverlayImagePath) {
-                  setOverlayImagePath(null);
-                }
-                
-                // Ensure canvas is cleared and shows blue background
-                if (canvasManager) {
-                  canvasManager.clearCanvas();
-                }
+
+      // Integrate canvas image manager with canvas manager
+      if (canvasImageManager) {
+        canvasManager.setCanvasImageManager(canvasImageManager);
+        // Set settings and userId for resize operations
+        canvasManager.setSettingsAndUserId(settings, currentUserId);
+        window.canvasImageManager = canvasImageManager;
+
+        // Set up image completion callback
+        if (setOnImageComplete) {
+          setOnImageComplete((eventType, data) => {
+            if (eventType === 'image_switched') {
+              setProcessStatus(`Switched to image ${data.currentIndex + 1}: ${data.imagePath.split('/').pop()}`);
+
+              // Update overlay image path if using overlay
+              if (setOverlayImagePath) {
+                setOverlayImagePath(data.imagePath);
               }
-            });
-          }
-          
-          // Add a debounced resize event listener to ensure it's triggered
-          let resizeTimeout;
-          const directResizeHandler = () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(() => {
-              if (canvasImageManager && canvasImageManager.handleResize) {
-                // Pass settings and userId for MongoDB image restoration
-                canvasImageManager.handleResize(settings, currentUserId);
+            } else if (eventType === 'all_complete') {
+              setProcessStatus('All images completed! 🎉 Using normal canvas (blue background)');
+
+              // Clear overlay image path since we're back to normal canvas
+              if (setOverlayImagePath) {
+                setOverlayImagePath(null);
               }
-            }, 100); // Debounce resize events by 100ms
-          };
-          
-          window.addEventListener('resize', directResizeHandler);
-          window._directResizeHandler = directResizeHandler;
-          
-          // Load default image only if background change is enabled
-          setTimeout(() => {
-            // Check if background change is enabled before loading default image
-            const userSettings = settings?.[currentUserId];
-            const enableBackgroundChange = userSettings?.enable_background_change || false;
-            
-            if (enableBackgroundChange) {
-              canvasImageManager.setImageBackground('/Overall_porch.png');
-            } else {
-              // Background change is disabled, clear canvas (blue background is handled in index.js)
-              canvasImageManager.clearCanvas();
-              canvasImageManager.currentImage = null; // Ensure no image is set
+
+              // Ensure canvas is cleared and shows blue background
+              if (canvasManager) {
+                canvasManager.clearCanvas();
+              }
+            } else if (eventType === 'image_load_failed') {
+              setProcessStatus(`Image load failed, using normal canvas (blue background)`);
+
+              // Clear overlay image path since image loading failed
+              if (setOverlayImagePath) {
+                setOverlayImagePath(null);
+              }
+
+              // Ensure canvas is cleared and shows blue background
+              if (canvasManager) {
+                canvasManager.clearCanvas();
+              }
             }
-          }, 1000);
+          });
+        }
 
+        // Add a debounced resize event listener to ensure it's triggered
+        let resizeTimeout;
+        const directResizeHandler = () => {
+          clearTimeout(resizeTimeout);
+          resizeTimeout = setTimeout(() => {
+            if (canvasImageManager && canvasImageManager.handleResize) {
+              // Pass settings and userId for MongoDB image restoration
+              canvasImageManager.handleResize(settings, currentUserId);
+            }
+          }, 100); // Debounce resize events by 100ms
+        };
 
+        window.addEventListener('resize', directResizeHandler);
+        window._directResizeHandler = directResizeHandler;
 
+        // Load default image only if background change is enabled
+        setTimeout(() => {
+          // Check if background change is enabled before loading default image
+          const userSettings = settings?.[currentUserId];
+          const enableBackgroundChange = userSettings?.enable_background_change || false;
 
-
-
-
+          if (enableBackgroundChange) {
+            canvasImageManager.setImageBackground('/Overall_porch.png');
+          } else {
+            // Background change is disabled, clear canvas (blue background is handled in index.js)
+            canvasImageManager.clearCanvas();
+            canvasImageManager.currentImage = null; // Ensure no image is set
+          }
+        }, 1000);
       }
     }
-    
+
+    // Initialize the global canvas manager
+    const canvas = canvasManager.initializeCanvas();
+
+    // Ensure canvas has proper positioning (don't clear if image exists)
+    if (canvas) {
+      // Only clear canvas if no image is currently set
+      if (!canvasImageManager || !canvasImageManager.currentImage) {
+        // Check if background change is enabled before clearing
+        const userSettings = settings?.[currentUserId];
+        const enableBackgroundChange = userSettings?.enable_background_change || false;
+
+        // Always set blue background in index.js
+        canvasManager.clearCanvas(canvas);
+
+        if (!enableBackgroundChange && canvasImageManager) {
+          // Background change is disabled, ensure no image is set
+          canvasImageManager.currentImage = null;
+        }
+      }
+      // Ensure canvas is properly positioned and centered
+      canvas.style.position = 'fixed';
+      canvas.style.top = '0';
+      canvas.style.left = '0';
+      canvas.style.width = '100vw';
+      canvas.style.height = '100vh';
+      canvas.style.zIndex = '10'; // Higher z-index to ensure it's above preview area
+      canvas.style.display = 'block';
+      canvas.style.margin = '0';
+      canvas.style.padding = '0';
+      canvas.style.border = 'none';
+      canvas.style.outline = 'none';
+      canvas.style.pointerEvents = 'none'; // Allow clicks to pass through to elements below
+
+      // Set canvas dimensions to actual window size
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      // Update metrics with actual canvas dimensions
+      setMetrics(prev => ({
+        ...prev,
+        width: canvas.width,
+        height: canvas.height
+      }));
+    }
+
     return () => {
       if (typeof window !== 'undefined') {
         // Remove direct resize handler and clear timeout
@@ -951,19 +1069,24 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           window.removeEventListener('resize', window._directResizeHandler);
           delete window._directResizeHandler;
         }
-        
+
         // Clear any pending resize timeouts
         if (window._resizeTimeout) {
           clearTimeout(window._resizeTimeout);
           delete window._resizeTimeout;
         }
-        
+
         delete window.canvasUtils;
         delete window.canvasManager;
         delete window.canvasImageManager;
       }
+
+      // Cleanup canvas on component unmount
+      if (canvasManager) {
+        canvasManager.destroy();
+      }
     };
-  }, [canvasUtils, canvasManager, canvasImageManager]);
+  }, [canvasUtils, canvasManager, canvasImageManager, isPageActive, settings, currentUserId]);
 
   // Update canvas manager settings and userId when they change
   useEffect(() => {
@@ -972,34 +1095,48 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     }
   }, [canvasManager, settings, currentUserId]);
 
-  // Force check MongoDB settings for image restoration when settings are loaded
+  // OPTIMIZED: Force check MongoDB settings with cleanup (lines 978-985)
   useEffect(() => {
     if (canvasImageManager && settings && currentUserId && isHydrated) {
       // Small delay to ensure everything is initialized
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
         forceCheckMongoDBSettings(settings, currentUserId);
       }, 1000);
+
+      // Add cleanup to cancel pending timeouts
+      return () => {
+        clearTimeout(timeoutId);
+      };
     }
   }, [canvasImageManager, settings, currentUserId, isHydrated, forceCheckMongoDBSettings]);
 
-  // Set hydrated state after mount and fetch initial settings
+  // OPTIMIZED: Split hydration effect (lines 988-1070) into focused effects
+
+  // Hydration state effect
   useEffect(() => {
     setIsHydrated(true);
-    
+  }, []);
+
+  // Camera state reset effect
+  useEffect(() => {
     // Always deactivate camera on page load/refresh
     setIsCameraActivated(false);
     setIsCameraActive(false);
     setShowCamera(false);
-    
-    // Clear any existing camera activation data
+
+    clearCameraActivationStorage();
+
+    // Restore camera state (which will deactivate camera)
+    restoreCameraState();
+  }, [restoreCameraState]);
+
+  // Load from storage effect
+  useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('cameraActivated');
-      localStorage.removeItem('cameraActivationTime');
-      
       // Load clicked buttons from localStorage
       const storedClickedButtons = loadClickedButtonsFromStorage();
       setClickedButtons(storedClickedButtons);
-      
+
       // Load selected cameras from localStorage
       try {
         const storedCameras = localStorage.getItem('selectedCameras');
@@ -1013,41 +1150,20 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       } catch (error) {
         console.warn('Error loading selected cameras from localStorage:', error);
       }
-    }
-    
-    // Restore camera state (which will deactivate camera)
-    restoreCameraState();
-    
-    // Ensure only one canvas exists and prevent scrolling
-    if (typeof window !== 'undefined') {
+
       // Prevent page scrolling
       document.body.style.overflow = 'hidden';
       document.documentElement.style.overflow = 'hidden';
-      
-      // Initialize canvas using the canvas manager
-      canvasManager.initializeCanvas();
-      
-      // Ensure canvas is properly positioned
-      const canvas = canvasManager.getCanvas();
-      if (canvas) {
-        canvas.style.position = 'fixed';
-        canvas.style.top = '0';
-        canvas.style.left = '0';
-        canvas.style.width = '100vw';
-        canvas.style.height = '100vh';
-        canvas.style.zIndex = '10'; // Higher z-index to ensure it's above preview area
-        canvas.style.pointerEvents = 'none'; // Allow clicks to pass through to elements below
-      }
     }
-    
+
     // Fetch initial settings if we have a current user ID
     if (currentUserId && currentUserId !== 'default') {
       fetchSettingsFromMongoDB(currentUserId);
     }
-    
+
     // Auto-detect available cameras
     getAvailableCameras();
-    
+
     // Cleanup function to reset page state when navigating away
     return () => {
       // Reset any global styles or state that might affect other pages
@@ -1058,22 +1174,24 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         document.body.style.height = '';
         document.body.style.width = '';
         document.documentElement.style.overflow = '';
-        
+
         // Clean up canvas manager
         if (canvasManager) {
           canvasManager.destroy();
         }
       }
     };
-  }, [currentUserId, fetchSettingsFromMongoDB, checkCameraActivation, restoreCameraState, getAvailableCameras, canvasManager, loadClickedButtonsFromStorage]);
+  }, [currentUserId, fetchSettingsFromMongoDB, getAvailableCameras, canvasManager, loadClickedButtonsFromStorage]);
 
-  // Handle page visibility changes
+  // OPTIMIZED: Split massive tab visibility effect (lines 1073-1215) into 4 separate focused effects
+
+  // Visibility change handler
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
         // Set page as inactive but don't cleanup canvas - preserve state
         setIsPageActive(false);
-        
+
         // Notify canvas image manager that tab became hidden
         if (handleTabVisibilityChange) {
           handleTabVisibilityChange(false);
@@ -1081,115 +1199,61 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       } else {
         // Page is visible again, set as active and restore canvas if needed
         setIsPageActive(true);
-        
+
         // Restore canvas and image if they were lost
         setTimeout(() => {
-          if (canvasManager && canvasImageManager) {
-            // Restore canvas
-            const canvas = canvasManager.restoreCanvas();
-            if (canvas) {
-              // Re-initialize canvas image manager with the restored canvas
-              canvasImageManager.initialize(canvas);
-              
-              // Notify canvas image manager that tab became visible
-              if (handleTabVisibilityChange) {
-                handleTabVisibilityChange(true);
-              }
-              
-              // Restore the image if we had one
-              const currentImage = canvasImageManager.getCurrentImage();
-              if (currentImage) {
-                // Force redraw the current image
-                canvasImageManager.forceRedrawCurrentImage();
-              } else if (settings && currentUserId) {
-                // Try to restore from MongoDB settings
-                canvasImageManager.forceCheckMongoDBSettings(settings, currentUserId);
-              } else {
-                // Just set blue background
-                canvasManager.clearCanvas();
-              }
-            }
-          }
+          restoreCanvasAndImage(canvasManager, canvasImageManager, handleTabVisibilityChange, settings, currentUserId);
         }, 100);
       }
     };
 
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [canvasManager, canvasImageManager, handleTabVisibilityChange, settings, currentUserId]);
+
+  // Cleanup on unload handler
+  useEffect(() => {
     const handleBeforeUnload = () => {
       // Set page as inactive
       setIsPageActive(false);
       // Cleanup when page is about to unload
       cleanupPageStyles();
-      // Clear camera activation data on page unload
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('cameraActivated');
-        localStorage.removeItem('cameraActivationTime');
-        // Note: clickedButtons are preserved in localStorage for next session
-      }
+      clearCameraActivationStorage();
+      // Note: clickedButtons are preserved in localStorage for next session
     };
 
-    const cleanupPageStyles = () => {
-      if (typeof window !== 'undefined') {
-        // Remove canvas completely from DOM
-        const canvas = document.querySelector('#main-canvas');
-        if (canvas && canvas.parentNode) {
-          canvas.parentNode.removeChild(canvas);
-        }
-        
-        // Cleanup global canvas manager
-        if (window.globalCanvasManager) {
-          window.globalCanvasManager.destroy();
-          delete window.globalCanvasManager;
-        }
-        
-        // Cleanup canvas utilities
-        if (window.canvasUtils) {
-          delete window.canvasUtils;
-        }
-        
-        // Reset any global styles that might have been applied
-        document.body.style.position = '';
-        document.body.style.overflow = '';
-        document.body.style.height = '';
-        document.body.style.width = '';
-        document.body.style.margin = '';
-        document.body.style.padding = '';
-        document.documentElement.style.overflow = '';
-        document.documentElement.style.position = '';
-        document.documentElement.style.height = '';
-        document.documentElement.style.width = '';
-        
-        // Remove any classes that might affect other pages
-        document.body.classList.remove('collected-dataset-customized-page');
-        document.documentElement.classList.remove('collected-dataset-customized-page');
-        document.body.classList.remove('main-container');
-        document.documentElement.classList.remove('main-container');
-      }
-    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
 
-    // Handle window focus/blur as backup for tab switching
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Cleanup on unmount
+      cleanupPageStyles();
+    };
+  }, []);
+
+  // Window focus handler
+  useEffect(() => {
     const handleWindowFocus = () => {
       if (!document.hidden) {
         // Window gained focus - restore canvas and image
         setTimeout(() => {
-          if (canvasManager && canvasImageManager) {
-            const canvas = canvasManager.restoreCanvas();
-            if (canvas) {
-              canvasImageManager.initialize(canvas);
-              if (handleTabVisibilityChange) {
-                handleTabVisibilityChange(true);
-              }
-              const currentImage = canvasImageManager.getCurrentImage();
-              if (currentImage) {
-                canvasImageManager.forceRedrawCurrentImage();
-              } else if (settings && currentUserId) {
-                canvasImageManager.forceCheckMongoDBSettings(settings, currentUserId);
-              }
-            }
-          }
+          restoreCanvasAndImage(canvasManager, canvasImageManager, handleTabVisibilityChange, settings, currentUserId);
         }, 100);
       }
     };
 
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [canvasManager, canvasImageManager, handleTabVisibilityChange, settings, currentUserId]);
+
+  // Window blur handler
+  useEffect(() => {
     const handleWindowBlur = () => {
       // Window lost focus - notify canvas image manager
       if (handleTabVisibilityChange) {
@@ -1197,72 +1261,26 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    window.addEventListener('focus', handleWindowFocus);
     window.addEventListener('blur', handleWindowBlur);
-    
+
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('focus', handleWindowFocus);
       window.removeEventListener('blur', handleWindowBlur);
-      // Cleanup on unmount
-      cleanupPageStyles();
     };
-  }, []);
+  }, [handleTabVisibilityChange]);
 
   // Handle router events for cleanup
   useEffect(() => {
     const handleRouteChangeStart = () => {
       // Set page as inactive
       setIsPageActive(false);
-      
+
       // Cleanup when navigation starts
-      if (typeof window !== 'undefined') {
-        // Clear camera activation data when navigating away
-        localStorage.removeItem('cameraActivated');
-        localStorage.removeItem('cameraActivationTime');
-        
-        // Remove canvas completely from DOM
-        const canvas = document.querySelector('#main-canvas');
-        if (canvas && canvas.parentNode) {
-          canvas.parentNode.removeChild(canvas);
-        }
-        
-        // Cleanup global canvas manager
-        if (window.globalCanvasManager) {
-          window.globalCanvasManager.destroy();
-          delete window.globalCanvasManager;
-        }
-        
-        // Cleanup canvas utilities
-        if (window.canvasUtils) {
-          delete window.canvasUtils;
-        }
-        
-        // Reset any global styles that might have been applied
-        document.body.style.position = '';
-        document.body.style.overflow = '';
-        document.body.style.height = '';
-        document.body.style.width = '';
-        document.body.style.margin = '';
-        document.body.style.padding = '';
-        document.documentElement.style.overflow = '';
-        document.documentElement.style.position = '';
-        document.documentElement.style.height = '';
-        document.documentElement.style.width = '';
-        
-        // Remove any classes that might affect other pages
-        document.body.classList.remove('collected-dataset-customized-page');
-        document.documentElement.classList.remove('collected-dataset-customized-page');
-        document.body.classList.remove('main-container');
-        document.documentElement.classList.remove('main-container');
-      }
+      clearCameraActivationStorage();
+      cleanupPageStyles();
     };
 
     router.events.on('routeChangeStart', handleRouteChangeStart);
-    
+
     return () => {
       router.events.off('routeChangeStart', handleRouteChangeStart);
     };
@@ -1272,11 +1290,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   useEffect(() => {
     const loadUserData = async () => {
       if (!router.isReady) return;
-      
+
       try {
         if (router.query.userData) {
           const parsedData = JSON.parse(router.query.userData);
-          setUserData(parsedData);
+          // userData state removed as unused
           return;
         }
 
@@ -1292,11 +1310,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             throw new Error('Failed to fetch user data');
           }
           const data = await response.json();
-          setUserData(data);
+          // userData state removed as unused
         }
       } catch (err) {
         console.error('Error loading user data:', err);
-        setError(err.message);
+        // error state removed as unused
       } finally {
         setIsLoading(false);
       }
@@ -1330,25 +1348,25 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         const width = previewAreaRef.current.offsetWidth;
         const height = previewAreaRef.current.offsetHeight;
         const screenPercentage = (window.innerWidth / window.screen.width) * 100;
-        
+
         // Get actual canvas dimensions
         const canvas = canvasManager.getCanvas();
         const canvasWidth = canvas ? canvas.width : 0;
         const canvasHeight = canvas ? canvas.height : 0;
-        
+
         // Only update metrics if we have valid canvas dimensions
         if (canvasWidth > 0 && canvasHeight > 0) {
-          setMetrics(prev => ({ 
-            ...prev, 
-            width: canvasWidth, 
-            height: canvasHeight 
+          setMetrics(prev => ({
+            ...prev,
+            width: canvasWidth,
+            height: canvasHeight
           }));
         } else {
           // Keep current metrics or set to 0 if no valid canvas
-          setMetrics(prev => ({ 
-            ...prev, 
-            width: prev.width > 0 ? prev.width : 0, 
-            height: prev.height > 0 ? prev.height : 0 
+          setMetrics(prev => ({
+            ...prev,
+            width: prev.width > 0 ? prev.width : 0,
+            height: prev.height > 0 ? prev.height : 0
           }));
         }
         setWindowSize({
@@ -1356,11 +1374,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           height: window.innerHeight,
           percentage: Math.round(screenPercentage)
         });
-        
+
         // Update canvas size when window size changes
         if (canvasManager && isPageActive) {
           canvasManager.handleResize();
-          
+
           // Also trigger canvas image manager resize if available
           const canvasImageManager = canvasManager.getCanvasImageManager();
           if (canvasImageManager && canvasImageManager.handleResize) {
@@ -1376,118 +1394,63 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       window.addEventListener('resize', updateDimensions);
       return () => window.removeEventListener('resize', updateDimensions);
     }
-  }, [isHydrated, canvasManager, isPageActive]);
+  }, [isHydrated, canvasManager, isPageActive, settings, currentUserId]);
 
-      // Initialize canvas on component mount
+  // OPTIMIZED: Consolidated 4 settings-related useEffect hooks (lines 1442-1582) with proper debouncing
   useEffect(() => {
-    // Only initialize canvas if page is active
-    if (!isPageActive) return;
-    
-    // Initialize the global canvas manager
-    const canvas = canvasManager.initializeCanvas();
-    
-    // Ensure canvas has proper positioning (don't clear if image exists)
-    if (canvas) {
-      // Only clear canvas if no image is currently set
-      if (!canvasImageManager || !canvasImageManager.currentImage) {
-        // Check if background change is enabled before clearing
-        const userSettings = settings?.[currentUserId];
-        const enableBackgroundChange = userSettings?.enable_background_change || false;
-        
-        // Always set blue background in index.js
-        canvasManager.clearCanvas(canvas);
-        
-        if (!enableBackgroundChange && canvasImageManager) {
-          // Background change is disabled, ensure no image is set
-          canvasImageManager.currentImage = null;
+    let debounceTimer;
+
+    // Handler for settings updates from context
+    const handleSettingsFromContext = () => {
+      if (settings && currentUserId && settings[currentUserId]) {
+        const userSettings = settings[currentUserId];
+        const cachedSettings = settingsCache.current.get(currentUserId);
+        const lastUpdate = lastSettingsUpdate.current.get(currentUserId);
+        const now = Date.now();
+
+        // Only update if settings have actually changed and enough time has passed
+        if (!isEqual(cachedSettings, userSettings) && (!lastUpdate || (now - lastUpdate > 2000))) {
+          // Extract times_set_random and delay_set_random from MongoDB data
+          const timesSetRandom = Number(userSettings.times_set_random) || 1;
+          const delaySetRandom = Number(userSettings.delay_set_random) || 3;
+
+          setRandomTimes(timesSetRandom);
+          setDelaySeconds(delaySetRandom);
+          settingsCache.current.set(currentUserId, userSettings);
+          lastSettingsUpdate.current.set(currentUserId, now);
+
+          // Dispatch event to notify other components
+          const event = new CustomEvent('settingsLoaded', {
+            detail: {
+              userId: currentUserId,
+              times_set_random: timesSetRandom,
+              delay_set_random: delaySetRandom,
+              settings: userSettings
+            }
+          });
+          window.dispatchEvent(event);
         }
       }
-      // Ensure canvas is properly positioned and centered
-      canvas.style.position = 'fixed';
-      canvas.style.top = '0';
-      canvas.style.left = '0';
-      canvas.style.width = '100vw';
-      canvas.style.height = '100vh';
-      canvas.style.zIndex = '10'; // Higher z-index to ensure it's above preview area
-      canvas.style.display = 'block';
-      canvas.style.margin = '0';
-      canvas.style.padding = '0';
-      canvas.style.border = 'none';
-      canvas.style.outline = 'none';
-      canvas.style.pointerEvents = 'none'; // Allow clicks to pass through to elements below
-      
-      // Set canvas dimensions to actual window size
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      
-      // Update metrics with actual canvas dimensions
-      setMetrics(prev => ({
-        ...prev,
-        width: canvas.width,
-        height: canvas.height
-      }));
-    }
-    
-    return () => {
-      // Cleanup canvas on component unmount
-      if (canvasManager) {
-        canvasManager.destroy();
-      }
     };
-  }, [canvasManager, isPageActive]);
 
-  // Optimize settings updates - properly handle MongoDB data with throttling
-  useEffect(() => {
-    if (settings && currentUserId && settings[currentUserId]) {
-      const userSettings = settings[currentUserId];
-      const cachedSettings = settingsCache.current.get(currentUserId);
-      const lastUpdate = lastSettingsUpdate.current.get(currentUserId);
-      const now = Date.now();
-      
-      // Only update if settings have actually changed and enough time has passed
-      if (!isEqual(cachedSettings, userSettings) && (!lastUpdate || (now - lastUpdate > 2000))) {
-        // Extract times_set_random and delay_set_random from MongoDB data
-        const timesSetRandom = Number(userSettings.times_set_random) || 1;
-        const delaySetRandom = Number(userSettings.delay_set_random) || 3;
-        
-        setRandomTimes(timesSetRandom);
-        setDelaySeconds(delaySetRandom);
-        settingsCache.current.set(currentUserId, userSettings);
-        lastSettingsUpdate.current.set(currentUserId, now);
-        
-        // Dispatch event to notify other components
-        const event = new CustomEvent('settingsLoaded', {
-          detail: {
-            userId: currentUserId,
-            times_set_random: timesSetRandom,
-            delay_set_random: delaySetRandom,
-            settings: userSettings
-          }
-        });
-        window.dispatchEvent(event);
-      }
-    }
-  }, [settings, currentUserId]);
-
-  // Listen for user ID changes - properly handle MongoDB data
-  useEffect(() => {
+    // Handler for user ID changes
     const handleUserIdChange = (event) => {
       if (event.detail && event.detail.type === 'userIdChange') {
         const newUserId = event.detail.userId;
         setCurrentUserId(newUserId);
-        
+
         // Fetch settings directly from MongoDB for the new user
         fetchSettingsFromMongoDB(newUserId);
-        
+
         // Also check if we have cached settings
         if (settings && settings[newUserId]) {
           const userSettings = settings[newUserId];
           const timesSetRandom = Number(userSettings.times_set_random) || 1;
           const delaySetRandom = Number(userSettings.delay_set_random) || 3;
-          
+
           setRandomTimes(timesSetRandom);
           setDelaySeconds(delaySetRandom);
-          
+
           // Dispatch event to notify other components
           const event = new CustomEvent('userSettingsLoaded', {
             detail: {
@@ -1501,26 +1464,20 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         }
       }
     };
-    window.addEventListener('userIdChange', handleUserIdChange);
-    return () => {
-      window.removeEventListener('userIdChange', handleUserIdChange);
-    };
-  }, [settings, fetchSettingsFromMongoDB]);
 
-  // Listen for settings updates - properly handle MongoDB field names with caching
-  useEffect(() => {
+    // Handler for settings updates
     const handleSettingsUpdate = (event) => {
       if (event.detail && event.detail.type === 'captureSettings') {
         const { userId, times_set_random, delay_set_random } = event.detail;
         if (userId === currentUserId) {
           const now = Date.now();
           const lastUpdate = lastSettingsUpdate.current.get(currentUserId);
-          
+
           // Throttle updates to prevent excessive state changes
           if (lastUpdate && (now - lastUpdate < 1000)) {
             return;
           }
-          
+
           if (times_set_random !== undefined) {
             const newTimes = Number(times_set_random) || 1;
             setRandomTimes(newTimes);
@@ -1529,7 +1486,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             const newDelay = Number(delay_set_random) || 3;
             setDelaySeconds(newDelay);
           }
-          
+
           // Update the settings cache
           if (settings && settings[currentUserId]) {
             const updatedSettings = {
@@ -1543,41 +1500,52 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         }
       }
     };
-    window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
-    return () => {
-      window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
-    };
-  }, [currentUserId, settings]);
-  
-  // Listen for TopBar settings loaded event with caching
-  useEffect(() => {
+
+    // Handler for TopBar settings loaded event
     const handleTopBarSettingsLoaded = (event) => {
       if (event.detail && event.detail.userId === currentUserId) {
         const { times_set_random, delay_set_random } = event.detail;
         const now = Date.now();
         const lastUpdate = lastSettingsUpdate.current.get(currentUserId);
-        
+
         // Throttle updates to prevent excessive state changes
         if (lastUpdate && (now - lastUpdate < 1000)) {
           return;
         }
-        
+
         if (times_set_random !== undefined) {
           setRandomTimes(Number(times_set_random) || 1);
         }
         if (delay_set_random !== undefined) {
           setDelaySeconds(Number(delay_set_random) || 3);
         }
-        
+
         // Update cache timestamp
         lastSettingsUpdate.current.set(currentUserId, now);
       }
     };
+
+    // Debounced settings handler
+    const debouncedSettingsHandler = () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(handleSettingsFromContext, 300);
+    };
+
+    // Initial call
+    debouncedSettingsHandler();
+
+    // Set up event listeners
+    window.addEventListener('userIdChange', handleUserIdChange);
+    window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
     window.addEventListener('topBarSettingsLoaded', handleTopBarSettingsLoaded);
+
     return () => {
+      clearTimeout(debounceTimer);
+      window.removeEventListener('userIdChange', handleUserIdChange);
+      window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
       window.removeEventListener('topBarSettingsLoaded', handleTopBarSettingsLoaded);
     };
-  }, [currentUserId]);
+  }, [settings, currentUserId, fetchSettingsFromMongoDB]);
 
   // Make functions globally accessible
   useEffect(() => {
@@ -1588,11 +1556,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         handleSetCalibrate,
         handleClearAll
       };
-      
+
       // Also make canvas manager globally accessible
       window.globalCanvasManager = canvasManager;
       window.canvasUtils = canvasUtils;
-      
+
       // Make MongoDB settings functions globally accessible
       window.mongoDBSettings = {
         fetchSettings: fetchSettingsFromMongoDB,
@@ -1603,7 +1571,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           currentUserId: currentUserId
         })
       };
-      
+
       // Make button tracking functions globally accessible
       window.buttonTracking = {
         getClickedButtons: () => Array.from(clickedButtons),
@@ -1657,81 +1625,81 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           }
         },
         resetAllImageCounters: () => resetAllImageCounters(currentUserId),
-        
+
         // Test image switching functionality
         testImageSwitching: async () => {
-          
+
           if (!canvasImageManager) {
             console.error('CanvasImageManager not available');
             return;
           }
-          
+
           // Test data similar to your MongoDB example
           const testImagePaths = [
             "[56]-/Overall_porch.png",
             "[56]-/istockphoto-517188688-612x612.jpg"
           ];
-          
-          
+
+
           // Parse the images
           const parsedImages = canvasImageManager.getAllParsedImages(testImagePaths);
-          
+
           // Set up the canvas with test data
           canvasImageManager.updateImageBackgroundPaths(testImagePaths);
-          
+
           // Get current state
           const progressInfo = canvasImageManager.getProgressInfo();
-          
+
           // Simulate button clicks to complete first image
-          
+
           for (let i = 0; i < 56; i++) {
             await canvasImageManager.trackButtonClick('Test Random Dot', testImagePaths);
-            
+
             const currentProgress = canvasImageManager.getProgressInfo();
-            
+
             // Check if we switched to next image
             if (canvasImageManager.getCurrentImageIndex() > 0) {
               break;
             }
           }
-          
+
           // Final state
           const finalProgress = canvasImageManager.getProgressInfo();
-          
+
           return {
             success: true,
             message: 'Image switching test completed',
             finalProgress
           };
         },
-        
+
         // Quick test to simulate completion of first image
         quickTestImageSwitch: async () => {
-          
+
           if (!canvasImageManager) {
             console.error('CanvasImageManager not available');
             return;
           }
-          
+
           // Test data
           const testImagePaths = [
             "[56]-/Overall_porch.png",
             "[56]-/istockphoto-517188688-612x612.jpg"
           ];
-          
+
           // Set up canvas
           canvasImageManager.updateImageBackgroundPaths(testImagePaths);
-          
+
           // Set button count to just below completion (55/56)
           canvasImageManager.buttonClickCount = 55;
           canvasImageManager.currentImageTimes = 56;
           canvasImageManager.saveProgressToStorage();
-          
-          
+
+
           // Trigger one more button click to complete first image
           await canvasImageManager.trackButtonClick('Test Random Dot', testImagePaths);
-          
-          
+
+
           return {
             success: true,
             message: 'Quick test completed',
@@ -1739,18 +1707,18 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             progress: canvasImageManager.getProgressInfo()
           };
         },
-        
+
         // Check current image state
         checkImageState: () => {
           if (!canvasImageManager) {
             console.error('CanvasImageManager not available');
             return;
           }
-          
+
           const progressInfo = canvasImageManager.getProgressInfo();
           const currentImage = canvasImageManager.getCurrentImage();
-          
-          
+
+
           return {
             currentImageIndex: progressInfo.currentImageIndex,
             totalImages: progressInfo.totalImages,
@@ -1762,27 +1730,27 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             canvasCurrentImage: currentImage
           };
         },
-        
+
         // Force switch to specific image (for testing)
         forceSwitchToImage: async (imageIndex) => {
           if (!canvasImageManager) {
             console.error('CanvasImageManager not available');
             return;
           }
-          
-          
+
+
           // Set the image index
           canvasImageManager.setCurrentImageIndex(imageIndex);
-          
+
           // Get the image data
           const progressInfo = canvasImageManager.getProgressInfo();
           const targetImage = progressInfo.parsedImages[imageIndex];
-          
+
           if (targetImage) {
-            
+
             // Load the image
             const success = await canvasImageManager.setImageBackground(targetImage.path);
-            
+
             if (success) {
               return {
                 success: true,
@@ -1808,8 +1776,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       };
 
 
-
-      
       // Make camera state management globally accessible
       window.cameraStateManager = {
         isActivated: () => isCameraActivated,
@@ -1827,7 +1793,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         getVideoElement: () => {
           // Try multiple methods to get the video element
           let videoElement = window.videoElement || document.querySelector('video');
-          
+
           if (!videoElement) {
             // Try to find video element in camera components
             const cameraComponents = document.querySelectorAll('[data-camera-video], .camera-video, video');
@@ -1838,7 +1804,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
               }
             }
           }
-          
+
           return videoElement;
         },
         ensureCameraActive: async () => {
@@ -1847,10 +1813,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
             setCameraActivation(true);
             setIsCameraActive(true);
           }
-          
+
           // Wait a bit for camera to initialize
           await new Promise(resolve => setTimeout(resolve, 500));
-          
+
           // Return the video element
           return window.cameraStateManager.getVideoElement();
         },
@@ -1923,7 +1889,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         }
       };
     }
-    
+
     return () => {
       if (typeof window !== 'undefined') {
         delete window.actionButtonFunctions;
@@ -1943,44 +1909,31 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       // Direct TopBar control
       window.toggleTopBar = (show) => {
         setShowTopBar(show);
-        
-        // Auto-control metrics with TopBar
-        if (!show) {
-          setShowMetrics(false);
-        } else {
-          setShowMetrics(true);
-        }
-        
+
+        // Auto-control metrics with TopBar - removed showMetrics state variable
+
         // Restore UI elements if needed
         if (typeof window !== 'undefined' && window.globalCanvasManager) {
           window.globalCanvasManager.showUIElements();
         }
       };
-      
-      // Direct metrics control
-      window.toggleMetrics = (show) => {
-        setShowMetrics(show);
-      };
-      
+
       // Get current TopBar state
       window.getTopBarState = () => ({
         isTopBarShown: showTopBar,
-        showMetrics: showMetrics,
+        showMetrics: true, // Always true since state removed
         isCameraActive: isCameraActive,
         isCameraActivated: isCameraActivated
       });
     }
-    
+
     return () => {
       if (typeof window !== 'undefined') {
         delete window.toggleTopBar;
-        delete window.toggleMetrics;
         delete window.getTopBarState;
       }
     };
-  }, [showTopBar, showMetrics, isCameraActive, isCameraActivated]);
-
-
+  }, [showTopBar, isCameraActive, isCameraActivated]);
 
   // TopBar control functions
   const hideTopBar = () => {
@@ -1988,7 +1941,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       window.toggleTopBar(false);
     } else {
       setShowTopBar(false);
-      setShowMetrics(false);
     }
   };
 
@@ -1997,7 +1949,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       window.toggleTopBar(true);
     } else {
       setShowTopBar(true);
-      setShowMetrics(true);
       // Show UI elements if they were hidden by canvas fullscreen
       if (typeof window !== 'undefined' && window.globalCanvasManager) {
         window.globalCanvasManager.showUIElements();
@@ -2009,63 +1960,27 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const handleRandomDot = async () => {
     if (isCapturing) return;
 
-    // Check if countdown is active - block action during countdown
-    if (isCountdownActive) {
-      setProcessStatus('Please wait for camera activation countdown to complete...');
+    // Validate camera activation using utility function
+    if (!validateCameraForAction(isCameraActivated, isCountdownActive, 'Random Dot', showCameraRequiredNotification, setProcessStatus)) {
       return;
     }
 
-    // Check if camera is activated - show notification and return early if not
-    if (!isCameraActivated) {
-      showCameraRequiredNotification('Random Dot');
-      return;
-    }
-
-    // Hide camera UI if it's currently shown, but keep camera activated and active
-    if (showCamera === true) {
-      setShowCamera(false);
-      setCameraActivation(true);
-      setIsCameraActive(true); // Ensure camera stays active for capture
-      setProcessStatus('Camera preview hidden for Random Dot action');
-      
-      // Ensure video element is available for capture
-      setTimeout(() => {
-        const videoElement = window.videoElement || document.querySelector('video');
-        if (!videoElement || !videoElement.srcObject) {
-          console.warn('Camera not ready for capture, attempting to ensure camera is active...');
-          // Try to trigger camera activation if available
-          if (typeof window !== 'undefined' && window.cameraStateManager) {
-            window.cameraStateManager.setActivation(true);
-          }
-        }
-      }, 500);
-    }
+    // Hide camera UI using utility function
+    hideCameraForCapture(showCamera, setShowCamera, setCameraActivation, setIsCameraActive, setProcessStatus);
 
     try {
-      // Clear canvas before starting the main process (preserve image if exists)
-      if (!canvasImageManager || !canvasImageManager.currentImage) {
-        // Always set blue background in index.js
-        canvasManager.clearCanvas();
-        
-        // Check if background change is disabled
-        const userSettings = settings?.[currentUserId];
-        const enableBackgroundChange = userSettings?.enable_background_change || false;
-        
-        if (!enableBackgroundChange && canvasImageManager) {
-          // Background change is disabled, ensure no image is set
-          canvasImageManager.currentImage = null;
-        }
-      }
-      
+      // Clear canvas using utility function
+      clearCanvasWithSettings(canvasImageManager, canvasManager, settings, currentUserId);
+
       // Import and use RandomDotAction
       const { default: RandomDotAction } = await import('../../components/collected-dataset-customized/Action/RandomDotAction.jsx');
-      
+
       // Ensure canvas is available
       const canvas = canvasManager.getCanvas();
       if (!canvas) {
         throw new Error("Canvas not available");
       }
-      
+
       const randomDotAction = new RandomDotAction({
         canvasRef: { current: canvas },
         setIsCapturing: (capturing) => {
@@ -2074,9 +1989,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         setProcessStatus: (status) => {
           setProcessStatus(status);
         },
-        setCurrentDot: (dot) => {
-          setCurrentDot(dot);
-        },
+        setCurrentDot: () => {}, // Removed unused state
         triggerCameraAccess,
         onStatusUpdate: (status) => {
           if (status.processStatus) setProcessStatus(status.processStatus);
@@ -2085,18 +1998,18 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         saveImageToServer: true,
         setCaptureCounter,
         captureCounter: captureCounter,
-        hideTopBar: hideTopBar, // Pass the hideTopBar function to the action
-        restoreTopBar: restoreTopBar // Pass the restoreTopBar function to the action
+        hideTopBar: hideTopBar,
+        restoreTopBar: restoreTopBar
       });
-      
+
       await randomDotAction.handleRandomDot();
-      
+
       // Increment counter after successful completion (per image)
       const currentImageIndex = canvasImageManager ? canvasImageManager.getCurrentImageIndex() : 0;
       const counterResult = counter(1, currentUserId, currentImageIndex);
       if (counterResult.success) {
       }
-      
+
     } catch (error) {
       console.error('Random dot error:', error);
       setProcessStatus(`Error: ${error.message}`);
@@ -2106,46 +2019,23 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
   const handleSetRandom = async () => {
     if (isCapturing) return;
-    
-    // Check if countdown is active - block action during countdown
-    if (isCountdownActive) {
-      setProcessStatus('Please wait for camera activation countdown to complete...');
-      return;
-    }
-    
-    // Check if camera is activated - show notification and return early if not
-    if (!isCameraActivated) {
-      showCameraRequiredNotification('Set Random');
+
+    // Validate camera activation using utility function
+    if (!validateCameraForAction(isCameraActivated, isCountdownActive, 'Set Random', showCameraRequiredNotification, setProcessStatus)) {
       return;
     }
 
-    if (showCamera === true) {
-      setShowCamera(false);
-      setCameraActivation(true);
-      setIsCameraActive(true); // Ensure camera stays active for capture
-      setProcessStatus('Camera preview hidden for Random Dot action');
-      
-      // Ensure video element is available for capture
-      setTimeout(() => {
-        const videoElement = window.videoElement || document.querySelector('video');
-        if (!videoElement || !videoElement.srcObject) {
-          console.warn('Camera not ready for capture, attempting to ensure camera is active...');
-          // Try to trigger camera activation if available
-          if (typeof window !== 'undefined' && window.cameraStateManager) {
-            window.cameraStateManager.setActivation(true);
-          }
-        }
-      }, 500);
-    }
-    
+    // Hide camera UI using utility function
+    hideCameraForCapture(showCamera, setShowCamera, setCameraActivation, setIsCameraActive, setProcessStatus);
+
     try {
       // Fetch current settings from adminSettings
       let times = randomTimes;
       let delay = delaySeconds;
-      
+
       // Use the correct user ID from admin settings
       const effectiveUserId = adminCurrentUserId || currentUserId;
-      
+
       // Always try to fetch fresh settings from MongoDB
       if (effectiveUserId && fetchSettings) {
         try {
@@ -2157,7 +2047,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         } catch (error) {
         }
       }
-      
+
       // If we still don't have valid values, use defaults
       if (!times || isNaN(times)) {
         times = 1;
@@ -2165,18 +2055,16 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       if (!delay || isNaN(delay)) {
         delay = 3;
       }
-      
-      // Debug log to check final delay value
-      
+
       // Import and use SetRandomAction
       const { default: SetRandomAction } = await import('../../components/collected-dataset-customized/Action/SetRandomAction.jsx');
-      
+
       // Ensure canvas is available
       const canvas = canvasManager.getCanvas();
       if (!canvas) {
         throw new Error("Canvas not available");
       }
-      
+
       const setRandomAction = new SetRandomAction({
         canvasRef: { current: canvas },
         onStatusUpdate: (status) => {
@@ -2195,15 +2083,15 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         },
         times: times,
         delay: delay,
-        hideTopBar: hideTopBar, // Pass the hideTopBar function to the action
-        restoreTopBar: restoreTopBar // Pass the restoreTopBar function to the action
+        hideTopBar: hideTopBar,
+        restoreTopBar: restoreTopBar
       });
-      
+
       // Hide TopBar right before starting the actual action
       hideTopBar();
-      
+
       await setRandomAction.handleAction();
-      
+
       // Increment counter after successful completion (per image)
       const currentImageIndex = canvasImageManager ? canvasImageManager.getCurrentImageIndex() : 0;
       const counterResult = counter(1, currentUserId, currentImageIndex);
@@ -2218,27 +2106,20 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
   const handleSetCalibrate = async () => {
     if (isCapturing) return;
-    
-    // Check if countdown is active - block action during countdown
-    if (isCountdownActive) {
-      setProcessStatus('Please wait for camera activation countdown to complete...');
+
+    // Validate camera activation using utility function
+    if (!validateCameraForAction(isCameraActivated, isCountdownActive, 'Set Calibrate', showCameraRequiredNotification, setProcessStatus)) {
       return;
     }
-    
-    // Check if camera is activated - show notification and return early if not
-    if (!isCameraActivated) {
-      showCameraRequiredNotification('Set Calibrate');
-      return;
-    }
-    
+
     try {
       // Fetch current settings from adminSettings
       let times = randomTimes;
       let delay = delaySeconds;
-      
+
       // Use the correct user ID from admin settings
       const effectiveUserId = adminCurrentUserId || currentUserId;
-      
+
       // Always try to fetch fresh settings from MongoDB
       if (effectiveUserId && fetchSettings) {
         try {
@@ -2251,7 +2132,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           // Error fetching settings, use defaults
         }
       }
-      
+
       // If we still don't have valid values, use defaults
       if (!times || isNaN(times)) {
         times = 1;
@@ -2259,16 +2140,16 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       if (!delay || isNaN(delay)) {
         delay = 3;
       }
-      
+
       // Ensure canvas is initialized first
       const canvas = canvasManager.getCanvas();
       if (!canvas) {
         throw new Error("Canvas not available");
       }
-      
+
       // Import and use SetCalibrateAction
       const { default: SetCalibrateAction } = await import('../../components/collected-dataset-customized/Action/SetCalibrateAction.jsx');
-      
+
       const setCalibrateAction = new SetCalibrateAction({
         canvasRef: { current: canvas },
         setIsCapturing: (capturing) => {
@@ -2277,9 +2158,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         setProcessStatus: (status) => {
           setProcessStatus(status);
         },
-        setCurrentDot: (dot) => {
-          setCurrentDot(dot);
-        },
+        setCurrentDot: () => {}, // Removed unused state
         triggerCameraAccess,
         onStatusUpdate: (status) => {
           if (status.processStatus) setProcessStatus(status.processStatus);
@@ -2292,21 +2171,21 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         delay: delay,
         currentUserId: effectiveUserId,
         settings: settings?.[effectiveUserId] || {},
-        hideTopBar: hideTopBar, // Pass the hideTopBar function to the action
-        restoreTopBar: restoreTopBar // Pass the restoreTopBar function to the action
+        hideTopBar: hideTopBar,
+        restoreTopBar: restoreTopBar
       });
-      
+
       // Hide TopBar right before starting the actual action
       hideTopBar();
-      
+
       await setCalibrateAction.handleSetCalibrate();
-      
+
       // Increment counter after successful completion (per image)
       const currentImageIndex = canvasImageManager ? canvasImageManager.getCurrentImageIndex() : 0;
       const counterResult = counter(1, currentUserId, currentImageIndex);
       if (counterResult.success) {
       }
-      
+
     } catch (error) {
       console.error("Calibration error:", error);
       setProcessStatus(`Calibration error: ${error.message}`);
@@ -2315,34 +2194,32 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   };
 
   const handleClearAll = () => {
-    // Clear canvas content (force clear even if image exists)
-    // Always set blue background in index.js
+    // Clear canvas using utility function
     canvasManager.clearCanvas();
-    
+
     if (canvasImageManager) {
       // Clear any image from canvas image manager
       canvasImageManager.clearCanvas();
       canvasImageManager.currentImage = null;
     }
-    
+
     // Reset states
     setProcessStatus('');
     setRemainingCaptures(0);
     setIsCapturing(false);
     setCountdownValue(null);
     setShowCanvas(true);
-    setCurrentDot(null);
-    
+
     // Clear clicked buttons tracking
     clearClickedButtons();
   };
 
   const handleToggleCamera = useCallback(() => {
     const newCameraState = !isCameraActive;
-    
+
     setIsCameraActive(newCameraState);
     setShowCamera(newCameraState); // Link the camera display state with the active state
-    
+
     if (newCameraState) {
       setProcessStatus('Starting camera preview...');
       // Set camera activation when camera is started
@@ -2356,13 +2233,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       // Don't deactivate camera state when stopping preview
       // This allows buttons to continue working
     }
-    
+
     if (onActionClick) {
       onActionClick('preview', newCameraState);
     } else {
       setShowPermissionPopup(true);
     }
-    
+
           if (newCameraState && typeof window !== 'undefined' && window.videoProcessor) {
         setTimeout(() => {
           if (window.videoProcessor) {
@@ -2383,42 +2260,42 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       'setRandom': 'Set Random',
       'calibrate': 'Set Calibrate'
     };
-    
+
     // Track all buttons for checkmarks, but exclude 'preview' from counter
     if (buttonNameMap[actionType]) {
       trackButtonClick(buttonNameMap[actionType]);
     }
-    
+
     switch (actionType) {
       case 'preview':
         const shouldShow = args[0] !== undefined ? args[0] : !showCamera;
-        
+
         // Control camera UI visibility
         setShowCamera(shouldShow);
-        
-        // Control camera active state
-        setIsCameraActive(shouldShow);
-        
+
         // Only activate camera when showing preview, but don't deactivate when hiding
         if (shouldShow) {
+          // When showing preview, set both states to true
+          setIsCameraActive(true);
           setCameraActivation(true);
           setProcessStatus('Camera preview started');
           // Clear any existing warnings when camera is activated
           setShowWarning(false);
           setWarningMessage('');
         } else {
+          // When hiding preview, keep camera active but hide the UI
+          // This allows capture operations to continue using the camera
           setProcessStatus('Camera preview stopped');
-          // Don't deactivate camera when hiding preview - keep it activated for other functions
+          // Keep isCameraActive true so capture functions can still access the camera
+          // Keep isCameraActivated true so the camera stays running
         }
         break;
               case 'selectCamera':
           openCameraSelector();
           break;
       case 'metrics':
-        if (typeof window !== 'undefined' && window.toggleMetrics) {
-          window.toggleMetrics(!showMetrics);
-        }
-        setProcessStatus(`Metrics ${!showMetrics ? 'shown' : 'hidden'}`);
+        // Removed showMetrics state - metrics always visible
+        setProcessStatus(`Metrics shown`);
         break;
       case 'randomDot':
         handleRandomDot();
@@ -2442,7 +2319,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         // Silent handling for unknown actions
         break;
     }
-  }, [showCamera, showMetrics, showTopBar, handleRandomDot, handleSetRandom, handleSetCalibrate, handleClearAll, setCameraActivation, openCameraSelector, trackButtonClick]);
+  }, [showCamera, showTopBar, handleRandomDot, handleSetRandom, handleSetCalibrate, handleClearAll, setCameraActivation, openCameraSelector, trackButtonClick]);
 
   // Camera permission handlers
   const handlePermissionAccepted = () => {
@@ -2462,7 +2339,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     setShowCamera(false);
     // Don't deactivate camera when closing camera UI
     // This allows buttons to continue working with camera capture
-    // setIsCameraActive(false); // Commented out to keep camera active
     setProcessStatus('Camera preview stopped');
     // Don't clear camera activation when closing camera
     // This allows buttons to continue working
@@ -2507,64 +2383,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       <Head>
         <title>Camera Dataset Collection</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <style jsx>{`
-          /* Ensure main canvas is properly positioned and centered */
-          #main-canvas {
-            position: fixed !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100vw !important;
-            height: 100vh !important;
-            z-index: 10 !important;
-            background-color: #CCFFF5 !important;
-            display: block !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            border: none !important;
-            outline: none !important;
-            pointer-events: none !important;
-          }
-          
-          /* Camera preview container for multiple cameras */
-          .camera-preview-container {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            display: flex;
-            gap: 20px;
-            z-index: 25;
-            max-width: 90vw;
-            max-height: 90vh;
-          }
-          
-          /* Single camera layout */
-          .camera-preview-container:has(> *:only-child) {
-            flex-direction: column;
-          }
-          
-          /* Dual camera layout */
-          .camera-preview-container:has(> *:nth-child(2)) {
-            flex-direction: row;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: center;
-          }
-          
-          /* Canvas notification animation */
-          @keyframes slideInFromRight {
-            from {
-              transform: translateX(100%);
-              opacity: 0;
-            }
-            to {
-              transform: translateX(0);
-              opacity: 1;
-            }
-          }
-        `}</style>
       </Head>
-      
+
       {/* Notification Messages Component */}
       <NotificationMessage
         isHydrated={isHydrated}
@@ -2581,20 +2401,20 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       />
 
       {isLoading ? (
-        <div className="loading-container">
+        <div className={cameraModuleStyles['loading-container']}>
           <p>Loading user settings...</p>
         </div>
       ) : (
         <>
           {/* TopBar component */}
           {showTopBar && (
-            <div className="topbar-container">
+            <div className={cameraModuleStyles['topbar-container']}>
               <TopBar
-                key={`topbar-${showTopBar}-${showMetrics}`}
+                key={`topbar-${showTopBar}`}
                 onButtonClick={handleActionClick}
                 onCameraAccess={() => setShowPermissionPopup(true)}
                 canvasRef={{ current: canvasManager.getCanvas() }}
-                showMetrics={showMetrics}
+                showMetrics={true}
                 isTopBarShown={showTopBar}
                 isCameraActivated={isCameraActivated}
                 selectedCamerasCount={selectedCameras.length}
@@ -2607,14 +2427,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
               />
             </div>
           )}
-          
 
 
           {/* Show restore button when TopBar is hidden */}
           {!showTopBar && (
-            <div className="restore-button-container">
-              <button 
-                className="restore-btn"
+            <div className={cameraModuleStyles['restore-button-container']}>
+              <button
+                className={cameraModuleStyles['restore-btn']}
                 onClick={() => setShowTopBar(true)}
                 title="Show TopBar and Metrics"
               >
@@ -2624,23 +2443,23 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           )}
 
           {/* Main preview area */}
-          <div 
+          <div
             ref={previewAreaRef}
-            className={`main-preview-area ${
-              showTopBar ? 'with-topbar' : 'without-topbar'
+            className={`${cameraModuleStyles['main-preview-area']} ${
+              showTopBar ? cameraModuleStyles['with-topbar'] : cameraModuleStyles['without-topbar']
             }`}
           >
             {!showCamera ? (
               <>
                 {/* Camera placeholder square - only show if needed */}
                 {isHydrated && showCameraPlaceholder && (
-                  <div className="camera-placeholder-square">
-                    <div className="camera-placeholder-icon">📷</div>
+                  <div className={cameraModuleStyles['camera-placeholder-square']}>
+                    <div className={cameraModuleStyles['camera-placeholder-icon']}>📷</div>
                   </div>
                 )}
               </>
             ) : null}
-            
+
             {/* Camera Preview Component - Support up to 2 cameras */}
             <CameraPreview
               isHydrated={isHydrated}
@@ -2651,7 +2470,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
               handleCameraReady={handleCameraReady}
               videoRef={videoRef}
             />
-            
+
             {/* Camera Selector Modal */}
             <CameraSelect
               showCameraSelector={showCameraSelector}
@@ -2663,26 +2482,26 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
               setProcessStatus={setProcessStatus}
               getAvailableCameras={getAvailableCameras}
             />
-            
+
             {/* Camera permission popup */}
             {isHydrated && typeof window !== 'undefined' && showPermissionPopup && (
-              <div className="camera-permission-popup">
-                <div className="camera-permission-dialog">
-                  <h3 className="camera-permission-title">Camera Access Required</h3>
-                  <p className="camera-permission-message">
-                    This application needs access to your camera to function properly. 
+              <div className={cameraModuleStyles['camera-permission-popup']}>
+                <div className={cameraModuleStyles['camera-permission-dialog']}>
+                  <h3 className={cameraModuleStyles['camera-permission-title']}>Camera Access Required</h3>
+                  <p className={cameraModuleStyles['camera-permission-message']}>
+                    This application needs access to your camera to function properly.
                     When prompted by your browser, please click "Allow" to grant camera access.
                   </p>
-                  <div className="camera-permission-buttons">
-                    <button 
+                  <div className={cameraModuleStyles['camera-permission-buttons']}>
+                    <button
                       onClick={handlePermissionDenied}
-                      className="camera-btn cancel"
+                      className={`${cameraModuleStyles['camera-btn']} ${cameraModuleStyles['cancel']}`}
                     >
                       Cancel
                     </button>
-                    <button 
+                    <button
                       onClick={handlePermissionAccepted}
-                      className="camera-btn continue"
+                      className={`${cameraModuleStyles['camera-btn']} ${cameraModuleStyles['continue']}`}
                     >
                       Continue
                     </button>
@@ -2691,15 +2510,15 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
               </div>
             )}
           </div>
-          
+
           {/* Metrics info - moved outside preview area to avoid stacking context issues */}
           {isHydrated && (
             <DisplayResponse
-              key={`metrics-${showMetrics}`}
+              key={`metrics-true`}
               width={metrics.width}
               height={metrics.height}
               distance={metrics.distance}
-              isVisible={showMetrics}
+              isVisible={true}
               isTopBarShown={showTopBar}
               isCanvasVisible={showCanvas}
               outputText={outputText}
@@ -2710,7 +2529,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
           {/* Image Overlay Component - renders images on top of blue canvas */}
           {isHydrated && canvas && overlayImagePath && showOverlay && (
-            <ImageOverlay 
+            <ImageOverlay
               key={`image-overlay-${overlayImagePath}`}
               canvas={canvas}
               imagePath={overlayImagePath}

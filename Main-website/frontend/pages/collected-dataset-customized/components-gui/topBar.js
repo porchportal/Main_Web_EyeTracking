@@ -5,6 +5,7 @@ import { useAdminSettings } from './adminSettings';
 import { getOrCreateUserId } from '../../../utils/consentManager';
 import OrderRequire from './Order&require';
 import { clearAllStateDataWithCompletion } from './count&mark.js';
+import styles from '../styles/topbar.module.css';
 
 // Improved debounce function
 const debounce = (func, wait) => {
@@ -50,6 +51,9 @@ const TopBar = ({
   const [orderRequireMessage, setOrderRequireMessage] = useState('');
   const [orderRequireList, setOrderRequireList] = useState([]);
   const [isManualShow, setIsManualShow] = useState(false);
+  const [logoSize, setLogoSize] = useState({ width: 220, height: 160, maxHeight: 50 });
+  const [showMenuPopup, setShowMenuPopup] = useState(false);
+  const [isSmallScreen, setIsSmallScreen] = useState(false);
 
   // Get canvas function - use existing canvas from global manager
   const getCanvas = () => {
@@ -143,7 +147,7 @@ const TopBar = ({
     const handleSettingsUpdate = (event) => {
       if (event.detail?.type === 'captureSettings') {
         const { userId, times_set_random, delay_set_random } = event.detail;
-        
+
         // Only update if values have actually changed
         if (times_set_random !== currentSettings.times_set_random || delay_set_random !== currentSettings.delay_set_random) {
           const newSettings = {
@@ -158,6 +162,63 @@ const TopBar = ({
     window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
     return () => window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
   }, [currentSettings, debouncedSaveSettings]);
+
+  // Responsive logo size adjustment
+  useEffect(() => {
+    const updateLogoSize = () => {
+      const width = window.innerWidth;
+
+      if (width <= 360) {
+        // Extra small mobile
+        setLogoSize({ width: 120, height: 110, maxHeight: 28 });
+      } else if (width <= 480) {
+        // Mobile
+        setLogoSize({ width: 140, height: 125, maxHeight: 32 });
+      } else if (width <= 763) {
+        // Below 763px - reduce image size
+        setLogoSize({ width: 150, height: 130, maxHeight: 35 });
+      } else if (width <= 768) {
+        // Tablet portrait
+        setLogoSize({ width: 160, height: 140, maxHeight: 40 });
+      } else if (width <= 1024) {
+        // Tablet landscape
+        setLogoSize({ width: 200, height: 150, maxHeight: 45 });
+      } else if (width <= 1142) {
+        // Medium desktop - prevent overflow
+        setLogoSize({ width: 195, height: 145, maxHeight: 42 });
+      } else {
+        // Desktop
+        setLogoSize({ width: 220, height: 160, maxHeight: 50 });
+      }
+    };
+
+    // Initial call
+    updateLogoSize();
+
+    // Add event listener for window resize
+    const debouncedResize = debounce(updateLogoSize, 150);
+    window.addEventListener('resize', debouncedResize);
+
+    return () => window.removeEventListener('resize', debouncedResize);
+  }, []);
+
+  // Detect screen size for menu button
+  useEffect(() => {
+    const updateScreenSize = () => {
+      const width = window.innerWidth;
+      setIsSmallScreen(width < 1009);
+      // Close menu popup if screen becomes large
+      if (width >= 1009) {
+        setShowMenuPopup(false);
+      }
+    };
+
+    updateScreenSize();
+    const debouncedScreenResize = debounce(updateScreenSize, 150);
+    window.addEventListener('resize', debouncedScreenResize);
+
+    return () => window.removeEventListener('resize', debouncedScreenResize);
+  }, []);
 
   // Disable automatic show on page refresh to prevent flash
   // Only show when user manually clicks the button
@@ -295,91 +356,59 @@ const TopBar = ({
     }
   };
 
+  const handleToggleMenu = () => {
+    setShowMenuPopup(!showMenuPopup);
+  };
+
+  const handleMenuItemClick = (actionType) => {
+    handleButtonClick(actionType);
+    setShowMenuPopup(false); // Close menu after clicking
+  };
+
   return (
-    <div className="topbar" style={{ zIndex: 12, position: 'relative' }}>
-      <div className="topbar-left">
-        <div className="logo-container" style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '20px'
-        }}>
-          <div className="logo" style={{
-            display: 'flex',
-            alignItems: 'center',
-            height: '100%'
-          }}>
+    <div className={styles.topbar} style={{ zIndex: 12, position: 'relative' }}>
+      <div className={styles['topbar-left']}>
+        <div className={styles['logo-container']}>
+          <div className={styles.logo}>
             <Image
               src="/logo.png"
               alt="NECTEC NSTDA Logo"
-              width={220}
-              height={160}
+              width={logoSize.width}
+              height={logoSize.height}
               style={{
                 objectFit: 'contain',
-                maxHeight: '50px',
+                maxHeight: `${logoSize.maxHeight}px`,
                 width: 'auto'
               }}
               priority
             />
           </div>
 
-          <div className="controls-container" style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '8px',
-            alignItems: 'flex-start'
-          }}>
-            <div className="control-group" key={`times-${currentSettings.times_set_random}-${Date.now()}`} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              <span className="control-label" style={{
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#333',
+          <div className={styles['controls-container']}>
+            <div className={styles['control-group']} key={`times-${currentSettings.times_set_random}-${Date.now()}`}>
+              <span className={styles['control-label']} style={{
                 whiteSpace: 'nowrap',
                 width: '60px',
                 textAlign: 'right'
               }}>Time(s):</span>
-              <div className="control-input">
-                <div className="control-input-field" style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '100%',
-                  height: '100%',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  color: '#333'
+              <div className={styles['control-input']}>
+                <div className={styles['control-input-field']} style={{
+                  fontWeight: 'bold'
                 }}>
                   {currentSettings.times_set_random}
                 </div>
               </div>
             </div>
-            
-            <div className="control-group" key={`delay-${currentSettings.delay_set_random}-${Date.now()}`} style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              <span className="control-label" style={{
-                fontSize: '14px',
-                fontWeight: '500',
-                color: '#333',
+
+            <div className={styles['control-group']} key={`delay-${currentSettings.delay_set_random}-${Date.now()}`}>
+              <span className={styles['control-label']} style={{
                 whiteSpace: 'nowrap',
                 width: '60px',
                 textAlign: 'right'
               }}>Delay(s):</span>
-              <div className="control-input">
-                <div className="control-input-field" style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '100%',
-                  height: '100%',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                  color: '#333'
+              <div className={styles['control-input']}>
+                <div className={styles['control-input-field']} style={{
+                  fontWeight: 'bold'
                 }}>
                   {currentSettings.delay_set_random}
                 </div>
@@ -388,170 +417,191 @@ const TopBar = ({
           </div>
         </div>
       </div>
-      
-      <div className="topbar-middle">
-        <div className="button-groups">
-          <div className="button-group">
-            <div className="button-row">
-              <button 
-                className="btn"
-                onClick={() => handleButtonClick('randomDot')}
-                title="Start random dot sequence"
+
+      <div className={styles['topbar-middle']}>
+        {isSmallScreen ? (
+          // Show hamburger menu button and essential buttons on small screens
+          <div className={styles['small-screen-layout']}>
+            <div className={styles['menu-button-container']}>
+              <button
+                className={styles['hamburger-menu-btn']}
+                onClick={handleToggleMenu}
+                title="Menu"
               >
-                Random Dot
+                ☰ Menu
               </button>
-              
-              <button 
-                className="btn"
-                onClick={() => handleButtonClick('setRandom')}
-                title="Start random sequence"
-              >
-                Set Random
-              </button>
-              <button 
-                className="btn"
-                onClick={() => handleButtonClick('calibrate')}
-                title="Start calibration sequence"
-              >
-                Set Calibrate
-              </button>
+
+              {/* Menu Popup */}
+              {showMenuPopup && (
+                <>
+                  <div className={styles['menu-overlay']} onClick={() => setShowMenuPopup(false)}></div>
+                  <div className={styles['menu-popup']}>
+                    <div className={styles['menu-header']}>
+                      <h3>Actions</h3>
+                      <button
+                        className={styles['menu-close-btn']}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setShowMenuPopup(false);
+                        }}
+                        type="button"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className={styles['menu-items']}>
+                      <button className={styles['menu-item']} onClick={() => handleMenuItemClick('randomDot')}>
+                        Random Dot
+                      </button>
+                      <button className={styles['menu-item']} onClick={() => handleMenuItemClick('setRandom')}>
+                        Set Random
+                      </button>
+                      <button className={styles['menu-item']} onClick={() => handleMenuItemClick('calibrate')}>
+                        Set Calibrate
+                      </button>
+                      <button className={styles['menu-item']} onClick={() => handleMenuItemClick('clearAll')}>
+                        Clear All
+                      </button>
+                      <button className={styles['menu-item']} onClick={() => { handleGoBack(); setShowMenuPopup(false); }}>
+                        ← Back
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
-            
-            <div className="button-row" style={{ 
-              marginRight: '10px',
-              display: 'flex',
-              justifyContent: 'center',
-              gap: '10px'
-            }}>
-              <button 
-                className="btn back-button"
-                onClick={handleGoBack}
-                title="Go back to home page"
-              >
-                ← Back
-              </button>
-              <button 
-                className="btn"
-                onClick={() => handleButtonClick('clearAll')}
-              >
-                Clear All
-              </button>
-            </div>
-          </div>
-          
-          <div className="topbar-divider"></div>
-          
-          <div className="button-group">
-            <div className="button-row">
-              <button 
-                className="btn"
+
+            {/* Keep Show Preview and Select Camera visible */}
+            <div className={styles['essential-buttons']}>
+              <button
+                className={styles.btn}
                 onClick={() => handleButtonClick('preview')}
               >
                 Show Preview
               </button>
-              
-              <button 
-                className="btn camera-select-btn"
+
+              <button
+                className={`${styles.btn} ${styles['camera-select-btn']}`}
                 onClick={() => handleButtonClick('selectCamera')}
-                style={{
-                  position: 'relative',
-                  backgroundColor: '#4CAF50',
-                  color: 'white'
-                }}
               >
                 📷 Select Camera
-                <span className="camera-count" style={{
-                  position: 'absolute',
-                  top: '-5px',
-                  right: '-5px',
-                  backgroundColor: selectedCamerasCount > 0 ? '#4CAF50' : '#ff4444',
-                  color: 'white',
-                  borderRadius: '50%',
-                  width: '18px',
-                  height: '18px',
-                  fontSize: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
+                <span className={`${styles['camera-count']} ${selectedCamerasCount === 0 ? styles['no-cameras'] : ''}`}>
                   {selectedCamerasCount}
                 </span>
               </button>
             </div>
-            
-            {/* Order/Requirement and Clear State button row - only show when enable_background_change is true, same y-axis as Clear All and Back buttons */}
-            {enableBackgroundChange && (
-              <div className="button-row" style={{ 
-                marginTop: '2px',
-                marginRight: '10px',
-                display: 'flex',
-                justifyContent: 'center',
-                gap: '10px'
-              }}>
-                <button 
-                  className="btn order-requirement-btn"
-                  onClick={handleOrderRequirement}
-                  title="Configure canvas image order and requirements"
+          </div>
+        ) : (
+          // Show full button groups on larger screens
+          <div className={styles['button-groups']}>
+            <div className={styles['button-group']}>
+              <div className={styles['button-row']}>
+                <button
+                  className={styles.btn}
+                  onClick={() => handleButtonClick('randomDot')}
+                  title="Start random dot sequence"
                 >
-                  Order/Requirement
+                  Random Dot
                 </button>
-                <button 
-                  className="btn clear-state-btn"
-                  onClick={handleClearState}
-                  title="Clear all localStorage data (button clicks and progress)"
-                  style={{
-                    backgroundColor: '#ff6b6b',
-                    color: 'white',
-                    border: '1px solid #ff5252'
-                  }}
+
+                <button
+                  className={styles.btn}
+                  onClick={() => handleButtonClick('setRandom')}
+                  title="Start random sequence"
                 >
-                  Clear State
+                  Set Random
+                </button>
+                <button
+                  className={styles.btn}
+                  onClick={() => handleButtonClick('calibrate')}
+                  title="Start calibration sequence"
+                >
+                  Set Calibrate
                 </button>
               </div>
-            )}
+
+              <div className={`${styles['button-row']} ${styles.centered}`}>
+                <button
+                  className={`${styles.btn} ${styles['back-button']}`}
+                  onClick={handleGoBack}
+                  title="Go back to home page"
+                >
+                  ← Back
+                </button>
+                <button
+                  className={styles.btn}
+                  onClick={() => handleButtonClick('clearAll')}
+                >
+                  Clear All
+                </button>
+              </div>
+            </div>
+
+            <div className={styles['topbar-divider']}></div>
+
+            <div className={styles['button-group']}>
+              <div className={styles['button-row']}>
+                <button
+                  className={styles.btn}
+                  onClick={() => handleButtonClick('preview')}
+                >
+                  Show Preview
+                </button>
+
+                <button
+                  className={`${styles.btn} ${styles['camera-select-btn']}`}
+                  onClick={() => handleButtonClick('selectCamera')}
+                >
+                  📷 Select Camera
+                  <span className={`${styles['camera-count']} ${selectedCamerasCount === 0 ? styles['no-cameras'] : ''}`}>
+                    {selectedCamerasCount}
+                  </span>
+                </button>
+              </div>
+
+              {/* Order/Requirement and Clear State button row - only show when enable_background_change is true, same y-axis as Clear All and Back buttons */}
+              {enableBackgroundChange && (
+                <div className={`${styles['button-row']} ${styles.centered}`} style={{ marginTop: '2px' }}>
+                  <button
+                    className={`${styles.btn} ${styles['order-requirement-btn']}`}
+                    onClick={handleOrderRequirement}
+                    title="Configure canvas image order and requirements"
+                  >
+                    Order/Requirement
+                  </button>
+                  <button
+                    className={`${styles.btn} ${styles['clear-state-btn']}`}
+                    onClick={handleClearState}
+                    title="Clear all localStorage data (button clicks and progress)"
+                  >
+                    Clear State
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
       
-      <div className="topbar-right">
-        <div className="control-buttons">
-          <button 
-            className="icon-btn menu-btn"
+      <div className={styles['topbar-right']}>
+        <div className={styles['control-buttons']}>
+          <button
+            className={`${styles['icon-btn']} ${styles['menu-btn']} ${styles.custom}`}
             onClick={handleToggleTopBar}
             title="Toggle TopBar"
-            style={{
-              padding: '5px 10px',
-              backgroundColor: '#0066cc',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '16px',
-              cursor: 'pointer',
-              marginRight: '5px'
-            }}
           >
-            <span className="icon-text">≡</span>
+            <span className={styles['icon-text']}>≡</span>
           </button>
-          
-          <button 
-            className="icon-btn alert-btn"
+
+          <button
+            className={`${styles['icon-btn']} ${styles['alert-btn']} ${styles.custom} ${showMetrics ? styles.active : styles.inactive}`}
             onClick={handleToggleMetrics}
             title={`${showMetrics ? 'Hide' : 'Show'} Metrics`}
-            style={{
-              padding: '5px 10px',
-              backgroundColor: showMetrics ? '#00cc00' : '#ff9900',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '16px',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              marginRight: '5px'
-            }}
           >
-            <span className="icon-text">{showMetrics ? '✓' : '!'}</span>
+            <span className={styles['icon-text']}>{showMetrics ? '✓' : '!'}</span>
           </button>
-          
+
 
         </div>
       </div>
@@ -572,21 +622,6 @@ const TopBar = ({
         totalImages={totalImages}
         currentImagePath={currentImagePath}
       />
-      
-      <style jsx>{`
-        .active-toggle {
-          transform: scale(1.2);
-          transition: all 0.3s ease;
-        }
-        
-        .icon-btn {
-          transition: all 0.2s ease;
-        }
-        
-        .icon-btn:hover {
-          opacity: 0.8;
-        }
-      `}</style>
     </div>
   );
 };
