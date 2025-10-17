@@ -5,17 +5,20 @@ import { getHighestResolutionConstraints } from '../../../components/collected-d
 import styles from '../styles/camera-ui.module.css';
 
 // Create the main camera component
-const CameraAccessComponent = ({ 
-  isShowing, 
+const CameraAccessComponent = ({
+  isShowing,
   isHidden = false,
-  onClose, 
+  onClose,
   onCameraReady,
   showHeadPose = false,
   showBoundingBox = false,
   showMask = false,
   showParameters = false,
   selectedCameras = [],
-  cameraIndex = 0
+  cameraIndex = 0,
+  onCameraInfoUpdate = null,
+  onConfigToggle = null,
+  showCameraInfo = false
 }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -34,7 +37,36 @@ const CameraAccessComponent = ({
   const [wsStatus, setWsStatus] = useState('disconnected');
   const [isLinked, setIsLinked] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [maxResolution, setMaxResolution] = useState({ width: 0, height: 0, name: 'N/A' });
   
+  // Helper function to get resolution name based on dimensions
+  const getResolutionName = (width, height) => {
+    if (!width || !height) return 'N/A';
+
+    // Common resolution standards
+    if (width === 7680 && height === 4320) return '8K';
+    if (width === 3840 && height === 2160) return '4K UHD';
+    if (width === 2560 && height === 1440) return '2K QHD';
+    if (width === 1920 && height === 1080) return '1080p FHD';
+    if (width === 1280 && height === 720) return '720p HD';
+    if (width === 854 && height === 480) return '480p';
+    if (width === 640 && height === 480) return 'VGA';
+    if (width === 640 && height === 360) return '360p';
+
+    // Check for close matches (within 5% tolerance)
+    const isClose = (target, actual, tolerance = 0.05) => {
+      return Math.abs(target - actual) / target <= tolerance;
+    };
+
+    if (isClose(3840, width) && isClose(2160, height)) return '4K UHD';
+    if (isClose(2560, width) && isClose(1440, height)) return '2K QHD';
+    if (isClose(1920, width) && isClose(1080, height)) return '1080p FHD';
+    if (isClose(1280, width) && isClose(720, height)) return '720p HD';
+
+    // Default to Custom if no standard match
+    return 'Custom';
+  };
+
   // Check if we should redirect to camera port for HTTPS
   const shouldUseCameraPort = () => {
     if (typeof window === 'undefined') return false;
@@ -168,7 +200,6 @@ const CameraAccessComponent = ({
 
   useEffect(() => {
     if (!isShowing) {
-      disconnectWebSocket();
       // Clear any camera activation data when camera is closed
       if (typeof window !== 'undefined') {
         localStorage.removeItem('cameraActivated');
@@ -191,7 +222,6 @@ const CameraAccessComponent = ({
     }
 
     return () => {
-      disconnectWebSocket();
       // Clear any camera activation data when component unmounts
       if (typeof window !== 'undefined') {
         localStorage.removeItem('cameraActivated');
@@ -641,7 +671,7 @@ const CameraAccessComponent = ({
   // Setup FPS counter
   useEffect(() => {
     if (!isShowing && !isHidden) return;
-    
+
     fpsTimerRef.current = setInterval(() => {
       setFps(prevFps => {
         // Simple mock for fps counter
@@ -649,7 +679,7 @@ const CameraAccessComponent = ({
         return newFps;
       });
     }, 1000);
-    
+
     return () => {
       if (fpsTimerRef.current) {
         clearInterval(fpsTimerRef.current);
@@ -659,6 +689,28 @@ const CameraAccessComponent = ({
       }
     };
   }, [isShowing, isHidden]);
+
+  // Send camera info updates to parent
+  useEffect(() => {
+    if (onCameraInfoUpdate) {
+      // Use maximum resolution capacity if available, otherwise show N/A
+      const resolutionDisplay = maxResolution.width > 0
+        ? `${maxResolution.name} (${maxResolution.width} × ${maxResolution.height})`
+        : 'N/A';
+
+      const cameraInfo = {
+        resolution: resolutionDisplay,
+        fps: fps,
+        status: isVideoReady ? 'Active' : isStarting ? 'Starting...' : 'Inactive',
+        isVideoReady: isVideoReady,
+        wsStatus: wsStatus,
+        wsStatusText: wsStatus === 'connected' ? 'Connected' : wsStatus === 'connecting' ? 'Connecting...' : 'Disconnected',
+        streamTracks: stream ? `${stream.getTracks().length} track(s)` : 'No stream'
+      };
+      onCameraInfoUpdate(cameraInfo);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fps, isVideoReady, isStarting, wsStatus, stream, maxResolution]);
 
   // Update dimensions when container size changes
   useEffect(() => {
@@ -682,31 +734,61 @@ const CameraAccessComponent = ({
     
     const video = videoRef.current;
     
-    const handleLoadedMetadata = () => {
+    const handleLoadedMetadata = async () => {
       setIsVideoReady(true);
-      
-      // Get video dimensions
+
+      // Get video dimensions (this is the actual resolution being streamed)
       const videoWidth = video.videoWidth || 640;
       const videoHeight = video.videoHeight || 480;
-      
+
+      // Get camera's maximum resolution capability
+      try {
+        if (stream) {
+          const track = stream.getVideoTracks()[0];
+          if (track) {
+            const capabilities = track.getCapabilities();
+
+            // Get the maximum width and height from camera capabilities
+            const maxWidth = capabilities.width?.max || videoWidth;
+            const maxHeight = capabilities.height?.max || videoHeight;
+            const resolutionName = getResolutionName(maxWidth, maxHeight);
+
+            // Store maximum resolution info
+            setMaxResolution({
+              width: maxWidth,
+              height: maxHeight,
+              name: resolutionName
+            });
+          }
+        }
+      } catch (error) {
+        // Fallback to current video dimensions if capabilities not available
+        const resolutionName = getResolutionName(videoWidth, videoHeight);
+        setMaxResolution({
+          width: videoWidth,
+          height: videoHeight,
+          name: resolutionName
+        });
+      }
+
       // Setup canvas for processing
       if (canvasRef.current) {
         // Store actual dimensions for capture
         canvasRef.current.width = videoWidth;
         canvasRef.current.height = videoHeight;
-        
+
         // Set display size to maintain aspect ratio
         const aspectRatio = videoWidth / videoHeight;
         const containerWidth = dimensions.width;
         const containerHeight = containerWidth / aspectRatio;
-        
+
         canvasRef.current.style.width = `${containerWidth}px`;
         canvasRef.current.style.height = `${containerHeight}px`;
       }
-      
+
       // Start processing frames
       startProcessing();
-      
+
       // Notify parent component that camera is ready
       if (onCameraReady) {
         onCameraReady({
@@ -874,7 +956,8 @@ const CameraAccessComponent = ({
   }
 
   return (
-    <div 
+    <>
+    <div
       ref={containerRef}
       className={`${styles.cameraContainer} ${selectedCameras.length > 1 ? styles.dualCamera : ''} ${isHidden ? styles.hidden : ''}`}
       style={{
@@ -924,20 +1007,20 @@ const CameraAccessComponent = ({
         >
           Close
         </button>
-        
+
         <button
           onClick={() => {
-            if (isLinked) {
-              disconnectWebSocket();
-            } else {
-              connectWebSocket();
+            if (onConfigToggle) {
+              onConfigToggle(!showCameraInfo);
             }
           }}
-          className={`${styles.cameraButton} ${isLinked ? styles.unlinkButton : styles.linkButton}`}
+          className={`${styles.cameraButton} ${styles.configButton} ${showCameraInfo ? styles.configButtonActive : ''}`}
+          title="Camera Configuration"
         >
-          {isLinked ? 'Unlink' : 'Link'}
+          ⌗
         </button>
       </div>
+
 
       {/* Loading indicator */}
       {isStarting && (
@@ -972,6 +1055,7 @@ const CameraAccessComponent = ({
         {isVideoReady ? `Camera ${cameraIndex + 1} Ready` : isStarting ? 'Starting...' : 'Camera Off'}
       </div>
     </div>
+    </>
   );
 };
 

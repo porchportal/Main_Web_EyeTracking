@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
 
-const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
+const DisplayResponse = ({
+  width,
+  height,
+  distance,
+  isVisible = true,
+  isTopBarShown = true,
+  isCanvasVisible = true,
+  outputText = '',
+  isCameraActivated = false,
+  isCameraActive = false
+}) => {
   // Animation state for visibility transitions
   const [animationState, setAnimationState] = useState(isVisible ? 'visible' : 'hidden');
   
@@ -95,9 +105,12 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
   const formattedWidth = (canvasDimensions.width > 0 && canvasDimensions.width !== 300) ? canvasDimensions.width : (width > 0 && width !== 300 ? width : 0);
   const formattedHeight = (canvasDimensions.height > 0 && canvasDimensions.height !== 150) ? canvasDimensions.height : (height > 0 && height !== 150 ? height : 0);
   const formattedDistance = distance || '---';
-  
+
+  // Status message for processing output
+  const statusMessage = `TopBar ${isTopBarShown ? 'shown' : 'hidden'}, Canvas: ${isCanvasVisible ? 'Visible' : 'Hidden'}`;
+
   return (
-    <div 
+    <div
       className={`metrics-display ${animationState}`}
       style={{
         position: 'fixed',
@@ -112,8 +125,8 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
         boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)',
         transition: 'all 0.3s ease',
         opacity: animationState === 'visible' ? 1 : 0,
-        transform: animationState === 'visible' 
-          ? 'translateX(0)' 
+        transform: animationState === 'visible'
+          ? 'translateX(0)'
           : 'translateX(50px)',
         pointerEvents: animationState === 'visible' ? 'auto' : 'none',
         zIndex: 20,
@@ -123,7 +136,8 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
         outline: 'none'
       }}
     >
-      <div 
+      {/* Canvas Metrics Header */}
+      <div
         className="metrics-header"
         style={{
           display: 'flex',
@@ -135,37 +149,74 @@ const DisplayResponse = ({ width, height, distance, isVisible = true }) => {
         }}
       >
         <span style={{ fontWeight: 'bold' }}>Canvas Metrics</span>
-        <div 
+        <div
           className="metrics-indicator"
-          style={{ 
-            width: '10px', 
-            height: '10px', 
-            borderRadius: '50%', 
+          style={{
+            width: '10px',
+            height: '10px',
+            borderRadius: '50%',
             backgroundColor: '#00ff00',
             boxShadow: '0 0 5px rgba(0, 255, 0, 0.8)'
-          }} 
+          }}
         />
       </div>
-      
-      <div 
+
+      {/* Canvas Metrics Content */}
+      <div
         className="metrics-content"
-        style={{ lineHeight: '1.5' }}
+        style={{ lineHeight: '1.5', marginBottom: '12px' }}
       >
-        <p>
-          <span style={{ display: 'inline-block', width: '80px' }}>Width:</span> 
-          <span style={{ fontWeight: 'bold' }}>{formattedWidth}</span> 
+        <p style={{ margin: '4px 0' }}>
+          <span style={{ display: 'inline-block', width: '80px' }}>Width:</span>
+          <span style={{ fontWeight: 'bold' }}>{formattedWidth}</span>
           <span style={{ opacity: 0.8, fontSize: '12px' }}> pixels</span>
         </p>
-        <p>
-          <span style={{ display: 'inline-block', width: '80px' }}>Height:</span> 
-          <span style={{ fontWeight: 'bold' }}>{formattedHeight}</span> 
+        <p style={{ margin: '4px 0' }}>
+          <span style={{ display: 'inline-block', width: '80px' }}>Height:</span>
+          <span style={{ fontWeight: 'bold' }}>{formattedHeight}</span>
           <span style={{ opacity: 0.8, fontSize: '12px' }}> pixels</span>
         </p>
-        <p>
-          <span style={{ display: 'inline-block', width: '80px' }}>Distance:</span> 
-          <span style={{ fontWeight: 'bold' }}>{formattedDistance}</span> 
+        <p style={{ margin: '4px 0' }}>
+          <span style={{ display: 'inline-block', width: '80px' }}>Distance:</span>
+          <span style={{ fontWeight: 'bold' }}>{formattedDistance}</span>
           <span style={{ opacity: 0.8, fontSize: '12px' }}> cm</span>
         </p>
+      </div>
+
+      {/* Processing Output Section */}
+      <div
+        className="output-section"
+        style={{
+          borderTop: '1px solid rgba(255, 255, 255, 0.3)',
+          paddingTop: '10px',
+          marginTop: '10px'
+        }}
+      >
+        <div
+          className="output-header"
+          style={{
+            fontWeight: 'bold',
+            marginBottom: '8px',
+            fontSize: '13px'
+          }}
+        >
+          Processing Output
+        </div>
+        <div style={{ fontSize: '12px', lineHeight: '1.5', opacity: 0.9, marginBottom: '6px' }}>
+          {statusMessage}
+        </div>
+        <div style={{ fontSize: '12px', lineHeight: '1.5', opacity: 0.9, marginBottom: '8px' }}>
+          {outputText || 'Processing output will appear here...'}
+        </div>
+        <div style={{
+          fontSize: '12px',
+          color: isCameraActivated ? '#00ff00' : '#ffcc00',
+          fontWeight: 'bold',
+          paddingTop: '8px',
+          borderTop: '1px solid rgba(255, 255, 255, 0.2)'
+        }}>
+          📷 Camera: {isCameraActivated ? (isCameraActive ? 'Active' : 'Activated (Click Preview to Start)') : 'Not Activated (Deactivates on Refresh)'}
+        </div>
       </div>
     </div>
   );

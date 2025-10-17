@@ -88,6 +88,8 @@ services:
       - ./backend/auth_service/resource_security/public/complete:/app/resource_security/public/complete
       - ./backend/auth_service/resource_security/canvas:/app/resource_security/canvas
       - ./backend/auth_service/resource_security/consent_data.json:/app/resource_security/consent_data.json
+      - ./backend/auth_service/resource_security/data_centralization:/app/resource_security/data_centralization
+      - ./backend/auth_service/resource_security/user_preferences:/app/resource_security/user_preferences
     env_file:
       - ./backend/.env.backend
     depends_on:
@@ -133,7 +135,9 @@ services:
   mongodb:
     image: mongo:latest
     container_name: mongodb
-    # Internal Docker network only - no public port exposure
+    # Expose MongoDB port to localhost for development
+    ports:
+      - "27017:27017"    # MongoDB access: mongodb://localhost:27017
     expose:
       - "27017"
     volumes:

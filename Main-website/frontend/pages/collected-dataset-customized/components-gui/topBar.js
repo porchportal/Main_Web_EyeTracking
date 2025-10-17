@@ -27,16 +27,12 @@ const debounce = (func, wait) => {
   };
 };
 
-const TopBar = ({ 
+const TopBar = ({
   onButtonClick,
   onCameraAccess,
-  outputText,
-  onOutputChange,
   canvasRef,
   isTopBarShown = true,
-  isCanvasVisible = true,
   showMetrics = true,
-  isCameraActive = false,
   isCameraActivated = false,
   selectedCamerasCount = 0,
   clickedButtons = new Set(),
@@ -47,7 +43,6 @@ const TopBar = ({
   currentImagePath = null
 }) => {
   const router = useRouter();
-  const [canvasStatus, setCanvasStatus] = useState(isCanvasVisible);
   const { settings, updateSettings, fetchSettings, currentSettings, isLoading } = useAdminSettings();
   const [currentUserId, setCurrentUserId] = useState(null);
   const [enableBackgroundChange, setEnableBackgroundChange] = useState(false);
@@ -128,11 +123,6 @@ const TopBar = ({
       setEnableBackgroundChange(false);
     }
   }, [currentUserId, settings]);
-
-  // Update canvas status when prop changes
-  useEffect(() => {
-    setCanvasStatus(isCanvasVisible);
-  }, [isCanvasVisible]);
 
   // Listen for user ID changes
   useEffect(() => {
@@ -290,11 +280,11 @@ const TopBar = ({
   const handleClearState = () => {
     // Clear all localStorage data related to button clicks, progress, and completion counts
     const result = clearAllStateDataWithCompletion(currentUserId);
-    
+
     if (result.success) {
       // Show success notification
       alert(`✅ Clear State Successful!\n\n${result.message}\n\nCleared keys: ${result.clearedKeys.join(', ')}`);
-      
+
       // Trigger a page refresh to reset all state
       if (typeof window !== 'undefined') {
         window.location.reload();
@@ -305,9 +295,7 @@ const TopBar = ({
     }
   };
 
-  const statusMessage = `TopBar ${isTopBarShown ? 'shown' : 'hidden'}, Canvas: ${canvasStatus ? 'Visible' : 'Hidden'}`;
-
-    return (
+  return (
     <div className="topbar" style={{ zIndex: 12, position: 'relative' }}>
       <div className="topbar-left">
         <div className="logo-container" style={{
@@ -526,25 +514,6 @@ const TopBar = ({
       </div>
       
       <div className="topbar-right">
-        <div className="notes-container">
-          <div 
-            className="output-display"
-            title="Processing Output"
-          >
-            {statusMessage}
-            <br />
-            {outputText || "Processing output will appear here..."}
-            <br />
-            <span style={{ 
-              fontSize: '12px', 
-              color: isCameraActivated ? '#00cc00' : '#ff9900',
-              fontWeight: 'bold'
-            }}>
-              📷 Camera: {isCameraActivated ? (isCameraActive ? 'Active' : 'Activated (Click Preview to Start)') : 'Not Activated (Deactivates on Refresh)'}
-            </span>
-          </div>
-        </div>
-        
         <div className="control-buttons">
           <button 
             className="icon-btn menu-btn"

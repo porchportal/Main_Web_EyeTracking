@@ -1,0 +1,29 @@
+[
+  {
+    "user_id": "d68f54f1-51ac-4521-933b-5501a242e7f7",
+    "value": {
+      "times_set_random": 1,
+      "delay_set_random": 3,
+      "every_set": 0,
+      "set_timeRandomImage": 1,
+      "times_set_calibrate": 1,
+      "run_every_of_random": 1,
+      "zoom_percentage": 100,
+      "position_zoom": [
+        0,
+        0
+      ],
+      "currentlyPage": "home",
+      "state_isProcessOn": false,
+      "freeState": 0,
+      "buttons_order": "",
+      "image_background_paths": [
+        "[1]-/backgrounds/default.jpg"
+      ],
+      "public_data_access": false,
+      "enable_background_change": false
+    },
+    "data_type": "json",
+    "updated_at": "2025-10-17T02:48:49.007315"
+  }
+]

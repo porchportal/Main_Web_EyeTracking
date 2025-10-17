@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # Define paths for JSON files
 RESOURCE_SECURITY_DIR = Path(__file__).parent.parent.parent / "resource_security"
 USER_PREFERENCES_DIR = RESOURCE_SECURITY_DIR / "user_preferences"
+CENTRALIZED_BACKUP_FILE = USER_PREFERENCES_DIR / "User-profile.json"
 
 class UserPreferencesService:
     """Service for managing user preferences in MongoDB and JSON files"""
@@ -43,6 +44,13 @@ class UserPreferencesService:
         user_file = USER_PREFERENCES_DIR / f"{user_id}.json"
         if not user_file.exists():
             user_file.write_text("[]")
+
+    @classmethod
+    def _ensure_centralized_backup_exists(cls):
+        """Ensure the centralized backup file and directory exist"""
+        USER_PREFERENCES_DIR.mkdir(exist_ok=True)
+        if not CENTRALIZED_BACKUP_FILE.exists():
+            CENTRALIZED_BACKUP_FILE.write_text("[]")
 
     @classmethod
     def _get_user_json_file_path(cls, user_id: str) -> Path:
@@ -69,30 +77,68 @@ class UserPreferencesService:
             json.dump(data, f, indent=2)
 
     @classmethod
-    def _save_to_json(cls, user_id: str, data: Dict[str, Any]):
-        """Save user data to user-specific JSON file in MongoDB format"""
+    def _read_centralized_backup(cls) -> List[Dict[str, Any]]:
+        """Read data from centralized backup file"""
+        cls._ensure_centralized_backup_exists()
         try:
-            # Check if file already exists to avoid duplicates
-            user_file = cls._get_user_json_file_path(user_id)
-            if user_file.exists():
-                logger.info(f"User JSON file already exists for {user_id}, updating instead of creating")
-            
-            # Prepare MongoDB format document
-            mongo_doc = {
-                "_id": {"$oid": str(ObjectId())},
-                "key": f"user_data_{user_id}",
-                "created_at": {"$date": datetime.utcnow().isoformat()},
-                "data_type": "user_consent",
-                "updated_at": {"$date": datetime.utcnow().isoformat()},
-                "value": data
+            with open(CENTRALIZED_BACKUP_FILE, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            return []
+
+    @classmethod
+    def _write_centralized_backup(cls, data: List[Dict[str, Any]]):
+        """Write data to centralized backup file"""
+        cls._ensure_centralized_backup_exists()
+        with open(CENTRALIZED_BACKUP_FILE, 'w') as f:
+            json.dump(data, f, indent=2)
+
+    @classmethod
+    def _save_to_centralized_backup(cls, user_id: str, data: Dict[str, Any]):
+        """Save data to centralized backup file in simple format"""
+        try:
+            # Read existing centralized backup data
+            centralized_data = cls._read_centralized_backup()
+
+            # Find existing entry for this user
+            existing_index = next(
+                (i for i, item in enumerate(centralized_data) if item.get("user_id") == user_id),
+                -1
+            )
+
+            # Prepare simple format (just the value data without MongoDB wrapper)
+            user_entry = {
+                "user_id": user_id,
+                "consent_accepted": data.get("consent_accepted", True),
+                "consent_timestamp": data.get("consent_timestamp"),
+                "profile": data.get("profile", {}),
+                "updated_at": datetime.utcnow().isoformat()
             }
-            
-            # Save to user-specific file
-            cls._write_user_json_data(user_id, [mongo_doc])
-            logger.info(f"Saved user data to JSON file for user {user_id}")
-            
+
+            if existing_index != -1:
+                # Update existing entry
+                centralized_data[existing_index] = user_entry
+            else:
+                # Add new entry
+                centralized_data.append(user_entry)
+
+            # Write back to centralized backup
+            cls._write_centralized_backup(centralized_data)
+            logger.info(f"Saved user data to centralized backup for user {user_id}")
+
         except Exception as e:
-            logger.error(f"Error saving to JSON file for user {user_id}: {e}")
+            logger.error(f"Error saving to centralized backup for user {user_id}: {e}")
+
+    @classmethod
+    def _save_to_json(cls, user_id: str, data: Dict[str, Any]):
+        """Save user data to centralized backup file only (no individual user files)"""
+        try:
+            # Only save to centralized backup file
+            cls._save_to_centralized_backup(user_id, data)
+            logger.info(f"Saved user data to centralized backup for user {user_id}")
+
+        except Exception as e:
+            logger.error(f"Error saving to centralized backup for user {user_id}: {e}")
 
     @classmethod
     def _delete_from_json(cls, user_id: str):
@@ -104,9 +150,30 @@ class UserPreferencesService:
                 logger.info(f"Deleted user JSON file for user {user_id}")
             else:
                 logger.info(f"User JSON file does not exist for user {user_id}")
-            
+
+            # Also delete from centralized backup
+            cls._delete_from_centralized_backup(user_id)
+
         except Exception as e:
             logger.error(f"Error deleting JSON file for user {user_id}: {e}")
+
+    @classmethod
+    def _delete_from_centralized_backup(cls, user_id: str):
+        """Delete user data from centralized backup file"""
+        try:
+            # Read existing centralized backup data
+            centralized_data = cls._read_centralized_backup()
+
+            # Remove entry with matching user_id
+            key = f"user_data_{user_id}"
+            updated_data = [item for item in centralized_data if item.get("key") != key]
+
+            # Write back to centralized backup
+            cls._write_centralized_backup(updated_data)
+            logger.info(f"Deleted user data from centralized backup for user {user_id}")
+
+        except Exception as e:
+            logger.error(f"Error deleting from centralized backup for user {user_id}: {e}")
 
     @classmethod
     async def get_user_preferences(cls, user_id: str) -> Optional[Dict[str, Any]]:

@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 # Define paths for JSON files
 RESOURCE_SECURITY_DIR = Path(__file__).parent.parent.parent / "resource_security"
 DATA_CENTRALIZATION_DIR = RESOURCE_SECURITY_DIR / "data_centralization"
+CENTRALIZED_BACKUP_FILE = DATA_CENTRALIZATION_DIR / "Data_centralization.json"
 
 class DataCentralizationService:
     """Service for managing data centralization in MongoDB and JSON files"""
@@ -27,6 +28,13 @@ class DataCentralizationService:
         user_file = DATA_CENTRALIZATION_DIR / f"{user_id}.json"
         if not user_file.exists():
             user_file.write_text("[]")
+
+    @classmethod
+    def _ensure_centralized_backup_exists(cls):
+        """Ensure the centralized backup file and directory exist"""
+        DATA_CENTRALIZATION_DIR.mkdir(exist_ok=True)
+        if not CENTRALIZED_BACKUP_FILE.exists():
+            CENTRALIZED_BACKUP_FILE.write_text("[]")
 
     @classmethod
     def _get_user_json_file_path(cls, user_id: str) -> Path:
@@ -53,10 +61,27 @@ class DataCentralizationService:
             json.dump(data, f, indent=2)
 
     @classmethod
-    def _save_to_json(cls, key: str, value: Any, data_type: str = "json"):
-        """Save data to user-specific JSON file in MongoDB format"""
+    def _read_centralized_backup(cls) -> List[Dict[str, Any]]:
+        """Read data from centralized backup file"""
+        cls._ensure_centralized_backup_exists()
         try:
-            # Extract user_id from key (e.g., "profile_user123" -> "user123")
+            with open(CENTRALIZED_BACKUP_FILE, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            return []
+
+    @classmethod
+    def _write_centralized_backup(cls, data: List[Dict[str, Any]]):
+        """Write data to centralized backup file"""
+        cls._ensure_centralized_backup_exists()
+        with open(CENTRALIZED_BACKUP_FILE, 'w') as f:
+            json.dump(data, f, indent=2)
+
+    @classmethod
+    def _save_to_centralized_backup(cls, key: str, value: Any, data_type: str = "json"):
+        """Save data to centralized backup file in simple format"""
+        try:
+            # Extract user_id from key (e.g., "settings_user123" -> "user123")
             if key.startswith("profile_"):
                 user_id = key.replace("profile_", "")
             elif key.startswith("settings_"):
@@ -64,44 +89,50 @@ class DataCentralizationService:
             elif key.startswith("user_data_"):
                 user_id = key.replace("user_data_", "")
             else:
-                user_id = "general"  # For other keys
-            
-            # Check if file already exists to avoid duplicates
-            user_file = cls._get_user_json_file_path(user_id)
-            if user_file.exists():
-                logger.info(f"User JSON file already exists for {user_id}, updating instead of creating")
-            
-            # Read existing data
-            json_data = cls._read_user_json_data(user_id)
-            
-            # Find existing entry
+                # For other keys, use the key itself
+                user_id = key
+
+            # Read existing centralized backup data
+            centralized_data = cls._read_centralized_backup()
+
+            # Find existing entry for this user_id
             existing_index = next(
-                (i for i, item in enumerate(json_data) if item.get("key") == key),
+                (i for i, item in enumerate(centralized_data) if item.get("user_id") == user_id),
                 -1
             )
-            
-            # Prepare MongoDB format document
-            mongo_doc = {
-                "_id": {"$oid": str(ObjectId())},
-                "key": key,
-                "created_at": {"$date": datetime.utcnow().isoformat()},
+
+            # Prepare simple format (user_id and value)
+            user_entry = {
+                "user_id": user_id,
+                "value": value,
                 "data_type": data_type,
-                "updated_at": {"$date": datetime.utcnow().isoformat()},
-                "value": value
+                "updated_at": datetime.utcnow().isoformat()
             }
-            
+
             if existing_index != -1:
                 # Update existing entry
-                json_data[existing_index] = mongo_doc
+                centralized_data[existing_index] = user_entry
             else:
                 # Add new entry
-                json_data.append(mongo_doc)
-            
-            cls._write_user_json_data(user_id, json_data)
-            logger.info(f"Saved data to JSON file for key {key} (user: {user_id})")
-            
+                centralized_data.append(user_entry)
+
+            # Write back to centralized backup
+            cls._write_centralized_backup(centralized_data)
+            logger.info(f"Saved data to centralized backup for user {user_id}")
+
         except Exception as e:
-            logger.error(f"Error saving to JSON file for key {key}: {e}")
+            logger.error(f"Error saving to centralized backup for key {key}: {e}")
+
+    @classmethod
+    def _save_to_json(cls, key: str, value: Any, data_type: str = "json"):
+        """Save data to centralized backup file only (no individual user files)"""
+        try:
+            # Only save to centralized backup file
+            cls._save_to_centralized_backup(key, value, data_type)
+            logger.info(f"Saved data to centralized backup for key {key}")
+
+        except Exception as e:
+            logger.error(f"Error saving to centralized backup for key {key}: {e}")
 
     @classmethod
     def _delete_from_json(cls, key: str):
@@ -134,9 +165,29 @@ class DataCentralizationService:
                     logger.info(f"Deleted data from JSON file for key {key} (user: {user_id})")
             else:
                 logger.info(f"User JSON file does not exist for user {user_id}")
-            
+
+            # Also delete from centralized backup
+            cls._delete_from_centralized_backup(key)
+
         except Exception as e:
             logger.error(f"Error deleting from JSON file for key {key}: {e}")
+
+    @classmethod
+    def _delete_from_centralized_backup(cls, key: str):
+        """Delete data from centralized backup file"""
+        try:
+            # Read existing centralized backup data
+            centralized_data = cls._read_centralized_backup()
+
+            # Remove entry with matching key
+            updated_data = [item for item in centralized_data if item.get("key") != key]
+
+            # Write back to centralized backup
+            cls._write_centralized_backup(updated_data)
+            logger.info(f"Deleted data from centralized backup for key {key}")
+
+        except Exception as e:
+            logger.error(f"Error deleting from centralized backup for key {key}: {e}")
 
     @classmethod
     async def get_value(cls, key: str) -> Optional[Any]:

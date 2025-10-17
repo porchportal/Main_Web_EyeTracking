@@ -272,25 +272,8 @@ async def initialize_user_data(request: ConsentInitializationRequest):
             night_mode=False
         )
         
-        # Create default user settings
-        user_settings = UserSettings(
-            times_set_random=3,
-            delay_set_random=5,
-            run_every_of_random=2,
-            set_timeRandomImage=1,
-            times_set_calibrate=5,
-            every_set=1,
-            zoom_percentage=150,
-            position_zoom=[50, 100],
-            currentlyPage="home",
-            state_isProcessOn=True,
-            freeState=1,
-            buttons_order="random,calibrate,process",
-            order_click="random",
-            image_background_paths=["/backgrounds/default.jpg"],
-            public_data_access=False,
-            enable_background_change=False
-        )
+        # Create default user settings (using defaults from UserSettings model)
+        user_settings = UserSettings()
         
         # Save user profile to user_preferences collection
         profile_save_result = await UserPreferencesService.save_user_data_to_preferences(user_id, user_profile, consent_accepted=True)
@@ -357,12 +340,12 @@ async def check_user_initialization(user_id: str):
 
 @router.put("/update-user-profile/{user_id}", response_model=DataResponse)
 async def update_user_profile(user_id: str, profile_update: UserProfileUpdate):
-    """Update user profile and settings using both services"""
+    """Update user profile and ensure default settings exist"""
     try:
         from db.services.user_preferences_service import UserPreferencesService
         from db.services.data_centralization_service import DataCentralizationService
         from db.data_centralization import UserSettings
-        
+
         # Update the profile
         updated_profile = UserProfile(
             username=profile_update.username,
@@ -370,49 +353,36 @@ async def update_user_profile(user_id: str, profile_update: UserProfileUpdate):
             age=profile_update.age,
             night_mode=profile_update.night_mode
         )
-        
-        # Create default user settings
-        user_settings = UserSettings(
-            times_set_random=3,
-            delay_set_random=5,
-            run_every_of_random=2,
-            set_timeRandomImage=1,
-            times_set_calibrate=5,
-            every_set=1,
-            zoom_percentage=150,
-            position_zoom=[50, 100],
-            currentlyPage="home",
-            state_isProcessOn=True,
-            freeState=1,
-            buttons_order="random,calibrate,process",
-            order_click="random",
-            image_background_paths=["/backgrounds/default.jpg"],
-            public_data_access=False,
-            enable_background_change=False
-        )
-        
+
         # Save profile to user_preferences collection
         profile_save_result = await UserPreferencesService.update_user_profile_in_preferences(user_id, updated_profile)
-        
-        # Save settings to data_centralization collection
-        settings_save_result = await DataCentralizationService.save_user_settings_with_model(user_id, user_settings)
-        
-        if not profile_save_result or not settings_save_result:
-            raise Exception("Failed to update user data")
-        
+
+        if not profile_save_result:
+            raise Exception("Failed to update user profile")
+
+        # Check if user has settings, if not create default settings
+        existing_settings = await DataCentralizationService.get_user_settings(user_id)
+        settings_save_result = True
+
+        if not existing_settings:
+            # Create default user settings (using defaults from UserSettings model)
+            user_settings = UserSettings()
+            # Save settings to data_centralization collection and JSON backup
+            settings_save_result = await DataCentralizationService.save_user_settings_with_model(user_id, user_settings)
+            logger.info(f"Created default settings for new user {user_id}")
+
         # Also save to consent_data.json file for admin interface (prevent duplicates)
         # This ensures that when a user saves their profile, they are added to consent_data.json
         save_consent_to_json_file(user_id, True, datetime.utcnow())
-        
-        logger.info(f"Successfully updated user profile and settings for {user_id}")
-        
+
+        logger.info(f"Successfully updated user profile for {user_id}")
+
         return DataResponse(
             success=True,
-            message="User profile and settings updated successfully",
+            message="User profile updated successfully",
             data={
                 "user_id": user_id,
-                "profile": updated_profile.model_dump(),
-                "settings": user_settings.model_dump()
+                "profile": updated_profile.model_dump()
             }
         )
         

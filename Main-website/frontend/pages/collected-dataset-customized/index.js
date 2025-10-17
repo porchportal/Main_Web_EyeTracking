@@ -5,6 +5,7 @@ import TopBar from './components-gui/topBar';
 import DisplayResponse from './components-gui/displayResponse.jsx';
 import NotificationMessage from './components-gui/noti_message';
 import CameraSelect from './components-gui/cameraSelect';
+import CameraPreview from './components-gui/CameraPreview';
 import cameraStyles from './styles/camera-ui.module.css';
 import { useCanvasImage, useCanvasImageWithOverlay, ImageOverlay } from './components-gui/CanvasImage';
 import { showCapturePreview, drawRedDot, getRandomPosition, createCountdownElement, runCountdown } from '../../components/collected-dataset-customized/Action/countSave.jsx';
@@ -16,37 +17,7 @@ import { useAdminSettings } from './components-gui/adminSettings';
 import { counter, debugButtonStorage, getAllImageCounters, resetAllImageCounters } from './components-gui/count&mark.js';
 import styles from './styles/main-canvas.module.css';
 
-// Dynamically import the camera component with SSR disabled
-const DynamicCameraAccess = dynamic(
-  () => import('./components-gui/cameraAccess'),
-  { 
-    ssr: false,
-    loading: () => (
-      <div style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: '480px',
-        height: '360px',
-        backgroundColor: '#f0f8ff',
-        border: '2px solid #0066cc',
-        borderRadius: '8px',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        textAlign: 'center',
-        zIndex: 999
-      }}>
-        <div style={{ fontSize: '48px', marginBottom: '15px' }}>📷</div>
-        <p style={{ fontSize: '16px', fontWeight: 'bold', color: '#0066cc' }}>
-          Loading camera...
-        </p>
-      </div>
-    )
-  }
-);
+// Camera preview component is now imported above
 
 // Add deep comparison utility
 const isEqual = (obj1, obj2) => {
@@ -2618,17 +2589,13 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           {/* TopBar component */}
           {showTopBar && (
             <div className="topbar-container">
-              <TopBar 
+              <TopBar
                 key={`topbar-${showTopBar}-${showMetrics}`}
                 onButtonClick={handleActionClick}
                 onCameraAccess={() => setShowPermissionPopup(true)}
-                outputText={statusMessage || outputText}
-                onOutputChange={(text) => setOutputText(text)}
                 canvasRef={{ current: canvasManager.getCanvas() }}
                 showMetrics={showMetrics}
                 isTopBarShown={showTopBar}
-                isCanvasVisible={showCanvas}
-                isCameraActive={isCameraActive}
                 isCameraActivated={isCameraActivated}
                 selectedCamerasCount={selectedCameras.length}
                 clickedButtons={clickedButtons}
@@ -2674,38 +2641,16 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
               </>
             ) : null}
             
-            {/* Camera components - Support up to 2 cameras */}
-            {isHydrated && typeof window !== 'undefined' && (showCamera || isCameraActive) && (
-              <div className={`${cameraStyles.cameraPreviewContainer} ${Array.isArray(selectedCameras) && selectedCameras.length > 1 ? cameraStyles.dualCamera : cameraStyles.singleCamera}`}>
-                {Array.isArray(selectedCameras) && selectedCameras.length > 0 ? (
-                  // Show selected cameras
-                  selectedCameras.map((cameraId, index) => (
-                    <DynamicCameraAccess
-                      key={`camera-${cameraId}-${index}-${showCamera}-${isCameraActive}`}
-                      isShowing={showCamera} 
-                      isHidden={!showCamera && isCameraActive}
-                      onClose={handleCameraClose}
-                      onCameraReady={handleCameraReady}
-                      selectedCameras={selectedCameras}
-                      cameraIndex={index}
-                      videoRef={videoRef}
-                    />
-                  ))
-                ) : (
-                  // Fallback to single camera if none selected
-                  <DynamicCameraAccess
-                    key={`camera-default-${showCamera}-${isCameraActive}`}
-                    isShowing={showCamera} 
-                    isHidden={!showCamera && isCameraActive}
-                    onClose={handleCameraClose}
-                    onCameraReady={handleCameraReady}
-                    selectedCameras={Array.isArray(selectedCameras) ? selectedCameras : []}
-                    cameraIndex={0}
-                    videoRef={videoRef}
-                  />
-                )}
-              </div>
-            )}
+            {/* Camera Preview Component - Support up to 2 cameras */}
+            <CameraPreview
+              isHydrated={isHydrated}
+              showCamera={showCamera}
+              isCameraActive={isCameraActive}
+              selectedCameras={selectedCameras}
+              handleCameraClose={handleCameraClose}
+              handleCameraReady={handleCameraReady}
+              videoRef={videoRef}
+            />
             
             {/* Camera Selector Modal */}
             <CameraSelect
@@ -2749,12 +2694,17 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           
           {/* Metrics info - moved outside preview area to avoid stacking context issues */}
           {isHydrated && (
-            <DisplayResponse 
+            <DisplayResponse
               key={`metrics-${showMetrics}`}
-              width={metrics.width} 
-              height={metrics.height} 
+              width={metrics.width}
+              height={metrics.height}
               distance={metrics.distance}
               isVisible={showMetrics}
+              isTopBarShown={showTopBar}
+              isCanvasVisible={showCanvas}
+              outputText={outputText}
+              isCameraActivated={isCameraActivated}
+              isCameraActive={isCameraActive}
             />
           )}
 
