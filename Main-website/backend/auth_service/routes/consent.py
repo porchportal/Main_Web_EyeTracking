@@ -225,22 +225,101 @@ async def update_user_consent(
 
 @router.delete("/{user_id}", response_model=DataResponse)
 async def delete_user_consent(user_id: str = Path(..., description="User ID")):
-    """Delete user consent data"""
+    """Delete user consent data, associated folders, and JSON file entries"""
     try:
         from db.services.user_preferences_service import UserPreferencesService
-        
+        import shutil
+
         # Delete user data from user_preferences collection
         deleted = await UserPreferencesService.delete_user_from_preferences(user_id)
-        
-        if not deleted:
+
+        # Delete user folders from captures, complete, and enhance directories
+        base_path = PathLib(__file__).parent.parent / "resource_security" / "public"
+        folders_to_delete = [
+            base_path / "captures" / user_id,
+            base_path / "complete" / user_id,
+            base_path / "enhance" / user_id
+        ]
+
+        deleted_folders = []
+        for folder in folders_to_delete:
+            if folder.exists() and folder.is_dir():
+                try:
+                    shutil.rmtree(folder)
+                    deleted_folders.append(str(folder))
+                    logger.info(f"✅ Deleted folder: {folder}")
+                except Exception as folder_error:
+                    logger.error(f"❌ Failed to delete folder {folder}: {folder_error}")
+
+        # Delete user from Data_centralization.json
+        data_centralization_path = PathLib(__file__).parent.parent / "resource_security" / "data_centralization" / "Data_centralization.json"
+        deleted_from_data_centralization = False
+        if data_centralization_path.exists():
+            try:
+                with open(data_centralization_path, 'r') as f:
+                    data_centralization = json.load(f)
+
+                # Remove user_id from the JSON if it exists
+                if user_id in data_centralization:
+                    del data_centralization[user_id]
+                    deleted_from_data_centralization = True
+
+                    # Write back to file
+                    with open(data_centralization_path, 'w') as f:
+                        json.dump(data_centralization, f, indent=2)
+                    logger.info(f"✅ Deleted user {user_id} from Data_centralization.json")
+                else:
+                    logger.info(f"ℹ️ User {user_id} not found in Data_centralization.json")
+            except Exception as json_error:
+                logger.error(f"❌ Failed to delete from Data_centralization.json: {json_error}")
+
+        # Delete user from User-profile.json
+        user_profile_path = PathLib(__file__).parent.parent / "resource_security" / "user_preferences" / "User-profile.json"
+        deleted_from_user_profile = False
+        if user_profile_path.exists():
+            try:
+                with open(user_profile_path, 'r') as f:
+                    user_profile = json.load(f)
+
+                # Remove user_id from the JSON if it exists
+                if user_id in user_profile:
+                    del user_profile[user_id]
+                    deleted_from_user_profile = True
+
+                    # Write back to file
+                    with open(user_profile_path, 'w') as f:
+                        json.dump(user_profile, f, indent=2)
+                    logger.info(f"✅ Deleted user {user_id} from User-profile.json")
+                else:
+                    logger.info(f"ℹ️ User {user_id} not found in User-profile.json")
+            except Exception as json_error:
+                logger.error(f"❌ Failed to delete from User-profile.json: {json_error}")
+
+        if not deleted and not deleted_folders and not deleted_from_data_centralization and not deleted_from_user_profile:
             return DataResponse(
                 success=True,
-                message="No consent data found to delete",
+                message="No consent data, folders, or JSON entries found to delete",
             )
-            
+
+        message_parts = []
+        if deleted:
+            message_parts.append("User consent data deleted from MongoDB")
+        if deleted_folders:
+            message_parts.append(f"Deleted {len(deleted_folders)} folder(s): captures, complete, enhance")
+        if deleted_from_data_centralization:
+            message_parts.append("Deleted from Data_centralization.json")
+        if deleted_from_user_profile:
+            message_parts.append("Deleted from User-profile.json")
+
         return DataResponse(
             success=True,
-            message="User consent data deleted successfully"
+            message=". ".join(message_parts) if message_parts else "Deletion completed",
+            data={
+                "deleted_folders": deleted_folders,
+                "folder_count": len(deleted_folders),
+                "deleted_from_data_centralization": deleted_from_data_centralization,
+                "deleted_from_user_profile": deleted_from_user_profile
+            }
         )
     except Exception as e:
         logger.error(f"Error deleting consent for user {user_id}: {e}")

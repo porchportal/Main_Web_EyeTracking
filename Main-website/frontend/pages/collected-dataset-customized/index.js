@@ -6,11 +6,11 @@ import DisplayResponse from './components-gui/displayResponse.jsx';
 import NotificationMessage from './components-gui/noti_message';
 import CameraSelect from './components-gui/cameraSelect';
 import CameraPreview from './components-gui/CameraPreview';
-import cameraStyles from './styles/camera-ui.module.css';
+// import cameraStyles from './styles/camera-ui.module.css';
 import { useCanvasImage, useCanvasImageWithOverlay, ImageOverlay } from './components-gui/CanvasImage';
-import { showCapturePreview, drawRedDot, getRandomPosition, createCountdownElement, runCountdown } from '../../components/collected-dataset-customized/Action/countSave.jsx';
-import { captureImagesAtUserPoint } from '../../components/collected-dataset-customized/Helper/user_savefile';
-import { generateCalibrationPoints } from '../../components/collected-dataset-customized/Action/CalibratePoints.jsx';
+// import { showCapturePreview, drawRedDot, getRandomPosition, createCountdownElement, runCountdown } from '../../components/collected-dataset-customized/Action/countSave.jsx';
+// import { captureImagesAtUserPoint } from '../../components/collected-dataset-customized/Helper/user_savefile';
+// import { generateCalibrationPoints } from '../../components/collected-dataset-customized/Action/CalibratePoints.jsx';
 import { useConsent } from '../../components/consent_ui/ConsentContext';
 import { useRouter } from 'next/router';
 import { useAdminSettings } from './components-gui/adminSettings';
@@ -550,7 +550,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const [warningMessage, setWarningMessage] = useState('');
   const [outputText, setOutputText] = useState('');
   const [showPermissionPopup, setShowPermissionPopup] = useState(false);
-  const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
   const [showCameraPlaceholder, setShowCameraPlaceholder] = useState(false);
   const [showCameraSelector, setShowCameraSelector] = useState(false);
@@ -560,7 +559,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const [metrics, setMetrics] = useState({ width: 0, height: 0, distance: '---' });
   const [captureCounter, setCaptureCounter] = useState(1);
   const [currentUserId, setCurrentUserId] = useState('default');
-  const [showSettings, setShowSettings] = useState(false);
   const [isPageActive, setIsPageActive] = useState(true);
 
   // Camera state management

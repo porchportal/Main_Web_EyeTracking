@@ -33,6 +33,11 @@
   font-size: 1rem;
 }
 
+.formGroup input::placeholder {
+  font-size: 0.85rem;
+  color: #999;
+}
+
 .error {
   color: #dc3545;
   margin-bottom: 1rem;

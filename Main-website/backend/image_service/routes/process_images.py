@@ -321,21 +321,22 @@ async def process_images(
                 for i, set_num in enumerate(current_batch):
                     global_index = batch_start + i
                     try:
-                        # Update progress - use global_index+1 for 1-based progress calculation
+                        # Calculate current progress (1-based for display)
+                        current_set_number = global_index + 1
                         current_file = f"webcam_{set_num:03d}.jpg"
-                        
-                        # Calculate progress for yield (1-based)
-                        progress_percentage = int(((global_index + 1) / total_sets) * 100)
-                        
-                        # Update progress file with current index (global_index is 0-based, so global_index+1 gives us 1-based progress)
-                        update_progress(userId, set_num, total_sets, processed_sets, "processing", 
-                                      f"Processing set {set_num} ({global_index + 1}/{total_sets}) in batch {batch_number}/{total_batches}", current_file, global_index)
-                        
+
+                        # Calculate progress percentage based on completion
+                        progress_percentage = int((current_set_number / total_sets) * 100)
+
+                        # Update progress file at the start of processing each image
+                        update_progress(userId, set_num, total_sets, processed_sets, "processing",
+                                      f"Processing set {set_num} ({current_set_number}/{total_sets})", current_file, global_index)
+
                         yield {
                             "status": "processing",
-                            "message": f"Processing set {set_num} ({global_index + 1}/{total_sets}) in batch {batch_number}/{total_batches}",
+                            "message": f"Processing set {set_num} ({current_set_number}/{total_sets})",
                             "progress": progress_percentage,
-                            "currentSet": set_num,
+                            "currentSet": current_set_number,
                             "currentFile": current_file
                         }
                         
@@ -437,18 +438,23 @@ async def process_images(
                         
                         # Add to processed sets
                         processed_sets.append(set_num)
-                        
+
+                        # Calculate completed progress
+                        completed_count = len(processed_sets)
+                        completed_percentage = int((completed_count / total_sets) * 100)
+
                         # Update progress for successful completion
-                        update_progress(userId, set_num, total_sets, processed_sets, "processing", 
-                                      f"Completed set {set_num} ({len(processed_sets)}/{total_sets})", current_file, global_index)
-                        
-                        # Also yield progress update for immediate frontend update
+                        update_progress(userId, set_num, total_sets, processed_sets, "processing",
+                                      f"Completed set {set_num} ({completed_count}/{total_sets})", current_file, global_index)
+
+                        # Yield progress update for immediate frontend update
                         yield {
                             "status": "processing",
-                            "message": f"Completed set {set_num} ({len(processed_sets)}/{total_sets})",
-                            "progress": int(((global_index + 1) / total_sets) * 100),
-                            "currentSet": set_num,
-                            "currentFile": current_file
+                            "message": f"✓ Completed set {set_num} ({completed_count}/{total_sets})",
+                            "progress": completed_percentage,
+                            "currentSet": current_set_number,
+                            "currentFile": current_file,
+                            "processedSets": processed_sets
                         }
                         
                         # Update parameter file with new metrics
@@ -694,15 +700,17 @@ async def process_images(
                 }
             
             # Final success message
-            update_progress(userId, set_numbers[-1] if set_numbers else 0, total_sets, processed_sets, 
-                          "completed", f"All images processed successfully ({len(processed_sets)}/{total_sets})", "", len(set_numbers) - 1)
-            
+            final_processed_count = len(processed_sets)
+            update_progress(userId, set_numbers[-1] if set_numbers else 0, total_sets, processed_sets,
+                          "completed", f"✓ All images processed successfully! ({final_processed_count}/{total_sets})", "", total_sets - 1)
+
             yield {
                 "status": "completed",
-                "message": "All images processed successfully",
+                "message": f"🎉 All images processed successfully! ({final_processed_count}/{total_sets})",
                 "progress": 100,
-                "currentSet": set_numbers[-1],
-                "currentFile": f"webcam_{set_numbers[-1]:03d}.jpg"
+                "currentSet": total_sets,
+                "currentFile": "Processing complete",
+                "processedSets": processed_sets
             }
             
             # Clean up progress file after successful completion

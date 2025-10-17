@@ -11,10 +11,18 @@ export default function AdminLogin() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) {
+      e.preventDefault();
+    }
+
+    // Don't submit if already loading or fields are empty
+    if (isLoading || !username.trim() || !password.trim()) {
+      return;
+    }
+
     setIsLoading(true);
     setError('');
-    
+
     try {
       const response = await fetch('/api/admin/auth', {
         method: 'POST',
@@ -45,7 +53,7 @@ export default function AdminLogin() {
           // If we can't parse the error response, show a generic message
           setError(`Login failed with status ${response.status}. Please check your credentials.`);
         }
-        
+
         // Increment attempts and handle max attempts
         setAttempts(prev => {
           const newAttempts = prev + 1;
@@ -72,6 +80,14 @@ export default function AdminLogin() {
     }
   };
 
+  // Handle keyboard Enter key on input fields
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !isLoading) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
   return (
     <div className={styles.container}>
       <div className={styles.loginBox}>
@@ -85,12 +101,14 @@ export default function AdminLogin() {
               name="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              onKeyPress={handleKeyPress}
               required
               disabled={isLoading}
               autoComplete="username"
               autoCapitalize="off"
               autoCorrect="off"
               spellCheck="false"
+              placeholder="Username"
             />
           </div>
           <div className={styles.formGroup}>
@@ -101,9 +119,11 @@ export default function AdminLogin() {
               name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onKeyPress={handleKeyPress}
               required
               disabled={isLoading}
               autoComplete="current-password"
+              placeholder="Password"
             />
           </div>
           {error && <div className={styles.error}>{error}</div>}

@@ -1,8 +1,121 @@
 // Unified Camera Access Component
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { getHighestResolutionConstraints } from '../../../components/collected-dataset-customized/Helper/cameraUtils';
 import styles from '../styles/camera-ui.module.css';
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Cleanup camera-related data from localStorage and global scope
+ */
+const cleanupCameraData = () => {
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('cameraActivated');
+    localStorage.removeItem('cameraActivationTime');
+    if (window.videoElement) {
+      delete window.videoElement;
+    }
+    if (window.subVideoElement) {
+      delete window.subVideoElement;
+    }
+  }
+};
+
+/**
+ * Clear and cleanup processing interval
+ */
+const clearProcessingInterval = (intervalRef) => {
+  if (intervalRef.current) {
+    clearInterval(intervalRef.current);
+    intervalRef.current = null;
+  }
+};
+
+/**
+ * Clear canvas content
+ */
+const clearCanvas = (canvasRef) => {
+  if (canvasRef.current) {
+    const ctx = canvasRef.current.getContext('2d');
+    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+  }
+};
+
+/**
+ * Draw mirrored video frame to canvas
+ */
+const drawMirroredVideoFrame = (ctx, video, canvas) => {
+  // Save the current context state
+  ctx.save();
+
+  // Flip the context horizontally to mirror the video
+  ctx.translate(canvas.width, 0);
+  ctx.scale(-1, 1);
+
+  // Draw video frame to canvas at high resolution
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  // Restore the context state
+  ctx.restore();
+};
+
+/**
+ * Get WebSocket URL based on current protocol and port
+ */
+const getWebSocketUrl = () => {
+  const isSecure = window.location.protocol === 'https:';
+  const currentPort = window.location.port;
+  const hostname = window.location.hostname;
+
+  let wsUrl;
+  if (isSecure) {
+    // Use WSS for HTTPS connections
+    if (currentPort === '9444') {
+      // Camera-specific port
+      wsUrl = `wss://${hostname}:9444`;
+    } else {
+      // Main HTTPS port
+      wsUrl = `wss://${hostname}:443`;
+    }
+  } else {
+    // Fallback to environment variable for development
+    wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8108';
+  }
+
+  return wsUrl;
+};
+
+/**
+ * Map error types to user-friendly messages
+ */
+const getErrorMessage = (error) => {
+  let errorMessage = 'Camera error: ';
+
+  if (error.name === 'NotAllowedError') {
+    errorMessage += 'Camera access was denied. Please allow camera access in your browser settings.';
+  } else if (error.name === 'NotFoundError') {
+    errorMessage += 'No camera found. Please connect a camera and try again.';
+  } else if (error.name === 'NotReadableError') {
+    errorMessage += 'Camera is already in use by another application.';
+  } else if (error.name === 'OverconstrainedError') {
+    errorMessage += 'Camera does not support the requested resolution.';
+  } else if (error.message === 'getUserMedia is not implemented in this browser') {
+    errorMessage += 'Your browser does not support camera access. Please try using a modern browser like Chrome, Firefox, or Edge.';
+  } else if (error.message && error.message.includes('HTTPS')) {
+    errorMessage += 'Camera access requires HTTPS or localhost. Please use HTTPS or run the application on localhost.';
+  } else if (error.message && error.message.includes('permanently denied')) {
+    errorMessage += 'Camera access has been permanently denied. Please update your browser settings.';
+  } else if (error.message && error.message.includes('Video loading timeout')) {
+    errorMessage += 'Video took too long to load. Please try again.';
+  } else {
+    errorMessage += error.message || 'Unknown error';
+  }
+
+  return errorMessage;
+};
 
 // Create the main camera component
 const CameraAccessComponent = ({
@@ -28,17 +141,15 @@ const CameraAccessComponent = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [fps, setFps] = useState(0);
   const fpsTimerRef = useRef(null);
+  const fpsCounterRef = useRef({ frames: 0, lastTime: Date.now() });
   const processingInterval = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [isVideoReady, setIsVideoReady] = useState(false);
-  const [processingResults, setProcessingResults] = useState(null);
-  const frameQueue = useRef([]);
-  const isProcessing = useRef(false);
   const [wsStatus, setWsStatus] = useState('disconnected');
   const [isLinked, setIsLinked] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [maxResolution, setMaxResolution] = useState({ width: 0, height: 0, name: 'N/A' });
-  
+
   // Helper function to get resolution name based on dimensions
   const getResolutionName = (width, height) => {
     if (!width || !height) return 'N/A';
@@ -76,7 +187,7 @@ const CameraAccessComponent = ({
     // But don't redirect for main application routes - only for camera-specific functionality
     return isSecure && currentPort !== '9444' && window.location.pathname.includes('/camera');
   };
-  
+
   // Redirect to camera port if needed (only for camera-specific routes)
   const redirectToCameraPort = () => {
     if (shouldUseCameraPort()) {
@@ -87,7 +198,7 @@ const CameraAccessComponent = ({
     }
     return false;
   };
-  
+
   // WebSocket connection
   const connectWebSocket = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -96,26 +207,7 @@ const CameraAccessComponent = ({
 
     setWsStatus('connecting');
     try {
-      // Determine WebSocket URL based on current protocol and port
-      const isSecure = window.location.protocol === 'https:';
-      const currentPort = window.location.port;
-      const hostname = window.location.hostname;
-      
-      let wsUrl;
-      if (isSecure) {
-        // Use WSS for HTTPS connections
-        if (currentPort === '9444') {
-          // Camera-specific port
-          wsUrl = `wss://${hostname}:9444`;
-        } else {
-          // Main HTTPS port
-          wsUrl = `wss://${hostname}:443`;
-        }
-      } else {
-        // Fallback to environment variable for development
-        wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8108';
-      }
-      
+      const wsUrl = getWebSocketUrl();
       const ws = new WebSocket(`${wsUrl}/ws/video`);
       wsRef.current = ws;
 
@@ -143,8 +235,7 @@ const CameraAccessComponent = ({
       ws.onmessage = (event) => {
         try {
           const result = JSON.parse(event.data);
-          setProcessingResults(result);
-          // drawResults(result);
+          // Result received from backend
         } catch (error) {
           // Error parsing WebSocket message
         }
@@ -162,11 +253,8 @@ const CameraAccessComponent = ({
         setWsStatus('disconnected');
         setIsLinked(false);
         // Stop frame processing
-        if (processingInterval.current) {
-          clearInterval(processingInterval.current);
-          processingInterval.current = null;
-        }
-        
+        clearProcessingInterval(processingInterval);
+
         // If the connection was closed due to an error, show error message
         if (event.code !== 1000) { // 1000 is normal closure
           setErrorMessage(`WebSocket connection closed: ${event.reason || 'Unknown reason'}`);
@@ -186,32 +274,16 @@ const CameraAccessComponent = ({
       setWsStatus('disconnected');
       setIsLinked(false);
       // Stop frame processing
-      if (processingInterval.current) {
-        clearInterval(processingInterval.current);
-        processingInterval.current = null;
-      }
+      clearProcessingInterval(processingInterval);
       // Clear the canvas to remove any overlays
-      if (canvasRef.current) {
-        const ctx = canvasRef.current.getContext('2d');
-        ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-      }
+      clearCanvas(canvasRef);
     }
   };
 
+  // Cleanup effect for camera activation state
   useEffect(() => {
     if (!isShowing) {
-      // Clear any camera activation data when camera is closed
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('cameraActivated');
-        localStorage.removeItem('cameraActivationTime');
-        // Clean up global video element when camera is closed
-        if (window.videoElement) {
-          delete window.videoElement;
-        }
-        if (window.subVideoElement) {
-          delete window.subVideoElement;
-        }
-      }
+      cleanupCameraData();
       return;
     }
 
@@ -222,18 +294,7 @@ const CameraAccessComponent = ({
     }
 
     return () => {
-      // Clear any camera activation data when component unmounts
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('cameraActivated');
-        localStorage.removeItem('cameraActivationTime');
-        // Clean up global video element
-        if (window.videoElement) {
-          delete window.videoElement;
-        }
-        if (window.subVideoElement) {
-          delete window.subVideoElement;
-        }
-      }
+      cleanupCameraData();
     };
   }, [isShowing]);
 
@@ -250,18 +311,8 @@ const CameraAccessComponent = ({
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Save the current context state
-      ctx.save();
-
-      // Flip the context horizontally to mirror the video
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-
-      // Draw video frame to canvas at high resolution
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // Restore the context state
-      ctx.restore();
+      // Draw mirrored video frame
+      drawMirroredVideoFrame(ctx, video, canvas);
 
       // Convert canvas to blob with high quality
       canvas.toBlob((blob) => {
@@ -278,21 +329,10 @@ const CameraAccessComponent = ({
     if (typeof window !== 'undefined') {
       try {
         const storedCameras = localStorage.getItem('selectedCameras');
-        const storedCameraData = localStorage.getItem('selectedCamerasData');
-        
+
         if (storedCameras) {
           const parsedCameras = JSON.parse(storedCameras);
           if (Array.isArray(parsedCameras) && parsedCameras.length > 0) {
-            
-            // Load camera data with tags if available
-            if (storedCameraData) {
-              try {
-                const parsedCameraData = JSON.parse(storedCameraData);
-              } catch (dataError) {
-                console.warn('Error parsing camera data:', dataError);
-              }
-            }
-            
             return parsedCameras;
           }
         }
@@ -315,10 +355,7 @@ const CameraAccessComponent = ({
     }
 
     // Clear any existing processing intervals
-    if (processingInterval.current) {
-      clearInterval(processingInterval.current);
-      processingInterval.current = null;
-    }
+    clearProcessingInterval(processingInterval);
 
     try {
       // 1. Enhanced Browser Environment Check
@@ -330,18 +367,11 @@ const CameraAccessComponent = ({
         throw new Error('Navigator object not available - not running in a browser environment');
       }
 
-      // 2. Comprehensive Browser Detection
+      // 2. Simplified Browser Detection (only compute what's needed)
       const userAgent = navigator.userAgent.toLowerCase();
-      const browserInfo = {
-        isChrome: /chrome/.test(userAgent) && !/edge/.test(userAgent),
-        isFirefox: /firefox/.test(userAgent),
-        isSafari: /safari/.test(userAgent) && !/chrome/.test(userAgent),
-        isEdge: /edge/.test(userAgent),
-        isOpera: /opr/.test(userAgent),
-        isIE: /trident/.test(userAgent),
-        isMobile: /mobile|android|iphone|ipad|phone/i.test(userAgent),
-        version: userAgent.match(/(chrome|firefox|safari|edge|opr)\/([0-9]+)/)
-      };
+      const isMobile = /mobile|android|iphone|ipad|phone/i.test(userAgent);
+      const isIE = /trident/.test(userAgent);
+      const isSafari = /safari/.test(userAgent) && !/chrome/.test(userAgent);
 
       // 3. Initialize MediaDevices API
       if (!navigator.mediaDevices) {
@@ -386,11 +416,11 @@ const CameraAccessComponent = ({
           };
         } else {
           // Provide specific guidance based on browser
-          if (browserInfo.isMobile) {
+          if (isMobile) {
             throw new Error('Camera access on mobile devices requires HTTPS. Please use a secure connection.');
-          } else if (browserInfo.isIE) {
+          } else if (isIE) {
             throw new Error('Internet Explorer does not support camera access. Please use Chrome, Firefox, or Edge.');
-          } else if (browserInfo.isSafari) {
+          } else if (isSafari) {
             throw new Error('Safari requires HTTPS for camera access. Please use a secure connection or try Chrome/Firefox.');
           } else {
             throw new Error('Camera access not supported in this browser. Please use Chrome, Firefox, or Edge.');
@@ -399,12 +429,12 @@ const CameraAccessComponent = ({
       }
 
       // 5. Check Security Context
-      const isSecure = window.location.protocol === 'https:' || 
-                      window.location.hostname === 'localhost' || 
+      const isSecure = window.location.protocol === 'https:' ||
+                      window.location.hostname === 'localhost' ||
                       window.location.hostname === '127.0.0.1' ||
                       window.location.hostname === '0.0.0.0' ||
                       process.env.NODE_ENV === 'development';
-      
+
       if (!isSecure) {
         throw new Error(`Camera access requires HTTPS or localhost. Current protocol: ${window.location.protocol}, hostname: ${window.location.hostname}. Please access via https://${window.location.hostname}:9444 for camera access.`);
       }
@@ -451,7 +481,7 @@ const CameraAccessComponent = ({
         },
         audio: false
       };
-      
+
       // Add deviceId to fallback if a specific camera is selected
       if (selectedCameras && selectedCameras.length > 0 && cameraIndex < selectedCameras.length) {
         fallbackConstraints.video.deviceId = { exact: selectedCameras[cameraIndex] };
@@ -468,7 +498,7 @@ const CameraAccessComponent = ({
         try {
           mediaStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
         } catch (fallbackError) {
-          
+
           // Provide specific guidance based on error type
           if (fallbackError.name === 'NotAllowedError') {
             if (permissionStatus === 'prompt') {
@@ -491,43 +521,43 @@ const CameraAccessComponent = ({
       // 11. Setup Video Element with improved error handling
       if (videoRef.current) {
         const video = videoRef.current;
-        
+
         // Reset video element
         video.pause();
         video.currentTime = 0;
         video.srcObject = null;
-        
-        // Set video properties
+
+        // Set video properties (consolidated - removed duplicates)
         video.playsInline = true;
         video.muted = true;
         video.autoplay = false; // Don't autoplay, we'll handle it manually
-        
+
         // Set the stream
         video.srcObject = mediaStream;
-        
+
         // Wait for video to be ready
         await new Promise((resolve, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error('Video loading timeout'));
           }, 10000); // 10 second timeout
-          
+
           const handleCanPlay = () => {
             clearTimeout(timeout);
             video.removeEventListener('canplay', handleCanPlay);
             video.removeEventListener('error', handleError);
             resolve();
           };
-          
+
           const handleError = (error) => {
             clearTimeout(timeout);
             video.removeEventListener('canplay', handleCanPlay);
             video.removeEventListener('error', handleError);
             reject(new Error(`Video error: ${error.message}`));
           };
-          
+
           video.addEventListener('canplay', handleCanPlay);
           video.addEventListener('error', handleError);
-          
+
           // If video is already ready, resolve immediately
           if (video.readyState >= 2) {
             handleCanPlay();
@@ -536,15 +566,10 @@ const CameraAccessComponent = ({
 
         // Try to play the video with improved autoplay handling
         try {
-          // Set video properties for better autoplay success
-          video.muted = true;
-          video.playsInline = true;
-          video.autoplay = false;
-          
           // Try to play immediately
           await video.play();
           setIsVideoReady(true);
-          
+
           // Expose video element to global scope for capture functions
           // Set up global video element references based on camera index
           if (cameraIndex === 0) {
@@ -552,11 +577,11 @@ const CameraAccessComponent = ({
           } else if (cameraIndex === 1) {
             window.subVideoElement = video;
           }
-          
+
           // Also set data attributes for identification
           video.setAttribute('data-camera-index', cameraIndex.toString());
           video.setAttribute('data-camera-tag', cameraIndex === 0 ? 'main' : 'submain');
-          
+
           if (wsStatus === 'connected') {
             processingInterval.current = setInterval(captureAndProcessFrame, 33);
           }
@@ -574,29 +599,7 @@ const CameraAccessComponent = ({
         }
       }
     } catch (error) {
-      let errorMessage = 'Camera error: ';
-      
-      if (error.name === 'NotAllowedError') {
-        errorMessage += 'Camera access was denied. Please allow camera access in your browser settings.';
-      } else if (error.name === 'NotFoundError') {
-        errorMessage += 'No camera found. Please connect a camera and try again.';
-      } else if (error.name === 'NotReadableError') {
-        errorMessage += 'Camera is already in use by another application.';
-      } else if (error.name === 'OverconstrainedError') {
-        errorMessage += 'Camera does not support the requested resolution.';
-      } else if (error.message === 'getUserMedia is not implemented in this browser') {
-        errorMessage += 'Your browser does not support camera access. Please try using a modern browser like Chrome, Firefox, or Edge.';
-      } else if (error.message.includes('HTTPS')) {
-        errorMessage += 'Camera access requires HTTPS or localhost. Please use HTTPS or run the application on localhost.';
-      } else if (error.message.includes('permanently denied')) {
-        errorMessage += 'Camera access has been permanently denied. Please update your browser settings.';
-      } else if (error.message.includes('Video loading timeout')) {
-        errorMessage += 'Video took too long to load. Please try again.';
-      } else {
-        errorMessage += error.message || 'Unknown error';
-      }
-      
-      setErrorMessage(errorMessage);
+      setErrorMessage(getErrorMessage(error));
     } finally {
       setIsStarting(false);
     }
@@ -604,11 +607,8 @@ const CameraAccessComponent = ({
 
   const stopCamera = () => {
     // Clear processing interval first
-    if (processingInterval.current) {
-      clearInterval(processingInterval.current);
-      processingInterval.current = null;
-    }
-    
+    clearProcessingInterval(processingInterval);
+
     // Stop all tracks in the stream
     if (stream) {
       stream.getTracks().forEach(track => {
@@ -616,7 +616,7 @@ const CameraAccessComponent = ({
       });
       setStream(null);
     }
-    
+
     // Clear video source and reset video element
     if (videoRef.current) {
       const video = videoRef.current;
@@ -629,27 +629,24 @@ const CameraAccessComponent = ({
         // Error resetting video element
       }
     }
-    
+
     // Clear canvas
-    if (canvasRef.current) {
-      const ctx = canvasRef.current.getContext('2d');
-      ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    }
-    
+    clearCanvas(canvasRef);
+
     setIsVideoReady(false);
     setErrorMessage('');
     setIsStarting(false);
-    
+
     // Clean up global video element
     if (typeof window !== 'undefined' && window.videoElement) {
       delete window.videoElement;
     }
   };
 
-    // Start camera on component mount if isShowing is true or if hidden but active
+  // Start camera on component mount if isShowing is true or if hidden but active
   useEffect(() => {
     let isMounted = true;
-    
+
     const handleCameraLifecycle = async () => {
       if ((isShowing || isHidden) && isMounted) {
         await startCamera();
@@ -659,79 +656,89 @@ const CameraAccessComponent = ({
     };
 
     handleCameraLifecycle();
-    
+
     return () => {
       isMounted = false;
       stopCamera();
     };
   }, [isShowing, isHidden, selectedCameras, cameraIndex]);
 
-  // Setup FPS counter
+  // Setup FPS counter with real FPS tracking
   useEffect(() => {
     if (!isShowing && !isHidden) return;
 
     fpsTimerRef.current = setInterval(() => {
-      setFps(prevFps => {
-        // Simple mock for fps counter
-        const newFps = Math.floor(Math.random() * 10) + 25; // Random between 25-35 fps
-        return newFps;
-      });
+      const now = Date.now();
+      const elapsed = (now - fpsCounterRef.current.lastTime) / 1000;
+
+      if (elapsed > 0) {
+        const currentFps = Math.round(fpsCounterRef.current.frames / elapsed);
+        setFps(currentFps);
+
+        // Reset counter
+        fpsCounterRef.current.frames = 0;
+        fpsCounterRef.current.lastTime = now;
+      }
     }, 1000);
 
     return () => {
       if (fpsTimerRef.current) {
         clearInterval(fpsTimerRef.current);
       }
-      if (processingInterval.current) {
-        clearInterval(processingInterval.current);
-      }
+      clearProcessingInterval(processingInterval);
     };
   }, [isShowing, isHidden]);
 
   // Send camera info updates to parent
   useEffect(() => {
-    if (onCameraInfoUpdate) {
-      // Use maximum resolution capacity if available, otherwise show N/A
-      const resolutionDisplay = maxResolution.width > 0
-        ? `${maxResolution.name} (${maxResolution.width} × ${maxResolution.height})`
-        : 'N/A';
+    if (!onCameraInfoUpdate) return;
 
-      const cameraInfo = {
-        resolution: resolutionDisplay,
-        fps: fps,
-        status: isVideoReady ? 'Active' : isStarting ? 'Starting...' : 'Inactive',
-        isVideoReady: isVideoReady,
-        wsStatus: wsStatus,
-        wsStatusText: wsStatus === 'connected' ? 'Connected' : wsStatus === 'connecting' ? 'Connecting...' : 'Disconnected',
-        streamTracks: stream ? `${stream.getTracks().length} track(s)` : 'No stream'
-      };
-      onCameraInfoUpdate(cameraInfo);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fps, isVideoReady, isStarting, wsStatus, stream, maxResolution]);
+    // Use maximum resolution capacity if available, otherwise show N/A
+    const resolutionDisplay = maxResolution.width > 0
+      ? `${maxResolution.name} (${maxResolution.width} × ${maxResolution.height})`
+      : 'N/A';
 
-  // Update dimensions when container size changes
+    const cameraInfo = {
+      resolution: resolutionDisplay,
+      fps: fps,
+      status: isVideoReady ? 'Active' : isStarting ? 'Starting...' : 'Inactive',
+      isVideoReady: isVideoReady,
+      wsStatus: wsStatus,
+      wsStatusText: wsStatus === 'connected' ? 'Connected' : wsStatus === 'connecting' ? 'Connecting...' : 'Disconnected',
+      streamTracks: stream ? `${stream.getTracks().length} track(s)` : 'No stream'
+    };
+    onCameraInfoUpdate(cameraInfo);
+  }, [fps, isVideoReady, isStarting, wsStatus, stream, maxResolution, onCameraInfoUpdate]);
+
+  // Update dimensions when container size changes with debouncing
   useEffect(() => {
     if (!isShowing && !isHidden) return;
-    
+
+    let resizeTimeout;
     const updateDimensions = () => {
-      if (containerRef.current) {
-        const { width, height } = containerRef.current.getBoundingClientRect();
-        setDimensions({ width, height });
-      }
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        if (containerRef.current) {
+          const { width, height } = containerRef.current.getBoundingClientRect();
+          setDimensions({ width, height });
+        }
+      }, 100); // 100ms debounce
     };
 
     updateDimensions();
     window.addEventListener('resize', updateDimensions);
-    return () => window.removeEventListener('resize', updateDimensions);
+    return () => {
+      window.removeEventListener('resize', updateDimensions);
+      clearTimeout(resizeTimeout);
+    };
   }, [isShowing, isHidden]);
 
-  // Handle video element ready state
+  // Handle video element ready state and setup canvas
   useEffect(() => {
     if ((!isShowing && !isHidden) || !videoRef.current || !stream) return;
-    
+
     const video = videoRef.current;
-    
+
     const handleLoadedMetadata = async () => {
       setIsVideoReady(true);
 
@@ -797,88 +804,84 @@ const CameraAccessComponent = ({
     };
 
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    
+
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
-  }, [stream, isShowing, dimensions, onCameraReady]);
+  }, [stream, isShowing, isHidden, dimensions]);
 
   const startProcessing = () => {
     if (!canvasRef.current || !videoRef.current || !isVideoReady) return;
-    
+
+    // Clear any existing interval to prevent duplicates
+    clearProcessingInterval(processingInterval);
+
     const video = videoRef.current;
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    
+
     // Start processing frames at ~30fps
     processingInterval.current = setInterval(() => {
       if (video.readyState !== 4) return;
-      
+
+      // Increment FPS counter
+      fpsCounterRef.current.frames++;
+
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Save the current context state
-      ctx.save();
-      
-      // Flip the context horizontally to mirror the video
-      ctx.translate(canvas.width, 0);
-      ctx.scale(-1, 1);
-      
-      // Draw video frame to canvas at high resolution
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Restore the context state
-      ctx.restore();
-      
+
+      // Draw mirrored video frame
+      drawMirroredVideoFrame(ctx, video, canvas);
+
       // Simulate face detection (90% chance of face detected)
       const faceDetected = Math.random() > 0.1;
-      
+
       // Draw visualizations based on enabled options
       if (faceDetected) {
         if (showBoundingBox) {
           drawBoundingBox(ctx, canvas);
         }
-        
+
         if (showHeadPose) {
           drawHeadPose(ctx, canvas);
         }
-        
+
         if (showMask) {
           drawFaceMask(ctx, canvas);
         }
       }
-      
+
       // Display parameters if enabled
       if (showParameters) {
         drawParameters(ctx, canvas, faceDetected);
       }
     }, 33); // ~30fps
   };
-  
+
   // Helper function to draw bounding box
   const drawBoundingBox = (ctx, canvas) => {
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     const boxWidth = canvas.width * 0.6;
     const boxHeight = canvas.height * 0.8;
-    
+
     ctx.strokeStyle = 'rgba(255, 255, 0, 0.7)';
     ctx.lineWidth = 2;
     ctx.strokeRect(
-      centerX - boxWidth/2, 
-      centerY - boxHeight/2, 
-      boxWidth, 
+      centerX - boxWidth/2,
+      centerY - boxHeight/2,
+      boxWidth,
       boxHeight
     );
   };
-  
-  // Helper function to draw head pose axes
-  const drawHeadPose = (ctx, canvas, pitch, yaw, roll) => {
+
+  // Helper function to draw head pose axes (removed unused parameters)
+  const drawHeadPose = (ctx, canvas) => {
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     const time = Date.now() / 1000;
     const length = canvas.width * 0.1;
-    
+
     // X axis (red)
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
@@ -886,7 +889,7 @@ const CameraAccessComponent = ({
     ctx.strokeStyle = 'red';
     ctx.lineWidth = 3;
     ctx.stroke();
-    
+
     // Y axis (green)
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
@@ -894,54 +897,54 @@ const CameraAccessComponent = ({
     ctx.strokeStyle = 'green';
     ctx.lineWidth = 3;
     ctx.stroke();
-    
+
     // Z axis (blue)
     ctx.beginPath();
     ctx.moveTo(centerX, centerY);
     ctx.lineTo(
-      centerX + length/2 * Math.sin(time + 2), 
+      centerX + length/2 * Math.sin(time + 2),
       centerY - length/2 * Math.cos(time + 2)
     );
     ctx.strokeStyle = 'blue';
     ctx.lineWidth = 3;
     ctx.stroke();
   };
-  
-  // Helper function to draw face mask
-  const drawFaceMask = (ctx, canvas, points) => {
+
+  // Helper function to draw face mask (removed unused parameters)
+  const drawFaceMask = (ctx, canvas) => {
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
     const radius = Math.min(canvas.width, canvas.height) * 0.2;
-    
+
     // Draw mask
     ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
     ctx.beginPath();
     ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
     ctx.fill();
-    
+
     // Draw eyes
     const eyeRadius = radius * 0.2;
     const eyeOffsetX = radius * 0.3;
     const eyeOffsetY = radius * 0.1;
-    
+
     ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    
+
     // Left eye
     ctx.beginPath();
     ctx.arc(centerX - eyeOffsetX, centerY - eyeOffsetY, eyeRadius, 0, Math.PI * 2);
     ctx.fill();
-    
+
     // Right eye
     ctx.beginPath();
     ctx.arc(centerX + eyeOffsetX, centerY - eyeOffsetY, eyeRadius, 0, Math.PI * 2);
     ctx.fill();
   };
-  
+
   // Helper function to draw parameters
   const drawParameters = (ctx, canvas, faceDetected) => {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(5, canvas.height - 60, 150, 50);
-    
+
     ctx.font = '12px Arial';
     ctx.fillStyle = 'white';
     ctx.fillText(`Resolution: ${canvas.width}x${canvas.height}`, 10, canvas.height - 40);
@@ -991,7 +994,7 @@ const CameraAccessComponent = ({
       <div className={styles.cameraLabel}>
         Camera {cameraIndex + 1}
       </div>
-      
+
       <div className={styles.cameraControls}>
         <button
           onClick={onClose}
@@ -1054,7 +1057,7 @@ const CameraAccessComponent = ({
 // Create the dynamic import wrapper with SSR disabled
 const CameraAccess = dynamic(
   () => Promise.resolve(CameraAccessComponent),
-  { 
+  {
     ssr: false, // Disable server-side rendering for camera component
     loading: () => (
       <div className={styles.cameraLoadingPlaceholder}>

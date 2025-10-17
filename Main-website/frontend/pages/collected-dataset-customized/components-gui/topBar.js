@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import { useAdminSettings } from './adminSettings';
@@ -12,15 +12,15 @@ const debounce = (func, wait) => {
   let timeout;
   let lastArgs;
   let lastThis;
-  
+
   return function executedFunction(...args) {
     lastArgs = args;
     lastThis = this;
-    
+
     if (timeout) {
       clearTimeout(timeout);
     }
-    
+
     timeout = setTimeout(() => {
       timeout = null;
       func.apply(lastThis, lastArgs);
@@ -30,10 +30,7 @@ const debounce = (func, wait) => {
 
 const TopBar = ({
   onButtonClick,
-  onCameraAccess,
-  canvasRef,
   isTopBarShown = true,
-  showMetrics = true,
   isCameraActivated = false,
   selectedCamerasCount = 0,
   clickedButtons = new Set(),
@@ -46,7 +43,6 @@ const TopBar = ({
   const router = useRouter();
   const { settings, updateSettings, fetchSettings, currentSettings, isLoading } = useAdminSettings();
   const [currentUserId, setCurrentUserId] = useState(null);
-  const [enableBackgroundChange, setEnableBackgroundChange] = useState(false);
   const [showOrderRequire, setShowOrderRequire] = useState(false);
   const [orderRequireMessage, setOrderRequireMessage] = useState('');
   const [orderRequireList, setOrderRequireList] = useState([]);
@@ -55,31 +51,35 @@ const TopBar = ({
   const [showMenuPopup, setShowMenuPopup] = useState(false);
   const [isSmallScreen, setIsSmallScreen] = useState(false);
 
+  // Use refs to store stable references for debounced functions and event handlers
+  const debouncedSaveSettingsRef = useRef(null);
+  const settingsUpdateHandlerRef = useRef(null);
+
   // Get canvas function - use existing canvas from global manager
   const getCanvas = () => {
     // Use the global canvas manager from index.js if available
     if (typeof window !== 'undefined' && window.globalCanvasManager) {
       return window.globalCanvasManager.getCanvas();
     }
-    
+
     // Fallback: check for existing canvas
     let canvas = document.querySelector('#tracking-canvas');
-    
+
     if (!canvas) {
       console.warn('No canvas found and no global canvas manager available');
       return null;
     }
-    
+
     // Store global reference
     window.whiteScreenCanvas = canvas;
     return canvas;
   };
 
-  // Debounced save settings function
-  const debouncedSaveSettings = useCallback(
-    debounce(async (userId, newSettings) => {
+  // Initialize debounced save settings function once
+  if (!debouncedSaveSettingsRef.current) {
+    debouncedSaveSettingsRef.current = debounce(async (userId, newSettings, updateSettingsFn) => {
       if (!userId) return;
-      
+
       try {
         const response = await fetch(`/api/data-center/settings/${userId}`, {
           method: 'POST',
@@ -95,15 +95,14 @@ const TopBar = ({
         }
 
         const latestSettings = await response.json();
-        if (updateSettings) {
-          await updateSettings(latestSettings, userId);
+        if (updateSettingsFn) {
+          await updateSettingsFn(latestSettings, userId);
         }
       } catch (error) {
         console.error('TopBar - Error saving settings:', error);
       }
-    }, 500),
-    [updateSettings]
-  );
+    }, 500);
+  }
 
   // Initialize user ID and fetch initial settings
   useEffect(() => {
@@ -117,15 +116,13 @@ const TopBar = ({
     initializeUserId();
   }, [fetchSettings]);
 
-  // Update enableBackgroundChange when settings change
-  useEffect(() => {
+  // Derive enableBackgroundChange from settings using useMemo
+  const enableBackgroundChange = useMemo(() => {
     if (currentUserId && settings && settings[currentUserId]) {
       const userSettings = settings[currentUserId];
-      const backgroundChangeEnabled = userSettings.enable_background_change || false;
-      setEnableBackgroundChange(backgroundChangeEnabled);
-    } else {
-      setEnableBackgroundChange(false);
+      return userSettings.enable_background_change || false;
     }
+    return false;
   }, [currentUserId, settings]);
 
   // Listen for user ID changes
@@ -142,9 +139,9 @@ const TopBar = ({
     return () => window.removeEventListener('userIdChange', handleUserIdChange);
   }, [fetchSettings]);
 
-  // Listen for settings updates from admin page
+  // Listen for settings updates from admin page - use ref to avoid re-registering
   useEffect(() => {
-    const handleSettingsUpdate = (event) => {
+    settingsUpdateHandlerRef.current = (event) => {
       if (event.detail?.type === 'captureSettings') {
         const { userId, times_set_random, delay_set_random } = event.detail;
 
@@ -154,20 +151,24 @@ const TopBar = ({
             times_set_random: Number(times_set_random) || currentSettings.times_set_random,
             delay_set_random: Number(delay_set_random) || currentSettings.delay_set_random
           };
-          debouncedSaveSettings(userId, newSettings);
+          debouncedSaveSettingsRef.current(userId, newSettings, updateSettings);
         }
       }
     };
+  });
 
-    window.addEventListener('captureSettingsUpdate', handleSettingsUpdate);
-    return () => window.removeEventListener('captureSettingsUpdate', handleSettingsUpdate);
-  }, [currentSettings, debouncedSaveSettings]);
-
-  // Responsive logo size adjustment
   useEffect(() => {
-    const updateLogoSize = () => {
+    const handler = (event) => settingsUpdateHandlerRef.current(event);
+    window.addEventListener('captureSettingsUpdate', handler);
+    return () => window.removeEventListener('captureSettingsUpdate', handler);
+  }, []);
+
+  // Merged resize listener - handles both logo size and screen size
+  useEffect(() => {
+    const handleResize = () => {
       const width = window.innerWidth;
 
+      // Update logo size
       if (width <= 360) {
         // Extra small mobile
         setLogoSize({ width: 120, height: 110, maxHeight: 28 });
@@ -190,39 +191,29 @@ const TopBar = ({
         // Desktop
         setLogoSize({ width: 220, height: 160, maxHeight: 50 });
       }
-    };
 
-    // Initial call
-    updateLogoSize();
-
-    // Add event listener for window resize
-    const debouncedResize = debounce(updateLogoSize, 150);
-    window.addEventListener('resize', debouncedResize);
-
-    return () => window.removeEventListener('resize', debouncedResize);
-  }, []);
-
-  // Detect screen size for menu button
-  useEffect(() => {
-    const updateScreenSize = () => {
-      const width = window.innerWidth;
+      // Update screen size
       setIsSmallScreen(width < 1009);
+
       // Close menu popup if screen becomes large
       if (width >= 1009) {
         setShowMenuPopup(false);
       }
     };
 
-    updateScreenSize();
-    const debouncedScreenResize = debounce(updateScreenSize, 150);
-    window.addEventListener('resize', debouncedScreenResize);
+    // Initial call
+    handleResize();
 
-    return () => window.removeEventListener('resize', debouncedScreenResize);
+    // Add event listener for window resize with debouncing
+    const debouncedResize = debounce(handleResize, 150);
+    window.addEventListener('resize', debouncedResize);
+
+    return () => window.removeEventListener('resize', debouncedResize);
   }, []);
 
   // Disable automatic show on page refresh to prevent flash
   // Only show when user manually clicks the button
-  
+
   // Commented out automatic show to prevent flash on page refresh
   // useEffect(() => {
   //   if (currentSettings && currentSettings.buttons_order && currentSettings.buttons_order.trim() !== '' && !hasAutoShown) {
@@ -233,14 +224,14 @@ const TopBar = ({
   //       return step.replace(/\(#\d+\)/g, '').trim();
   //     });
   //     const buttonsList = buttonSteps.filter(step => step.length > 0);
-      
+
   //     if (buttonsList.length > 0) {
   //       setOrderRequireMessage('Button Click Sequence');
   //       setOrderRequireList(buttonsList);
   //       setShowOrderRequire(true);
   //       setIsManualShow(false); // This is an automatic show
   //       setHasAutoShown(true);
-        
+
   //       // Auto-hide after 5 seconds only on initial load
   //       setTimeout(() => {
   //         setShowOrderRequire(false);
@@ -248,7 +239,7 @@ const TopBar = ({
   //     }
   //   }
   // }, [currentSettings, hasAutoShown]);
-  
+
   const handleButtonClick = (actionType) => {
     // Check camera activation for action buttons that require camera
     if (['setRandom', 'calibrate', 'randomDot'].includes(actionType)) {
@@ -257,7 +248,7 @@ const TopBar = ({
         if (typeof window !== 'undefined' && window.cameraStateManager) {
           const actionNames = {
             'setRandom': 'Set Random',
-            'calibrate': 'Set Calibrate', 
+            'calibrate': 'Set Calibrate',
             'randomDot': 'Random Dot'
           };
           window.cameraStateManager.showNotification(actionNames[actionType]);
@@ -265,7 +256,7 @@ const TopBar = ({
         return;
       }
     }
-    
+
     // Ensure canvas is available before triggering actions that need it
     if (['setRandom', 'calibrate', 'randomDot', 'clearAll'].includes(actionType)) {
       const canvas = getCanvas();
@@ -273,7 +264,7 @@ const TopBar = ({
         console.warn(`Canvas not available for action: ${actionType}`);
       }
     }
-    
+
     if (onButtonClick) {
       onButtonClick(actionType);
     }
@@ -283,13 +274,6 @@ const TopBar = ({
     // Use global control function
     if (typeof window !== 'undefined' && window.toggleTopBar) {
       window.toggleTopBar(!isTopBarShown);
-    }
-  };
-  
-  const handleToggleMetrics = () => {
-    // Use global control function
-    if (typeof window !== 'undefined' && window.toggleMetrics) {
-      window.toggleMetrics(!showMetrics);
     }
   };
 
@@ -305,22 +289,22 @@ const TopBar = ({
     } else {
       // If not showing, show it with content from buttons_order
       setOrderRequireMessage('Button Click Sequence');
-      
+
       // Parse buttons_order from settings
       let buttonsList = [];
       if (currentSettings && currentSettings.buttons_order) {
         // Parse the buttons_order string like "Show preview (#1) → Set Calibrate (#2) → Random Dot (#3)"
         const buttonsOrder = currentSettings.buttons_order;
-        
+
         // Split by arrow and extract button names
         const buttonSteps = buttonsOrder.split('→').map(step => {
           // Remove numbering like (#1), (#2), etc. and trim whitespace
           return step.replace(/\(#\d+\)/g, '').trim();
         });
-        
+
         buttonsList = buttonSteps.filter(step => step.length > 0);
       }
-      
+
       // Fallback to default list if no buttons_order is configured
       if (buttonsList.length === 0) {
         buttonsList = [
@@ -331,7 +315,7 @@ const TopBar = ({
           'Default sequence will be used if not configured'
         ];
       }
-      
+
       setOrderRequireList(buttonsList);
       setShowOrderRequire(true);
       setIsManualShow(true); // This is a manual show (user clicked button)
@@ -365,6 +349,28 @@ const TopBar = ({
     setShowMenuPopup(false); // Close menu after clicking
   };
 
+  // Reusable menu button configuration
+  const menuButtonsConfig = [
+    { actionType: 'randomDot', label: 'Random Dot', title: 'Start random dot sequence' },
+    { actionType: 'setRandom', label: 'Set Random', title: 'Start random sequence' },
+    { actionType: 'calibrate', label: 'Set Calibrate', title: 'Start calibration sequence' },
+    { actionType: 'clearAll', label: 'Clear All', title: 'Clear all data' }
+  ];
+
+  // Reusable control groups configuration
+  const controlGroupsConfig = [
+    {
+      key: 'times',
+      label: 'Time(s):',
+      value: currentSettings.times_set_random
+    },
+    {
+      key: 'delay',
+      label: 'Delay(s):',
+      value: currentSettings.delay_set_random
+    }
+  ];
+
   return (
     <div className={styles.topbar} style={{ zIndex: 12, position: 'relative' }}>
       <div className={styles['topbar-left']}>
@@ -385,35 +391,22 @@ const TopBar = ({
           </div>
 
           <div className={styles['controls-container']}>
-            <div className={styles['control-group']} key={`times-${currentSettings.times_set_random}-${Date.now()}`}>
-              <span className={styles['control-label']} style={{
-                whiteSpace: 'nowrap',
-                width: '60px',
-                textAlign: 'right'
-              }}>Time(s):</span>
-              <div className={styles['control-input']}>
-                <div className={styles['control-input-field']} style={{
-                  fontWeight: 'bold'
-                }}>
-                  {currentSettings.times_set_random}
+            {controlGroupsConfig.map((config) => (
+              <div className={styles['control-group']} key={config.key}>
+                <span className={styles['control-label']} style={{
+                  whiteSpace: 'nowrap',
+                  width: '60px',
+                  textAlign: 'right'
+                }}>{config.label}</span>
+                <div className={styles['control-input']}>
+                  <div className={styles['control-input-field']} style={{
+                    fontWeight: 'bold'
+                  }}>
+                    {config.value}
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <div className={styles['control-group']} key={`delay-${currentSettings.delay_set_random}-${Date.now()}`}>
-              <span className={styles['control-label']} style={{
-                whiteSpace: 'nowrap',
-                width: '60px',
-                textAlign: 'right'
-              }}>Delay(s):</span>
-              <div className={styles['control-input']}>
-                <div className={styles['control-input-field']} style={{
-                  fontWeight: 'bold'
-                }}>
-                  {currentSettings.delay_set_random}
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
@@ -451,18 +444,15 @@ const TopBar = ({
                       </button>
                     </div>
                     <div className={styles['menu-items']}>
-                      <button className={styles['menu-item']} onClick={() => handleMenuItemClick('randomDot')}>
-                        Random Dot
-                      </button>
-                      <button className={styles['menu-item']} onClick={() => handleMenuItemClick('setRandom')}>
-                        Set Random
-                      </button>
-                      <button className={styles['menu-item']} onClick={() => handleMenuItemClick('calibrate')}>
-                        Set Calibrate
-                      </button>
-                      <button className={styles['menu-item']} onClick={() => handleMenuItemClick('clearAll')}>
-                        Clear All
-                      </button>
+                      {menuButtonsConfig.map((btn) => (
+                        <button
+                          key={btn.actionType}
+                          className={styles['menu-item']}
+                          onClick={() => handleMenuItemClick(btn.actionType)}
+                        >
+                          {btn.label}
+                        </button>
+                      ))}
                       <button className={styles['menu-item']} onClick={() => { handleGoBack(); setShowMenuPopup(false); }}>
                         ← Back
                       </button>
@@ -497,28 +487,16 @@ const TopBar = ({
           <div className={styles['button-groups']}>
             <div className={styles['button-group']}>
               <div className={styles['button-row']}>
-                <button
-                  className={styles.btn}
-                  onClick={() => handleButtonClick('randomDot')}
-                  title="Start random dot sequence"
-                >
-                  Random Dot
-                </button>
-
-                <button
-                  className={styles.btn}
-                  onClick={() => handleButtonClick('setRandom')}
-                  title="Start random sequence"
-                >
-                  Set Random
-                </button>
-                <button
-                  className={styles.btn}
-                  onClick={() => handleButtonClick('calibrate')}
-                  title="Start calibration sequence"
-                >
-                  Set Calibrate
-                </button>
+                {menuButtonsConfig.slice(0, 3).map((btn) => (
+                  <button
+                    key={btn.actionType}
+                    className={styles.btn}
+                    onClick={() => handleButtonClick(btn.actionType)}
+                    title={btn.title}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
               </div>
 
               <div className={`${styles['button-row']} ${styles.centered}`}>
@@ -583,7 +561,7 @@ const TopBar = ({
           </div>
         )}
       </div>
-      
+
       <div className={styles['topbar-right']}>
         <div className={styles['control-buttons']}>
           <button
@@ -593,19 +571,9 @@ const TopBar = ({
           >
             <span className={styles['icon-text']}>≡</span>
           </button>
-
-          <button
-            className={`${styles['icon-btn']} ${styles['alert-btn']} ${styles.custom} ${showMetrics ? styles.active : styles.inactive}`}
-            onClick={handleToggleMetrics}
-            title={`${showMetrics ? 'Hide' : 'Show'} Metrics`}
-          >
-            <span className={styles['icon-text']}>{showMetrics ? '✓' : '!'}</span>
-          </button>
-
-
         </div>
       </div>
-      
+
       {/* Order & Requirements Component */}
       <OrderRequire
         isHydrated={true}
