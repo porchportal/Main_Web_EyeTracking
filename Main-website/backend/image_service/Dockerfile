@@ -44,6 +44,7 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     libavif-dev \
     libavif-bin \
+    gosu \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -70,8 +71,15 @@ COPY model_preference/ ./model_preference/
 COPY Main_AI/ ./Main_AI/
 COPY .env.backend ./.env.backend
 
+# Copy and set up entrypoint script
+COPY image_service/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Set environment variable for port
 ENV PORT=8010
+
+# Use entrypoint script to handle permissions and user switching
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Run the image service (single worker to avoid multiprocessing issues)
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8010"]

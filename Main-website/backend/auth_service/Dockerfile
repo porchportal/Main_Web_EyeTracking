@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     curl \
+    gosu \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install dependencies
@@ -26,8 +27,15 @@ COPY model_preference/ ./model_preference/
 COPY Main_AI/ ./Main_AI/
 COPY .env.backend ./.env.backend
 
+# Copy and set up entrypoint script
+COPY auth_service/docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Set environment variable for port
 ENV PORT=8108
+
+# Use entrypoint script to handle permissions and user switching
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
 # Run the auth service
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8108"]

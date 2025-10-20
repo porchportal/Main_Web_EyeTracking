@@ -2,6 +2,7 @@ services:
   nginx_website:
     image: nginx:alpine
     container_name: backend_nginx
+    # nginx needs root to bind to privileged ports, but drops privileges for workers
     # External access ports - using localhost for local development
     ports:
       - "9080:9080"    # HTTP access: http://localhost:9080
@@ -31,10 +32,11 @@ services:
       - NGINX_WORKER_CONNECTIONS=512
 
   image_service:
-    build: 
+    build:
       context: ./backend
       dockerfile: image_service/Dockerfile
     container_name: backend_image_service
+    user: "${UID:-1000}:${GID:-1000}"
     # No public ports - internal Docker communication only
     expose:
       - "8010"
@@ -75,10 +77,11 @@ services:
 
 
   auth_service:
-    build: 
+    build:
       context: ./backend
       dockerfile: auth_service/Dockerfile
     container_name: backend_auth_service
+    user: "${UID:-1000}:${GID:-1000}"
     # No public ports - internal Docker communication only
     expose:
       - "8108"
@@ -110,6 +113,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: frontend_main
+    user: "${UID:-1000}:${GID:-1000}"
     # No public ports - internal Docker communication only
     expose:
       - "3010"
@@ -135,6 +139,7 @@ services:
   mongodb:
     image: mongo:latest
     container_name: mongodb
+    # mongodb manages its own user privileges via custom entrypoint
     # Expose MongoDB port to localhost for development
     ports:
       - "27017:27017"    # MongoDB access: mongodb://localhost:27017
