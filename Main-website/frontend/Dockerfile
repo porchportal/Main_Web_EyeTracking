@@ -8,10 +8,14 @@ RUN apk add --no-cache libc6-compat wget su-exec
 
 # Copy package manifests
 COPY package*.json ./
-COPY .env.frontend ./.env.frontend
 
-# Install specific npm version and dependencies
-RUN npm install -g npm@11.6.0 && npm ci && npm cache clean --force
+# Install dependencies with cache mount for faster builds
+# Using --mount=type=cache speeds up rebuilds significantly
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --prefer-offline --no-audit
+
+# Copy environment file
+COPY .env.frontend ./.env.frontend
 
 # Copy the entire frontend app
 COPY . .

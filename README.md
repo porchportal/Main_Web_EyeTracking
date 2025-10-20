@@ -58,15 +58,17 @@ The application follows a microservices architecture with the following componen
   - Video enhancement capabilities
 - **Status**: 🚧 **UNDER DEVELOPMENT** - This service is not yet implemented and will be available in future releases
 
-#### 4. Nginx Reverse Proxy (Ports 80, 443, 8443, 9443)
+#### 4. Nginx Reverse Proxy (Ports 9080, 9443, 9444)
 - **Purpose**: Load balancing, SSL termination, security headers
 - **Features**:
-  - HTTPS redirection
+  - HTTPS redirection (dynamic based on request hostname)
   - Rate limiting
   - CORS handling
   - Security headers (CSP, HSTS, etc.)
   - Camera access control via port separation
-  - Multiple HTTPS ports (443, 9443) for flexible access
+  - **Dynamic Configuration**: No hardcoded IPs - works with any server IP/hostname
+  - **Container Name Routing**: Uses Docker DNS for internal service communication
+  - **Multi-Network Support**: Internal network + external nginx proxy network
 
 ## 📁 Storage System (`resource_security/`)
 
@@ -149,49 +151,33 @@ git clone https://github.com/porchportal/Main_Web_EyeTracking.git
 cd Main_web_eyetracking
 ```
 
-### 2. Configure Server IP for Multi-User Access
+### 2. Generate SSL Certificates
 
-**IMPORTANT**: Before running the application, you must configure the server IP address in the nginx configuration to allow multiple users to access the application.
+**Quick Setup**: Generate self-signed SSL certificates for HTTPS:
 
-#### Step 2a: Update nginx.conf with your server IP
 ```bash
-# Edit the nginx configuration file
-nano Main-website/backend/config/nginx.conf
+# One-liner to create SSL certificates
+mkdir -p Main-website/backend/config/ssl && cd Main-website/backend/config/ssl && \
+openssl req -x509 -newkey rsa:2048 -keyout key.pem -out cert.pem -days 365 -nodes \
+-subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" && \
+chmod 600 key.pem && chmod 644 cert.pem && cd ../..
 ```
 
-Find and update the `server_name` directives in both HTTP and HTTPS server blocks:
+> **🔐 For complete SSL setup instructions, production certificates, and troubleshooting, see:**
+> **[SSL_SETUP_README.md](Main-website/backend/config/SSL_SETUP_README.md)**
 
-```nginx
-# HTTP server block (around line 91)
-server_name YOUR_SERVER_IP localhost;
+### 3. Setup Docker Network (for external nginx integration)
 
-# HTTPS server block (around line 115) 
-server_name YOUR_SERVER_IP localhost;
+If you have an external nginx proxy that needs to communicate with this project:
 
-# HTTPS camera access server block (around line 428)
-server_name YOUR_SERVER_IP localhost;
-```
-
-Replace `YOUR_SERVER_IP` with your actual server IP address (e.g., `192.168.1.100`, `10.0.0.50`, etc.)
-
-#### Step 2b: Generate SSL Certificates with Server IP
 ```bash
-# Development with server IP
-mkdir -p Main-website/backend/config/ssl
-openssl req -x509 -newkey rsa:2048 \
-    -keyout Main-website/backend/config/ssl/key.pem \
-    -out Main-website/backend/config/ssl/cert.pem \
-    -days 365 -nodes \
-    -subj "/CN=YOUR_SERVER_IP" \
-    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:YOUR_SERVER_IP"
+# Create external network (run once)
+docker network create nginx_proxy
 ```
 
-Replace `YOUR_SERVER_IP` with your actual server IP address.
+Skip this step if you're not using an external nginx proxy.
 
-> **📋 For detailed SSL configuration and certificate generation explanation, see [Requirements.md](Requirements.md)**  
-> **🔐 For step-by-step SSL setup guide, see [SSL_SETUP_README.md](Main-website/backend/config/SSL_SETUP_README.md)**
-
-### 3. Configure Environment
+### 4. Configure Environment
 ```bash
 # Copy environment files
 touch Main-website/backend/.env.backend
@@ -202,51 +188,67 @@ nano Main-website/backend/.env.backend
 nano Main-website/frontend/.env.frontend
 ```
 
-### 4. Start Services
+### 5. Start Services
+
+**Security Note**: All containers run as non-root users for enhanced security. Files created by containers will be owned by your user.
+
 ```bash
-# Start all services
 cd Main-website
-docker-compose up -d
+
+# Use the docker-run.sh helper script (automatically sets UID/GID)
+./docker-run.sh up --build -d
+
+# Or manually export user ID before running docker-compose
+export UID=$(id -u)
+export GID=$(id -g)
+docker-compose up --build -d
 
 # Check service status
-docker-compose ps
+./docker-run.sh ps
+# or: docker-compose ps
 
 # View logs
-docker-compose logs -f
+./docker-run.sh logs -f
+# or: docker-compose logs -f
+
+# Stop services
+./docker-run.sh down
+# or: docker-compose down
 ```
 
-### 5. Access Application
+### 6. Access Application
 
-#### Multi-User Access URLs
-Replace `YOUR_SERVER_IP` with your configured server IP address:
+**Dynamic URL Access**: The application works with **any** server IP or hostname - no configuration needed!
 
-- **Main Application (Alternative Port)**: `https://YOUR_SERVER_IP:9443` (port 9443)
-- **Camera Access**: `https://YOUR_SERVER_IP:8443` (port 8443)
-- **HTTP Redirect**: `http://YOUR_SERVER_IP` → `https://YOUR_SERVER_IP`
+#### Access URLs
+Replace `YOUR_SERVER_IP` with your actual server IP address:
 
-#### Example with IP 192.168.1.100
-- **Main Application**: `https://192.168.1.100:9443`
-- **Camera Access**: `https://192.168.1.100:8443`
-- **HTTP Redirect**: `http://192.168.1.100` → `https://192.168.1.100`
+- **Main Application**: `https://YOUR_SERVER_IP:9443` or `https://localhost:9443`
+- **Camera Access**: `https://YOUR_SERVER_IP:9444` or `https://localhost:9444`
+- **HTTP Redirect**: `http://YOUR_SERVER_IP:9080` → `https://YOUR_SERVER_IP:9443`
+
+#### Example Access
+- With IP `192.168.1.100`: `https://192.168.1.100:9443`
+- With IP `10.0.0.50`: `https://10.0.0.50:9443`
+- Localhost: `https://localhost:9443`
 
 #### Access Methods Summary
-| Access Type | URL | Port | Description |
-|-------------|-----|------|-------------|
-| **Multi-User HTTPS** | `https://YOUR_SERVER_IP` | 443 | Full application via nginx (standard port) |
-| **Multi-User HTTPS (Alt)** | `https://YOUR_SERVER_IP:9443` | 9443 | Full application via nginx (alternative port) |
-| **Multi-User Camera** | `https://YOUR_SERVER_IP:8443` | 8443 | Camera access via nginx |
-| **Local Development** | `http://localhost:3010` | 3010 | Direct Next.js dev server |
-| **Local HTTPS** | `https://localhost` | 443 | Local application via nginx |
-| **Local HTTPS (Alt)** | `https://localhost:9443` | 9443 | Local application via nginx (alternative port) |
+| Access Type | URL Pattern | Port | Description |
+|-------------|-------------|------|-------------|
+| **HTTPS Main** | `https://<any-ip>:9443` | 9443 | Main application (dynamic) |
+| **HTTPS Camera** | `https://<any-ip>:9444` | 9444 | Camera access (dynamic) |
+| **HTTP Redirect** | `http://<any-ip>:9080` | 9080 | Redirects to HTTPS |
+| **Direct Frontend** | `http://localhost:3010` | 3010 | Next.js dev server (development) |
 
 ## 👥 Multi-User Deployment
 
 ### Network Configuration
 For multi-user access, ensure your server is accessible from other devices on the network:
 
-1. **Firewall Configuration**: Open ports 80, 443, 8443, and 9443
+1. **Firewall Configuration**: Open ports 9080, 9443, and 9444
 2. **Network Access**: Ensure devices can reach the server IP
-3. **SSL Certificates**: Include server IP in certificate SAN (Subject Alternative Name)
+3. **SSL Certificates**: Self-signed certificates will show browser warnings (expected for development)
+4. **Dynamic Configuration**: No need to update nginx.conf - it works with any IP automatically
 
 ### Security Considerations
 - **Rate Limiting**: Configured in nginx.conf to prevent abuse

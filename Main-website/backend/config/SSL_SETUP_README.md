@@ -8,27 +8,46 @@ This comprehensive guide covers SSL certificate generation, HTTPS camera access 
 
 ## Overview
 
-The application supports two HTTPS ports with different security configurations:
-- **Port 443**: Main application with restricted camera permissions
-- **Port 8443**: Camera access with full camera and microphone permissions
+The application supports three external ports with different purposes:
+- **Port 9080**: HTTP port (redirects to HTTPS)
+- **Port 9443**: Main HTTPS application with restricted camera permissions
+- **Port 9444**: Camera HTTPS access with full camera and microphone permissions
+
+## 🎯 Dynamic Configuration Benefits
+
+**No IP Configuration Required!** The nginx configuration is now fully dynamic:
+- ✅ Works with **any server IP address**
+- ✅ Works with **any hostname**
+- ✅ Uses `server_name _;` to accept all requests
+- ✅ Uses `$host` variable for dynamic redirects
+- ✅ No hardcoded IPs in configuration files
 
 ## Security Configuration
 
-### Main Application (Port 443)
-- **CSP**: `default-src 'self'; connect-src 'self';`
+### HTTP Port (9080)
+- **Purpose**: HTTP to HTTPS redirect
+- **Redirect**: `https://$host:9443` (dynamic based on request)
+- **Health Check**: Available at `/health` without redirect
+
+### Main Application (Port 9443)
+- **CSP**: `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; ...`
 - **Permissions-Policy**: `camera=(), microphone=()`
 - **Referrer-Policy**: `strict-origin-when-cross-origin`
 - **X-Content-Type-Options**: `nosniff`
+- **X-Frame-Options**: `DENY`
 
-### Camera Access (Port 8443)
-- **CSP**: `default-src 'self'; connect-src 'self';`
+### Camera Access (Port 9444)
+- **CSP**: `default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; ...`
 - **Permissions-Policy**: `camera=*, microphone=*`
 - **Referrer-Policy**: `strict-origin-when-cross-origin`
 - **X-Content-Type-Options**: `nosniff`
+- **X-Frame-Options**: `DENY`
 
 ## Development Environment (Self-Signed Certificates)
 
 ### 1. Generate Self-Signed Certificate
+
+**Note**: With the dynamic nginx configuration, you only need a basic certificate. No need to specify your server IP!
 
 Create the SSL directory and generate certificates:
 
@@ -36,48 +55,60 @@ Create the SSL directory and generate certificates:
 # Create SSL directory
 mkdir -p backend/config/ssl
 
-# Generate private key
-openssl genrsa -out backend/config/ssl/key.pem 2048
+# Simple method - One command to generate both key and certificate
+cd backend/config/ssl
+openssl req -x509 -newkey rsa:2048 \
+    -keyout key.pem \
+    -out cert.pem \
+    -days 365 -nodes \
+    -subj "/CN=localhost" \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 
-# Generate certificate with SAN (Subject Alternative Name)
-openssl req -new -x509 -key backend/config/ssl/key.pem \
-    -out backend/config/ssl/cert.pem \
-    -days 365 \
-    -subj "/C=US/ST=State/L=City/O=Organization/CN=your-server-ip" \
+# Or if you want to include your server IP (optional)
+openssl req -x509 -newkey rsa:2048 \
+    -keyout key.pem \
+    -out cert.pem \
+    -days 365 -nodes \
+    -subj "/CN=localhost" \
     -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:192.168.1.100"
 ```
+
+**Why this works for any IP**: The nginx `server_name _;` directive accepts all hostnames/IPs, so the certificate's CN or SAN doesn't need to match perfectly. Browsers will show a warning (expected for self-signed certificates), but the connection will work.
 
 ### 2. Set Proper Permissions
 
 ```bash
-# Set secure permissions
+# Set secure permissions (run from project root)
 chmod 600 backend/config/ssl/key.pem
 chmod 644 backend/config/ssl/cert.pem
-
-# Ensure nginx can read the files
-sudo chown root:root backend/config/ssl/*
 ```
 
-### 3. Update Docker Compose
+**Note**: No need for `sudo chown` - with the new non-root user configuration, Docker will handle permissions automatically.
 
-Add SSL volume mount to your `docker-compose.yml`:
+### 3. Docker Compose Configuration
+
+The SSL volume is already configured in `docker-compose.yml`:
 
 ```yaml
-nginx:
+nginx_website:
   image: nginx:alpine
   container_name: backend_nginx
   ports:
-    - "80:80"
-    - "443:443"
-    - "8443:8443"
+    - "9080:9080"    # HTTP (redirects to HTTPS)
+    - "9443:9443"    # HTTPS Main
+    - "9444:9444"    # HTTPS Camera
   volumes:
     - ./backend/config/nginx.conf:/etc/nginx/nginx.conf
     - ./backend/config/ssl:/etc/nginx/ssl:ro
-  depends_on:
-    - auth_service
-    - image_service
-    - frontend
+  networks:
+    - ipuserver_internal_eye
+    - nginx_proxy  # For external nginx integration
 ```
+
+**Security Features**:
+- Runs as root (required for port binding) but drops privileges for worker processes
+- SSL files mounted read-only (`:ro`)
+- Multi-network support for external nginx proxy integration
 
 ## Production Environment (Let's Encrypt)
 
@@ -170,50 +201,63 @@ The camera component automatically detects:
 - Required security context
 
 ### Smart WebSocket Connection
-- **HTTPS on port 443**: Uses `wss://hostname:443/ws/video`
-- **HTTPS on port 8443**: Uses `wss://hostname:8443/ws/video`
+- **HTTPS on port 9443**: Uses `wss://hostname:9443/ws/video`
+- **HTTPS on port 9444**: Uses `wss://hostname:9444/ws/video`
 - **HTTP/Development**: Falls back to `NEXT_PUBLIC_WS_URL`
 
 ### Automatic Redirect
-When accessing the main application via HTTPS (port 443) and trying to use the camera:
+When accessing the main application via HTTPS (port 9443) and trying to use the camera:
 1. Shows a security notice
-2. Provides a button to redirect to port 8443
-3. Automatically redirects to `https://hostname:8443`
+2. Provides a button to redirect to port 9444
+3. Automatically redirects to `https://hostname:9444`
 
 ## Setup Instructions
 
 ### 1. Generate SSL Certificates
 
+**Simplified**: No server IP configuration needed!
+
 ```bash
 # Create SSL directory
 mkdir -p backend/config/ssl
 
-# Generate self-signed certificate with SAN
-openssl req -x509 -newkey rsa:2048 -keyout backend/config/ssl/key.pem \
-    -out backend/config/ssl/cert.pem \
+# Generate self-signed certificate
+cd backend/config/ssl
+openssl req -x509 -newkey rsa:2048 \
+    -keyout key.pem \
+    -out cert.pem \
     -days 365 -nodes \
-    -subj "/C=US/ST=State/L=City/O=Organization/CN=your-server-ip" \
-    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1,IP:192.168.1.100"
+    -subj "/CN=localhost" \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 
 # Set proper permissions
+cd ../../../
 chmod 600 backend/config/ssl/key.pem
 chmod 644 backend/config/ssl/cert.pem
 ```
 
-### 2. Update Server Configuration
+### 2. Setup External Network (Optional)
 
-Replace `your-server-ip` in `nginx.conf` with your actual server IP:
+Only needed if you have an external nginx proxy:
+
 ```bash
-# Replace in nginx.conf
-sed -i 's/your-server-ip/your-actual-server-ip/g' backend/config/nginx.conf
+# Create external network for nginx proxy integration
+docker network create nginx_proxy
 ```
+
+Skip this step if not using external nginx.
 
 ### 3. Start the Application
 
 ```bash
-# Start with Docker Compose
+# Start with Docker Compose (using helper script)
 cd Main-website
-docker-compose up -d
+./docker-run.sh up --build -d
+
+# Or manually
+export UID=$(id -u)
+export GID=$(id -g)
+docker-compose up --build -d
 
 # Check if all services are running
 docker-compose ps
@@ -221,9 +265,16 @@ docker-compose ps
 
 ### 4. Access the Application
 
-- **Main Application**: `https://your-server-ip` (port 443)
-- **Camera Access**: `https://your-server-ip:8443` (port 8443)
-- **HTTP Redirect**: `http://your-server-ip` → `https://your-server-ip`
+**Works with ANY IP or hostname!**
+
+- **Main Application**: `https://YOUR_IP:9443` or `https://localhost:9443`
+- **Camera Access**: `https://YOUR_IP:9444` or `https://localhost:9444`
+- **HTTP Redirect**: `http://YOUR_IP:9080` → `https://YOUR_IP:9443`
+
+Examples:
+- `https://192.168.1.100:9443`
+- `https://10.0.0.50:9443`
+- `https://localhost:9443`
 
 ## Verification and Testing
 
@@ -240,15 +291,23 @@ docker exec backend_nginx nginx -t
 ### 2. Test SSL Certificate
 
 ```bash
-# Test SSL connection
-openssl s_client -connect your-server-ip:443 -servername your-server-ip
+# Test SSL connection on main port
+openssl s_client -connect localhost:9443 -servername localhost
 
-# Test with curl
-curl -I https://your-server-ip
+# Test SSL connection on camera port
+openssl s_client -connect localhost:9444 -servername localhost
+
+# Test with curl (main application)
+curl -I -k https://localhost:9443
+
+# Test with curl (camera)
+curl -I -k https://localhost:9444
 
 # Test HTTP redirect
-curl -I http://your-server-ip
+curl -I http://localhost:9080
 ```
+
+**Note**: `-k` flag skips certificate verification (needed for self-signed certificates)
 
 ### 3. Check Certificate Details
 
@@ -295,22 +354,23 @@ openssl x509 -in backend/config/ssl/cert.pem -noout -dates
 2. **SSL handshake failed**: Verify certificate and key match
 3. **Rate limiting too strict**: Adjust limits in nginx.conf
 4. **CORS errors**: Check CORS headers configuration
-5. **Camera not working on port 443**: Expected behavior - camera is restricted on main port
+5. **Camera not working on port 9443**: Expected behavior - camera is restricted on main port
 6. **WebSocket connection failed**: Check if backend services are running
-7. **Permission denied for camera**: Ensure you're using HTTPS and try port 8443
+7. **Permission denied for camera**: Ensure you're using HTTPS and try port 9444
 8. **SSL certificate errors**: For development, accept self-signed certificates
+9. **Files owned by root**: Use `./docker-run.sh` to start containers with correct user permissions
 
 ### Debug Commands
 
 ```bash
-# Check nginx error logs
-sudo tail -f /var/log/nginx/error.log
+# Check nginx error logs (Docker)
+docker logs backend_nginx
 
 # Check certificate chain
-openssl s_client -connect your-server-ip:443 -showcerts
+openssl s_client -connect localhost:9443 -showcerts
 
 # Test specific cipher
-openssl s_client -connect your-server-ip:443 -cipher ECDHE-RSA-AES128-GCM-SHA256
+openssl s_client -connect localhost:9443 -cipher ECDHE-RSA-AES128-GCM-SHA256
 
 # Check nginx configuration
 docker exec backend_nginx nginx -t
@@ -321,14 +381,18 @@ openssl x509 -in backend/config/ssl/cert.pem -text -noout
 # Check service logs
 docker logs backend_nginx
 docker logs backend_auth_service
+docker logs backend_image_service
 docker logs frontend_main
 
-# Test SSL connection
-openssl s_client -connect your-server-ip:443 -servername your-server-ip
-openssl s_client -connect your-server-ip:8443 -servername your-server-ip
+# Test SSL connections
+openssl s_client -connect localhost:9443 -servername localhost
+openssl s_client -connect localhost:9444 -servername localhost
 
-# Run without log
-docker-compose up --build > /dev/null
+# Check container user permissions
+docker exec backend_auth_service id
+
+# Run without log output
+./docker-run.sh up --build > /dev/null
 ```
 
 ## Security Benefits
@@ -361,15 +425,36 @@ backend/config/
 ## Quick Start Commands
 
 ```bash
-# Development setup
-mkdir -p backend/config/ssl
-openssl req -x509 -newkey rsa:2048 -keyout backend/config/ssl/key.pem -out backend/config/ssl/cert.pem -days 365 -nodes -subj "/CN=localhost"
+# 1. Development SSL Setup (from project root)
+mkdir -p Main-website/backend/config/ssl
+cd Main-website/backend/config/ssl
+openssl req -x509 -newkey rsa:2048 \
+    -keyout key.pem \
+    -out cert.pem \
+    -days 365 -nodes \
+    -subj "/CN=localhost" \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+cd ../../..
+
+# 2. Set permissions
+chmod 600 backend/config/ssl/key.pem
+chmod 644 backend/config/ssl/cert.pem
+
+# 3. Create external network (optional - only if using external nginx)
+docker network create nginx_proxy
+
+# 4. Start application
+./docker-run.sh up --build -d
+
+# 5. Test
+curl -I -k https://localhost:9443
+curl -I -k https://localhost:9444
 
 # Production setup (requires domain name)
 sudo certbot --nginx -d your-domain.com -d www.your-domain.com
 
-# Test configuration
-sudo nginx -t && sudo systemctl reload nginx
+# Test Docker nginx configuration
+docker exec backend_nginx nginx -t
 ```
 
 ---

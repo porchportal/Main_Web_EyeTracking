@@ -185,5 +185,10 @@ networks:
       config:
         - subnet: 172.30.0.0/16
 
+  # External network for communication with other Docker containers on the same server
+  nginx_proxy:
+    external: true
+    name: nginx_proxy
+
 volumes:
   mongodb_data:

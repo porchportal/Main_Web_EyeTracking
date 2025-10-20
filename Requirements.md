@@ -8,13 +8,14 @@ This document contains detailed technical requirements, configuration specificat
 
 | Service | Port | Protocol | Purpose |
 |---------|------|----------|---------|
-| **Frontend** | 3010 | HTTP | Next.js development server |
-| **Auth Service** | 8108 | HTTP | User authentication & data management |
-| **Image Service** | 8010 | HTTP | Image processing & AI inference |
+| **Frontend** | 3010 | HTTP | Next.js development server (internal) |
+| **Auth Service** | 8108 | HTTP | User authentication & data management (internal) |
+| **Image Service** | 8010 | HTTP | Image processing & AI inference (internal) |
 | **Video Service** | 8011 | HTTP | Real-time video processing (unavailable) |
-| **Nginx HTTP** | 80 | HTTP | HTTP to HTTPS redirect |
-| **Nginx HTTPS** | 443 | HTTPS | Main application (restricted camera) |
-| **Nginx Camera** | 8443 | HTTPS | Camera access (full permissions) |
+| **Nginx HTTP** | 9080 | HTTP | HTTP to HTTPS redirect (external) |
+| **Nginx HTTPS Main** | 9443 | HTTPS | Main application (external) |
+| **Nginx HTTPS Camera** | 9444 | HTTPS | Camera access with full permissions (external) |
+| **MongoDB** | 27017 | TCP | Database (exposed for development) |
 
 ### Microservices Architecture
 
@@ -45,14 +46,19 @@ This document contains detailed technical requirements, configuration specificat
   - Video enhancement capabilities
 - **Status**: 🚧 Currently unavailable (under development)
 
-#### 4. Nginx Reverse Proxy (Ports 80, 443, 8443)
+#### 4. Nginx Reverse Proxy (Ports 9080, 9443, 9444)
 - **Purpose**: Load balancing, SSL termination, security headers
 - **Features**:
-  - HTTPS redirection
-  - Rate limiting
-  - CORS handling
+  - **Dynamic HTTPS Redirection**: Uses `$host` variable for IP-agnostic redirects
+  - Rate limiting with configurable burst limits
+  - CORS handling for cross-origin requests
   - Security headers (CSP, HSTS, etc.)
-  - Camera access control via port separation
+  - Camera access control via port separation (9444)
+  - **Container Name Resolution**: Uses Docker DNS (127.0.0.11) for service discovery
+  - **Multi-Network Support**:
+    - `ipuserver_internal_eye`: Internal container communication (172.30.0.0/16)
+    - `nginx_proxy`: External nginx integration network
+  - **No Hardcoded IPs**: All routing uses container names and dynamic variables
 
 ## 🤖 AI Model Requirements
 
@@ -229,11 +235,28 @@ resource_security/
 - **Error resilience**: Graceful error handling and automatic recovery
 
 ### Nginx Configuration (`Main-website/backend/config/nginx.conf`)
-- Reverse proxy setup
-- SSL termination
-- Rate limiting rules
-- Security headers
-- API routing
+- **Dynamic Configuration**:
+  - `server_name _;` - Accepts any hostname or IP address
+  - `return 301 https://$host:9443$request_uri;` - Dynamic HTTPS redirect
+  - No hardcoded IPs required
+- **Docker DNS Resolution**:
+  - `resolver 127.0.0.11;` - Docker's internal DNS server
+  - Container names: `backend_auth_service`, `backend_image_service`, `frontend_main`
+  - Automatic IP resolution for containers
+- **Upstream Definitions**:
+  ```nginx
+  upstream auth_backend {
+      server backend_auth_service:8108;  # Container name, not IP
+      keepalive 32;
+  }
+  ```
+- **SSL Termination**: Handles HTTPS for all services
+- **Rate Limiting**: Protects against abuse with zone-based limits
+- **Security Headers**: CSP, X-Frame-Options, Content-Type-Options
+- **API Routing**: Intelligent routing based on URL patterns
+- **Multi-Network Support**:
+  - Internal network: Service-to-service communication
+  - External network: Integration with external nginx proxies
 
 ### MongoDB Configuration (`Main-website/backend/config/mongod.conf`)
 - Database settings
@@ -695,9 +718,13 @@ curl -f http://localhost:3010/api/check-backend-connection
   - **mongodb**: 0.75 CPU cores, 2GB RAM (database operations)
 
 ### Network Requirements
-- **Ports**: 80, 443, 8443, 3010, 8010, 8011, 8108
-- **Firewall**: Configure to allow HTTPS traffic
+- **External Ports**: 9080 (HTTP), 9443 (HTTPS), 9444 (HTTPS Camera)
+- **Internal Ports**: 3010 (Frontend), 8010 (Image), 8108 (Auth), 27017 (MongoDB)
+- **Firewall**: Configure to allow traffic on external ports
 - **SSL**: Valid SSL certificates for production deployment
+- **Networks**:
+  - `ipuserver_internal_eye` (internal, 172.30.0.0/16)
+  - `nginx_proxy` (external, for nginx proxy integration)
 
 ## 🔧 Environment Configuration
 
