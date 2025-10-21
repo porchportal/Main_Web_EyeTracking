@@ -14,6 +14,8 @@ ENV VECLIB_MAXIMUM_THREADS=1
 ENV TORCHVISION_IMAGE_BACKEND=torch
 # Enable MPS (Metal Performance Shaders) for Mac M1 Pro ARM64 GPU acceleration
 ENV PYTORCH_ENABLE_MPS_FALLBACK=1
+# Suppress pip deprecation warnings during build
+ENV PIP_NO_WARN_SCRIPT_LOCATION=1
 
 # Install system dependencies for OpenCV, OpenGL, and AVIF support
 RUN apt-get update && apt-get install -y \
@@ -52,15 +54,21 @@ RUN apt-get update && apt-get install -y \
 COPY image_service/requirements.txt .
 
 # Upgrade pip first for better reliability
-RUN pip install --upgrade pip
+RUN pip install --upgrade pip --root-user-action=ignore
 
 # Install PyTorch with MPS support for Mac M1 Pro ARM64
 # Use multiple strategies to handle network issues
-RUN pip install --no-cache-dir --timeout 1000 --retries 5 --index-url https://download.pytorch.org/whl/cpu torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 || \
-    pip install --no-cache-dir --timeout 1000 --retries 5 torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2
+RUN pip install --no-cache-dir --root-user-action=ignore \
+    --timeout 1000 --retries 5 \
+    --index-url https://download.pytorch.org/whl/cpu \
+    torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 || \
+    pip install --no-cache-dir --root-user-action=ignore \
+    --timeout 1000 --retries 5 \
+    torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2
 
 # Install remaining requirements with timeout and retry
-RUN pip install --no-cache-dir --timeout 1000 --retries 5 -r requirements.txt
+RUN pip install --no-cache-dir --root-user-action=ignore --use-pep517 \
+    --timeout 1000 --retries 5 -r requirements.txt
 
 # Copy the image_service directory
 COPY image_service/ .

@@ -63,33 +63,10 @@ export default function ConsentSetupPage() {
     }
   };
 
-  const handleCancel = async () => {
-    setLoading(true);
-    try {
-      // Accept all cookies by default
-      const userId = getOrCreateUserId();
-      
-      // Set all consents to true
-      const allAcceptedData = {
-        analyticsConsent: true,
-        preferencesConsent: true,
-        marketingConsent: true,
-        thirdPartyConsent: true
-      };
-      
-      // Update the consent in context
-      await updateConsent(true);
-      
-      // Save all accepted preferences
-      localStorage.setItem('consent_details', JSON.stringify(allAcceptedData));
-      
-      // Redirect to home
-      router.push('/');
-    } catch (error) {
-      console.error('Error accepting all cookies:', error);
-    } finally {
-      setLoading(false);
-    }
+  const handleCancel = () => {
+    // Just go back to home without changing consent status
+    // The banner will still be visible since consent hasn't been updated
+    router.push('/');
   };
 
   return (
@@ -163,9 +140,8 @@ export default function ConsentSetupPage() {
               type="button"
               className={styles.backButton}
               onClick={handleCancel}
-              disabled={loading}
             >
-              {loading ? 'Processing...' : 'Cancel'}
+              Cancel
             </button>
             <button
               type="submit"

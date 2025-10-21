@@ -9,10 +9,9 @@ RUN apk add --no-cache libc6-compat wget su-exec
 # Copy package manifests
 COPY package*.json ./
 
-# Install dependencies with cache mount for faster builds
-# Using --mount=type=cache speeds up rebuilds significantly
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline --no-audit
+# Install dependencies
+# Note: Using --prefer-offline for faster builds when packages are cached
+RUN npm ci --prefer-offline --no-audit
 
 # Copy environment file
 COPY .env.frontend ./.env.frontend

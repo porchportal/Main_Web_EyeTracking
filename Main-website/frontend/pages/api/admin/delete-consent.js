@@ -10,13 +10,13 @@ export default async function handler(req, res) {
   // Check for API key
   const apiKey = req.headers['x-api-key'];
   const expectedApiKey = process.env.NEXT_PUBLIC_API_KEY;
-  
+
   // Validate required environment variables
   if (!expectedApiKey) {
     console.error('NEXT_PUBLIC_API_KEY environment variable is not set');
     return res.status(500).json({ error: 'Server configuration error: API key not configured' });
   }
-  
+
   if (!apiKey || apiKey !== expectedApiKey) {
     console.error('API Key validation failed:', {
       received: apiKey,
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
   }
 
   const { userId } = req.body;
-  
+
   if (!userId) {
     return res.status(400).json({ error: 'User ID is required' });
   }
@@ -41,19 +41,26 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Server configuration error: AUTH_SERVICE_URL not configured' });
     }
 
-    // Delete from admin consent file via auth service
-    const response = await fetch(`${authServiceUrl}/consent/admin/consent-data/${userId}`, {
-      method: 'DELETE',
+    console.log(`🗑️ Destroying user data for: ${userId}`);
+
+    // Call the new admin destroy data endpoint
+    const response = await fetch(`${authServiceUrl}/admin/destroy-user-data`, {
+      method: 'POST',
       headers: {
         'X-API-Key': expectedApiKey,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ userId }),
     });
 
     if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error(`❌ Auth service error (${response.status}):`, errorData);
       throw new Error(`Auth service responded with status: ${response.status}`);
     }
 
+    const result = await response.json();
+    console.log(`✅ Successfully destroyed user data for ${userId}:`, result);
 
     // Delete from individual consent file (keep this local as it's in frontend public folder)
     const consentDir = path.join(process.cwd(), 'public', 'consent');
@@ -61,11 +68,18 @@ export default async function handler(req, res) {
 
     if (fs.existsSync(userConsentFile)) {
       fs.unlinkSync(userConsentFile);
+      console.log(`✅ Deleted frontend consent file: consent_${userId}.json`);
     }
 
-    return res.status(200).json({ success: true });
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      deleted_from_consent_data: result.deleted_from_consent_data,
+      deleted_folders: result.deleted_folders,
+      folder_count: result.folder_count
+    });
   } catch (error) {
-    console.error('Error deleting consent data:', error);
+    console.error('❌ Error deleting consent data:', error);
     return res.status(500).json({ error: 'Failed to delete consent data' });
   }
 } 

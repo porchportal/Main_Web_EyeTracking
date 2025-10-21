@@ -38,6 +38,7 @@ from routes.backup import router as backup_router
 from routes.user_captures import router as user_captures_router
 from routes.adminDatasetViewerEdit import router as admin_dataset_router
 from routes.admin_download import router as admin_download_router
+from routes.admin_destroy_data import router as admin_destroy_router
 
 # Import response models
 from model_preference.response import HealthResponse
@@ -378,6 +379,9 @@ app.include_router(
     dependencies=[Depends(verify_api_key)]
 )
 logger.info("Admin download router included successfully")
+
+app.include_router(admin_destroy_router)
+logger.info("Admin destroy data router included successfully")
 
 # Admin authentication route
 class AdminLogin(BaseModel):

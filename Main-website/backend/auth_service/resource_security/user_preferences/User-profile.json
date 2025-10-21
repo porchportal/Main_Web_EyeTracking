@@ -10,5 +10,53 @@
       "night_mode": false
     },
     "updated_at": "2025-10-17T02:54:56.814092"
+  },
+  {
+    "user_id": "3195c7e6-da14-4635-85c6-3eb634f24de3",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-21T02:57:14.927985",
+    "profile": {
+      "username": "",
+      "sex": "",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-21T02:57:14.938760"
+  },
+  {
+    "user_id": "27e36b25-9513-411c-b86d-7ded13cb69af",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-21T02:58:25.967410",
+    "profile": {
+      "username": "",
+      "sex": "",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-21T02:58:25.971079"
+  },
+  {
+    "user_id": "e7c5c02d-5da2-402b-85b2-6718964d0b7b",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-21T02:58:25.999483",
+    "profile": {
+      "username": "",
+      "sex": "",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-21T02:58:26.001910"
+  },
+  {
+    "user_id": "2034fd94-1efd-4986-9d3b-f153e0455b49",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-21T03:01:55.190413",
+    "profile": {
+      "username": "",
+      "sex": "",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-21T03:01:55.192554"
   }
 ]

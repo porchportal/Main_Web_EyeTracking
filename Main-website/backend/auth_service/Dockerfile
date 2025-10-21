@@ -1,6 +1,9 @@
 FROM python:3.9-slim
 WORKDIR /app
 
+# Suppress pip warnings during build
+ENV PIP_NO_WARN_SCRIPT_LOCATION=1
+
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
@@ -13,10 +16,13 @@ RUN apt-get update && apt-get install -y \
 COPY auth_service/requirements.txt .
 
 # Install PyTorch CPU version first to avoid hash verification issues
-RUN pip install --no-cache-dir torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir --root-user-action=ignore \
+    torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 \
+    --index-url https://download.pytorch.org/whl/cpu
 
 # Install remaining requirements
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --root-user-action=ignore --use-pep517 \
+    -r requirements.txt
 
 # Copy the auth_service directory
 COPY auth_service/ .

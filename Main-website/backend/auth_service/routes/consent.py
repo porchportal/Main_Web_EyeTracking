@@ -251,6 +251,22 @@ async def delete_user_consent(user_id: str = Path(..., description="User ID")):
                 except Exception as folder_error:
                     logger.error(f"❌ Failed to delete folder {folder}: {folder_error}")
 
+        # Delete user from consent_data.json
+        deleted_from_consent_data = False
+        try:
+            consent_data = read_consent_data()
+            # Filter out the user to be deleted
+            updated_consent_data = [data for data in consent_data if data.get("userId") != user_id]
+
+            if len(updated_consent_data) < len(consent_data):
+                write_consent_data(updated_consent_data)
+                deleted_from_consent_data = True
+                logger.info(f"✅ Deleted user {user_id} from consent_data.json")
+            else:
+                logger.info(f"ℹ️ User {user_id} not found in consent_data.json")
+        except Exception as json_error:
+            logger.error(f"❌ Failed to delete from consent_data.json: {json_error}")
+
         # Delete user from Data_centralization.json
         data_centralization_path = PathLib(__file__).parent.parent / "resource_security" / "data_centralization" / "Data_centralization.json"
         deleted_from_data_centralization = False
@@ -295,7 +311,7 @@ async def delete_user_consent(user_id: str = Path(..., description="User ID")):
             except Exception as json_error:
                 logger.error(f"❌ Failed to delete from User-profile.json: {json_error}")
 
-        if not deleted and not deleted_folders and not deleted_from_data_centralization and not deleted_from_user_profile:
+        if not deleted and not deleted_folders and not deleted_from_consent_data and not deleted_from_data_centralization and not deleted_from_user_profile:
             return DataResponse(
                 success=True,
                 message="No consent data, folders, or JSON entries found to delete",
@@ -306,6 +322,8 @@ async def delete_user_consent(user_id: str = Path(..., description="User ID")):
             message_parts.append("User consent data deleted from MongoDB")
         if deleted_folders:
             message_parts.append(f"Deleted {len(deleted_folders)} folder(s): captures, complete, enhance")
+        if deleted_from_consent_data:
+            message_parts.append("Deleted from consent_data.json")
         if deleted_from_data_centralization:
             message_parts.append("Deleted from Data_centralization.json")
         if deleted_from_user_profile:
@@ -317,6 +335,7 @@ async def delete_user_consent(user_id: str = Path(..., description="User ID")):
             data={
                 "deleted_folders": deleted_folders,
                 "folder_count": len(deleted_folders),
+                "deleted_from_consent_data": deleted_from_consent_data,
                 "deleted_from_data_centralization": deleted_from_data_centralization,
                 "deleted_from_user_profile": deleted_from_user_profile
             }

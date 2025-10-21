@@ -83,4 +83,82 @@
 
 .backButton:hover {
   background-color: #5a6268;
+}
+
+/* Redirecting / Success State */
+.redirectingContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.successIcon {
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, #28a745, #20c997);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+  color: white;
+  margin-bottom: 1.5rem;
+  animation: successPop 0.5s ease-out;
+}
+
+@keyframes successPop {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.successTitle {
+  margin: 0 0 0.5rem 0;
+  color: #28a745;
+  font-size: 1.5rem;
+  font-weight: 600;
+  animation: fadeInUp 0.5s ease-out 0.2s both;
+}
+
+.successMessage {
+  margin: 0 0 2rem 0;
+  color: #6c757d;
+  font-size: 1rem;
+  animation: fadeInUp 0.5s ease-out 0.3s both;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.loadingSpinner {
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #28a745;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 } 

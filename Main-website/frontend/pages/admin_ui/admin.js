@@ -15,6 +15,7 @@ import NotiMessage from '../../utils/notiMessage';
 import CanvasImageOrder from './CanvasImageOrder';
 import AdminAIProcess from './adminAIProcess';
 import DownloadPopup from './popup';
+import ConsentDataTable from './consentDataTable';
 import { useRouter } from 'next/router';
 
 
@@ -70,12 +71,8 @@ export default function AdminPage({ initialSettings }) {
   const [selectedUserId, setSelectedUserId] = useState('default');
   const pollingInterval = useRef(null);
   const [userProfiles, setUserProfiles] = useState({});
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const [showCanvaConfig, setShowCanvaConfig] = useState(false);
-  const [showAllConsentData, setShowAllConsentData] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [publicAccessEnabled, setPublicAccessEnabled] = useState(false);
   const [backendChangeEnabled, setBackendChangeEnabled] = useState(false);
@@ -485,130 +482,37 @@ export default function AdminPage({ initialSettings }) {
       'Incomplete';
   };
 
-  const handleDeleteClick = (userId) => {
-    setDeleteTarget(userId);
-    setShowDeleteConfirm(true);
-  };
+  // Handler for when consent data is deleted
+  const handleConsentDataUpdate = (deletedUserId) => {
+    // Update the consent data by removing the deleted row immediately
+    setConsentData(prevData => prevData.filter(data => data.userId !== deletedUserId));
 
-  const handleDeleteConfirm = async () => {
+    // Also remove from tempSettings if it exists
+    setTempSettings(prev => {
+      const newSettings = { ...prev };
+      delete newSettings[deletedUserId];
+      return newSettings;
+    });
+
+    // Remove from settings context if it exists
+    if (settings && settings[deletedUserId]) {
+      updateSettings(deletedUserId);
+    }
+
+    // Clear any related cookies for this user
     try {
-      const apiKey = process.env.NEXT_PUBLIC_API_KEY;
-      
-      // Delete user data using the consolidated endpoint
-              const response = await fetch(`/api/consent/${deleteTarget}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey
+      const cookies = document.cookie.split(';');
+      for (let cookie of cookies) {
+        const [name] = cookie.split('=');
+        if (name.trim().startsWith('eye_tracking_') ||
+            name.trim().startsWith('consent_') ||
+            name.trim().startsWith('user_')) {
+          document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
         }
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('Delete error response:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorData
-        });
-        throw new Error('Failed to delete user data');
-      }
-
-      // Delete from local consent file
-      try {
-        const consentResponse = await fetch('/api/admin/delete-consent', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-API-Key': apiKey
-          },
-          body: JSON.stringify({ userId: deleteTarget })
-        });
-
-        if (!consentResponse.ok) {
-          if (consentResponse.status === 401) {
-            // Silent redirect without error notification
-            router.replace('/admin_ui/admin-login');
-            return;
-          } else {
-            const errorData = await consentResponse.json().catch(() => ({}));
-            console.error('Local consent deletion error:', {
-              status: consentResponse.status,
-              statusText: consentResponse.statusText,
-              errorData
-            });
-            throw new Error('Failed to delete local consent file');
-          }
-        }
-      } catch (error) {
-        console.error('Error deleting local consent file:', error);
-        throw error;
-      }
-
-      // Update the consent data by removing the deleted row immediately
-      setConsentData(prevData => prevData.filter(data => data.userId !== deleteTarget));
-      
-      // Also remove from tempSettings if it exists
-      setTempSettings(prev => {
-        const newSettings = { ...prev };
-        delete newSettings[deleteTarget];
-        return newSettings;
-      });
-
-      // Remove from settings context if it exists
-      if (settings && settings[deleteTarget]) {
-        updateSettings(deleteTarget);
-      }
-
-      // Clear any related cookies for this user
-      try {
-        const cookies = document.cookie.split(';');
-        for (let cookie of cookies) {
-          const [name] = cookie.split('=');
-          if (name.trim().startsWith('eye_tracking_') || 
-              name.trim().startsWith('consent_') || 
-              name.trim().startsWith('user_')) {
-            document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
-          }
-        }
-      } catch (error) {
-        console.warn('Error clearing cookies:', error);
-      }
-
-      // Add a small delay before verification to allow backend to process
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Verify deletion by checking if the user still exists
-              const verifyResponse = await fetch(`/api/consent/${deleteTarget}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-Key': apiKey
-        }
-      });
-
-      // If we get a 404, that means the user was successfully deleted
-      if (verifyResponse.status === 404) {
-        safeShowNotification('User data deleted successfully from all collections!');
-      } else if (verifyResponse.ok) {
-        console.warn('User data might still exist in some collections');
-        safeShowNotification('User data deleted, but some collections might need manual cleanup');
-      } else {
-        // For any other error, we'll assume the deletion was successful
-        // since we've already cleaned up the frontend state
-        safeShowNotification('User data deleted successfully from all collections!');
       }
     } catch (error) {
-      console.error('Error deleting user data:', error);
-      safeShowNotification('Failed to delete user data. Please try again.', 'error');
-    } finally {
-      setShowDeleteConfirm(false);
-      setDeleteTarget(null);
+      console.warn('Error clearing cookies:', error);
     }
-  };
-
-  const handleDeleteCancel = () => {
-    setShowDeleteConfirm(false);
-    setDeleteTarget(null);
   };
 
   // Toggle functions for system controls
@@ -1179,105 +1083,14 @@ export default function AdminPage({ initialSettings }) {
 
   
 
-  
-        {/* Consent Data Section - Now First */}
-        <div className={styles.settingsSection}>
-          <h2>Consent Data</h2>
-          <div className={styles.consentTable}>
-            <table>
-              <thead>
-                <tr>
-                  <th>User ID</th>
-                  <th>Consent Status</th>
-                  <th>Timestamp</th>
-                  <th>Received At</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {consentData
-                  .slice(0, showAllConsentData ? consentData.length : 5)
-                  .map((data, index) => (
-                  <tr 
-                    key={index}
-                    className={`${isAnimating ? (showAllConsentData ? styles.expanding : styles.collapsing) : ''}`}
-                    style={{
-                      animationDelay: `${index * 0.05}s`
-                    }}
-                  >
-                    <td>{data.userId}</td>
-                    <td>{data.status ? 'Accepted' : 'Declined'}</td>
-                    <td>{new Date(data.timestamp).toLocaleString()}</td>
-                    <td>{new Date(data.receivedAt).toLocaleString()}</td>
-                    <td>
-                      <div className={styles.actionButtons}>
-                        {!data.status && (
-                          <button
-                            className={styles.overrideButton}
-                            onClick={() => handleOverrideAccess(data.userId)}
-                          >
-                            Grant Access
-                          </button>
-                        )}
-                        <button
-                          className={styles.deleteButton}
-                          onClick={() => handleDeleteClick(data.userId)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {consentData.length > 5 && (
-              <div className={styles.showMoreContainer}>
-                <button
-                  className={styles.showMoreButton}
-                  onClick={() => {
-                    if (!isAnimating) {
-                      setIsAnimating(true);
-                      setShowAllConsentData(!showAllConsentData);
-                      
-                      // Reset animation state after animation completes
-                      setTimeout(() => {
-                        setIsAnimating(false);
-                      }, 500);
-                    }
-                  }}
-                  disabled={isAnimating}
-                >
-                  {showAllConsentData ? 'Show Less' : 'Show More'}
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-  
-        {/* Delete Confirmation Dialog */}
-        {showDeleteConfirm && (
-          <div className={styles.confirmationDialog}>
-            <div className={styles.confirmationContent}>
-              <h3>Confirm Delete</h3>
-              <p>Are you sure you want to delete this consent row?</p>
-              <div className={styles.confirmationButtons}>
-                <button
-                  className={styles.confirmButton}
-                  onClick={handleDeleteConfirm}
-                >
-                  OK
-                </button>
-                <button
-                  className={styles.cancelButton}
-                  onClick={handleDeleteCancel}
-                >
-                  Not
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+
+        {/* Consent Data Section */}
+        <ConsentDataTable
+          consentData={consentData}
+          onDataUpdate={handleConsentDataUpdate}
+          onOverrideAccess={handleOverrideAccess}
+          safeShowNotification={safeShowNotification}
+        />
   
         {/* User Selection Section */}
         <div className={styles.userSelectionSection}>

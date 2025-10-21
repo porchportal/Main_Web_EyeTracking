@@ -9,6 +9,7 @@ export default function AdminLogin() {
   const [error, setError] = useState('');
   const [attempts, setAttempts] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   const handleSubmit = async (e) => {
     if (e) {
@@ -37,12 +38,19 @@ export default function AdminLogin() {
       if (response.ok) {
         try {
           const data = await response.json();
-          // Successful login - server sets httpOnly cookie automatically
-          // Use replace instead of push for faster navigation
-          router.replace('/admin_ui/admin');
+          // Successful login - show redirecting state
+          setIsRedirecting(true);
+          setIsLoading(false);
+
+          // Small delay to show the success message, then redirect
+          setTimeout(() => {
+            // Use replace instead of push for faster navigation
+            router.replace('/admin_ui/admin');
+          }, 800);
         } catch (parseError) {
           console.error('Error parsing successful response:', parseError);
           setError('Login successful but response parsing failed. Please try again.');
+          setIsRedirecting(false);
         }
       } else {
         // Handle error response
@@ -80,13 +88,43 @@ export default function AdminLogin() {
     }
   };
 
-  // Handle keyboard Enter key on input fields
-  const handleKeyPress = (e) => {
+  // Handle keyboard Enter key on username field
+  const handleUsernameKeyPress = (e) => {
+    if (e.key === 'Enter' && !isLoading) {
+      e.preventDefault();
+      // If password is already filled, submit the form
+      if (password.trim()) {
+        handleSubmit();
+      } else {
+        // Otherwise, focus on the password field
+        document.getElementById('admin-password')?.focus();
+      }
+    }
+  };
+
+  // Handle keyboard Enter key on password field
+  const handlePasswordKeyPress = (e) => {
     if (e.key === 'Enter' && !isLoading) {
       e.preventDefault();
       handleSubmit();
     }
   };
+
+  // Show redirecting overlay when login is successful
+  if (isRedirecting) {
+    return (
+      <div className={styles.container}>
+        <div className={styles.loginBox}>
+          <div className={styles.redirectingContainer}>
+            <div className={styles.successIcon}>✓</div>
+            <h2 className={styles.successTitle}>Login Successful!</h2>
+            <p className={styles.successMessage}>Redirecting to admin dashboard...</p>
+            <div className={styles.loadingSpinner}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
@@ -101,7 +139,7 @@ export default function AdminLogin() {
               name="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyPress={handleUsernameKeyPress}
               required
               disabled={isLoading}
               autoComplete="username"
@@ -119,7 +157,7 @@ export default function AdminLogin() {
               name="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyPress={handlePasswordKeyPress}
               required
               disabled={isLoading}
               autoComplete="current-password"
@@ -128,16 +166,16 @@ export default function AdminLogin() {
           </div>
           {error && <div className={styles.error}>{error}</div>}
           <div className={styles.buttonContainer}>
-            <button 
-              type="button" 
+            <button
+              type="button"
               className={styles.backButton}
               onClick={() => router.push('/')}
               disabled={isLoading}
             >
               Back
             </button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className={styles.loginButton}
               disabled={isLoading}
             >

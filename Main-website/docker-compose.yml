@@ -1,6 +1,6 @@
 services:
   nginx_website:
-    image: nginx:alpine
+    image: nginx:1.28.0-alpine
     container_name: backend_nginx
     # nginx needs root to bind to privileged ports, but drops privileges for workers
     # External access ports - using localhost for local development
@@ -25,6 +25,7 @@ services:
         condition: service_healthy
     networks:
       - ipuserver_internal_eye
+      - nginx_proxy
     restart: unless-stopped
     environment:
       - NGINX_ENTRYPOINT_QUIET_LOGS=1
@@ -36,7 +37,7 @@ services:
       context: ./backend
       dockerfile: image_service/Dockerfile
     container_name: backend_image_service
-    user: "${UID:-1000}:${GID:-1000}"
+    # User switching handled by docker-entrypoint.sh using gosu
     # No public ports - internal Docker communication only
     expose:
       - "8010"
@@ -52,6 +53,8 @@ services:
       - PYTHONUNBUFFERED=1
       - OMP_NUM_THREADS=2
       - MKL_NUM_THREADS=2
+      - APP_UID=${HOST_UID:-1000}
+      - APP_GID=${HOST_GID:-1000}
     networks:
       - ipuserver_internal_eye
     restart: unless-stopped
@@ -81,7 +84,7 @@ services:
       context: ./backend
       dockerfile: auth_service/Dockerfile
     container_name: backend_auth_service
-    user: "${UID:-1000}:${GID:-1000}"
+    # User switching handled by docker-entrypoint.sh using gosu
     # No public ports - internal Docker communication only
     expose:
       - "8108"
@@ -95,6 +98,9 @@ services:
       - ./backend/auth_service/resource_security/user_preferences:/app/resource_security/user_preferences
     env_file:
       - ./backend/.env.backend
+    environment:
+      - APP_UID=${HOST_UID:-1000}
+      - APP_GID=${HOST_GID:-1000}
     depends_on:
       mongodb:
         condition: service_healthy
@@ -113,7 +119,6 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: frontend_main
-    user: "${UID:-1000}:${GID:-1000}"
     # No public ports - internal Docker communication only
     expose:
       - "3010"
@@ -137,7 +142,7 @@ services:
       start_period: 60s
 
   mongodb:
-    image: mongo:latest
+    image: mongo:8.0.8
     container_name: mongodb
     # mongodb manages its own user privileges via custom entrypoint
     # Expose MongoDB port to localhost for development
@@ -185,10 +190,11 @@ networks:
       config:
         - subnet: 172.30.0.0/16
 
-  # External network for communication with other Docker containers on the same server
+  # Network for communication with other Docker containers on the same server
+  # Changed from external to auto-created to avoid startup errors
   nginx_proxy:
-    external: true
     name: nginx_proxy
+    driver: bridge
 
 volumes:
   mongodb_data:
