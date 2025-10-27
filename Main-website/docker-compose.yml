@@ -37,7 +37,6 @@ services:
       context: ./backend
       dockerfile: image_service/Dockerfile
     container_name: backend_image_service
-    # User switching handled by docker-entrypoint.sh using gosu
     # No public ports - internal Docker communication only
     expose:
       - "8010"
@@ -53,8 +52,6 @@ services:
       - PYTHONUNBUFFERED=1
       - OMP_NUM_THREADS=2
       - MKL_NUM_THREADS=2
-      - APP_UID=${HOST_UID:-1000}
-      - APP_GID=${HOST_GID:-1000}
     networks:
       - ipuserver_internal_eye
     restart: unless-stopped
@@ -84,7 +81,6 @@ services:
       context: ./backend
       dockerfile: auth_service/Dockerfile
     container_name: backend_auth_service
-    # User switching handled by docker-entrypoint.sh using gosu
     # No public ports - internal Docker communication only
     expose:
       - "8108"
@@ -98,9 +94,6 @@ services:
       - ./backend/auth_service/resource_security/user_preferences:/app/resource_security/user_preferences
     env_file:
       - ./backend/.env.backend
-    environment:
-      - APP_UID=${HOST_UID:-1000}
-      - APP_GID=${HOST_GID:-1000}
     depends_on:
       mongodb:
         condition: service_healthy
