@@ -113,10 +113,12 @@ export const updateUserProfile = async (profileData) => {
 // Check if profile is complete
 export const isProfileComplete = () => {
   try {
-    // First check session storage
-    const sessionComplete = sessionStorage.getItem('profileComplete');
-    if (sessionComplete === 'true') {
-      return true;
+    // Only check session storage in browser
+    if (typeof window !== 'undefined') {
+      const sessionComplete = sessionStorage.getItem('profileComplete');
+      if (sessionComplete === 'true') {
+        return true;
+      }
     }
 
     // Then check cookies

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import cameraStyles from '../styles/camera-ui.module.css';
 
@@ -59,6 +59,19 @@ const CameraPreview = ({
   const [showCameraInfo, setShowCameraInfo] = useState(false);
   const [cameraInfoData, setCameraInfoData] = useState({});
 
+  // Handle camera info updates from child cameras (BEFORE early return)
+  const handleCameraInfoUpdate = useCallback((cameraIndex, info) => {
+    setCameraInfoData(prev => ({
+      ...prev,
+      [cameraIndex]: info
+    }));
+  }, []); // Empty deps - function only depends on setState which is stable
+
+  // Handle config button click from child cameras (BEFORE early return)
+  const handleConfigToggle = useCallback((isOpen) => {
+    setShowCameraInfo(isOpen);
+  }, []); // Empty deps - function only depends on setState which is stable
+
   // Close Camera Info when camera preview is closed
   useEffect(() => {
     if (!showCamera && !isCameraActive) {
@@ -71,19 +84,6 @@ const CameraPreview = ({
   if (!isHydrated || typeof window === 'undefined' || (!showCamera && !isCameraActive)) {
     return null;
   }
-
-  // Handle camera info updates from child cameras
-  const handleCameraInfoUpdate = (cameraIndex, info) => {
-    setCameraInfoData(prev => ({
-      ...prev,
-      [cameraIndex]: info
-    }));
-  };
-
-  // Handle config button click from child cameras
-  const handleConfigToggle = (isOpen) => {
-    setShowCameraInfo(isOpen);
-  };
 
   // Determine if we have multiple cameras
   const hasMultipleCameras = Array.isArray(selectedCameras) && selectedCameras.length > 1;

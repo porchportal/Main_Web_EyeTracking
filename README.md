@@ -142,7 +142,7 @@ For detailed technical specifications, system requirements, and configuration de
 - Docker Compose v2.39.2-desktop.1
 - OpenSSL 3.5.2 (for SSL certificates)
 - Node.js v23.11.0 (for development)
-- Next.js 15.5.3
+- Next.js v16.0.0
 - MongoDB v8.0.8
 
 ### 1. Clone and Setup

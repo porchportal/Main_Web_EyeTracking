@@ -158,11 +158,8 @@
   font-size: 13px;
 }
 
-.formGroup input[placeholder*="Enter"]::placeholder::after {
-  content: " (Press Enter to save)";
-  color: #6c757d;
-  font-size: 11px;
-}
+/* Note: ::placeholder doesn't support ::after pseudo-element */
+/* The "(Press Enter to save)" message should be added via placeholder text directly */
 
 .saveButton {
   width: 100%;

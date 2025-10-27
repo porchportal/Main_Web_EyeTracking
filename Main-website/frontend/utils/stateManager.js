@@ -22,20 +22,24 @@ export function ProcessStatusProvider({ children }) {
     const newStatus = !isProcessReady;
     setIsProcessReady(newStatus);
     // Save to localStorage when explicitly toggled
-    localStorage.setItem('processStatus', String(newStatus));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('processStatus', String(newStatus));
+    }
   }, [isProcessReady]);
-  
+
   // Function to set the status directly - memoized to prevent recreation
   const setProcessStatus = useCallback((status) => {
     setIsProcessReady(status);
     // Save to localStorage when explicitly set
-    localStorage.setItem('processStatus', String(status));
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('processStatus', String(status));
+    }
   }, []);
 
   // Only load from localStorage on initial mount, don't auto-save on every render
   useEffect(() => {
     // Only run this once on component mount
-    if (!isInitialized) {
+    if (!isInitialized && typeof window !== 'undefined') {
       const storedValue = localStorage.getItem('processStatus');
       if (storedValue !== null) {
         setIsProcessReady(storedValue === 'true');

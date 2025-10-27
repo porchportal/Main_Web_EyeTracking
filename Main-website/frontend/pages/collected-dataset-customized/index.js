@@ -1218,23 +1218,22 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     };
   }, [canvasManager, canvasImageManager, handleTabVisibilityChange, settings, currentUserId]);
 
-  // Cleanup on unload handler
+  // Cleanup on unload handler (OPTIMIZED: Removed blocking cleanup from beforeunload)
   useEffect(() => {
     const handleBeforeUnload = () => {
       // Set page as inactive
       setIsPageActive(false);
-      // Cleanup when page is about to unload
-      cleanupPageStyles();
       clearCameraActivationStorage();
       // Note: clickedButtons are preserved in localStorage for next session
+      // cleanupPageStyles removed - will run in unmount effect below
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      // Cleanup on unmount
-      cleanupPageStyles();
+      // Cleanup on unmount - runs AFTER navigation starts
+      setTimeout(() => cleanupPageStyles(), 0);
     };
   }, []);
 
@@ -1273,17 +1272,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   }, [handleTabVisibilityChange]);
 
   // Handle cleanup on component unmount (Next.js 16 compatible)
-  useEffect(() => {
-    // Only run cleanup when component unmounts (user navigates away)
-    return () => {
-      // Set page as inactive
-      setIsPageActive(false);
-
-      // Cleanup when navigation starts
-      clearCameraActivationStorage();
-      cleanupPageStyles();
-    };
-  }, []); // Empty dependency array - only runs on mount/unmount
+  // REMOVED: Duplicate cleanup now handled in the effect above (line 1236)
+  // This prevents cleanup from running twice which was causing slow navigation
 
   // Load user data
   useEffect(() => {
@@ -2385,20 +2375,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     setOutputText(`Camera ready: ${dimensions.width}x${dimensions.height}`);
     setProcessStatus('Camera preview active');
   }, []);
-
-  // Add back button handler
-  const handleGoBack = () => {
-    router.push('/');
-  };
-
-  // Dynamic class to reflect current window size
-  const getSizeClass = () => {
-    const { percentage } = windowSize;
-    if (percentage < 35) return 'window-size-tiny';
-    if (percentage < 50) return 'window-size-small';
-    if (percentage < 70) return 'window-size-medium';
-    return 'window-size-large';
-  };
 
   // Expose functions via ref
   useImperativeHandle(ref, () => ({

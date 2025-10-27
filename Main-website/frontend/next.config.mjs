@@ -26,6 +26,9 @@ const nextConfig = {
     return Math.random().toString(36).substring(7);
   },
 
+  // Turbopack configuration (Next.js 16 default bundler)
+  turbopack: {},
+
   // Webpack configuration - DISABLE ALL SOURCE MAPS (console will work normally)
   webpack: (config, { dev, isServer }) => {
     // ALWAYS disable source maps (both dev and production)

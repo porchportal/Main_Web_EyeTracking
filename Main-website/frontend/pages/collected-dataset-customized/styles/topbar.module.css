@@ -46,13 +46,16 @@
 /* Control group */
 .control-group {
   display: flex;
-  align-items: center;
+  align-items: flex-start; /* Changed from center to allow label positioning */
 }
 
 .control-label {
   margin-right: 8px;
-  font-size: 14px;
+  font-size: 25px;
   color: #333;
+  display: inline-flex;
+  align-items: center;
+  padding-top: 1px;
 }
 
 .control-input {
@@ -72,7 +75,11 @@
   border: none;
   background: transparent;
   text-align: center;
-  font-size: 14px;
+  font-size: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 2px; /* Move numbers down slightly */
 }
 
 /* Middle section - Button groups */
@@ -273,28 +280,33 @@
 
 /* Responsive adjustments */
 
-/* Adjust layout at 1142px to prevent overflow */
-@media (max-width: 1142px) {
+/* Fix overlapping for widths 1155px - 1439px */
+@media (min-width: 1143px) and (max-width: 1439px) {
   .topbar {
-    padding: 8px 12px;
-    gap: 8px;
+    padding: 8px 15px;
   }
 
   .topbar-left {
-    margin-right: 15px;
+    margin-right: 20px;
+    flex-shrink: 0;
   }
 
   .logo-container {
-    gap: 15px;
+    gap: 12px;
   }
 
   .logo img {
-    max-height: 42px !important;
+    max-width: 180px !important;
+    max-height: 45px !important;
+  }
+
+  .controls-container {
+    gap: 6px;
   }
 
   .control-label {
-    font-size: 12px;
-    width: 50px;
+    font-size: 13px;
+    width: 55px;
   }
 
   .control-input {
@@ -303,47 +315,27 @@
   }
 
   .control-input-field {
-    font-size: 12px;
+    font-size: 13px;
+  }
+
+  .topbar-middle {
+    /* Adjust positioning to prevent overlap */
+    left: 52%;
   }
 
   .button-groups {
-    gap: 12px;
+    gap: 14px;
   }
 
   .btn {
-    font-size: 12px;
-    padding: 6px 9px;
+    font-size: 13px;
+    padding: 7px 10px;
   }
 
-  .order-requirement-btn {
-    font-size: 11px;
-    padding: 6px 8px;
-  }
-
+  .order-requirement-btn,
   .clear-state-btn {
-    font-size: 11px;
-    padding: 6px 8px;
-  }
-
-  .camera-select-btn {
     font-size: 12px;
     padding: 6px 9px;
-  }
-
-  .icon-btn {
-    width: 30px;
-    height: 30px;
-  }
-
-  .menu-btn.custom,
-  .alert-btn.custom {
-    padding: 4px 8px;
-    font-size: 14px;
-    margin-right: 4px;
-  }
-
-  .icon-text {
-    font-size: 15px;
   }
 
   .button-row {
@@ -352,6 +344,158 @@
 
   .topbar-divider {
     margin: 0 8px;
+  }
+
+  .icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .icon-text {
+    font-size: 16px;
+  }
+}
+
+/* Adjust layout for widths 1009px - 1142px (before hamburger menu) */
+@media (min-width: 1009px) and (max-width: 1142px) {
+  .topbar {
+    padding: 8px 12px;
+  }
+
+  .topbar-left {
+    margin-right: 12px;
+    flex-shrink: 0;
+  }
+
+  .logo-container {
+    gap: 10px;
+  }
+
+  .logo img {
+    max-width: 160px !important;
+    max-height: 42px !important;
+  }
+
+  .controls-container {
+    gap: 5px;
+  }
+
+  .control-label {
+    font-size: 12px;
+    width: 50px;
+  }
+
+  .control-input {
+    width: 36px;
+    height: 26px;
+  }
+
+  .control-input-field {
+    font-size: 12px;
+  }
+
+  .topbar-middle {
+    left: 53%;
+  }
+
+  .button-groups {
+    gap: 10px;
+  }
+
+  .btn {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .order-requirement-btn,
+  .clear-state-btn {
+    font-size: 11px;
+    padding: 5px 7px;
+  }
+
+  .camera-select-btn {
+    font-size: 12px;
+    padding: 6px 8px;
+  }
+
+  .button-row {
+    gap: 6px;
+  }
+
+  .topbar-divider {
+    margin: 0 6px;
+  }
+
+  .icon-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .icon-text {
+    font-size: 15px;
+  }
+}
+
+/* Adjust layout below 1009px (hamburger menu breakpoint) */
+@media (max-width: 1008px) {
+  .topbar {
+    padding: 8px 10px;
+  }
+
+  .topbar-left {
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+
+  .logo-container {
+    gap: 8px;
+  }
+
+  .logo img {
+    max-width: 140px !important;
+    max-height: 38px !important;
+  }
+
+  .controls-container {
+    gap: 5px;
+  }
+
+  .control-label {
+    font-size: 11px;
+    width: 48px;
+  }
+
+  .control-input {
+    width: 35px;
+    height: 26px;
+  }
+
+  .control-input-field {
+    font-size: 11px;
+  }
+
+  .icon-btn {
+    width: 28px;
+    height: 28px;
+  }
+
+  .icon-text {
+    font-size: 14px;
+  }
+
+  /* Small screen layout optimizations */
+  .small-screen-layout {
+    gap: 8px;
+  }
+
+  .hamburger-menu-btn {
+    padding: 8px 15px;
+    font-size: 14px;
+  }
+
+  .essential-buttons .btn {
+    font-size: 12px;
+    padding: 6px 9px;
   }
 }
 

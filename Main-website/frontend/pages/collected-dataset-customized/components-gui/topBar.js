@@ -278,7 +278,8 @@ const TopBar = ({
   };
 
   const handleGoBack = () => {
-    router.push('/');
+    // Use router.replace for instant navigation without waiting for cleanup
+    router.replace('/');
   };
 
   const handleOrderRequirement = () => {

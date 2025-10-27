@@ -708,7 +708,7 @@ const CameraAccessComponent = ({
       streamTracks: stream ? `${stream.getTracks().length} track(s)` : 'No stream'
     };
     onCameraInfoUpdate(cameraInfo);
-  }, [fps, isVideoReady, isStarting, wsStatus, stream, maxResolution, onCameraInfoUpdate]);
+  }, [fps, isVideoReady, isStarting, wsStatus, stream, maxResolution]); // Removed onCameraInfoUpdate to prevent infinite loop
 
   // Update dimensions when container size changes with debouncing
   useEffect(() => {

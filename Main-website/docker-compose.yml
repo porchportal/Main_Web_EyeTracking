@@ -1,13 +1,13 @@
 services:
   nginx_website:
     image: nginx:1.28.0-alpine
-    container_name: backend_nginx
+    container_name:  main-website_backend_nginx
     # nginx needs root to bind to privileged ports, but drops privileges for workers
     # External access ports - using localhost for local development
     ports:
-      - "9080:9080"    # HTTP access: http://localhost:9080
-      - "9443:9443"    # HTTPS access: https://localhost:9443
-      - "9444:9444"    # Camera HTTPS: https://localhost:9444
+      - "9080:9080"    
+      - "9443:9443"    
+      - "9444:9444"    
     # Internal ports for Docker communication
     expose:
       - "9080"      # Internal HTTP port
@@ -36,7 +36,7 @@ services:
     build:
       context: ./backend
       dockerfile: image_service/Dockerfile
-    container_name: backend_image_service
+    container_name:  main-website_backend_image_service
     # No public ports - internal Docker communication only
     expose:
       - "8010"
@@ -46,9 +46,10 @@ services:
       - ./backend/auth_service/resource_security/public/captures:/app/resource_security/public/captures
       - ./backend/auth_service/resource_security/public/enhance:/app/resource_security/public/enhance
       - ./backend/auth_service/resource_security/public/complete:/app/resource_security/public/complete
+      - ./backend/Main_AI/Main_model/weight:/app/weights
     environment:
       - PORT=8010
-      - IMAGE_SERVICE_URL=http://backend_image_service:8010
+      - IMAGE_SERVICE_URL=http://image_service:8010
       - PYTHONUNBUFFERED=1
       - OMP_NUM_THREADS=2
       - MKL_NUM_THREADS=2
@@ -82,7 +83,7 @@ services:
     build:
       context: ./backend
       dockerfile: auth_service/Dockerfile
-    container_name: backend_auth_service
+    container_name:  main-website_backend_auth_service
     # No public ports - internal Docker communication only
     expose:
       - "8108"
@@ -116,7 +117,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: frontend_main
+    container_name:  main-website_frontend_main
     # No public ports - internal Docker communication only
     expose:
       - "3010"
@@ -133,7 +134,7 @@ services:
       - ipuserver_internal_eye
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3010"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3010/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -141,7 +142,7 @@ services:
 
   mongodb:
     image: mongo:8.0.8
-    container_name: mongodb
+    container_name:  main-website_mongodb
     # mongodb manages its own user privileges via custom entrypoint
     # Expose MongoDB port to localhost for development
     ports:
