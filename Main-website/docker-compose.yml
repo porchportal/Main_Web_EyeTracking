@@ -52,6 +52,8 @@ services:
       - PYTHONUNBUFFERED=1
       - OMP_NUM_THREADS=2
       - MKL_NUM_THREADS=2
+      - APP_UID=${HOST_UID:-1000}
+      - APP_GID=${HOST_GID:-1000}
     networks:
       - ipuserver_internal_eye
     restart: unless-stopped
@@ -94,6 +96,9 @@ services:
       - ./backend/auth_service/resource_security/user_preferences:/app/resource_security/user_preferences
     env_file:
       - ./backend/.env.backend
+    environment:
+      - APP_UID=${HOST_UID:-1000}
+      - APP_GID=${HOST_GID:-1000}
     depends_on:
       mongodb:
         condition: service_healthy
