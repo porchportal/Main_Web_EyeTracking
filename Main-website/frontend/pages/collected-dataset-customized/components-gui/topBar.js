@@ -354,6 +354,7 @@ const TopBar = ({
     { actionType: 'randomDot', label: 'Random Dot', title: 'Start random dot sequence' },
     { actionType: 'setRandom', label: 'Set Random', title: 'Start random sequence' },
     { actionType: 'calibrate', label: 'Set Calibrate', title: 'Start calibration sequence' },
+    { actionType: 'metrics', label: 'Canvas Metrics', title: 'Toggle canvas metrics display' },
     { actionType: 'clearAll', label: 'Clear All', title: 'Clear all data' }
   ];
 
@@ -487,7 +488,7 @@ const TopBar = ({
           <div className={styles['button-groups']}>
             <div className={styles['button-group']}>
               <div className={styles['button-row']}>
-                {menuButtonsConfig.slice(0, 3).map((btn) => (
+                {menuButtonsConfig.filter(btn => btn.actionType !== 'clearAll' && btn.actionType !== 'metrics').map((btn) => (
                   <button
                     key={btn.actionType}
                     className={styles.btn}
@@ -570,6 +571,13 @@ const TopBar = ({
             title="Toggle TopBar"
           >
             <span className={styles['icon-text']}>≡</span>
+          </button>
+          <button
+            className={`${styles['icon-btn']} ${styles['menu-btn']} ${styles.custom}`}
+            onClick={() => handleButtonClick('metrics')}
+            title="Toggle Canvas Metrics"
+          >
+            <span className={styles['icon-text']}>📊</span>
           </button>
         </div>
       </div>

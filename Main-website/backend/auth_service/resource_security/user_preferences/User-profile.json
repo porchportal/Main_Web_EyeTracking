@@ -58,5 +58,29 @@
       "night_mode": false
     },
     "updated_at": "2025-10-21T03:01:55.192554"
+  },
+  {
+    "user_id": "51aa8276-32d9-4b32-b1e0-75102b09312d",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-27T04:58:05.993070",
+    "profile": {
+      "username": "",
+      "sex": "",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-27T04:58:05.995946"
+  },
+  {
+    "user_id": "7505a3a2-1e82-4c42-90df-c09bd348783a",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-27T04:58:06.016796",
+    "profile": {
+      "username": "ssfd",
+      "sex": "female",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-27T04:59:58.074799"
   }
 ]

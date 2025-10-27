@@ -311,27 +311,17 @@ export default function HomePage() {
     }
   }, [mounted, consentChecked, loading, recheckConsent]);
 
-  // Reset navigation state when component unmounts or route changes
+  // Reset navigation state when component unmounts
   useEffect(() => {
     return () => {
       setIsNavigating(false);
     };
   }, []);
 
-  // Reset navigation state when route changes
+  // Reset navigation state when route changes (Next.js 16 compatible)
   useEffect(() => {
-    const handleRouteChange = () => {
-      setIsNavigating(false);
-    };
-
-    router.events.on('routeChangeComplete', handleRouteChange);
-    router.events.on('routeChangeError', handleRouteChange);
-
-    return () => {
-      router.events.off('routeChangeComplete', handleRouteChange);
-      router.events.off('routeChangeError', handleRouteChange);
-    };
-  }, [router.events]);
+    setIsNavigating(false);
+  }, [router.pathname, router.asPath]);
 
   // Memoize button disabled check for better performance
   const isButtonDisabled = useCallback((destination) => {

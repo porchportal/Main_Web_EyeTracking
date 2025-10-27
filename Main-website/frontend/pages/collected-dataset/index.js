@@ -306,30 +306,10 @@ export default function CollectedDatasetPage() {
 
   // Prevent router navigation errors by adding error boundary
   useEffect(() => {
-    const handleRouteChangeError = (err, url) => {
-      if (err.cancelled) {
-        console.log('Route change was cancelled');
-      } else {
-        console.error('Route change error:', err);
-      }
-    };
-
-    const handleRouteChangeStart = (url) => {
-      // Prevent navigation to the same URL
-      if (url === router.asPath) {
-        console.log('Preventing navigation to same URL:', url);
-        return false;
-      }
-    };
-
-    router.events.on('routeChangeError', handleRouteChangeError);
-    router.events.on('routeChangeStart', handleRouteChangeStart);
-    
-    return () => {
-      router.events.off('routeChangeError', handleRouteChangeError);
-      router.events.off('routeChangeStart', handleRouteChangeStart);
-    };
-  }, [router.events, router.asPath]);
+    // Route change monitoring (Next.js 16 compatible)
+    // Note: Error handling is now done through error boundaries
+    // Navigation prevention for same URL is handled by Next.js automatically
+  }, [router.pathname, router.asPath]);
 
   // Test function to verify capture system is working
   const testCaptureStatus = async () => {

@@ -40,22 +40,10 @@ class BackupManager:
             self._start_backup_thread()
     
     def _setup_backup_directory(self):
-        """Setup backup directory"""
-        try:
-            # Create backup directory in the project root
-            project_root = Path(__file__).parent.parent.parent.parent
-            self._backup_dir = project_root / 'backup_data'
-            self._backup_dir.mkdir(exist_ok=True)
-            
-            # Create subdirectories for different data types
-            (self._backup_dir / 'user_preferences').mkdir(exist_ok=True)
-            (self._backup_dir / 'data_center').mkdir(exist_ok=True)
-            (self._backup_dir / 'consent_data').mkdir(exist_ok=True)
-            (self._backup_dir / 'admin_data').mkdir(exist_ok=True)
-            
-            logger.info(f"Backup directory setup: {self._backup_dir}")
-        except Exception as e:
-            logger.error(f"Failed to setup backup directory: {e}")
+        """Setup backup directory - Disabled"""
+        # Backup functionality disabled to avoid permission issues
+        self._backup_dir = None
+        logger.info("Backup directory setup disabled")
     
     def _start_backup_thread(self):
         """Start background backup thread"""

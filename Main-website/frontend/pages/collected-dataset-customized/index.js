@@ -578,6 +578,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   const [processStatus, setProcessStatus] = useState('');
   const [remainingCaptures, setRemainingCaptures] = useState(0);
   const [showCanvas, setShowCanvas] = useState(true);
+  const [showMetrics, setShowMetrics] = useState(true);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
 
@@ -999,6 +1000,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
         window._directResizeHandler = directResizeHandler;
 
         // Load default image only if background change is enabled
+        // Use minimal delay to ensure canvas is ready
         setTimeout(() => {
           // Check if background change is enabled before loading default image
           const userSettings = settings?.[currentUserId];
@@ -1007,11 +1009,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           if (enableBackgroundChange) {
             canvasImageManager.setImageBackground('/Overall_porch.png');
           } else {
-            // Background change is disabled, clear canvas (blue background is handled in index.js)
-            canvasImageManager.clearCanvas();
+            // Background change is disabled, set blue background
             canvasImageManager.currentImage = null; // Ensure no image is set
+            canvasManager.clearCanvas(canvas); // Set blue background directly
           }
-        }, 1000);
+        }, 100); // Reduced from 1000ms to 100ms
       }
     }
 
@@ -1051,6 +1053,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       // Set canvas dimensions to actual window size
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
+
+      // Ensure canvas stays visible
+      canvas.style.display = 'block';
+      canvas.style.visibility = 'visible';
 
       // Update metrics with actual canvas dimensions
       setMetrics(prev => ({
@@ -1266,9 +1272,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     };
   }, [handleTabVisibilityChange]);
 
-  // Handle router events for cleanup
+  // Handle cleanup on component unmount (Next.js 16 compatible)
   useEffect(() => {
-    const handleRouteChangeStart = () => {
+    // Only run cleanup when component unmounts (user navigates away)
+    return () => {
       // Set page as inactive
       setIsPageActive(false);
 
@@ -1276,13 +1283,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       clearCameraActivationStorage();
       cleanupPageStyles();
     };
-
-    router.events.on('routeChangeStart', handleRouteChangeStart);
-
-    return () => {
-      router.events.off('routeChangeStart', handleRouteChangeStart);
-    };
-  }, [router]);
+  }, []); // Empty dependency array - only runs on mount/unmount
 
   // Load user data
   useEffect(() => {
@@ -1320,6 +1321,37 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
     loadUserData();
   }, [router.isReady, router.query]);
+
+  // Initialize canvas immediately on mount to show blue background
+  useEffect(() => {
+    if (typeof window !== 'undefined' && canvasManager && isHydrated) {
+      // Use requestAnimationFrame to ensure DOM is ready and painted
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const canvas = canvasManager.initializeCanvas();
+          if (canvas) {
+            // Force proper dimensions
+            const width = window.innerWidth || document.documentElement.clientWidth;
+            const height = window.innerHeight || document.documentElement.clientHeight;
+
+            canvas.width = width;
+            canvas.height = height;
+
+            // Set blue background immediately
+            canvasManager.clearCanvas(canvas);
+            canvas.style.display = 'block';
+            canvas.style.visibility = 'visible';
+            canvas.style.opacity = '1';
+
+            // Force repaint
+            void canvas.offsetHeight;
+
+            console.log('Canvas initialized on mount:', { width, height });
+          }
+        });
+      });
+    }
+  }, [canvasManager, isHydrated]); // Run when both are available
 
   // Check backend connection
   useEffect(() => {
@@ -1908,7 +1940,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       window.toggleTopBar = (show) => {
         setShowTopBar(show);
 
-        // Auto-control metrics with TopBar - removed showMetrics state variable
+        // Auto-control metrics with TopBar
+        setShowMetrics(show); // Show/hide metrics with TopBar
 
         // Restore UI elements if needed
         if (typeof window !== 'undefined' && window.globalCanvasManager) {
@@ -1919,7 +1952,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
       // Get current TopBar state
       window.getTopBarState = () => ({
         isTopBarShown: showTopBar,
-        showMetrics: true, // Always true since state removed
+        showMetrics: showMetrics,
         isCameraActive: isCameraActive,
         isCameraActivated: isCameraActivated
       });
@@ -2292,8 +2325,8 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           openCameraSelector();
           break;
       case 'metrics':
-        // Removed showMetrics state - metrics always visible
-        setProcessStatus(`Metrics shown`);
+        setShowMetrics(prev => !prev);
+        setProcessStatus(`Canvas Metrics ${!showMetrics ? 'shown' : 'hidden'}`);
         break;
       case 'randomDot':
         handleRandomDot();
@@ -2412,7 +2445,7 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
                 onButtonClick={handleActionClick}
                 onCameraAccess={() => setShowPermissionPopup(true)}
                 canvasRef={{ current: canvasManager.getCanvas() }}
-                showMetrics={true}
+                showMetrics={showMetrics}
                 isTopBarShown={showTopBar}
                 isCameraActivated={isCameraActivated}
                 selectedCamerasCount={selectedCameras.length}
@@ -2512,11 +2545,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           {/* Metrics info - moved outside preview area to avoid stacking context issues */}
           {isHydrated && (
             <DisplayResponse
-              key={`metrics-true`}
+              key={`metrics-${showMetrics}-${showTopBar}`}
               width={metrics.width}
               height={metrics.height}
               distance={metrics.distance}
-              isVisible={true}
+              isVisible={showMetrics && showTopBar}
               isTopBarShown={showTopBar}
               isCanvasVisible={showCanvas}
               outputText={outputText}

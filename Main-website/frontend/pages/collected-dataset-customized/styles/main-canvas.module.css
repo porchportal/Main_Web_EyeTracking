@@ -8,8 +8,10 @@
   width: 100vw;
   height: 100vh;
   background-color: #CCFFF5;
-  z-index: 0;
-  display: block;
+  z-index: 1 !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
   margin: 0;
   padding: 0;
   overflow: hidden;
@@ -26,10 +28,11 @@
   left: 0 !important;
   width: 100vw !important;
   height: 100vh !important;
-  z-index: 0 !important;
+  z-index: 1 !important;
   background-color: #CCFFF5 !important;
   border: none !important;
   display: block !important;
+  visibility: visible !important;
   opacity: 1 !important;
   pointer-events: auto !important;
   margin: 0 !important;
