@@ -6,19 +6,15 @@ import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { useConsent } from '../components/consent_ui/ConsentContext';
 import { isProfileComplete } from '../utils/consentManager';
 import Image from 'next/image';
-import dynamic from 'next/dynamic';
-
-// Dynamic import for heavy components
-const Truck = dynamic(() => import('lucide-react').then(mod => ({ default: mod.Truck })), { ssr: false });
-
-// Use relative URLs for browser compatibility
 
 // Stable constants to prevent object recreation
 const BUTTONS_REQUIRING_CONSENT = ['collected-dataset-custom', 'collected-dataset'];
 const MAX_RETRIES = 3;
 
 // Memoized ButtonOverlay component
-const ButtonOverlay = memo(({ enabled }) => {
+const ButtonOverlay = memo(({ enabled, isReady }) => {
+  // Don't show overlay while still checking (prevents flash)
+  if (!isReady) return null;
   // Only show overlay when button is disabled (enabled = false)
   if (enabled) return null;
   return (
@@ -32,24 +28,97 @@ ButtonOverlay.displayName = 'ButtonOverlay';
 
 export default function HomePage() {
   const router = useRouter();
-  const { isProcessReady, toggleProcessStatus } = useProcessStatus();
+  const { isProcessReady } = useProcessStatus();
   const { isConnected, authValid, checkConnection } = useBackendConnection();
   const { consentStatus, userId, loading, consentChecked, recheckConsent, showBanner } = useConsent();
-  const [isAdminOverride, setIsAdminOverride] = useState(false);
-  const [buttonStates, setButtonStates] = useState({});
+
+  // Initialize buttonStates from localStorage to prevent flash on load
+  const [buttonStates, setButtonStates] = useState(() => {
+    if (typeof window === 'undefined') return {};
+    // Try to get initial state from localStorage during initialization
+    const savedStates = {};
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('buttonState_')) {
+          const userId = key.replace('buttonState_', '');
+          const value = localStorage.getItem(key);
+          savedStates[userId] = value === 'true';
+        }
+      }
+    } catch (e) {
+      console.error('Error loading button states:', e);
+    }
+    return savedStates;
+  });
+
   const [mounted, setMounted] = useState(false);
   const [userData, setUserData] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
   const [showComingSoon, setShowComingSoon] = useState(false);
   const [publicDataAccess, setPublicDataAccess] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [userInConsentData, setUserInConsentData] = useState(null);
+  const [consentDataChecked, setConsentDataChecked] = useState(false);
+
+  // Check if user ID exists in consent_data.json
+  const checkUserInConsentData = async () => {
+    if (!userId) {
+      return;
+    }
+
+    try {
+      // Fetch consent data from backend
+      const response = await fetch('/api/consent/check', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const userExists = data.exists || false;
+        const previousState = userInConsentData;
+        setUserInConsentData(userExists);
+        setConsentDataChecked(true); // Mark check as complete
+
+        // If user is not in consent data, trigger the consent banner
+        // But only if this is the first check (not a background verification)
+        if (!userExists && previousState !== true) {
+          console.log('User not found in consent_data.json, showing consent banner');
+          recheckConsent();
+          // Clear any existing consent cookies
+          document.cookie.split(";").forEach((c) => {
+            const cookieName = c.trim().split("=")[0];
+            if (cookieName.includes('consent') || cookieName.includes('userId')) {
+              document.cookie = cookieName + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/";
+            }
+          });
+        } else if (!userExists && previousState === true) {
+          // This is a verification check and user is not found - log error
+          console.error('Verification failed: User not found in consent_data.json after accepting consent');
+        }
+      } else {
+        console.error('Failed to check consent data');
+        setUserInConsentData(false);
+        setConsentDataChecked(true); // Mark check as complete even on error
+      }
+    } catch (error) {
+      console.error('Error checking consent data:', error);
+      setUserInConsentData(false);
+      setConsentDataChecked(true); // Mark check as complete even on error
+    }
+  };
 
   // Fetch user data from MongoDB
   const fetchUserData = async () => {
     if (!userId) {
       return;
     }
-    
+
     try {
       // FIX: Use relative URL for browser fetch
       const response = await fetch(`/api/user-preferences/${userId}`, {
@@ -59,7 +128,7 @@ export default function HomePage() {
           'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
         }
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         console.error('Error response:', {
@@ -69,8 +138,21 @@ export default function HomePage() {
           url: `/api/user-preferences/${userId}`
         });
 
-        if (response.status === 404 && retryCount < MAX_RETRIES) {
-          // Create new user profile
+        // Don't retry on server errors (500, 501, 505) - these indicate backend problems
+        if (response.status >= 500 && response.status < 600) {
+          console.error(`Server error ${response.status}, not retrying. Please check backend services.`);
+          throw new Error(`Server error! status: ${response.status}`);
+        }
+
+        if (response.status === 404) {
+          // User profile doesn't exist, try to create it
+          if (retryCount >= MAX_RETRIES) {
+            console.error('Max retries reached for profile creation');
+            throw new Error(`Max retries reached, unable to create user profile`);
+          }
+
+          console.log(`User profile not found, creating new profile (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+
           const createResponse = await fetch(`/api/user-preferences/${userId}`, {
             method: 'POST',
             headers: {
@@ -87,7 +169,7 @@ export default function HomePage() {
               preferences: {}
             })
           });
-          
+
           if (!createResponse.ok) {
             const createErrorData = await createResponse.json().catch(() => ({}));
             console.error('Failed to create profile:', {
@@ -96,19 +178,23 @@ export default function HomePage() {
               errorData: createErrorData,
               url: `/api/user-preferences/${userId}`
             });
-            
-            if (retryCount < MAX_RETRIES) {
-              setRetryCount(prev => prev + 1);
-              setTimeout(() => {
-                console.log(`Retrying profile creation (attempt ${retryCount + 1}/${MAX_RETRIES})`);
-                fetchUserData();
-              }, 2000);
-              return;
+
+            // Don't retry on server errors
+            if (createResponse.status >= 500 && createResponse.status < 600) {
+              console.error(`Server error ${createResponse.status} during profile creation, not retrying`);
+              throw new Error(`Server error during profile creation: ${createResponse.status}`);
             }
-            
-            throw new Error(`Failed to create user profile: ${createErrorData.detail || 'Unknown error'}`);
+
+            // Retry for other errors (network issues, etc.)
+            const nextRetry = retryCount + 1;
+            setRetryCount(nextRetry);
+            setTimeout(() => {
+              console.log(`Retrying profile creation (attempt ${nextRetry + 1}/${MAX_RETRIES})`);
+              fetchUserData();
+            }, 2000);
+            return;
           }
-          
+
           // Fetch the newly created profile
           const newResponse = await fetch(`/api/user-preferences/${userId}`, {
             headers: {
@@ -120,13 +206,13 @@ export default function HomePage() {
           if (!newResponse.ok) {
             throw new Error('Failed to fetch newly created profile');
           }
-          
+
           const data = await newResponse.json();
           setUserData(data);
-          
+
           // Fetch public_data_access from data center settings
           await fetchPublicDataAccess();
-          
+
           setRetryCount(0); // Reset retry count on success
         } else {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -134,14 +220,14 @@ export default function HomePage() {
       } else {
         const data = await response.json();
         setUserData(data);
-        
+
         // Fetch public_data_access from data center settings
         await fetchPublicDataAccess();
-        
+
         // Check both profile completion and local storage
         const savedState = localStorage.getItem(`buttonState_${userId}`);
         const isComplete = data.isComplete || savedState === 'true';
-        
+
         if (isComplete) {
           setButtonStates(prev => ({
             ...prev,
@@ -149,18 +235,28 @@ export default function HomePage() {
           }));
           localStorage.setItem(`buttonState_${userId}`, 'true');
         }
-        
+
         setRetryCount(0);
       }
     } catch (error) {
       console.error('Error in fetchUserData:', error);
-      if (retryCount < MAX_RETRIES) {
-        setRetryCount(prev => prev + 1);
+
+      // Only retry on network errors or transient issues, not on server errors
+      const isServerError = error.message && error.message.includes('Server error');
+
+      if (!isServerError && retryCount < MAX_RETRIES) {
+        const nextRetry = retryCount + 1;
+        setRetryCount(nextRetry);
+        console.log(`Retrying fetchUserData (attempt ${nextRetry + 1}/${MAX_RETRIES})`);
         setTimeout(() => {
           fetchUserData();
         }, 2000);
       } else {
-        console.error('Max retries reached, giving up');
+        if (isServerError) {
+          console.error('Server error detected, not retrying. Please check backend MongoDB connection.');
+        } else {
+          console.error('Max retries reached, giving up');
+        }
         setRetryCount(0);
       }
     }
@@ -199,6 +295,13 @@ export default function HomePage() {
     }
   };
 
+  // Check if user exists in consent data when userId changes
+  useEffect(() => {
+    if (userId) {
+      checkUserInConsentData();
+    }
+  }, [userId]);
+
   // Fetch user data when userId changes
   useEffect(() => {
     if (userId && retryCount === 0) {
@@ -209,6 +312,7 @@ export default function HomePage() {
   // Reset retry count when userId changes
   useEffect(() => {
     setRetryCount(0);
+    setConsentDataChecked(false); // Reset check state when userId changes
   }, [userId]);
 
   // Check profile completion on mount
@@ -251,8 +355,8 @@ export default function HomePage() {
       localStorage.setItem(`buttonState_${userId}`, enabled.toString());
     };
 
-    // Load button state from local storage on mount
-    if (userId) {
+    // Load button state from local storage on mount (only if not already loaded)
+    if (userId && buttonStates[userId] === undefined) {
       const savedState = localStorage.getItem(`buttonState_${userId}`);
       if (savedState !== null) {
         setButtonStates(prev => ({
@@ -294,12 +398,28 @@ export default function HomePage() {
       }
     };
 
+    const handleConsentAccepted = (event) => {
+      // When consent is accepted, immediately update the state and recheck
+      console.log('Consent accepted event received, updating state');
+      if (userId) {
+        // Immediately set userInConsentData to true to unlock buttons
+        setUserInConsentData(true);
+
+        // Also recheck in the background to verify (with delay to ensure backend has saved)
+        setTimeout(() => {
+          checkUserInConsentData();
+        }, 1000);
+      }
+    };
+
     window.addEventListener('adminOverride', handleAdminOverride);
     window.addEventListener('publicAccessUpdate', handlePublicAccessUpdate);
-    
+    window.addEventListener('consentAccepted', handleConsentAccepted);
+
     return () => {
       window.removeEventListener('adminOverride', handleAdminOverride);
       window.removeEventListener('publicAccessUpdate', handlePublicAccessUpdate);
+      window.removeEventListener('consentAccepted', handleConsentAccepted);
     };
   }, [userId]);
 
@@ -327,12 +447,13 @@ export default function HomePage() {
   const isButtonDisabled = useCallback((destination) => {
     // Special case for collected-dataset-custom
     if (destination === 'collected-dataset-custom') {
-      return !buttonStates[userId];
+      // Button is disabled if user is not in consent data OR buttonStates is false
+      return userInConsentData !== true || !buttonStates[userId];
     }
-    
+
     // Default case for other buttons
     return false;
-  }, [buttonStates, userId]);
+  }, [buttonStates, userId, userInConsentData]);
 
   const handleButtonClick = async (destination) => {
     // Check if button is disabled
@@ -340,11 +461,14 @@ export default function HomePage() {
       return;
     }
 
-    // Check consent status only for buttons that require it
-    if (BUTTONS_REQUIRING_CONSENT.includes(destination) && consentStatus === null) {
-      // Trigger consent recheck before showing banner
-      recheckConsent();
-      return;
+    // Check if user exists in consent data for buttons that require consent
+    if (BUTTONS_REQUIRING_CONSENT.includes(destination)) {
+      if (userInConsentData === false || consentStatus === null) {
+        // User not in consent data or consent not given, show banner
+        console.log('User not authorized or consent not given, showing banner');
+        recheckConsent();
+        return;
+      }
     }
 
     // Handle navigation based on destination
@@ -392,34 +516,31 @@ export default function HomePage() {
 
   // Memoize button class for better performance and stability
   const getButtonClass = useCallback((destination) => {
+    // Show loading state while checks are in progress
+    const checksComplete = consentChecked && consentDataChecked;
+
     if (destination === 'collected-dataset-custom') {
-      const isEnabled = buttonStates[userId] || false;
+      // While checking, return empty string to keep default appearance
+      if (!checksComplete) return '';
+
+      // After checks complete, show appropriate state
+      const isEnabled = userInConsentData === true && (buttonStates[userId] || false);
       const baseClass = isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
-      return isNavigating ? `${baseClass} ${styles.buttonLoading}` : baseClass;
+      if (isNavigating) return `${baseClass} ${styles.buttonLoading}`;
+      return baseClass;
     }
-    
+
     if (destination === 'collected-dataset') {
-      const isEnabled = consentStatus !== null;
+      // While checking, return empty string to keep default appearance
+      if (!checksComplete) return '';
+
+      // After checks complete, show appropriate state
+      const isEnabled = userInConsentData === true && consentStatus !== null;
       return isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
     }
-    
+
     return styles.buttonEnabled; // Default for other buttons
-  }, [buttonStates, userId, consentStatus, isNavigating, styles.buttonEnabled, styles.buttonDisabled, styles.buttonLoading]);
-
-  // Memoize process button class to prevent unnecessary re-renders
-  const getProcessButtonClass = useMemo(() => {
-    if (!mounted) return `${styles.menuButton} ${styles.largerButton}`;
-
-    const readyClass =
-      isProcessReady && isConnected && authValid
-        ? styles.readyButton
-        : styles.notReadyButton;
-
-    return `${styles.menuButton} ${styles.largerButton} ${readyClass}`;
-  }, [mounted, isProcessReady, isConnected, authValid, styles.menuButton, styles.largerButton, styles.readyButton, styles.notReadyButton]);
-
-
-  
+  }, [buttonStates, userId, consentStatus, userInConsentData, isNavigating, consentChecked, consentDataChecked, styles.buttonEnabled, styles.buttonDisabled, styles.buttonLoading]);
 
   return (
     <div className={styles.container}>
@@ -456,28 +577,34 @@ export default function HomePage() {
           <button className={styles.menuButton} onClick={() => handleButtonClick('realtime-model')}>
             <h2>Realtime Model</h2>
           </button>
-          <button 
-            className={`${styles.menuButton} ${getButtonClass('collected-dataset-custom')}`} 
+          <button
+            className={`${styles.menuButton} ${getButtonClass('collected-dataset-custom')}`}
             onClick={() => handleButtonClick('collected-dataset-custom')}
-            disabled={!buttonStates[userId] || isNavigating}
+            disabled={!consentChecked || !consentDataChecked || userInConsentData !== true || !buttonStates[userId] || isNavigating}
           >
             <h2>
               {isNavigating ? 'Loading...' : 'Collected Dataset with customization'}
             </h2>
-            <ButtonOverlay enabled={buttonStates[userId]} />
+            <ButtonOverlay
+              enabled={userInConsentData === true && buttonStates[userId]}
+              isReady={consentChecked && consentDataChecked}
+            />
             {isNavigating && (
               <div className={styles.loadingSpinner}>
                 <div className={styles.spinner}></div>
               </div>
             )}
           </button>
-          <button 
-            className={`${styles.menuButton} ${getButtonClass('collected-dataset')}`} 
+          <button
+            className={`${styles.menuButton} ${getButtonClass('collected-dataset')}`}
             onClick={() => handleButtonClick('collected-dataset')}
-            disabled={consentStatus === null}
+            disabled={!consentChecked || !consentDataChecked || userInConsentData !== true || consentStatus === null}
           >
             <h2>Collected Dataset</h2>
-            <ButtonOverlay enabled={consentStatus !== null} />
+            <ButtonOverlay
+              enabled={userInConsentData === true && consentStatus !== null}
+              isReady={consentChecked && consentDataChecked}
+            />
           </button>
         </div>
 

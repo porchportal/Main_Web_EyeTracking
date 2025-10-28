@@ -402,6 +402,12 @@
   transform: none;
 }
 
+/* Override disabled styles when button is in checking state */
+.menuButton.buttonChecking:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+
 .buttonOverlay {
   position: absolute;
   top: 0;
@@ -560,6 +566,38 @@
     transparent
   );
   animation: shimmer 2s infinite;
+}
+
+/* Button Checking Animation - subtle indication that checks are in progress */
+.buttonChecking {
+  position: relative;
+  overflow: hidden;
+  /* Keep the default blue gradient during checking */
+  background: linear-gradient(to bottom, rgba(173, 235, 254, 0.8), rgba(173, 235, 254, 0.4)) !important;
+  cursor: default;
+  opacity: 0.9;
+}
+
+.buttonChecking::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer 2.5s infinite;
+}
+
+/* Prevent hover effects during checking */
+.buttonChecking:hover {
+  transform: none !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
 }
 
 .loadingSpinner {

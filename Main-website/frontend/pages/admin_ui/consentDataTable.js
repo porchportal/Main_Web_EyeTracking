@@ -88,7 +88,7 @@ export default function ConsentDataTable({
       {/* Consent Data Section */}
       <div className={styles.settingsSection}>
         <h2>Consent Data</h2>
-        <div className={styles.consentTable}>
+        <div className={`${styles.consentTable} ${!showAllConsentData ? styles.scrollable : ''}`}>
           <table>
             <thead>
               <tr>
@@ -101,7 +101,6 @@ export default function ConsentDataTable({
             </thead>
             <tbody>
               {consentData
-                .slice(0, showAllConsentData ? consentData.length : 5)
                 .map((data, index) => (
                 <tr
                   key={index}
@@ -139,28 +138,28 @@ export default function ConsentDataTable({
               ))}
             </tbody>
           </table>
-          {consentData.length > 5 && (
-            <div className={styles.showMoreContainer}>
-              <button
-                className={styles.showMoreButton}
-                onClick={() => {
-                  if (!isAnimating) {
-                    setIsAnimating(true);
-                    setShowAllConsentData(!showAllConsentData);
-
-                    // Reset animation state after animation completes
-                    setTimeout(() => {
-                      setIsAnimating(false);
-                    }, 500);
-                  }
-                }}
-                disabled={isAnimating}
-              >
-                {showAllConsentData ? 'Show Less' : 'Show More'}
-              </button>
-            </div>
-          )}
         </div>
+        {consentData.length > 5 && (
+          <div className={styles.showMoreContainer}>
+            <button
+              className={styles.showMoreButton}
+              onClick={() => {
+                if (!isAnimating) {
+                  setIsAnimating(true);
+                  setShowAllConsentData(!showAllConsentData);
+
+                  // Reset animation state after animation completes
+                  setTimeout(() => {
+                    setIsAnimating(false);
+                  }, 500);
+                }
+              }}
+              disabled={isAnimating}
+            >
+              {showAllConsentData ? 'Show Less' : 'Show More'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Delete Confirmation Dialog */}

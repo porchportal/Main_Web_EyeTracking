@@ -3,8 +3,6 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import styles from './sectionPreview.module.css';
 import { useEffect, useState } from 'react';
-// Notification component is now in utils
-// import { useNotification } from './NotificationMessage';
 
 // Import API functions (only backend connection and processing)
 import {
@@ -15,16 +13,10 @@ import {
 } from './processApi';
 
 // Import dataset reader utilities (now includes all file operations)
-import { 
-  datasetReader, 
-  readFile, 
-  preloadFiles, 
-  readFileFromFolder, 
-  preloadFilesFromFolder,
+import {
+  readFileFromFolder,
   getFilesList,
-  checkFilesCompleteness,
-  checkFilesNeedProcessing,
-  previewFile
+  checkFilesNeedProcessing
 } from './readDataset';
 
 // Import UI components
@@ -32,10 +24,8 @@ import {
   FilePreviewPanel,
   FileList,
   ActionButtons,
-  Notification,
   ProcessSummary,
-  ProcessingProgress,
-  EnhanceFaceToggle
+  ProcessingProgress
 } from './sectionPreview';
 
 export default function ProcessSet() {
@@ -44,9 +34,8 @@ export default function ProcessSet() {
   const [isProcessReady, setIsProcessReady] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [backendConnected, setBackendConnected] = useState(false);
-  const [files, setFiles] = useState({ capture: [], enhance: [] });
+  const [files, setFiles] = useState({ capture: [], enhance: [], complete: [] });
   const [loading, setLoading] = useState(false);
-  const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const [selectedFile, setSelectedFile] = useState(null);
   const [selectedFolder, setSelectedFolder] = useState('captures');
   const [previewImageData, setPreviewImageData] = useState(null);

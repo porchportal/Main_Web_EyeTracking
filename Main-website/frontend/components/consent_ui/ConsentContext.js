@@ -86,7 +86,7 @@ export function ConsentProvider({ children }) {
     consentStatus: null,
     consentUpdatedAt: null,
     consentDetails: null,
-    showBanner: true,
+    showBanner: false, // Don't show banner initially to prevent flash
     consentChecked: false,
   });
   const [isHydrated, setIsHydrated] = useState(false);

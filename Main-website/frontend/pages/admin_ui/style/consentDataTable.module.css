@@ -22,6 +22,36 @@
   overflow-x: auto;
 }
 
+/* Scrollable state - when showing short version with scroll */
+.consentTable.scrollable {
+  max-height: 500px;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Custom scrollbar styling for better UX */
+.consentTable.scrollable::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.consentTable.scrollable::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.consentTable.scrollable::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.consentTable.scrollable::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
 .consentTable table {
   width: 100%;
   border-collapse: collapse;
@@ -30,9 +60,14 @@
 
 .consentTable thead {
   background-color: #f8f9fa;
+}
+
+/* Sticky header only in scrollable mode */
+.consentTable.scrollable thead {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .consentTable th {
@@ -172,7 +207,6 @@
   display: flex;
   justify-content: flex-end;
   padding: 1rem 0 0 0;
-  border-top: 1px solid #dee2e6;
   margin-top: 1rem;
 }
 

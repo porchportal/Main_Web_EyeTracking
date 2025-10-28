@@ -17,22 +17,9 @@ export default function ConsentBanner({ onShowPrivacyModal }) {
   const router = useRouter();
 
 
-  // Show loading skeleton while consent is being checked
+  // Don't show anything while consent is being checked (prevents flash)
   if (!consentChecked || contextLoading) {
-    return (
-      <div className={styles.bannerContainer}>
-        <div className={styles.bannerContent}>
-          <div className={styles.bannerText}>
-            <div className={styles.skeletonText}></div>
-          </div>
-          <div className={styles.bannerButtons}>
-            <div className={styles.skeletonButton}></div>
-            <div className={styles.skeletonButton}></div>
-            <div className={styles.skeletonButton}></div>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // If banner shouldn't be shown, return null
@@ -68,10 +55,15 @@ export default function ConsentBanner({ onShowPrivacyModal }) {
       }
       
       const consentData = await consentResponse.json();
-      
+
       // Update local consent state
       await updateConsent(true);
-      
+
+      // Dispatch custom event to notify other components that consent was accepted
+      window.dispatchEvent(new CustomEvent('consentAccepted', {
+        detail: { userId: userId }
+      }));
+
       // User data will be initialized automatically when they first save their profile
     } catch (error) {
       console.error('Error handling cookie acceptance:', error);

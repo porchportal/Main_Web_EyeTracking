@@ -6,11 +6,7 @@ import DisplayResponse from './components-gui/displayResponse.jsx';
 import NotificationMessage from './components-gui/noti_message';
 import CameraSelect from './components-gui/cameraSelect';
 import CameraPreview from './components-gui/CameraPreview';
-// import cameraStyles from './styles/camera-ui.module.css';
 import { useCanvasImage, useCanvasImageWithOverlay, ImageOverlay } from './components-gui/CanvasImage';
-// import { showCapturePreview, drawRedDot, getRandomPosition, createCountdownElement, runCountdown } from '../../components/collected-dataset-customized/Action/countSave.jsx';
-// import { captureImagesAtUserPoint } from '../../components/collected-dataset-customized/Helper/user_savefile';
-// import { generateCalibrationPoints } from '../../components/collected-dataset-customized/Action/CalibratePoints.jsx';
 import { useConsent } from '../../components/consent_ui/ConsentContext';
 import { useRouter } from 'next/router';
 import { useAdminSettings } from './components-gui/adminSettings';
@@ -18,8 +14,6 @@ import { counter, debugButtonStorage, getAllImageCounters, resetAllImageCounters
 import styles from './styles/main-canvas.module.css';
 import './styles/main.module.css';
 import cameraModuleStyles from './styles/camera.module.css';
-
-// Camera preview component is now imported above
 
 // UTILITY FUNCTIONS - Consolidating duplicate code
 
@@ -1277,40 +1271,11 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
   // Load user data
   useEffect(() => {
-    const loadUserData = async () => {
-      if (!router.isReady) return;
-
-      try {
-        if (router.query.userData) {
-          const parsedData = JSON.parse(router.query.userData);
-          // userData state removed as unused
-          return;
-        }
-
-        if (router.query.userId) {
-          const response = await fetch(`/api/user-preferences/${router.query.userId}`, {
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json',
-              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
-            }
-          });
-          if (!response.ok) {
-            throw new Error('Failed to fetch user data');
-          }
-          const data = await response.json();
-          // userData state removed as unused
-        }
-      } catch (err) {
-        console.error('Error loading user data:', err);
-        // error state removed as unused
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadUserData();
-  }, [router.isReady, router.query]);
+    // Just set loading to false since we're not using the userData anymore
+    if (router.isReady) {
+      setIsLoading(false);
+    }
+  }, [router.isReady]);
 
   // Initialize canvas immediately on mount to show blue background
   useEffect(() => {

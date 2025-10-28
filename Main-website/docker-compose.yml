@@ -118,7 +118,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name:  main-website_frontend_main
-    # No public ports - internal Docker communication only
+    # Development: expose frontend directly for debugging
+    ports:
+      - "3010:3010"
     expose:
       - "3010"
     volumes:

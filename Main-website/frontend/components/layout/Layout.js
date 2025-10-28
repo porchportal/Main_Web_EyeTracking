@@ -1,13 +1,11 @@
 // frontend/components/layout/Layout.js
 import Head from 'next/head';
-import { lazy, Suspense, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import UserProfileSidebar from '../profile/UserProfileSidebar';
 import styles from '../../styles/Consent.module.css';
 import { useConsent } from '../consent_ui/ConsentContext';
 import PrivacyPolicyModal from '../consent_ui/PrivacyPolicyModal';
-
-// Lazy load the consent banner for better performance
-const ConsentBanner = lazy(() => import('../consent_ui/ConsentBanner'));
+import ConsentBanner from '../consent_ui/ConsentBanner';
 
 export default function Layout({ children, title = 'Eye Tracking App' }) {
   const { showBanner } = useConsent();
@@ -37,11 +35,7 @@ export default function Layout({ children, title = 'Eye Tracking App' }) {
       </Head>
       
       {/* Cookie consent banner at the top - only render on client */}
-      {isClient && (
-        <Suspense fallback={<div className={styles.bannerContainer}><div className={styles.bannerContent}><div className={styles.skeletonText}></div></div></div>}>
-          <ConsentBanner onShowPrivacyModal={handleShowPrivacyModal} />
-        </Suspense>
-      )}
+      {isClient && <ConsentBanner onShowPrivacyModal={handleShowPrivacyModal} />}
       
       <main className={`${styles.mainContent} ${showBanner ? styles.withBanner : ''}`}>
         {children}

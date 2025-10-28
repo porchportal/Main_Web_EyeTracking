@@ -52,5 +52,59 @@
     },
     "data_type": "json",
     "updated_at": "2025-10-27T04:59:58.094697"
+  },
+  {
+    "user_id": "aef211c2-c94b-49da-8db3-c0450f217df7",
+    "value": {
+      "times_set_random": 1,
+      "delay_set_random": 3,
+      "every_set": 0,
+      "set_timeRandomImage": 1,
+      "times_set_calibrate": 1,
+      "run_every_of_random": 1,
+      "zoom_percentage": 100,
+      "position_zoom": [
+        0,
+        0
+      ],
+      "currentlyPage": "home",
+      "state_isProcessOn": false,
+      "freeState": 0,
+      "buttons_order": "",
+      "image_background_paths": [
+        "[1]-/backgrounds/default.jpg"
+      ],
+      "public_data_access": false,
+      "enable_background_change": false
+    },
+    "data_type": "json",
+    "updated_at": "2025-10-28T03:57:16.480510"
+  },
+  {
+    "user_id": "3cbc4bbe-0dec-4dde-93ba-6f3692d51f5e",
+    "value": {
+      "times_set_random": 1,
+      "delay_set_random": 3,
+      "every_set": 0,
+      "set_timeRandomImage": 1,
+      "times_set_calibrate": 1,
+      "run_every_of_random": 1,
+      "zoom_percentage": 100,
+      "position_zoom": [
+        0,
+        0
+      ],
+      "currentlyPage": "home",
+      "state_isProcessOn": false,
+      "freeState": 0,
+      "buttons_order": "",
+      "image_background_paths": [
+        "[1]-/backgrounds/default.jpg"
+      ],
+      "public_data_access": false,
+      "enable_background_change": false
+    },
+    "data_type": "json",
+    "updated_at": "2025-10-28T04:02:51.242153"
   }
 ]

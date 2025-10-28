@@ -227,7 +227,7 @@
 /* Add margin to main content to account for fixed banner */
 .mainContent {
     margin-top: 0;
-    transition: margin-top 0.3s ease;
+    /* Removed transition to prevent flash on page load */
 }
 
 .mainContent.withBanner {

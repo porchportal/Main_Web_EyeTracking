@@ -5,10 +5,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import TopBar from './components-gui/topBar';
 import DisplayResponse from './components-gui/displayResponse';
-import { ActionButtonGroup } from './components-gui/actionButton';
-// import StatusIndicator from './components-gui/StatusIndicator';
 import { showCapturePreview, captureImagesAtPoint, drawRedDot, getRandomPosition, runCountdown } from '../../components/collected-dataset/Action/countSave';
-import { useConsent } from '../../components/consent_ui/ConsentContext';
 
 // Centralized canvas clearing utility function
 const clearCanvasWithBackground = (canvas, backgroundColor = '#CCFFF5') => {
@@ -105,8 +102,7 @@ export default function CollectedDatasetPage() {
   
   // State for capture tracking
   const [captureCounter, setCaptureCounter] = useState(1);
-  const [captureFolder, setCaptureFolder] = useState('');
-  
+
   // State for camera processing options
   const [showHeadPose, setShowHeadPose] = useState(false);
   const [showBoundingBox, setShowBoundingBox] = useState(false);
@@ -127,7 +123,6 @@ export default function CollectedDatasetPage() {
   const [backendStatus, setBackendStatus] = useState('checking');
 
   const actionButtonGroupRef = useRef(null);
-  const [statusMessage, setStatusMessage] = useState('');
   
   // Improved get canvas function that tries multiple methods
   const getMainCanvas = () => {
@@ -259,13 +254,6 @@ export default function CollectedDatasetPage() {
     }));
   };
 
-  // Create a capture folder on component mount
-  useEffect(() => {
-    if (!captureFolder && isClient && isHydrated) {
-      const timestamp = new Date().toISOString().replace(/[:\.]/g, '-');
-      setCaptureFolder(`session_${timestamp}`);
-    }
-  }, [captureFolder, isClient, isHydrated]);
   
   // Set hydrated state after mount to prevent hydration mismatch
   useEffect(() => {
@@ -1142,10 +1130,10 @@ export default function CollectedDatasetPage() {
       {/* TopBar component with onButtonClick handler - conditionally rendered */}
       {showTopBar && (
         <div style={{ position: 'relative', zIndex: 100 }}>
-          <TopBar 
+          <TopBar
             onButtonClick={handleActionButtonClick}
             onCameraAccess={() => setShowPermissionPopup(true)}
-            outputText={statusMessage || outputText}
+            outputText={outputText}
             onOutputChange={(text) => setOutputText(text)}
             onToggleTopBar={toggleTopBar}
             onToggleMetrics={toggleMetrics}
