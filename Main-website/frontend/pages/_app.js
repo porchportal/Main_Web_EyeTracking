@@ -16,7 +16,6 @@ function MyApp({ Component, pageProps }) {
       <BackendConnectionProvider>
         <ConsentProvider>
           <Layout>
-            {/* <ConnectionStatusIndicator /> */}
             <Component {...pageProps} />
           </Layout>
         </ConsentProvider>

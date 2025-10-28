@@ -245,19 +245,29 @@ export function ConsentProvider({ children }) {
   const updateConsent = async (status) => {
     try {
       const userId = consentState.userId || getOrCreateUserId();
-      
+
+      // Immediately update state optimistically before API call completes
+      startTransition(() => {
+        setConsentState(prev => ({
+          ...prev,
+          consentStatus: status,
+          showBanner: status === false ? true : false,
+          loading: true
+        }));
+      });
+
       const updatedConsent = await updateUserConsent(status, { userId });
-      
+
       // If consent is being accepted, check if user data is initialized
       if (status === true) {
         try {
           const checkResponse = await fetch(`/api/consent-init/check-user/${userId}`, {
             headers: {
               'Content-Type': 'application/json',
-              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY 
+              'X-API-Key': process.env.NEXT_PUBLIC_API_KEY
             }
           });
-          
+
           if (checkResponse.ok) {
             const checkData = await checkResponse.json();
           }
@@ -265,7 +275,8 @@ export function ConsentProvider({ children }) {
           console.warn('Could not check user initialization status:', error);
         }
       }
-      
+
+      // Update with confirmed data from backend
       startTransition(() => {
         setConsentState(prev => ({
           ...prev,
@@ -273,13 +284,22 @@ export function ConsentProvider({ children }) {
           consentStatus: updatedConsent.consentStatus,
           consentUpdatedAt: updatedConsent.consentUpdatedAt,
           consentDetails: updatedConsent.consentDetails,
-          showBanner: status === false ? true : false // Keep banner visible if declined
+          showBanner: status === false ? true : false,
+          loading: false
         }));
       });
-      
+
       return true;
     } catch (error) {
       console.error('Error updating consent:', error);
+      // Revert optimistic update on error
+      startTransition(() => {
+        setConsentState(prev => ({
+          ...prev,
+          consentStatus: null,
+          loading: false
+        }));
+      });
       return false;
     }
   };

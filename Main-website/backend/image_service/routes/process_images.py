@@ -66,21 +66,15 @@ def update_progress(userId, currentSet, totalSets, processedSets, status, messag
     Update progress information for the frontend
     """
     try:
-        # Calculate progress based on current index vs total sets
-        # If currentIndex is provided, use it; otherwise try to calculate from processedSets length
+        # Calculate progress based on COMPLETED sets, not current set
+        # This ensures we don't show 100% until actually complete
         if totalSets > 0:
-            if currentIndex is not None:
-                # Use the provided index (0-based, so add 1 for percentage)
-                progress_percentage = int(((currentIndex + 1) / totalSets) * 100)
-            elif len(processedSets) > 0:
-                # Fallback: use length of processedSets
-                progress_percentage = int((len(processedSets) / totalSets) * 100)
-            else:
-                # If no processed sets yet, use 0
-                progress_percentage = 0
+            # Always use the length of processedSets (completed count)
+            completed_count = len(processedSets) if processedSets else 0
+            progress_percentage = int((completed_count / totalSets) * 100)
         else:
             progress_percentage = 0
-        
+
         # Ensure progress is between 0 and 100
         progress_percentage = max(0, min(100, progress_percentage))
         
@@ -98,40 +92,32 @@ def update_progress(userId, currentSet, totalSets, processedSets, status, messag
         }
         
         # Write progress to file (this will be read by the frontend API)
-        # Use the same path structure that the frontend API expects
-        # The frontend reads from: backend/auth_service/resource_security/public/captures/{userId}/processing_progress.json
-        # Write to both Docker path and local path to ensure frontend can read it
+        # Use the Docker volume mount path that both services can access
         progress_file_docker = f"/app/resource_security/public/captures/{userId}/processing_progress.json"
-        progress_file_local = f"../auth_service/resource_security/public/captures/{userId}/processing_progress.json"
-        
-        # Ensure both directories exist
-        os.makedirs(os.path.dirname(progress_file_docker), exist_ok=True)
-        os.makedirs(os.path.dirname(progress_file_local), exist_ok=True)
-        
-        # Write to both locations
-        progress_file = progress_file_docker
-        
-        # Write to Docker path (primary)
-        with open(progress_file_docker, 'w') as f:
-            json.dump(progress_data, f, indent=2)
-            f.flush()  # Ensure data is written to disk immediately
-        
-        # Also write to local path for frontend access
+
+        # Ensure directory exists
         try:
-            with open(progress_file_local, 'w') as f:
-                json.dump(progress_data, f, indent=2)
-                f.flush()
+            os.makedirs(os.path.dirname(progress_file_docker), exist_ok=True)
         except Exception as e:
-            print(f"Warning: Could not write to local path: {e}")
-            
-        print(f"🔄 Progress updated: {status} - {message} - Progress: {progress_percentage}%")
-        print(f"📁 Progress file written to: {progress_file_docker}")
-        print(f"📁 Progress file also written to: {progress_file_local}")
-        print(f"📊 Progress data: {progress_data}")
-        logging.info(f"Progress updated: {status} - {message} - Progress: {progress_percentage}%")
-        logging.info(f"Progress file written to: {progress_file_docker}")
-        logging.info(f"Progress file also written to: {progress_file_local}")
-        logging.info(f"Progress data: {progress_data}")
+            print(f"Error creating progress directory: {e}")
+            logging.error(f"Error creating progress directory: {e}")
+            return
+
+        # Write to Docker path (shared volume)
+        try:
+            with open(progress_file_docker, 'w') as f:
+                json.dump(progress_data, f, indent=2)
+                f.flush()  # Ensure data is written to disk immediately
+
+            print(f"🔄 Progress updated: {status} - {message} - Progress: {progress_percentage}%")
+            print(f"📁 Progress file written to: {progress_file_docker}")
+            print(f"📊 Progress data: {progress_data}")
+            logging.info(f"Progress updated: {status} - {message} - Progress: {progress_percentage}%")
+            logging.info(f"Progress file written to: {progress_file_docker}")
+            logging.info(f"Progress data: {progress_data}")
+        except Exception as e:
+            print(f"Error writing progress file: {e}")
+            logging.error(f"Error writing progress file: {e}")
         
     except Exception as e:
         logging.error(f"Error updating progress: {e}")
@@ -179,11 +165,11 @@ async def process_images(
     show_parameters: bool = False,
     userId: str = None,
     enhanceFace: bool = True,
-    batch_size: int = 6
+    batch_size: int = 1
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
     Process multiple images for face tracking and analysis (batch processing only).
-    Processes images in batches of 6 to avoid memory issues and provide better progress tracking.
+    Processes images one at a time to avoid OOM (Out of Memory) issues with Real-ESRGAN upscaler.
     
     Args:
         set_numbers: List of set numbers to process (for batch processing)
@@ -304,15 +290,18 @@ async def process_images(
                 total_batches = (total_sets + batch_size - 1) // batch_size
                 
                 print(f"🔄 Processing batch {batch_number}/{total_batches} (sets {batch_start + 1}-{batch_end})")
-                
+
+                # Calculate batch progress based on completed count
+                batch_progress = int((len(processed_sets) / total_sets) * 100)
+
                 # Update progress for batch start
-                update_progress(userId, batch_start + 1, total_sets, processed_sets, "processing", 
+                update_progress(userId, batch_start + 1, total_sets, processed_sets, "processing",
                               f"Processing batch {batch_number}/{total_batches} (sets {batch_start + 1}-{batch_end})", "", batch_start)
-                
+
                 yield {
                     "status": "processing",
                     "message": f"Processing batch {batch_number}/{total_batches} (sets {batch_start + 1}-{batch_end})",
-                    "progress": int((batch_start / total_sets) * 100),
+                    "progress": batch_progress,
                     "currentSet": batch_start + 1,
                     "currentFile": f"Batch {batch_number}/{total_batches}"
                 }
@@ -325,8 +314,10 @@ async def process_images(
                         current_set_number = global_index + 1
                         current_file = f"webcam_{set_num:03d}.jpg"
 
-                        # Calculate progress percentage based on completion
-                        progress_percentage = int((current_set_number / total_sets) * 100)
+                        # Calculate progress percentage based on COMPLETED sets, not current set
+                        # This ensures we don't show 100% until actually complete
+                        completed_count = len(processed_sets)
+                        progress_percentage = int((completed_count / total_sets) * 100)
 
                         # Update progress file at the start of processing each image
                         update_progress(userId, set_num, total_sets, processed_sets, "processing",
@@ -360,15 +351,18 @@ async def process_images(
                             webcam_files = [f for f in capture_files if f.startswith('webcam_')]
                             logging.warning(f"Webcam files not found for set {set_num}")
                             logging.warning(f"Available webcam files: {webcam_files}")
-                        
+
+                            # Calculate skip progress based on completed count
+                            skip_progress = int((len(processed_sets) / total_sets) * 100)
+
                             # Update progress for skipped file
-                            update_progress(userId, set_num, total_sets, processed_sets, "warning", 
+                            update_progress(userId, set_num, total_sets, processed_sets, "warning",
                                           f"Skipped set {set_num}: No webcam image found", f"webcam_{set_num:03d}.jpg", global_index)
-                        
+
                             yield {
                                 "status": "warning",
                                 "message": f"Skipping set {set_num}: No webcam image found (checked webcam_{set_num:03d}.jpg and webcam_sub_{set_num:03d}.jpg). Available webcam files: {webcam_files}",
-                                "progress": progress_percentage,
+                                "progress": skip_progress,
                                 "currentSet": set_num,
                                 "currentFile": f"webcam_{set_num:03d}.jpg"
                             }
@@ -385,20 +379,24 @@ async def process_images(
                         
                         # Validate the image
                         if is_empty_image(image):
+                            # Calculate skip progress based on completed count
+                            skip_progress = int((len(processed_sets) / total_sets) * 100)
                             yield {
                                 "status": "warning",
                                 "message": f"Skipping set {set_num}: Could not read image",
-                                "progress": progress_percentage,
+                                "progress": skip_progress,
                                 "currentSet": set_num,
                                 "currentFile": f"webcam_{set_num:03d}.jpg"
                             }
                             continue
-                            
+
                         if is_black_image(image):
+                            # Calculate skip progress based on completed count
+                            skip_progress = int((len(processed_sets) / total_sets) * 100)
                             yield {
                                 "status": "warning",
                                 "message": f"Skipping set {set_num}: Black image detected",
-                                "progress": progress_percentage,
+                                "progress": skip_progress,
                                 "currentSet": set_num,
                                 "currentFile": f"webcam_{set_num:03d}.jpg"
                             }
@@ -669,32 +667,41 @@ async def process_images(
                     
                     except Exception as e:
                         logging.error(f"Error processing set {set_num}: {str(e)}")
-                        
+
+                        # Calculate error progress based on completed count
+                        error_progress = int((len(processed_sets) / total_sets) * 100)
+
+                        # Ensure current_file is defined
+                        error_file = f"webcam_{set_num:03d}.jpg"
+
                         # Update progress for error
-                        update_progress(userId, set_num, total_sets, processed_sets, "error", 
-                                      f"Error processing set {set_num}: {str(e)}", current_file, global_index)
-                        
+                        update_progress(userId, set_num, total_sets, processed_sets, "error",
+                                      f"Error processing set {set_num}: {str(e)}", error_file, global_index)
+
                         yield {
                             "status": "error",
                             "message": f"Error processing set {set_num}: {str(e)}",
-                            "progress": progress_percentage,
+                            "progress": error_progress,
                             "currentSet": set_num,
-                            "currentFile": f"webcam_{set_num:03d}.jpg"
+                            "currentFile": error_file
                         }
                         continue
                 
                 # Batch completion message
                 batch_completed_count = len([s for s in processed_sets if s in current_batch])
                 print(f"✅ Completed batch {batch_number}/{total_batches} - processed {batch_completed_count}/{len(current_batch)} images")
-                
+
+                # Calculate batch completion progress based on completed count
+                batch_completion_progress = int((len(processed_sets) / total_sets) * 100)
+
                 # Update progress for batch completion
-                update_progress(userId, current_batch[-1] if current_batch else 0, total_sets, processed_sets, "processing", 
+                update_progress(userId, current_batch[-1] if current_batch else 0, total_sets, processed_sets, "processing",
                               f"Completed batch {batch_number}/{total_batches} ({len(processed_sets)}/{total_sets} total)", "", batch_end - 1)
-                
+
                 yield {
                     "status": "batch_completed",
                     "message": f"Completed batch {batch_number}/{total_batches} - processed {batch_completed_count}/{len(current_batch)} images",
-                    "progress": int((batch_end / total_sets) * 100),
+                    "progress": batch_completion_progress,
                     "currentSet": current_batch[-1] if current_batch else 0,
                     "currentFile": f"Batch {batch_number}/{total_batches} completed"
                 }
@@ -716,21 +723,16 @@ async def process_images(
             # Clean up progress file after successful completion
             try:
                 progress_file_docker = f"/app/resource_security/public/captures/{userId}/processing_progress.json"
-                progress_file_local = f"../auth_service/resource_security/public/captures/{userId}/processing_progress.json"
-                
-                # Remove progress files to indicate processing is complete
+
+                # Remove progress file to indicate processing is complete
                 if os.path.exists(progress_file_docker):
                     os.remove(progress_file_docker)
-                    print(f"🗑️ Cleaned up Docker progress file: {progress_file_docker}")
-                
-                if os.path.exists(progress_file_local):
-                    os.remove(progress_file_local)
-                    print(f"🗑️ Cleaned up local progress file: {progress_file_local}")
-                    
-                print(f"✅ Processing completed and progress files cleaned up for user: {userId}")
+                    print(f"🗑️ Cleaned up progress file: {progress_file_docker}")
+
+                print(f"✅ Processing completed and progress file cleaned up for user: {userId}")
             except Exception as e:
-                print(f"Warning: Could not clean up progress files: {e}")
-                logging.warning(f"Could not clean up progress files: {e}")
+                print(f"Warning: Could not clean up progress file: {e}")
+                logging.warning(f"Could not clean up progress file: {e}")
         
         else:
             yield {"success": False, "error": "No set_numbers provided for batch processing"}
@@ -743,18 +745,13 @@ async def process_images(
         try:
             if userId:
                 progress_file_docker = f"/app/resource_security/public/captures/{userId}/processing_progress.json"
-                progress_file_local = f"../auth_service/resource_security/public/captures/{userId}/processing_progress.json"
-                
-                # Remove progress files to indicate processing failed
+
+                # Remove progress file to indicate processing failed
                 if os.path.exists(progress_file_docker):
                     os.remove(progress_file_docker)
-                    print(f"🗑️ Cleaned up Docker progress file after error: {progress_file_docker}")
-                
-                if os.path.exists(progress_file_local):
-                    os.remove(progress_file_local)
-                    print(f"🗑️ Cleaned up local progress file after error: {progress_file_local}")
+                    print(f"🗑️ Cleaned up progress file after error: {progress_file_docker}")
         except Exception as cleanup_error:
-            print(f"Warning: Could not clean up progress files after error: {cleanup_error}")
+            print(f"Warning: Could not clean up progress file after error: {cleanup_error}")
         
         yield {
             "status": "error",

@@ -202,5 +202,89 @@
       "night_mode": false
     },
     "updated_at": "2025-10-28T04:02:51.237799"
+  },
+  {
+    "user_id": "ea5db192-8654-4993-9554-8d442a4cfcef",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-28T08:49:54.711511",
+    "profile": {
+      "username": "",
+      "sex": "",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-28T08:49:54.714369"
+  },
+  {
+    "user_id": "b0c20f95-9683-486b-aca3-24cfccaa988b",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-28T08:49:54.725016",
+    "profile": {
+      "username": "",
+      "sex": "",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-28T08:49:54.725810"
+  },
+  {
+    "user_id": "3bc83e71-b299-46d6-bacf-08c3ebdc97d6",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-28T11:33:06.007779",
+    "profile": {
+      "username": "",
+      "sex": "",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-28T11:33:06.011204"
+  },
+  {
+    "user_id": "2961980c-4054-4351-ba51-3529cca26fcd",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-28T11:33:06.028084",
+    "profile": {
+      "username": "",
+      "sex": "",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-28T11:33:06.029211"
+  },
+  {
+    "user_id": "a4eb1efe-ea4b-4c1e-9ea8-b262ea442481",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-28T11:38:06.974882",
+    "profile": {
+      "username": "",
+      "sex": "",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-28T11:38:06.977169"
+  },
+  {
+    "user_id": "6eef42d3-3e16-4718-9c09-00391374ee77",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-28T11:38:06.990987",
+    "profile": {
+      "username": "sdfasf",
+      "sex": "female",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-28T11:44:44.017870"
+  },
+  {
+    "user_id": "0a1cfaa6-4a49-44cc-ac2c-f084defb393f",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-28T16:16:31.698135",
+    "profile": {
+      "username": "",
+      "sex": "",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-28T16:16:31.702540"
   }
 ]

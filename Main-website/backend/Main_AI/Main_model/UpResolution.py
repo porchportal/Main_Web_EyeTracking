@@ -74,7 +74,7 @@ class FaceEnhancer:
         outscale: int = 4,
         fp32: bool = True,
         face_enhance: bool = False,
-        tile: int = 0,
+        tile: int = 512,
         tile_pad: int = 10,
         pre_pad: int = 0,
         alpha_upsampler: str = 'realesrgan',
@@ -440,10 +440,10 @@ class FaceEnhancer:
     def enhance_entire_image(self, frame):
         """
         Enhance the entire image using the upsampler.
-        
+
         Args:
             frame: Input image frame
-            
+
         Returns:
             Enhanced image or original frame if processing fails
         """
@@ -451,12 +451,13 @@ class FaceEnhancer:
             print(f"DEBUG - FaceEnhancer: Starting enhancement with outscale={self.outscale}")
             print(f"DEBUG - FaceEnhancer: Input frame shape: {frame.shape}")
             print(f"DEBUG - FaceEnhancer: Input frame dtype: {frame.dtype}")
-            
+            print(f"DEBUG - FaceEnhancer: Using tiling with tile_size={self.tile}")
+
             # Ensure frame is in the correct format
             if frame is None or frame.size == 0:
                 print("ERROR - FaceEnhancer: Invalid input frame")
                 return frame
-                
+
             # Convert to uint8 if necessary
             if frame.dtype != np.uint8:
                 print(f"DEBUG - FaceEnhancer: Converting frame from {frame.dtype} to uint8")
@@ -465,19 +466,23 @@ class FaceEnhancer:
                     frame = (frame * 255).astype(np.uint8)
                 else:
                     frame = frame.astype(np.uint8)
-            
+
             if self.face_enhance:
                 print("DEBUG - FaceEnhancer: Using face_enhancer")
                 _, _, output = self.face_enhancer.enhance(frame, has_aligned=False, only_center_face=False, paste_back=True)
             else:
                 print("DEBUG - FaceEnhancer: Using upsampler")
                 output, _ = self.upsampler.enhance(frame, outscale=self.outscale)
-            
+
+            # Clean up GPU memory if using CUDA
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+
             # Ensure output is in correct format
             if not isinstance(output, np.ndarray):
                 print("ERROR - FaceEnhancer: Output is not a numpy array")
                 return frame
-                
+
             print(f"DEBUG - FaceEnhancer: Output frame shape: {output.shape}")
             print(f"DEBUG - FaceEnhancer: Output frame dtype: {output.dtype}")
             print(f"DEBUG - FaceEnhancer: Enhancement ratio: {output.shape[0]/frame.shape[0]:.2f}x{output.shape[1]/frame.shape[1]:.2f}")
@@ -486,6 +491,9 @@ class FaceEnhancer:
             print(f"Error enhancing entire image: {e}")
             import traceback
             traceback.print_exc()
+            # Clean up GPU memory on error
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
             return frame
 
     def main_process_with_paste_back(self, frame, face_box: Tuple[int, int]):

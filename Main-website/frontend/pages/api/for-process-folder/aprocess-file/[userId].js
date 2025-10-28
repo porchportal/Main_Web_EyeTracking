@@ -6,12 +6,17 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Declare variables in outer scope for cleanup
+  // Declare variables in outer scope for cleanup and error handling
   let lockFilePath = null;
-  
+  let progressFilePath = null;
+  let setNumbers = null;
+  let enhanceFace = null;
+  let userId = null;
+
   try {
-    const { setNumbers, enhanceFace } = req.body;
-    const { userId } = req.query;
+    setNumbers = req.body?.setNumbers;
+    enhanceFace = req.body?.enhanceFace;
+    userId = req.query?.userId;
 
     console.log(`🔧 aprocess-file API received:`, {
       setNumbers: setNumbers,
@@ -39,13 +44,25 @@ export default async function handler(req, res) {
     console.log(`✅ All parameters valid - proceeding with processing`);
 
     // Create initial progress file for polling mechanism
-    const capturesDir = path.join(process.cwd(), '..', 'backend', 'auth_service', 'resource_security', 'public', 'captures', userId);
-    const progressFilePath = path.join(capturesDir, 'processing_progress.json');
+    // IMPORTANT: This path is mapped via Docker volume to backend/auth_service/resource_security/public/captures
+    // See docker-compose.yml volume mount for confirmation
+    const baseDir = '/app/resource_security/public/captures';
+    const capturesDir = path.join(baseDir, userId);
+    progressFilePath = path.join(capturesDir, 'processing_progress.json');
     lockFilePath = path.join(capturesDir, 'processing.lock');
-    
-    // Ensure directory exists
+
+    console.log(`📁 Using captures directory (mounted from backend): ${capturesDir}`);
+
+    // Verify base directory exists (should be mounted from backend)
+    if (!fs.existsSync(baseDir)) {
+      console.error(`❌ Base directory not found: ${baseDir}`);
+      throw new Error('Backend resource_security folder not mounted correctly. Please check Docker volumes.');
+    }
+
+    // Create user-specific subdirectory only (not the entire path)
     if (!fs.existsSync(capturesDir)) {
-      fs.mkdirSync(capturesDir, { recursive: true });
+      fs.mkdirSync(capturesDir, { recursive: false });
+      console.log(`✅ Created user directory: ${capturesDir}`);
     }
     
     // Create lock file
@@ -165,32 +182,38 @@ export default async function handler(req, res) {
       results: data.results || [data]
     });
   } catch (error) {
-    console.error('Error in process-files API:', error);
-    
+    console.error('Error in process-files API:', {
+      error: error.message,
+      stack: error.stack,
+      userId: userId,
+      setNumbers: setNumbers,
+      enhanceFace: enhanceFace
+    });
+
     // Update progress file with error status
     try {
-      const errorProgressInfo = {
-        currentSet: 0,
-        totalSets: setNumbers?.length || 0,
-        processedSets: [],
-        startTime: new Date().toISOString(),
-        lastUpdateTime: new Date().toISOString(),
-        userId: userId,
-        enhanceFace: enhanceFace,
-        status: 'error',
-        message: `Processing failed: ${error.message}`,
-        currentFile: '',
-        progress: 0
-      };
-      
-      if (progressFilePath) {
+      if (progressFilePath && userId) {
+        const errorProgressInfo = {
+          currentSet: 0,
+          totalSets: setNumbers?.length || 0,
+          processedSets: [],
+          startTime: new Date().toISOString(),
+          lastUpdateTime: new Date().toISOString(),
+          userId: userId,
+          enhanceFace: enhanceFace || false,
+          status: 'error',
+          message: `Processing failed: ${error.message}`,
+          currentFile: '',
+          progress: 0
+        };
+
         fs.writeFileSync(progressFilePath, JSON.stringify(errorProgressInfo, null, 2));
         console.log(`Updated progress file with error status`);
       }
     } catch (err) {
       console.error(`Error updating progress file with error status: ${err.message}`);
     }
-    
+
     // Clean up lock file on error
     try {
       if (lockFilePath && fs.existsSync(lockFilePath)) {
@@ -200,11 +223,32 @@ export default async function handler(req, res) {
     } catch (err) {
       console.error(`Error removing lock file on error: ${err.message}`);
     }
-    
+
+    // Return appropriate error response
     if (error.name === 'AbortError') {
-      res.status(408).json({ error: 'Request timeout - image processing took too long' });
+      return res.status(408).json({
+        success: false,
+        error: 'Request timeout - image processing took too long',
+        message: 'The processing operation timed out after 5 minutes'
+      });
+    } else if (error.message?.includes('ECONNREFUSED')) {
+      return res.status(503).json({
+        success: false,
+        error: 'Backend service unavailable',
+        message: 'Could not connect to the image processing service. Please ensure the backend is running.'
+      });
+    } else if (error.message?.includes('AUTH_SERVICE_URL')) {
+      return res.status(500).json({
+        success: false,
+        error: 'Server configuration error',
+        message: 'AUTH_SERVICE_URL is not configured properly'
+      });
     } else {
-      res.status(500).json({ error: error.message });
+      return res.status(500).json({
+        success: false,
+        error: error.message || 'Internal server error',
+        message: 'An error occurred while processing the files. Please try again.'
+      });
     }
   }
 }

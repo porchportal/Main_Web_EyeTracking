@@ -1,4 +1,11 @@
 export default async function handler(req, res) {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-API-Key');
+    return res.status(200).end();
+  }
+
   // Get auth service URL and API key
   const authServiceUrl = process.env.AUTH_SERVICE_URL;
   const apiKey = process.env.NEXT_PUBLIC_API_KEY;
@@ -52,6 +59,11 @@ export default async function handler(req, res) {
       });
     }
   } else {
-    return res.status(405).json({ error: 'Method not allowed' });
+    console.warn(`Method ${req.method} not allowed for /api/consent/check`);
+    return res.status(405).json({
+      error: 'Method not allowed',
+      message: `${req.method} is not supported. Use POST instead.`,
+      allowedMethods: ['POST', 'OPTIONS']
+    });
   }
 }

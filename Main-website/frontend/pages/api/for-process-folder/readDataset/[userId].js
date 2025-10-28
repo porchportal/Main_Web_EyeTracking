@@ -9,9 +9,7 @@ export default async function handler(req, res) {
 
   try {
     const { userId, filename, folder = 'captures', operation = 'preview', enhanceFace } = req.query;
-    
-    console.log(`Frontend API received: userId=${userId}, folder=${folder}, operation=${operation}, filename=${filename}, enhanceFace=${enhanceFace}`);
-    
+
     if (!userId) {
       return res.status(400).json({
         success: false,
@@ -56,9 +54,6 @@ export default async function handler(req, res) {
 // Handle list operation by calling backend API
 async function handleListOperation(userId, folder, res, backendUrl, apiKey) {
   try {
-    console.log(`Frontend API: Calling backend with userId: ${userId}, folder: ${folder}`);
-    console.log(`Frontend API: Backend URL: ${backendUrl}`);
-    console.log(`Frontend API: Full URL: ${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=${encodeURIComponent(folder)}`);
     // Call the backend list-files API
     const response = await fetch(`${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=${encodeURIComponent(folder)}`, {
       headers: {
@@ -246,50 +241,71 @@ async function handleCompletenessCheck(userId, res, backendUrl, apiKey) {
 // Handle compare operation
 async function handleCompareOperation(userId, enhanceFace, res, backendUrl, apiKey) {
   try {
-    console.log(`🔍 handleCompareOperation called with enhanceFace=${enhanceFace} (type: ${typeof enhanceFace})`);
-    
     // Convert enhanceFace string to boolean if needed
     const isEnhanceMode = enhanceFace === 'true' || enhanceFace === true;
-    console.log(`🔍 isEnhanceMode: ${isEnhanceMode}`);
     // Get capture files
     const captureUrl = `${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=captures`;
-    
+
     const captureResponse = await fetch(captureUrl, {
       headers: {
         'X-API-Key': apiKey,
         'Content-Type': 'application/json'
-      }
+      },
+      timeout: 30000  // 30 second timeout
+    }).catch(err => {
+      console.error('Failed to fetch capture files:', err.message);
+      return { ok: false, status: 503, statusText: 'Service temporarily unavailable' };
     });
     
     // Get enhance files
     const enhanceUrl = `${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=enhance`;
-    
+
     const enhanceResponse = await fetch(enhanceUrl, {
       headers: {
         'X-API-Key': apiKey,
         'Content-Type': 'application/json'
-      }
+      },
+      timeout: 30000  // 30 second timeout
+    }).catch(err => {
+      console.error('Failed to fetch enhance files:', err.message);
+      return { ok: false, status: 503, statusText: 'Service temporarily unavailable' };
     });
-    
+
     // Get complete files
     const completeUrl = `${backendUrl}/api/list-files?userId=${encodeURIComponent(userId)}&folder=complete`;
-    
+
     const completeResponse = await fetch(completeUrl, {
       headers: {
         'X-API-Key': apiKey,
         'Content-Type': 'application/json'
-      }
+      },
+      timeout: 30000  // 30 second timeout
+    }).catch(err => {
+      console.error('Failed to fetch complete files:', err.message);
+      return { ok: false, status: 503, statusText: 'Service temporarily unavailable' };
     });
     
     let captureFiles = [];
     let enhanceFiles = [];
     let completeFiles = [];
-    
+
+    // If any service is unavailable, return a graceful error
+    if (!captureResponse.ok && captureResponse.status === 503) {
+      return res.status(503).json({
+        success: false,
+        error: 'Backend service is temporarily busy processing images. Please wait and try again.',
+        needsProcessing: false,
+        captureCount: 0,
+        enhanceCount: 0,
+        completeCount: 0
+      });
+    }
+
     if (captureResponse.ok) {
       const captureData = await captureResponse.json();
       captureFiles = captureData.files || [];
     } else {
-      console.error(`Capture response error: ${captureResponse.status}`, await captureResponse.text());
+      console.error(`Capture response error: ${captureResponse.status}`);
     }
     
     if (enhanceResponse.ok) {
@@ -348,28 +364,14 @@ async function handleCompareOperation(userId, enhanceFace, res, backendUrl, apiK
       // In enhance mode: only consider enhance files, ignore complete files
       processedSets = enhanceSets;
       totalProcessedCount = enhanceCount;
-      console.log(`🔍 Enhance mode: only considering enhance files (${enhanceCount} files)`);
     } else {
       // In complete mode: only consider complete files, ignore enhance files
       processedSets = completeSets;
       totalProcessedCount = completeCount;
-      console.log(`🔍 Complete mode: only considering complete files (${completeCount} files)`);
     }
-    
+
     const setsNeedingProcessing = Array.from(captureSets).filter(setNum => !processedSets.has(setNum));
     needsProcessing = setsNeedingProcessing.length > 0;
-    
-    console.log(`🔍 handleCompareOperation results:`, {
-      captureCount,
-      enhanceCount,
-      completeCount,
-      totalProcessedCount,
-      needsProcessing,
-      setsNeedingProcessing,
-      captureSets: Array.from(captureSets),
-      enhanceSets: Array.from(enhanceSets),
-      completeSets: Array.from(completeSets)
-    });
     
     return res.status(200).json({
       success: true,

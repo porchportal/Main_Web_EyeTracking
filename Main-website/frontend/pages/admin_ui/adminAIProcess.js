@@ -36,9 +36,6 @@ import {
   EnhanceFaceToggle
 } from '../process_set/sectionPreview';
 
-// Import notification component from utils
-import NotiMessage from '../../utils/notiMessage';
-
 const AdminAIProcess = ({ userId, onClose }) => {
   const [isClosing, setIsClosing] = useState(false);
   const [backendConnected, setBackendConnected] = useState(false);
@@ -55,25 +52,15 @@ const AdminAIProcess = ({ userId, onClose }) => {
   const [filesChecked, setFilesChecked] = useState(false);
   const [isProcessReady, setIsProcessReady] = useState(false);
 
-  // Fallback notification function
-  const showNotificationFallback = (message, type = 'info') => {
-    console.log(`[${type.toUpperCase()}] ${message}`);
-    // You could also show an alert or console log as fallback
-    if (type === 'error') {
-      console.error(message);
-    } else if (type === 'success') {
-      console.log('✓', message);
-    } else {
-      console.info(message);
-    }
-  };
-
-  // Safe notification function that checks for global function first
-  const safeShowNotification = (message, type = 'info') => {
-    if (window.showNotification && typeof window.showNotification === 'function') {
+  // Use the global notification function from NotiMessage component in parent (admin.js)
+  // The parent page exposes window.showNotification globally
+  const showNotification = (message, type = 'info') => {
+    if (typeof window !== 'undefined' && window.showNotification) {
+      console.log(`[AdminAIProcess] Showing notification: "${message}" (type: ${type})`);
       window.showNotification(message, type);
     } else {
-      showNotificationFallback(message, type);
+      // Fallback to console if notification system isn't ready
+      console.log(`[${type.toUpperCase()}] ${message}`);
     }
   };
 
@@ -81,25 +68,21 @@ const AdminAIProcess = ({ userId, onClose }) => {
   const checkConnection = async () => {
     setLoading(true);
     const result = await checkBackendConnection();
-    
+
     if (result.success && result.connected) {
       setBackendConnected(true);
-      safeShowNotification('Backend connected successfully', 'success');
+      // Removed notification - will show summary after loadFiles completes
     } else {
-      safeShowNotification('Cannot connect to backend server', 'error');
+      showNotification('Cannot connect to backend server', 'error');
       setBackendConnected(false);
     }
     setLoading(false);
   };
-
-  // Use showNotification from process_set hook
-
-  // Use functions from process_set - no need to redefine them
-
   // Load files using process_set functions
-  const loadFiles = async () => {
+  const loadFiles = async (showNotif = false) => {
+    console.log(`[AdminAIProcess] loadFiles called with showNotif=${showNotif}`);
     if (!userId) return;
-    
+
     setLoading(true);
     try {
       // Get files list from all three folders using process_set functions
@@ -167,39 +150,44 @@ const AdminAIProcess = ({ userId, onClose }) => {
         
         setFiles(organizedFiles);
         setCaptureLoaded(captureResult.success && captureResult.files.length > 0);
-        
+
         // Check file completeness using process_set function
         const completenessResult = await checkFilesCompleteness(userId);
-        if (completenessResult.success) {
-          if (completenessResult.totalSets === 0) {
-            safeShowNotification('No capture files found', 'info');
-          } else if (completenessResult.isComplete) {
-            safeShowNotification('All file sets are complete', 'success');
-          } else {
-            safeShowNotification(`Warning: ${completenessResult.missingFiles} files are missing from sets`, 'info');
-          }
-        }
-        
+
         // Check if processing is needed using process_set function
         const processingResult = await checkFilesNeedProcessing(userId, enhanceFace);
         if (processingResult.success) {
           setIsProcessReady(processingResult.needsProcessing);
           setFilesChecked(true);
-          
-          if (processingResult.totalSets === 0) {
-            safeShowNotification('No files available for processing', 'info');
+        }
+
+        // Show single summary notification only when explicitly requested
+        if (showNotif && completenessResult.success && processingResult.success) {
+          if (completenessResult.totalSets === 0) {
+            showNotification('No capture files found', 'info');
           } else if (processingResult.needsProcessing) {
-            safeShowNotification(`${processingResult.filesToProcess} sets need processing`, 'info');
+            showNotification(`Files loaded: ${processingResult.filesToProcess} sets need processing`, 'info');
           } else {
-            safeShowNotification('All sets are processed', 'success');
+            showNotification('Files loaded: All sets are processed', 'success');
           }
         }
       } else {
-        safeShowNotification('Error loading files', 'error');
+        if (showNotif) {
+          showNotification('Error loading files', 'error');
+        }
       }
     } catch (error) {
       console.error('Error loading files:', error);
-      safeShowNotification('Error loading files: ' + error.message, 'error');
+
+      // Only show error notifications when explicitly requested
+      if (showNotif) {
+        // Provide user-friendly message for 503 errors
+        if (error.message && (error.message.includes('503') || error.message.includes('Service temporarily unavailable'))) {
+          showNotification('Backend is busy processing images. Please wait a moment and try again.', 'info');
+        } else {
+          showNotification('Error loading files: ' + error.message, 'error');
+        }
+      }
     }
     setLoading(false);
   };
@@ -220,38 +208,38 @@ const AdminAIProcess = ({ userId, onClose }) => {
           type: result.type
         });
       } else {
-        safeShowNotification('Error loading preview: ' + (result.error || 'Unknown error'), 'error');
+        showNotification('Error loading preview: ' + (result.error || 'Unknown error'), 'error');
       }
     } catch (error) {
       console.error('Error in handleFileSelect:', error);
-      safeShowNotification('Error loading preview: ' + error.message, 'error');
+      showNotification('Error loading preview: ' + error.message, 'error');
     }
   };
 
   // Process files using process_set function
   const processFilesLocal = async () => {
     if (!captureLoaded) {
-      safeShowNotification('Please load capture dataset first', 'info');
+      showNotification('Please load capture dataset first', 'info');
       return;
     }
     
     if (!filesChecked) {
-      safeShowNotification('Please check files first', 'info');
+      showNotification('Please check files first', 'info');
       return;
     }
     
     if (!isProcessReady) {
-      safeShowNotification('No files need processing', 'info');
+      showNotification('No files need processing', 'info');
       return;
     }
     
     if (isProcessing) {
-      safeShowNotification('Processing is already in progress', 'info');
+      showNotification('Processing is already in progress', 'info');
       return;
     }
     
     setIsProcessing(true);
-    safeShowNotification('Processing started...', 'info');
+    showNotification('Processing started...', 'info');
     
     try {
       // Get the processing status using process_set function
@@ -261,7 +249,7 @@ const AdminAIProcess = ({ userId, onClose }) => {
       }
 
       if (!result.setsNeedingProcessing || result.setsNeedingProcessing.length === 0) {
-        safeShowNotification('No files need processing', 'info');
+        showNotification('No files need processing', 'info');
         setIsProcessing(false);
         return;
       }
@@ -279,18 +267,42 @@ const AdminAIProcess = ({ userId, onClose }) => {
 
       // Use process_set function to process files
       const processResult = await processFiles(result.setsNeedingProcessing, userId, enhanceFace);
-      
+
       if (!processResult.success) {
-        throw new Error(processResult.error || 'Processing failed');
+        const errorMessage = processResult.error || processResult.message || 'Processing failed';
+        console.error('Processing failed:', {
+          error: processResult.error,
+          message: processResult.message,
+          details: processResult
+        });
+        throw new Error(errorMessage);
       }
 
       // The progress polling will handle updating the progress bar in real-time
       // and will show completion notification when processing is done
       // We don't need to manually update progress data here since polling handles it
-      
+
     } catch (error) {
-      console.error('Error during processing:', error);
-      safeShowNotification(error.message || 'Error during processing', 'error');
+      console.error('Error during processing:', {
+        error: error.message,
+        stack: error.stack,
+        userId: userId,
+        enhanceFace: enhanceFace
+      });
+
+      // Provide more detailed error messages
+      let errorMessage = error.message || 'Error during processing';
+
+      if (error.message?.includes('Backend service unavailable')) {
+        errorMessage = 'The image processing service is not running. Please start the backend service and try again.';
+      } else if (error.message?.includes('timeout')) {
+        errorMessage = 'Processing took too long and timed out. Please try processing fewer files at once.';
+      } else if (error.message?.includes('Server error (500)')) {
+        errorMessage = 'Server error occurred. Please check the console for more details and try again.';
+      }
+
+      showNotification(errorMessage, 'error');
+
       // On error, immediately stop processing and clear progress
       setIsProcessing(false);
       setProgressData(null);
@@ -315,65 +327,119 @@ const AdminAIProcess = ({ userId, onClose }) => {
   // Add progress polling effect
   useEffect(() => {
     let progressInterval = null;
-    
+    let hasShownCompletion = false; // Track if we've already shown completion notification
+
     if (isProcessing) {
       // Set up interval to check processing progress when processing is active
       progressInterval = setInterval(async () => {
         try {
           const result = await checkProcessingStatus(userId);
-          if (result.success && result.isProcessing === false) {
+
+          // Handle case where processing is not running anymore
+          if (result.success && result.isProcessing === false && result.progress === null) {
+            console.log('Processing no longer active, cleaning up...');
+            if (progressInterval) {
+              clearInterval(progressInterval);
+              progressInterval = null;
+            }
             setIsProcessing(false);
             setProgressData(null);
+            await loadFiles();
             return;
           }
-          
+
           // Check if we have progress data and update accordingly
-          if (result.progress && (result.progress.status === 'processing' || result.progress.status === 'starting')) {
-            const progressData = {
-              currentSet: result.progress.currentSet || 0,
-              totalSets: result.progress.totalSets || 0,
-              processedSets: result.progress.processedSets || [],
-              currentFile: result.progress.currentFile || '',
-              progress: result.progress.progress || 0,
-              status: result.progress.status || 'unknown',
-              message: result.progress.message || '',
-              userId: userId
-            };
-            
-            // Update progress data if we have meaningful progress
-            if (progressData.progress > 0 || progressData.status === 'processing' || progressData.status === 'starting') {
+          if (result.progress && typeof result.progress === 'object') {
+            // Handle completion status FIRST before updating progress data
+            if (result.progress.status === 'completed' && !hasShownCompletion) {
+              console.log('Processing completed!');
+              hasShownCompletion = true; // Mark as shown
+
+              // Stop polling immediately
+              if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+              }
+
+              // Show final completion state briefly
               setProgressData({
-                ...progressData,
+                currentSet: result.progress.currentSet || 0,
+                totalSets: result.progress.totalSets || 0,
+                processedSets: result.progress.processedSets || [],
+                currentFile: result.progress.currentFile || '',
+                progress: 100,
+                status: 'completed',
+                message: '✓ Processing completed successfully!',
+                userId: userId,
                 timestamp: Date.now()
               });
-            }
-            
-            // If processing is completed, update state and clear progress after delay
-            if (result.progress.status === 'completed') {
-              safeShowNotification('Processing completed successfully', 'success');
-              
-              // Set a timeout to clear progress after 3 seconds, then refresh files
+
+              showNotification('Processing completed successfully!', 'success');
+
+              // Clear state after 1 second and refresh files
               setTimeout(async () => {
                 setIsProcessing(false);
                 setProgressData(null);
                 await loadFiles();
-              }, 3000);
-            } else if (result.progress.status === 'error') {
-              safeShowNotification('Processing failed: ' + result.progress.message, 'error');
-              
-              // Set a timeout to clear progress after 3 seconds for errors
+              }, 1000);
+
+              return;
+            }
+            // Handle error status (only show notification once)
+            else if (result.progress.status === 'error' && !hasShownCompletion) {
+              console.error('Processing error:', result.progress.message);
+              hasShownCompletion = true; // Mark as shown
+
+              // Stop polling immediately
+              if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+              }
+
+              showNotification('Processing failed: ' + result.progress.message, 'error');
+
+              // Clear state after 2 seconds
               setTimeout(() => {
                 setIsProcessing(false);
                 setProgressData(null);
-              }, 3000);
+              }, 2000);
+
+              return;
             }
+
+            // Only update progress data if NOT completed/error
+            if (result.progress.status !== 'completed' && result.progress.status !== 'error') {
+              const newProgressData = {
+                currentSet: result.progress.currentSet || 0,
+                totalSets: result.progress.totalSets || 0,
+                processedSets: result.progress.processedSets || [],
+                currentFile: result.progress.currentFile || '',
+                progress: result.progress.progress || 0,
+                status: result.progress.status || 'unknown',
+                message: result.progress.message || 'Processing...',
+                userId: userId,
+                timestamp: Date.now()
+              };
+              setProgressData(newProgressData);
+            }
+          } else if (result.success && result.isProcessing === false) {
+            // If processing is not running and no progress data, stop polling
+            console.log('No progress data and processing stopped');
+            if (progressInterval) {
+              clearInterval(progressInterval);
+              progressInterval = null;
+            }
+            setIsProcessing(false);
+            setProgressData(null);
+            await loadFiles();
           }
         } catch (error) {
           console.error('Error in progress polling:', error);
+          // Don't stop polling on error, just log it
         }
-      }, 2000); // Check every 2 seconds when processing
+      }, 1500); // Check every 1.5 seconds for more responsive updates
     }
-    
+
     // Clean up interval when isProcessing changes or component unmounts
     return () => {
       if (progressInterval) {
@@ -412,10 +478,7 @@ const AdminAIProcess = ({ userId, onClose }) => {
           ×
         </button>
       </div>
-      
-      {/* Notification Component from admin UI */}
-      <NotiMessage />
-      
+
       <div className={styles.processContent}>
         {/* Status Display */}
         <div className={styles.statusDisplay}>
@@ -459,14 +522,29 @@ const AdminAIProcess = ({ userId, onClose }) => {
         {isProcessing && progressData && (
           <div className={styles.processingProgress}>
             <h3>Processing Progress</h3>
+            <div className={styles.progressInfo}>
+              <span className={styles.progressMessage}>{progressData.message}</span>
+              <span className={styles.progressPercent}>{progressData.progress}%</span>
+            </div>
             <div className={styles.progressBar}>
-              <div 
+              <div
                 className={styles.progressFill}
-                style={{ width: `${progressData.progress}%` }}
+                style={{
+                  width: `${progressData.progress}%`,
+                  transition: 'width 0.3s ease-in-out'
+                }}
               ></div>
             </div>
-            <p>{progressData.message}</p>
-            <p>Processed: {progressData.processedSets.length} / {progressData.totalSets}</p>
+            <div className={styles.progressDetails}>
+              <span className={styles.progressSets}>
+                Sets: {progressData.processedSets?.length || 0} / {progressData.totalSets}
+              </span>
+              {progressData.currentFile && (
+                <span className={styles.progressFile}>
+                  Current: {progressData.currentFile}
+                </span>
+              )}
+            </div>
           </div>
         )}
 
@@ -613,9 +691,9 @@ const AdminAIProcess = ({ userId, onClose }) => {
             {/* Action Buttons */}
             <div className={styles.controls}>
               <div className={styles.buttonGroup}>
-                <button 
+                <button
                   className={styles.actionButton}
-                  onClick={loadFiles}
+                  onClick={() => loadFiles(true)}
                   disabled={loading}
                 >
                   {loading ? 'Loading...' : 'Check Files'}

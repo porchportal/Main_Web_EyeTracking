@@ -55,7 +55,6 @@ export default function HomePage() {
   const [mounted, setMounted] = useState(false);
   const [userData, setUserData] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [showComingSoon, setShowComingSoon] = useState(false);
   const [publicDataAccess, setPublicDataAccess] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [userInConsentData, setUserInConsentData] = useState(null);
@@ -64,10 +63,13 @@ export default function HomePage() {
   // Check if user ID exists in consent_data.json
   const checkUserInConsentData = async () => {
     if (!userId) {
+      console.log('checkUserInConsentData: No userId, skipping check');
       return;
     }
 
     try {
+      console.log('checkUserInConsentData: Checking userId:', userId);
+
       // Fetch consent data from backend
       const response = await fetch('/api/consent/check', {
         method: 'POST',
@@ -82,6 +84,9 @@ export default function HomePage() {
         const data = await response.json();
         const userExists = data.exists || false;
         const previousState = userInConsentData;
+
+        console.log('checkUserInConsentData: Result - userExists:', userExists);
+
         setUserInConsentData(userExists);
         setConsentDataChecked(true); // Mark check as complete
 
@@ -102,12 +107,20 @@ export default function HomePage() {
           console.error('Verification failed: User not found in consent_data.json after accepting consent');
         }
       } else {
-        console.error('Failed to check consent data');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to check consent data:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
         setUserInConsentData(false);
         setConsentDataChecked(true); // Mark check as complete even on error
       }
     } catch (error) {
-      console.error('Error checking consent data:', error);
+      console.error('Error checking consent data:', {
+        message: error.message,
+        stack: error.stack
+      });
       setUserInConsentData(false);
       setConsentDataChecked(true); // Mark check as complete even on error
     }
@@ -404,11 +417,15 @@ export default function HomePage() {
       if (userId) {
         // Immediately set userInConsentData to true to unlock buttons
         setUserInConsentData(true);
+        setConsentDataChecked(true);
+
+        // Force a recheck of consent status from ConsentContext
+        recheckConsent();
 
         // Also recheck in the background to verify (with delay to ensure backend has saved)
         setTimeout(() => {
           checkUserInConsentData();
-        }, 1000);
+        }, 1500);
       }
     };
 
@@ -499,7 +516,7 @@ export default function HomePage() {
         break;
 
       case 'realtime-model':
-        setShowComingSoon(true);
+        router.push('/realtime');
         break;
 
       case 'process-set':
@@ -535,7 +552,7 @@ export default function HomePage() {
       if (!checksComplete) return '';
 
       // After checks complete, show appropriate state
-      const isEnabled = userInConsentData === true && consentStatus !== null;
+      const isEnabled = userInConsentData === true && consentStatus === true;
       return isEnabled ? styles.buttonEnabled : styles.buttonDisabled;
     }
 
@@ -598,11 +615,11 @@ export default function HomePage() {
           <button
             className={`${styles.menuButton} ${getButtonClass('collected-dataset')}`}
             onClick={() => handleButtonClick('collected-dataset')}
-            disabled={!consentChecked || !consentDataChecked || userInConsentData !== true || consentStatus === null}
+            disabled={!consentChecked || !consentDataChecked || userInConsentData !== true || consentStatus !== true}
           >
             <h2>Collected Dataset</h2>
             <ButtonOverlay
-              enabled={userInConsentData === true && consentStatus !== null}
+              enabled={userInConsentData === true && consentStatus === true}
               isReady={consentChecked && consentDataChecked}
             />
           </button>
@@ -616,31 +633,8 @@ export default function HomePage() {
             </button>
           </div>
         )}
-        
-      </main>
 
-      {/* Coming Soon Popup */}
-      {showComingSoon && (
-        <div className={styles.popupOverlay} onClick={() => setShowComingSoon(false)}>
-          <div className={styles.popupContent} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.popupHeader}>
-              <h3>Coming Soon!</h3>
-            </div>
-            <div className={styles.popupBody}>
-              <p>The Realtime Model feature is currently under development.</p>
-              <p>Please check back later for updates!</p>
-            </div>
-            <div className={styles.popupFooter}>
-              <button 
-                className={styles.okButton}
-                onClick={() => setShowComingSoon(false)}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      </main>
 
       <footer className={styles.footer}>
         <a 

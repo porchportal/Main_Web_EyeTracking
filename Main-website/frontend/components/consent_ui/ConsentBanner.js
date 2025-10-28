@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import styles from '../../styles/Consent.module.css';
 import { useConsent } from './ConsentContext';
-import { getOrCreateUserId } from '../../utils/consentManager';
 
 // Stable headers to prevent object recreation
 const CONSENT_HEADERS = Object.freeze({
@@ -12,7 +11,7 @@ const CONSENT_HEADERS = Object.freeze({
 });
 
 export default function ConsentBanner({ onShowPrivacyModal }) {
-  const { showBanner, updateConsent, consentChecked, loading: contextLoading } = useConsent();
+  const { showBanner, updateConsent, consentChecked, loading: contextLoading, userId } = useConsent();
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -27,87 +26,55 @@ export default function ConsentBanner({ onShowPrivacyModal }) {
     return null;
   }
 
-
-  const handleAccept = async () => {
+  // Common handler for both accept and decline
+  const handleConsentAction = async (consentStatus) => {
     setLoading(true);
     try {
-      // Get user ID
-      const userId = getOrCreateUserId();
-      
+      // Use userId from context to avoid duplicate generation
+      if (!userId) {
+        console.error('No userId available from context');
+        setLoading(false);
+        return;
+      }
+
       const requestBody = {
         userId: userId,
-        consentStatus: true
+        consentStatus: consentStatus
       };
-      
-      
+
       // Update consent status through the proper consent API
       const consentResponse = await fetch('/api/preferences/consent', {
         method: 'POST',
         headers: CONSENT_HEADERS,
         body: JSON.stringify(requestBody)
       });
-      
-      
+
       if (!consentResponse.ok) {
         const errorText = await consentResponse.text();
-        console.error('🍪 ConsentBanner: Error response:', errorText);
+        console.error(`🍪 ConsentBanner: ${consentStatus ? 'Accept' : 'Decline'} error response:`, errorText);
         throw new Error(`Failed to save consent status: ${consentResponse.status} - ${errorText}`);
       }
-      
+
       const consentData = await consentResponse.json();
 
       // Update local consent state
-      await updateConsent(true);
+      await updateConsent(consentStatus);
 
       // Dispatch custom event to notify other components that consent was accepted
-      window.dispatchEvent(new CustomEvent('consentAccepted', {
-        detail: { userId: userId }
-      }));
-
-      // User data will be initialized automatically when they first save their profile
-    } catch (error) {
-      console.error('Error handling cookie acceptance:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDecline = async () => {
-    setLoading(true);
-    try {
-      // Get user ID
-      const userId = getOrCreateUserId();
-      
-      const requestBody = {
-        userId: userId,
-        consentStatus: false
-      };
-      
-      
-      // Update consent status through the proper consent API
-      const consentResponse = await fetch('/api/preferences/consent', {
-        method: 'POST',
-        headers: CONSENT_HEADERS,
-        body: JSON.stringify(requestBody)
-      });
-      
-      
-      if (!consentResponse.ok) {
-        const errorText = await consentResponse.text();
-        console.error('🍪 ConsentBanner: Decline error response:', errorText);
-        throw new Error(`Failed to save consent status: ${consentResponse.status} - ${errorText}`);
+      if (consentStatus) {
+        window.dispatchEvent(new CustomEvent('consentAccepted', {
+          detail: { userId: userId }
+        }));
       }
-      
-      const consentData = await consentResponse.json();
-      
-      // Update local consent state
-      await updateConsent(false);
     } catch (error) {
-      console.error('Error handling cookie decline:', error);
+      console.error(`Error handling cookie ${consentStatus ? 'acceptance' : 'decline'}:`, error);
     } finally {
       setLoading(false);
     }
   };
+
+  const handleAccept = () => handleConsentAction(true);
+  const handleDecline = () => handleConsentAction(false);
 
   const handleLearnMore = () => {
     if (onShowPrivacyModal) {

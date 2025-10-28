@@ -114,52 +114,56 @@ export const getCurrentUserId = async () => {
     }
 
     // First try to get user ID from consent context using consent manager
-    let frontendUserId = null;
+    let userId = null;
     try {
-      // Try to get from consent manager first
+      // Try to get from consent manager first (this is the primary source)
       const consentData = getOrCreateUserId();
       if (consentData) {
-        frontendUserId = consentData;
+        userId = consentData;
       }
     } catch (e) {
       console.warn('Could not get consent data:', e);
     }
 
-    // If no frontend user ID, try sessionStorage
-    if (!frontendUserId) {
-      frontendUserId = sessionStorage.getItem('userId');
-      if (frontendUserId) {
-      }
+    // If no user ID from consent, try sessionStorage
+    if (!userId) {
+      userId = sessionStorage.getItem('userId');
+    }
+
+    // If no user ID from sessionStorage, try localStorage
+    if (!userId) {
+      userId = localStorage.getItem('userId');
     }
 
     // If still no user ID, generate one (this should rarely happen)
-    if (!frontendUserId) {
+    if (!userId) {
       // Generate a new UUID for this session using crypto.randomUUID if available
       if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-        frontendUserId = crypto.randomUUID();
+        userId = crypto.randomUUID();
       } else {
         // Fallback to a simple random ID
-        frontendUserId = 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+        userId = 'user_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+      }
+
+      // Store the generated ID
+      try {
+        localStorage.setItem('userId', userId);
+        sessionStorage.setItem('userId', userId);
+      } catch (e) {
+        console.warn('Could not store user ID:', e);
       }
     }
 
-    // Pass the user ID to the backend
-    const response = await fetchWithRetry(`/api/current-user-id?userId=${encodeURIComponent(frontendUserId)}`, {}, 1, 5000);
-    
-    if (response.success && response.userId) {
-      currentUserIdCache = response.userId;
-      globalUserId = response.userId;
-      userIdCacheTimestamp = now;
-      return response.userId;
-    } else {
-      throw new Error(response.error || 'Failed to get user ID');
-    }
+    // Cache and return the userId
+    currentUserIdCache = userId;
+    globalUserId = userId;
+    userIdCacheTimestamp = now;
+    return userId;
   } catch (error) {
     console.error('Error getting current user ID:', error);
-    // Fallback to localStorage or generate new one
+    // Final fallback - try storage one more time
     const fallbackUserId = localStorage.getItem('userId') || sessionStorage.getItem('userId') || 'default';
     globalUserId = fallbackUserId;
-    console.warn(`Using fallback user ID: ${fallbackUserId}`);
     return fallbackUserId;
   }
 };
@@ -378,39 +382,55 @@ export const checkProcessingStatus = async (userId = null) => {
     if (!userId) {
       userId = await getCurrentUserId();
     }
-    
-    const response = await fetchWithRetry(`/api/for-process-folder/process-status/${encodeURIComponent(userId)}`, {}, 1); // Only 1 retry for status checks
-    
+
+    const response = await fetchWithRetry(`/api/for-process-folder/process-status/${encodeURIComponent(userId)}`, {}, 1, 5000); // Only 1 retry for status checks, 5s timeout
+
     // If fetch succeeded but response is malformed, handle it gracefully
     if (!response || typeof response !== 'object') {
       console.error('Invalid response format:', response);
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: `Invalid response format: ${typeof response}`,
-        isProcessing: false
+        isProcessing: false,
+        progress: null
       };
     }
-    
-    // Ensure progress object has required fields
+
+    // Normalize the response structure
+    const normalizedResponse = {
+      success: response.success !== false, // Default to true if not explicitly false
+      isProcessing: response.isProcessing || false,
+      progress: null
+    };
+
+    // Ensure progress object has required fields if present
     if (response.progress && typeof response.progress === 'object') {
-      response.progress = {
+      normalizedResponse.progress = {
         currentSet: response.progress.currentSet || 0,
         totalSets: response.progress.totalSets || 0,
-        processedSets: response.progress.processedSets || [],
-        progress: response.progress.progress || 0,
+        processedSets: Array.isArray(response.progress.processedSets) ? response.progress.processedSets : [],
+        progress: typeof response.progress.progress === 'number' ? response.progress.progress : 0,
         status: response.progress.status || 'unknown',
-        message: response.progress.message || '',
+        message: response.progress.message || 'Processing...',
         currentFile: response.progress.currentFile || ''
       };
+
+      // Mark as processing if we have valid progress data
+      if (normalizedResponse.progress.status === 'processing' ||
+          normalizedResponse.progress.status === 'starting' ||
+          normalizedResponse.progress.status === 'completed') {
+        normalizedResponse.isProcessing = true;
+      }
     }
-    
-    return response;
+
+    return normalizedResponse;
   } catch (error) {
     console.error('Error checking processing status:', error);
-    return { 
-      success: false, 
+    return {
+      success: false,
       error: error.message,
-      isProcessing: false
+      isProcessing: false,
+      progress: null
     };
   }
 };

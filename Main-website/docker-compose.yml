@@ -55,15 +55,21 @@ services:
       - MKL_NUM_THREADS=2
       - APP_UID=${HOST_UID:-1000}
       - APP_GID=${HOST_GID:-1000}
+    deploy:
+      resources:
+        limits:
+          memory: 12G          # Allow up to 12GB for image processing
+        reservations:
+          memory: 6G          # Reserve 6GB minimum
     networks:
       - ipuserver_internal_eye
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8010/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      interval: 60s
+      timeout: 30s
+      retries: 5
+      start_period: 90s
 
 
   # video_service:
@@ -127,6 +133,10 @@ services:
       - ./frontend:/app
       - /app/node_modules
       - /app/.next
+      # Mount the same resource_security volumes as backend services for shared file access
+      - ./backend/auth_service/resource_security/public/captures:/app/resource_security/public/captures
+      - ./backend/auth_service/resource_security/public/enhance:/app/resource_security/public/enhance
+      - ./backend/auth_service/resource_security/public/complete:/app/resource_security/public/complete
     env_file:
       - ./frontend/.env.frontend
     depends_on:

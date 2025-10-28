@@ -68,16 +68,9 @@ export default async function handler(req, res) {
           try {
             const progressData = fs.readFileSync(progressPath, 'utf8');
             progressInfo = JSON.parse(progressData);
-            console.log(`Progress file found and parsed from ${locationName} location:`, {
-              currentSet: progressInfo.currentSet,
-              totalSets: progressInfo.totalSets,
-              progress: progressInfo.progress,
-              status: progressInfo.status,
-              message: progressInfo.message,
-              path: progressPath
-            });
+            // Removed verbose logging to reduce log spam
             progressFileFound = true;
-            
+
             // Check if this is an active progress (not completed or error)
             hasActiveProgress = progressInfo.status === 'processing' || progressInfo.status === 'starting';
             break;
@@ -87,20 +80,7 @@ export default async function handler(req, res) {
         }
       }
       
-      if (!progressFileFound) {
-        console.log('Progress file not found at any location:', {
-          primary: progressFilePath,
-          alternative: alternativeProgressPath,
-          docker: dockerProgressPath
-        });
-        // Check if the directory exists
-        if (fs.existsSync(capturesPath)) {
-          const files = fs.readdirSync(capturesPath);
-          console.log('Available files in captures directory:', files);
-        } else {
-          console.log('Captures directory does not exist:', capturesPath);
-        }
-      }
+      // Removed verbose logging for missing progress files to reduce log spam
       
       // Count files in each directory
       const captureFiles = fs.existsSync(capturesPath) 

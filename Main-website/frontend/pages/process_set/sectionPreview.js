@@ -95,26 +95,23 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType, fold
       setImageSize({ width: 0, height: 0 });
       return;
     }
-    
+
     const img = new Image();
     img.onload = () => {
-      // Use different scaling for screen vs webcam images
-      const isScreenImage = selectedFile && selectedFile.includes('screen_');
-      const scaleFactor = isScreenImage ? 2 : 1.5; // 1/2 = 50% for screen, 1/1.5 ≈ 67% for webcam
-      
+      // Store original dimensions for display info
       const newSize = {
-        width: Math.round(img.width / scaleFactor),
-        height: Math.round(img.height / scaleFactor)
+        width: img.width,
+        height: img.height
       };
       setImageSize(newSize);
       setLoadError(null);
     };
-    
+
     img.onerror = (error) => {
       console.error('Error loading image:', error);
       setLoadError('Failed to load image');
     };
-    
+
     // Handle both base64 data and direct URLs
     if (imageData.startsWith('data:')) {
       img.src = imageData;
@@ -170,18 +167,14 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType, fold
       <div className={styles.previewContent}>
         {previewType === 'image' ? (
           <div className={styles.imageContainer}>
-            <img 
-              src={previewImage} 
-              alt={selectedFile} 
+            <img
+              src={previewImage}
+              alt={selectedFile}
               className={styles.previewImage}
-              style={{
-                width: imageSize.width > 0 ? `${imageSize.width}px` : 'auto',
-                height: imageSize.height > 0 ? `${imageSize.height}px` : 'auto'
-              }}
             />
             {imageSize.width > 0 && (
               <div className={styles.imageInfo}>
-                <span>Size: {imageSize.width} × {imageSize.height}</span>
+                <span>Original Size: {imageSize.width} × {imageSize.height}</span>
               </div>
             )}
           </div>

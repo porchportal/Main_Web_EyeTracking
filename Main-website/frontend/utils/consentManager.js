@@ -31,14 +31,27 @@ export const getOrCreateUserId = () => {
   try {
     const storedConsent = Cookies.get(CONSENT_COOKIE);
     const storedDetails = Cookies.get(CONSENT_DETAILS_COOKIE);
-    
+
     if (storedConsent && storedDetails) {
       const details = JSON.parse(storedDetails);
       return details.userId;
     }
-    
+
     // Generate new user ID if none exists
     const newUserId = uuidv4();
+
+    // Immediately save to cookies to prevent duplicate generation in race conditions
+    // This ensures that subsequent calls to getOrCreateUserId() return the same ID
+    const initialConsentData = {
+      userId: newUserId,
+      status: null,
+      timestamp: new Date().toISOString(),
+      generated: true
+    };
+
+    // Save with null consent status (user hasn't consented yet)
+    Cookies.set(CONSENT_DETAILS_COOKIE, JSON.stringify(initialConsentData), COOKIE_OPTIONS);
+
     return newUserId;
   } catch (error) {
     console.error('Error getting/creating user ID:', error);

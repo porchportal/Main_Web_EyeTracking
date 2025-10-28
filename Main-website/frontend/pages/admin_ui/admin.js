@@ -475,10 +475,10 @@ export default function AdminPage({ initialSettings }) {
   const getProfileStatus = (userId) => {
     const profile = userProfiles[userId];
     if (!profile) return 'No profile';
-    
+
     const isComplete = profile.username && profile.sex;
-    return isComplete ? 
-      `Complete (${profile.username}, ${profile.sex}${profile.age ? `, ${profile.age}` : ''})` : 
+    return isComplete ?
+      `Complete (${profile.username}, ${profile.sex}${profile.age ? `, ${profile.age}` : ''})` :
       'Incomplete';
   };
 
@@ -1896,14 +1896,12 @@ export default function AdminPage({ initialSettings }) {
                     🔧 Adjust Dataset
                   </button>
                   
-                  <button 
+                  <button
                     className={`${styles.downloadButton} ${styles.aiProcessButton} ${showAIProcess ? styles.active : ''}`}
                     onClick={() => {
                       if (showAIProcess) {
-                        safeShowNotification('AI Process closed');
                         setShowAIProcess(false);
                       } else {
-                        safeShowNotification('Opening AI Process...');
                         setShowAIProcess(true);
                       }
                     }}
