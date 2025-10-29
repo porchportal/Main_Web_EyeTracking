@@ -287,6 +287,17 @@ const TopBar = ({
     if (showOrderRequire) {
       // If already showing, hide it
       setShowOrderRequire(false);
+
+      // Dispatch event to hide button sequence in DisplayResponse
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('buttonSequenceToggle', {
+          detail: {
+            show: false,
+            buttonList: []
+          }
+        });
+        window.dispatchEvent(event);
+      }
     } else {
       // If not showing, show it with content from buttons_order
       setOrderRequireMessage('Button Click Sequence');
@@ -320,6 +331,17 @@ const TopBar = ({
       setOrderRequireList(buttonsList);
       setShowOrderRequire(true);
       setIsManualShow(true); // This is a manual show (user clicked button)
+
+      // Dispatch event to show button sequence in DisplayResponse
+      if (typeof window !== 'undefined') {
+        const event = new CustomEvent('buttonSequenceToggle', {
+          detail: {
+            show: true,
+            buttonList: buttonsList
+          }
+        });
+        window.dispatchEvent(event);
+      }
     }
   };
 
@@ -591,13 +613,7 @@ const TopBar = ({
         orderRequireList={orderRequireList}
         isManualShow={isManualShow}
         clickedButtons={clickedButtons}
-        imageBackgroundPaths={currentSettings?.image_background_paths || []}
         currentUserId={currentUserId}
-        buttonClickCount={buttonClickCount}
-        currentImageTimes={currentImageTimes}
-        currentImageIndex={currentImageIndex}
-        totalImages={totalImages}
-        currentImagePath={currentImagePath}
       />
     </div>
   );

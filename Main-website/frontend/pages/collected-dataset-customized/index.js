@@ -579,6 +579,10 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
   // Track clicked buttons for OrderRequire component
   const [clickedButtons, setClickedButtons] = useState(new Set());
 
+  // State for button sequence display in DisplayResponse
+  const [showButtonSequence, setShowButtonSequence] = useState(false);
+  const [buttonSequenceList, setButtonSequenceList] = useState([]);
+
   // Global canvas manager instance - initialize only once
   const canvasManager = useMemo(() => {
     // Create a singleton canvas manager
@@ -1181,6 +1185,23 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
     };
   }, [currentUserId, fetchSettingsFromMongoDB, getAvailableCameras, canvasManager, loadClickedButtonsFromStorage]);
 
+  // Listen for Order/Requirement button toggle event from topBar
+  useEffect(() => {
+    const handleButtonSequenceToggle = (event) => {
+      if (event.detail) {
+        const { show, buttonList } = event.detail;
+        setShowButtonSequence(show);
+        setButtonSequenceList(buttonList || []);
+      }
+    };
+
+    window.addEventListener('buttonSequenceToggle', handleButtonSequenceToggle);
+
+    return () => {
+      window.removeEventListener('buttonSequenceToggle', handleButtonSequenceToggle);
+    };
+  }, []);
+
   // OPTIMIZED: Split massive tab visibility effect (lines 1073-1215) into 4 separate focused effects
 
   // Visibility change handler
@@ -1300,8 +1321,6 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
 
             // Force repaint
             void canvas.offsetHeight;
-
-            console.log('Canvas initialized on mount:', { width, height });
           }
         });
       });
@@ -2484,20 +2503,35 @@ const MainComponent = forwardRef(({ triggerCameraAccess, isCompactMode, onAction
           </div>
 
           {/* Metrics info - moved outside preview area to avoid stacking context issues */}
-          {isHydrated && (
-            <DisplayResponse
-              key={`metrics-${showMetrics}-${showTopBar}`}
-              width={metrics.width}
-              height={metrics.height}
-              distance={metrics.distance}
-              isVisible={showMetrics && showTopBar}
-              isTopBarShown={showTopBar}
-              isCanvasVisible={showCanvas}
-              outputText={outputText}
-              isCameraActivated={isCameraActivated}
-              isCameraActive={isCameraActive}
-            />
-          )}
+          {isHydrated && (() => {
+            // Use adminCurrentUserId or consentUserId instead of local currentUserId
+            const effectiveUserId = adminCurrentUserId || consentUserId || currentUserId;
+            const imageBackgroundPaths = settings?.[effectiveUserId]?.image_background_paths || [];
+
+            return (
+              <DisplayResponse
+                key={`metrics-${showMetrics}-${showTopBar}`}
+                width={metrics.width}
+                height={metrics.height}
+                distance={metrics.distance}
+                isVisible={showMetrics && showTopBar}
+                isTopBarShown={showTopBar}
+                isCanvasVisible={showCanvas}
+                outputText={outputText}
+                isCameraActivated={isCameraActivated}
+                isCameraActive={isCameraActive}
+                showButtonSequence={showButtonSequence}
+                buttonSequenceList={buttonSequenceList}
+                clickedButtons={clickedButtons}
+                imageBackgroundPaths={imageBackgroundPaths}
+                buttonClickCount={getProgressInfo().buttonClickCount}
+                currentImageTimes={getProgressInfo().currentImageTimes}
+                currentImageIndex={getProgressInfo().currentImageIndex}
+                totalImages={getProgressInfo().totalImages}
+                currentImagePath={getProgressInfo().currentImagePath}
+              />
+            );
+          })()}
 
           {/* Image Overlay Component - renders images on top of blue canvas */}
           {isHydrated && canvas && overlayImagePath && showOverlay && (

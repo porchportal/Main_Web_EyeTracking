@@ -3,6 +3,7 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import styles from './sectionPreview.module.css';
 import { useEffect, useState } from 'react';
+import { useNotification } from '../../utils/NotificationContext';
 
 // Import API functions (only backend connection and processing)
 import {
@@ -29,6 +30,7 @@ import {
 } from './sectionPreview';
 
 export default function ProcessSet() {
+  const { showNotification: showNotificationContext } = useNotification();
   const router = useRouter();
   const { userId: passedUserId } = router.query;
   const [isProcessReady, setIsProcessReady] = useState(false);
@@ -56,10 +58,12 @@ export default function ProcessSet() {
   });
   const [autoRefreshTriggered, setAutoRefreshTriggered] = useState(false);
 
-  // Use global notification from NotiMessage component
-  const showNotification = (message, type = 'info', duration = 5000) => {
-    if (typeof window !== 'undefined' && window.showNotification) {
-      window.showNotification(message, type);
+  // Use notification from context
+  const showNotification = (message, type = 'info') => {
+    if (showNotificationContext) {
+      showNotificationContext(message, type);
+    } else {
+      console.log(`[Notification - ${type}]`, message);
     }
   };
 
@@ -98,10 +102,31 @@ export default function ProcessSet() {
     setProgressData(null);
   };
 
-  // Helper function to check if both processing modes are complete
+  // Helper function to count only image files (exclude JSON, CSV, etc.)
+  const countImageFiles = (filesList) => {
+    if (!filesList || !Array.isArray(filesList)) return 0;
+
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+    return filesList.filter(file => {
+      const filename = file.filename || file;
+      const extension = filename.toLowerCase().substring(filename.lastIndexOf('.'));
+      return imageExtensions.includes(extension);
+    }).length;
+  };
+
+  // Helper function to check if the current processing mode is complete
+  const checkCurrentModeComplete = (captureCount, enhanceCount, completeCount, currentEnhanceFace) => {
+    if (captureCount === 0) return false;
+
+    // Check based on current mode setting
+    const currentProcessedCount = currentEnhanceFace ? enhanceCount : completeCount;
+    return currentProcessedCount >= captureCount;
+  };
+
+  // Helper function to check if both processing modes are complete (for informational purposes)
   const checkBothProcessingComplete = (captureCount, enhanceCount, completeCount) => {
-    return captureCount > 0 && 
-           enhanceCount >= captureCount && 
+    return captureCount > 0 &&
+           enhanceCount >= captureCount &&
            completeCount >= captureCount;
   };
 
@@ -113,10 +138,10 @@ export default function ProcessSet() {
       let captureCount, enhanceCount, completeCount;
       
       if (files.capture && files.enhance && files.complete) {
-        // Use existing file data for faster response
-        captureCount = files.capture.length;
-        enhanceCount = files.enhance.length;
-        completeCount = files.complete.length;
+        // Use existing file data for faster response - count only image files
+        captureCount = countImageFiles(files.capture);
+        enhanceCount = countImageFiles(files.enhance);
+        completeCount = countImageFiles(files.complete);
       } else {
         // Fallback to API call if file data not available
         const userId = await getUserId();
@@ -136,53 +161,65 @@ export default function ProcessSet() {
       const totalProcessedCount = enhanceFaceValue ? enhanceCount : completeCount;
       const needsProcessing = captureCount > totalProcessedCount;
       const filesToProcess = Math.max(0, captureCount - totalProcessedCount);
-      
-      // ✅ SAFETY: Check if both processing modes are complete
+
+      // Check if current mode is complete
+      const currentModeComplete = checkCurrentModeComplete(
+        captureCount,
+        enhanceCount,
+        completeCount,
+        enhanceFaceValue
+      );
+
+      // Check if both processing modes are complete (for informational messages)
       const bothProcessingComplete = checkBothProcessingComplete(
-        captureCount, 
-        enhanceCount, 
+        captureCount,
+        enhanceCount,
         completeCount
       );
-      
+
       // Create current processing status object for comparison
       const currentProcessingStatus = {
-        needsProcessing: needsProcessing && !bothProcessingComplete,
+        needsProcessing: needsProcessing,
         filesToProcess: filesToProcess,
         captureCount: captureCount,
         enhanceCount: enhanceCount,
         completeCount: completeCount,
         totalProcessedCount: totalProcessedCount,
+        currentModeComplete: currentModeComplete,
         bothProcessingComplete: bothProcessingComplete
       };
-      
+
       // Check if the processing status has actually changed
-      const statusChanged = !lastProcessingStatus || 
+      const statusChanged = !lastProcessingStatus ||
         lastProcessingStatus.needsProcessing !== currentProcessingStatus.needsProcessing ||
         lastProcessingStatus.filesToProcess !== currentProcessingStatus.filesToProcess ||
-        lastProcessingStatus.bothProcessingComplete !== currentProcessingStatus.bothProcessingComplete;
-      
+        lastProcessingStatus.currentModeComplete !== currentProcessingStatus.currentModeComplete;
+
       // Update state
-      setIsProcessReady(needsProcessing && !bothProcessingComplete);
+      setIsProcessReady(needsProcessing);
       setProcessingStatus({
         captureCount: captureCount,
         enhanceCount: enhanceCount,
         completeCount: completeCount,
         totalProcessedCount: totalProcessedCount,
         filesToProcess: filesToProcess,
-        bothProcessingComplete: bothProcessingComplete
+        bothProcessingComplete: currentModeComplete, // Use current mode for button state
+        allModesComplete: bothProcessingComplete
       });
-      
+
       // Only show notification if status actually changed or explicitly requested
       if (showNotificationOnChange || statusChanged) {
         if (bothProcessingComplete) {
           showNotificationIfNew('All processing complete - both Enhance and Complete modes are done', 'success');
+        } else if (currentModeComplete) {
+          showNotificationIfNew(`Current mode (${enhanceFaceValue ? 'Enhance' : 'Complete'}) processing is complete`, 'success');
         } else if (needsProcessing) {
-          showNotificationIfNew(`${filesToProcess} sets need processing`, 'info');
+          showNotificationIfNew(`${filesToProcess} sets need processing in ${enhanceFaceValue ? 'Enhance' : 'Complete'} mode`, 'info');
         } else {
           showNotificationIfNew('All sets are processed', 'success');
         }
       }
-      
+
       // Update the last processing status
       setLastProcessingStatus(currentProcessingStatus);
     } catch (error) {
@@ -194,13 +231,13 @@ export default function ProcessSet() {
   };
 
   // Helper function to show notification only if message is different
-  const showNotificationIfNew = (message, type = 'info', duration = 5000) => {
+  const showNotificationIfNew = (message, type = 'info') => {
     // Create a unique key for this type of notification
     const notificationKey = `${type}-${message}`;
-    
+
     if (notificationKey !== lastNotificationMessage) {
       setLastNotificationMessage(notificationKey);
-      showNotification(message, type, duration);
+      showNotification(message, type);
     }
   };
 
@@ -631,43 +668,65 @@ export default function ProcessSet() {
         }
       }
       
-      // ✅ OPTIMIZED: Calculate processing status directly from file counts
-      const captureCount = organizedFiles.capture.length;
-      const enhanceCount = organizedFiles.enhance.length;
-      const completeCount = organizedFiles.complete.length;
+      // ✅ OPTIMIZED: Calculate processing status directly from IMAGE file counts only
+      const captureCount = countImageFiles(organizedFiles.capture);
+      const enhanceCount = countImageFiles(organizedFiles.enhance);
+      const completeCount = countImageFiles(organizedFiles.complete);
       
       // Calculate processing status based on enhanceFace setting
       const totalProcessedCount = enhanceFace ? enhanceCount : completeCount;
       const needsProcessing = captureCount > totalProcessedCount;
       const filesToProcess = Math.max(0, captureCount - totalProcessedCount);
-      
-      // ✅ SAFETY: Check if both processing modes are complete
+
+      // Check if current mode is complete (for button state)
+      const currentModeComplete = checkCurrentModeComplete(
+        captureCount,
+        enhanceCount,
+        completeCount,
+        enhanceFace
+      );
+
+      // Check if both processing modes are complete (for informational messages)
       const bothProcessingComplete = checkBothProcessingComplete(
-        captureCount, 
-        enhanceCount, 
+        captureCount,
+        enhanceCount,
         completeCount
       );
-      
-      // Update isProcessReady state based on needsProcessing AND safety check
-      setIsProcessReady(needsProcessing && !bothProcessingComplete);
+
+      // Update isProcessReady state based on needsProcessing for current mode
+      setIsProcessReady(needsProcessing);
       setFilesChecked(true); // Mark files as checked
-      
+
+      // Update processing status for ActionButtons component
+      setProcessingStatus({
+        captureCount: captureCount,
+        enhanceCount: enhanceCount,
+        completeCount: completeCount,
+        totalProcessedCount: totalProcessedCount,
+        filesToProcess: filesToProcess,
+        bothProcessingComplete: currentModeComplete, // Use current mode check for button disable
+        allModesComplete: bothProcessingComplete // Track if all modes are complete
+      });
+
       // Update processing status for comparison
       setLastProcessingStatus({
-        needsProcessing: needsProcessing && !bothProcessingComplete,
+        needsProcessing: needsProcessing,
         filesToProcess: filesToProcess,
         captureCount: captureCount,
         enhanceCount: enhanceCount,
         completeCount: completeCount,
         totalProcessedCount: totalProcessedCount,
+        currentModeComplete: currentModeComplete,
         bothProcessingComplete: bothProcessingComplete
       });
-      
+
       // Show appropriate notification
       if (bothProcessingComplete) {
         showNotificationIfNew('All processing complete - both Enhance and Complete modes are done', 'success');
+      } else if (currentModeComplete) {
+        showNotificationIfNew(`Current mode (${enhanceFace ? 'Enhance' : 'Complete'}) processing is complete`, 'success');
       } else if (needsProcessing) {
-        showNotificationIfNew(`${filesToProcess} sets need processing`, 'info');
+        showNotificationIfNew(`${filesToProcess} sets need processing in ${enhanceFace ? 'Enhance' : 'Complete'} mode`, 'info');
       } else {
         showNotificationIfNew('All sets are processed', 'success');
       }
@@ -753,16 +812,31 @@ export default function ProcessSet() {
       const result = await checkFilesNeedProcessing(userId, enhanceFace);
       
       if (result.success && result.needsProcessing) {
+        // Check if current mode is complete (safety check)
+        const currentComplete = checkCurrentModeComplete(
+          result.captureCount,
+          result.enhanceCount,
+          result.completeCount,
+          enhanceFace
+        );
+
         // Update the state if we found files that need processing
-        setIsProcessReady(true);
+        setIsProcessReady(!currentComplete);
         setProcessingStatus({
           captureCount: result.captureCount,
           enhanceCount: result.enhanceCount,
           completeCount: result.completeCount,
           totalProcessedCount: result.totalProcessedCount,
-          filesToProcess: result.filesToProcess
+          filesToProcess: result.filesToProcess,
+          bothProcessingComplete: currentComplete
         });
-        showNotification(`${result.filesToProcess} sets need processing`, 'info');
+
+        if (currentComplete) {
+          showNotification(`Current mode (${enhanceFace ? 'Enhance' : 'Complete'}) processing is already complete`, 'success');
+          return;
+        }
+
+        showNotification(`${result.filesToProcess} sets need processing in ${enhanceFace ? 'Enhance' : 'Complete'} mode`, 'info');
         // Continue with processing instead of returning
       } else {
         showNotification('No files need processing', 'info');
@@ -813,15 +887,16 @@ export default function ProcessSet() {
         return;
       }
 
-      // ✅ SAFETY: Double-check that we actually need processing
-      const bothProcessingComplete = checkBothProcessingComplete(
-        result.captureCount, 
-        result.enhanceCount, 
-        result.completeCount
+      // ✅ SAFETY: Double-check that we actually need processing for current mode
+      const currentModeComplete = checkCurrentModeComplete(
+        result.captureCount,
+        result.enhanceCount,
+        result.completeCount,
+        enhanceFace
       );
-      
-      if (bothProcessingComplete) {
-        showNotification('All processing complete - both Enhance and Complete modes are done', 'success');
+
+      if (currentModeComplete) {
+        showNotification(`Current mode (${enhanceFace ? 'Enhance' : 'Complete'}) processing is already complete`, 'success');
         setIsProcessing(false);
         setProgressData(null);
         return;
@@ -932,7 +1007,7 @@ export default function ProcessSet() {
 
         <div className={styles.processingContainer}>
           <div className={styles.leftPanel}>
-            <FileList 
+            <FileList
               files={files}
               onFileSelect={handleFileSelect}
               isLoading={loading}
@@ -940,6 +1015,7 @@ export default function ProcessSet() {
               onEnhanceFaceToggle={handleEnhanceFaceToggle}
               isCheckingFiles={isCheckingFiles}
               filesLoadingState={filesLoadingState}
+              isProcessing={isProcessing}
             />
             
             <ProcessSummary files={files} enhanceFace={enhanceFace} isCheckingFiles={isCheckingFiles} />
@@ -965,6 +1041,7 @@ export default function ProcessSet() {
           files={files}
           bothProcessingComplete={processingStatus?.bothProcessingComplete || false}
           isCheckingFiles={isCheckingFiles}
+          currentMode={enhanceFace ? 'Enhance' : 'Complete'}
         />
         
         <button 

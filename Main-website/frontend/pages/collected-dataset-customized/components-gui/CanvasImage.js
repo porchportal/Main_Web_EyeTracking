@@ -100,6 +100,11 @@ class CanvasImageManager {
       return false;
     }
 
+    // GUARD: Reject default non-existent path immediately
+    if (this.isDefaultPath(imagePath)) {
+      return false;
+    }
+
     try {
       // Check cache first
       if (this.imageCache.has(imagePath)) {
@@ -618,18 +623,19 @@ class CanvasImageManager {
       return true;
     }
 
-    // Check if it's the default background path
+    // Check if it's the default background path: "[1]-/backgrounds/default.jpg"
     if (typeof firstPath === 'string') {
       // Parse the format "[times]-path" to extract just the path
+      let actualPath = firstPath;
       if (firstPath.includes('-')) {
         const pathMatch = firstPath.match(/^\[\d+\]-(.+)$/);
         if (pathMatch) {
-          const actualPath = pathMatch[1];
-          return actualPath === '/backgrounds/default.jpg' || actualPath === 'backgrounds/default.jpg';
+          actualPath = pathMatch[1];
         }
       }
-      // Direct path check
-      return firstPath === '/backgrounds/default.jpg' || firstPath === 'backgrounds/default.jpg';
+
+      // Check if it's the default non-existent path
+      return this.isDefaultPath(actualPath);
     }
 
     return false;
@@ -677,13 +683,13 @@ class CanvasImageManager {
 
     // Try to get the first image path
     const firstImagePath = this.getFirstImagePath(imageBackgroundPaths);
-    
-    if (!firstImagePath) {
-      // No valid images available, show notification
+
+    if (!firstImagePath || this.isDefaultPath(firstImagePath)) {
+      // No valid images available or default path, show notification
       const now = Date.now();
-      const shouldShowNotification = 
-        this.lastUserId !== userId || 
-        !this.lastNotificationTime || 
+      const shouldShowNotification =
+        this.lastUserId !== userId ||
+        !this.lastNotificationTime ||
         (now - this.lastNotificationTime) > 5000; // 5 seconds
 
       if (shouldShowNotification && onNotification) {
@@ -691,7 +697,7 @@ class CanvasImageManager {
         this.lastNotificationTime = now;
         onNotification('No valid background images available. Canvas will remain blue.');
       }
-      
+
       // Clear canvas as fallback (blue background is handled in index.js)
       this.clearCanvas();
       this.currentImage = null;
@@ -877,9 +883,21 @@ class CanvasImageManager {
       return;
     }
 
+    // Check if it's the default non-existent path
+    if (this.isDefaultOrEmptyImagePath(imageBackgroundPaths)) {
+      this.clearCanvas();
+      return;
+    }
+
     // Try to get the first image path
     const firstImagePath = this.getFirstImagePath(imageBackgroundPaths);
     if (!firstImagePath) {
+      this.clearCanvas();
+      return;
+    }
+
+    // Double-check the extracted path isn't the default
+    if (this.isDefaultPath(firstImagePath)) {
       this.clearCanvas();
       return;
     }
@@ -909,6 +927,14 @@ class CanvasImageManager {
     if (!document.body.contains(this.canvas)) {
       document.body.appendChild(this.canvas);
     }
+  }
+
+  // Helper: Check if path is the default non-existent path
+  isDefaultPath(path) {
+    if (!path || typeof path !== 'string') return false;
+    return path === '/backgrounds/default.jpg' ||
+           path === 'backgrounds/default.jpg' ||
+           path.includes('/backgrounds/default.jpg');
   }
 
   // Cleanup
@@ -943,21 +969,8 @@ export const useCanvasImage = (canvas, userId, settings, adminUserId = null) => 
       
       // Load progress from localStorage
       canvasImageManager.loadProgressFromStorage();
-      
-      // Only load default image if background change is enabled
-      setTimeout(() => {
-        // Check if background change is enabled before loading default image
-        const userSettings = settings?.[effectiveUserId];
-        const enableBackgroundChange = userSettings?.enable_background_change || false;
-        
-        if (enableBackgroundChange) {
-          // Load image on canvas (blue background is handled in index.js)
-          canvasImageManager.setImageBackground('/Overall_porch.png');
-        } else {
-          // Background change is disabled, clear canvas (blue background is handled in index.js)
-          canvasImageManager.clearCanvas();
-        }
-      }, 500);
+
+      // Don't load any fallback images - only load images explicitly configured in settings
     }
   }, [canvas, canvasImageManager, settings, effectiveUserId]);
 
@@ -1014,22 +1027,7 @@ export const useCanvasImage = (canvas, userId, settings, adminUserId = null) => 
     );
   }, [canvas, effectiveUserId, settings, canvasImageManager, showNotificationMessage]);
 
-  // Fallback: Only load default image if background change is enabled and no image is loaded after 3 seconds
-  useEffect(() => {
-    if (!canvas || !canvasImageManager.isInitialized) return;
-
-    const fallbackTimer = setTimeout(() => {
-      // Check if background change is enabled before loading default image
-      const userSettings = settings?.[effectiveUserId];
-      const enableBackgroundChange = userSettings?.enable_background_change || false;
-      
-      if (enableBackgroundChange && !canvasImageManager.currentImage) {
-        canvasImageManager.setImageBackground('/Overall_porch.png');
-      }
-    }, 3000);
-
-    return () => clearTimeout(fallbackTimer);
-  }, [canvas, canvasImageManager, settings, effectiveUserId]);
+  // No fallback images - only load what's explicitly configured in settings
 
   // Handle canvas resize
   useEffect(() => {
@@ -1093,6 +1091,16 @@ const ImageOverlay = ({ canvas, imagePath, isVisible = true }) => {
   // Load image when imagePath changes
   useEffect(() => {
     if (!imagePath || !canvas) {
+      setImageLoaded(false);
+      setImageError(null);
+      setImageElement(null);
+      return;
+    }
+
+    // GUARD: Reject default non-existent path immediately
+    // Create temporary instance to access helper method
+    const tempManager = new CanvasImageManager();
+    if (tempManager.isDefaultPath(imagePath)) {
       setImageLoaded(false);
       setImageError(null);
       setImageElement(null);
@@ -1256,21 +1264,8 @@ export const useCanvasImageWithOverlay = (canvas, userId, settings, adminUserId 
       
       // Load progress from localStorage
       canvasImageManager.loadProgressFromStorage();
-      
-      // Only load default image if background change is enabled
-      setTimeout(() => {
-        // Check if background change is enabled before loading default image
-        const userSettings = settings?.[effectiveUserId];
-        const enableBackgroundChange = userSettings?.enable_background_change || false;
-        
-        if (enableBackgroundChange) {
-          // Load image on canvas (blue background is handled in index.js)
-          canvasImageManager.setImageBackground('/Overall_porch.png');
-        } else {
-          // Background change is disabled, clear canvas (blue background is handled in index.js)
-          canvasImageManager.clearCanvas();
-        }
-      }, 100);
+
+      // Don't load any fallback images - only load images explicitly configured in settings
     }
   }, [canvas, canvasImageManager, settings, effectiveUserId]);
 
@@ -1328,7 +1323,7 @@ export const useCanvasImageWithOverlay = (canvas, userId, settings, adminUserId 
     // Try to get the first image path for overlay
     const firstPath = imageBackgroundPaths[0];
     let overlayPath = null;
-    
+
     // Parse the format "[times]-path" to extract just the path
     if (typeof firstPath === 'string' && firstPath.includes('-')) {
       const pathMatch = firstPath.match(/^\[\d+\]-(.+)$/);
@@ -1338,7 +1333,13 @@ export const useCanvasImageWithOverlay = (canvas, userId, settings, adminUserId 
     } else {
       overlayPath = firstPath;
     }
-    
+
+    // Skip default non-existent path
+    if (canvasImageManager.isDefaultPath(overlayPath)) {
+      setOverlayImagePath(null);
+      return;
+    }
+
     if (overlayPath) {
       setOverlayImagePath(overlayPath);
     } else {
@@ -1346,22 +1347,7 @@ export const useCanvasImageWithOverlay = (canvas, userId, settings, adminUserId 
     }
   }, [canvas, effectiveUserId, settings, canvasImageManager]);
 
-  // Fallback: Only load default overlay if background change is enabled and no image is loaded after 3 seconds
-  useEffect(() => {
-    if (!canvas || !canvasImageManager.isInitialized) return;
-
-    const fallbackTimer = setTimeout(() => {
-      // Check if background change is enabled before loading default overlay
-      const userSettings = settings?.[effectiveUserId];
-      const enableBackgroundChange = userSettings?.enable_background_change || false;
-      
-      if (enableBackgroundChange && !overlayImagePath) {
-        setOverlayImagePath('/Overall_porch.png');
-      }
-    }, 3000);
-
-    return () => clearTimeout(fallbackTimer);
-  }, [canvas, canvasImageManager, overlayImagePath, settings, effectiveUserId]);
+  // No fallback overlay images - only use what's explicitly configured in settings
 
   // Handle canvas resize
   useEffect(() => {

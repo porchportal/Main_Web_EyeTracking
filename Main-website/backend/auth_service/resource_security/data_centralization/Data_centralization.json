@@ -133,5 +133,32 @@
     },
     "data_type": "json",
     "updated_at": "2025-10-28T11:44:44.021135"
+  },
+  {
+    "user_id": "5a76bcb2-bebe-470c-bb4b-9a5e1e03354c",
+    "value": {
+      "times_set_random": 1,
+      "delay_set_random": 3,
+      "every_set": 0,
+      "set_timeRandomImage": 1,
+      "times_set_calibrate": 1,
+      "run_every_of_random": 1,
+      "zoom_percentage": 100,
+      "position_zoom": [
+        0,
+        0
+      ],
+      "currentlyPage": "home",
+      "state_isProcessOn": false,
+      "freeState": 0,
+      "buttons_order": "",
+      "image_background_paths": [
+        "[1]-/backgrounds/default.jpg"
+      ],
+      "public_data_access": false,
+      "enable_background_change": false
+    },
+    "data_type": "json",
+    "updated_at": "2025-10-29T03:55:04.651398"
   }
 ]

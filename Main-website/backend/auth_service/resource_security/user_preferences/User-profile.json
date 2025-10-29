@@ -286,5 +286,17 @@
       "night_mode": false
     },
     "updated_at": "2025-10-28T16:16:31.702540"
+  },
+  {
+    "user_id": "5a76bcb2-bebe-470c-bb4b-9a5e1e03354c",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-29T03:06:09.784000+00:00",
+    "profile": {
+      "username": "fdsgdt",
+      "sex": "female",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-29T03:55:04.648135"
   }
 ]

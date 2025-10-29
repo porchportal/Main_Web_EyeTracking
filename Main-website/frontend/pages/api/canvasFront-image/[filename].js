@@ -12,10 +12,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Filename is required' });
     }
 
-    // Get the backend URL from environment variables
-    const backendUrl = process.env.BACKEND_URL || 'http://nginx:80';
-    const fullUrl = `${backendUrl}/api/canvas-image/${filename}`;
-    
+    // Use direct auth_service URL within Docker network to avoid nginx redirect and SSL issues
+    const backendUrl = process.env.AUTH_SERVICE_URL || 'http://auth_service:8108';
+    const fullUrl = `${backendUrl}/canvas/${filename}`;
+
     console.log(`[Canvas API] Fetching from backend: ${fullUrl}`);
 
     // Fetch the image from the backend canvas service

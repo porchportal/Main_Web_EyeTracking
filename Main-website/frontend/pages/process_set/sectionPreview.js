@@ -192,7 +192,7 @@ export const FilePreviewPanel = ({ selectedFile, previewImage, previewType, fold
   );
 };
 
-export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanceFaceToggle, isCheckingFiles = false, filesLoadingState = { capture: false, enhance: false, complete: false } }) => {
+export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanceFaceToggle, isCheckingFiles = false, filesLoadingState = { capture: false, enhance: false, complete: false }, isProcessing = false }) => {
   const [selectedFolder, setSelectedFolder] = useState('capture'); // Default to capture folder
   const [fileMetadata, setFileMetadata] = useState(new Map());
 
@@ -296,9 +296,10 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
           </div>
         </div>
         <div className={styles.enhanceToggleContainer}>
-          <EnhanceFaceToggle 
-            isEnabled={enhanceFace} 
-            onToggle={onEnhanceFaceToggle} 
+          <EnhanceFaceToggle
+            isEnabled={enhanceFace}
+            onToggle={onEnhanceFaceToggle}
+            disabled={isProcessing || isCheckingFiles}
           />
         </div>
       </div>
@@ -422,14 +423,14 @@ export const FileList = ({ files, onFileSelect, isLoading, enhanceFace, onEnhanc
   );
 };
 
-export const ActionButtons = ({ onCheckFiles, onProcessFiles, isProcessReady, isProcessing, captureLoaded, filesChecked, files, bothProcessingComplete = false, isCheckingFiles = false }) => {
+export const ActionButtons = ({ onCheckFiles, onProcessFiles, isProcessReady, isProcessing, captureLoaded, filesChecked, files, bothProcessingComplete = false, isCheckingFiles = false, currentMode = 'Complete' }) => {
   const canProcess = captureLoaded && filesChecked && !isProcessing && !bothProcessingComplete;
-  
+
   const getProcessButtonTitle = () => {
     if (!captureLoaded) return 'Please load capture dataset first';
     if (!filesChecked) return 'Please click "Check Files" button first to validate files';
-    if (bothProcessingComplete) return 'All processing complete - both Enhance and Complete modes are done';
-    if (!isProcessReady) return 'No files need processing';
+    if (bothProcessingComplete) return `Current mode (${currentMode}) processing is complete`;
+    if (!isProcessReady) return 'No files need processing in current mode';
     if (isProcessing) return 'Processing in progress...';
     return 'Ready to process files';
   };
@@ -463,7 +464,7 @@ export const ActionButtons = ({ onCheckFiles, onProcessFiles, isProcessReady, is
         disabled={!canProcess || isCheckingFiles}
         title={getProcessButtonTitle()}
       >
-        {isProcessing ? 'Processing...' : bothProcessingComplete ? 'All Complete' : 'Process Files'}
+        {isProcessing ? 'Processing...' : bothProcessingComplete ? `${currentMode} Complete` : 'Process Files'}
       </button>
     </div>
   );
@@ -493,17 +494,29 @@ export const Notification = ({ notification, onClose }) => {
 };
 
 export const ProcessSummary = ({ files, enhanceFace = false, isCheckingFiles = false }) => {
-  const captureCount = files.capture?.length || 0;
-  const enhanceCount = files.enhance?.length || 0;
-  const completeCount = files.complete?.length || 0;
-  
+  // Helper function to count only image files
+  const countImageFiles = (filesList) => {
+    if (!filesList || !Array.isArray(filesList)) return 0;
+    const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+    return filesList.filter(file => {
+      const filename = file.filename || file;
+      const extension = filename.toLowerCase().substring(filename.lastIndexOf('.'));
+      return imageExtensions.includes(extension);
+    }).length;
+  };
+
+  // Count only image files, not JSON/CSV files
+  const captureCount = countImageFiles(files.capture);
+  const enhanceCount = countImageFiles(files.enhance);
+  const completeCount = countImageFiles(files.complete);
+
   // ✅ FIXED: Only consider the relevant folder based on enhanceFace setting
   const totalProcessed = enhanceFace ? enhanceCount : completeCount;
   const remainingCount = captureCount - totalProcessed;
-  
+
   // ✅ SAFETY: Check if both processing modes are complete
-  const bothProcessingComplete = captureCount > 0 && 
-                                enhanceCount >= captureCount && 
+  const bothProcessingComplete = captureCount > 0 &&
+                                enhanceCount >= captureCount &&
                                 completeCount >= captureCount;
   
   return (
@@ -536,20 +549,23 @@ export const ProcessSummary = ({ files, enhanceFace = false, isCheckingFiles = f
   );
 };
 
-export const EnhanceFaceToggle = ({ isEnabled = false, onToggle }) => {
+export const EnhanceFaceToggle = ({ isEnabled = false, onToggle, disabled = false }) => {
   return (
-    <div className={styles.enhanceFaceToggle}>
+    <div className={`${styles.enhanceFaceToggle} ${disabled ? styles.toggleDisabled : ''}`}>
       <label className={styles.toggleLabel}>
         <input
           type="checkbox"
           checked={isEnabled}
           onChange={onToggle}
           className={styles.toggleInput}
+          disabled={disabled}
         />
-        <span className={`${styles.toggleSlider} ${isEnabled ? styles.toggleActive : ''}`}>
+        <span className={`${styles.toggleSlider} ${isEnabled ? styles.toggleActive : ''} ${disabled ? styles.toggleDisabled : ''}`}>
           <span className={styles.toggleKnob}></span>
         </span>
-        <span className={styles.toggleText}>Enhance Face</span>
+        <span className={styles.toggleText}>
+          Enhance Face {disabled && <span className={styles.lockedText}>(Locked during processing)</span>}
+        </span>
       </label>
     </div>
   );

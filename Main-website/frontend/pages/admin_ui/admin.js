@@ -11,7 +11,7 @@ import path from 'path';
 import DragDropPriorityList from './adminDrag&Drop';
 import AdminCanvaConfig from './adminCanvaConfig';
 import AdminAdjustDataset from './adminAdjust-dataset';
-import NotiMessage from '../../utils/notiMessage';
+import { useNotification } from '../../utils/NotificationContext';
 import CanvasImageOrder from './CanvasImageOrder';
 import AdminAIProcess from './adminAIProcess';
 import DownloadPopup from './popup';
@@ -57,7 +57,7 @@ export async function getServerSideProps() {
   };
 }
 
-export default function AdminPage({ initialSettings }) {
+function AdminPageContent({ initialSettings }) {
   const router = useRouter();
   const [consentData, setConsentData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -85,23 +85,14 @@ export default function AdminPage({ initialSettings }) {
   const [showAIProcess, setShowAIProcess] = useState(false);
   const [showDownloadPopup, setShowDownloadPopup] = useState(false);
 
-  // Cache for user settings and canvas images to prevent unnecessary refetches
   const userDataCache = useRef({});
 
-  // Debug effect to track modal state changes
+  const { showNotification } = useNotification();
+  const safeShowNotification = showNotification;
+
   useEffect(() => {
     console.log('showCanvasImageOrder state changed:', showCanvasImageOrder);
   }, [showCanvasImageOrder]);
-
-  // Safe notification function that handles cases where window.showNotification might not be available
-  const safeShowNotification = (message, type = 'success') => {
-    if (typeof window !== 'undefined' && window.showNotification) {
-      window.showNotification(message, type);
-    } else {
-      // Fallback to console or alert if notification system isn't ready
-      console.log(`[${type.toUpperCase()}] ${message}`);
-    }
-  };
 
   // Check authentication on page load
   useEffect(() => {
@@ -214,22 +205,19 @@ export default function AdminPage({ initialSettings }) {
 
   const handleSaveSettings = async () => {
     if (!selectedUserId || selectedUserId === 'default') {
-      safeShowNotification('Please select a user ID before saving settings!', 'error');
+      showNotification('Please select a user ID before saving settings!', 'error');
       return;
     }
 
     try {
-      // Get current settings for the selected user
       const currentSettings = tempSettings[selectedUserId];
       if (!currentSettings) {
         throw new Error('No settings found for selected user');
       }
 
-      // Send the current settings to the data center (backend will handle defaults)
       const settingsToSave = { ...currentSettings };
 
-              // Save to data center using the new API endpoint
-        const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
+      const response = await fetch(`/api/data-center/settings/${selectedUserId}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -242,27 +230,20 @@ export default function AdminPage({ initialSettings }) {
       }
 
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Failed to save settings');
       }
-      
-      // Update local state with the saved settings
+
       setTempSettings(prev => ({
         ...prev,
         [selectedUserId]: settingsToSave
       }));
 
-      // Don't call updateSettings here as it will fetch fresh data from backend
-      // which doesn't include canvas images, causing them to disappear
-      // The tempSettings already contains the canvas images, so they will be preserved
-      // updateSettings(selectedUserId);
-
-      // Show success notification
-      safeShowNotification('Settings saved successfully to data center!', 'success');
+      showNotification('Settings saved successfully to data center!', 'success');
     } catch (error) {
       console.error('Error saving settings:', error);
-      safeShowNotification('Failed to save settings. Please try again.', 'error');
+      showNotification('Failed to save settings. Please try again.', 'error');
     }
   };
 
@@ -1070,10 +1051,7 @@ export default function AdminPage({ initialSettings }) {
         <div className={styles.headerContainer}>
           <h1>Admin Dashboard</h1>
         </div>
-        
-        {/* Notification Component */}
-        <NotiMessage />
-        
+
         {/* Debug Info */}
         {debugInfo && (
           <div className={styles.debugInfo}>
@@ -2041,3 +2019,6 @@ export default function AdminPage({ initialSettings }) {
     </div>
   );
 }
+
+// Default export
+export default AdminPageContent;

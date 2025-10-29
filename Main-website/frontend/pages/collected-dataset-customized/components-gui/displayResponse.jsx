@@ -1,4 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import {
+  parseImagePaths,
+  getImageUrl,
+  getProgressStatus,
+  ProgressRenderer
+} from './count&mark.js';
 
 const DisplayResponse = ({
   width,
@@ -9,10 +15,24 @@ const DisplayResponse = ({
   isCanvasVisible = true,
   outputText = '',
   isCameraActivated = false,
-  isCameraActive = false
+  isCameraActive = false,
+  showButtonSequence = false, // New prop to control button sequence visibility
+  buttonSequenceList = [], // List of buttons in sequence
+  clickedButtons = new Set(), // Track which buttons have been clicked
+  imageBackgroundPaths = [], // Array of image paths from MongoDB
+  buttonClickCount = 0, // Total button clicks from CanvasImage
+  currentImageTimes = 1, // Times for current image from CanvasImage
+  currentImageIndex = 0, // Current image index
+  totalImages = 1, // Total number of images
+  currentImagePath = null // Current image path
 }) => {
   // Animation state for visibility transitions
   const [animationState, setAnimationState] = useState(isVisible ? 'visible' : 'hidden');
+
+  // State for image section
+  const [parsedImages, setParsedImages] = useState([]);
+  const [expandedPath, setExpandedPath] = useState(null);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // State for canvas dimensions
   const [canvasDimensions, setCanvasDimensions] = useState({ width: 0, height: 0 });
@@ -24,6 +44,48 @@ const DisplayResponse = ({
   useEffect(() => {
     setAnimationState(isVisible ? 'visible' : 'hidden');
   }, [isVisible]);
+
+  // Parse image paths when they change
+  useEffect(() => {
+    // Filter out default non-existent paths
+    const filteredPaths = imageBackgroundPaths.filter(path => {
+      if (!path || typeof path !== 'string') return false;
+
+      // Parse "[times]-path" format
+      let actualPath = path;
+      if (path.includes('-')) {
+        const match = path.match(/^\[\d+\]-(.+)$/);
+        if (match) {
+          actualPath = match[1];
+        }
+      }
+
+      // Exclude default non-existent path
+      return actualPath !== '/backgrounds/default.jpg' && actualPath !== 'backgrounds/default.jpg';
+    });
+
+    const parsed = parseImagePaths(filteredPaths);
+    setParsedImages(parsed);
+  }, [imageBackgroundPaths]);
+
+  // Function to handle path name click
+  const handlePathClick = (imagePath, index) => {
+    if (expandedPath === index) {
+      // If already expanded, collapse it
+      setExpandedPath(null);
+      setIsExpanded(false);
+    } else {
+      // Expand the clicked path
+      setExpandedPath(index);
+      setIsExpanded(true);
+    }
+  };
+
+  // Function to close expanded path
+  const closeExpandedPath = () => {
+    setExpandedPath(null);
+    setIsExpanded(false);
+  };
 
   // Function to get canvas dimensions
   const getCanvasDimensions = () => {
@@ -337,6 +399,320 @@ const DisplayResponse = ({
           📷 Camera: {isCameraActivated ? (isCameraActive ? 'Active' : 'Activated (Click Preview to Start)') : 'Not Activated (Deactivates on Refresh)'}
         </div>
       </div>
+
+      {/* Button Sequence Section - only show when showButtonSequence is true */}
+      {showButtonSequence && buttonSequenceList.length > 0 && (
+        <div
+          className="button-sequence-section"
+          style={{
+            borderTop: '1px solid rgba(255, 255, 255, 0.3)',
+            paddingTop: `${Math.round(10 * responsiveStyles.scale)}px`,
+            marginTop: `${Math.round(10 * responsiveStyles.scale)}px`
+          }}
+        >
+          <div
+            className="sequence-header"
+            style={{
+              fontWeight: 'bold',
+              marginBottom: `${Math.round(8 * responsiveStyles.scale)}px`,
+              fontSize: responsiveStyles.smallFontSize,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}
+          >
+            <span>🔄 Button Sequence</span>
+          </div>
+          <div style={{
+            fontSize: responsiveStyles.tinyFontSize,
+            lineHeight: '1.5',
+            opacity: 0.9
+          }}>
+            {buttonSequenceList.map((buttonName, index) => {
+              const isClicked = clickedButtons.has(buttonName);
+              return (
+                <div
+                  key={index}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginBottom: `${Math.round(4 * responsiveStyles.scale)}px`,
+                    padding: `${Math.round(4 * responsiveStyles.scale)}px`,
+                    backgroundColor: isClicked ? 'rgba(0, 255, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                    borderRadius: `${Math.round(4 * responsiveStyles.scale)}px`,
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  <span
+                    style={{
+                      display: 'inline-block',
+                      width: `${Math.round(16 * responsiveStyles.scale)}px`,
+                      height: `${Math.round(16 * responsiveStyles.scale)}px`,
+                      marginRight: `${Math.round(6 * responsiveStyles.scale)}px`,
+                      borderRadius: '50%',
+                      backgroundColor: isClicked ? '#00ff00' : 'rgba(255, 255, 255, 0.3)',
+                      border: '1px solid rgba(255, 255, 255, 0.5)',
+                      textAlign: 'center',
+                      lineHeight: `${Math.round(16 * responsiveStyles.scale)}px`,
+                      fontSize: `${Math.round(10 * responsiveStyles.scale)}px`,
+                      color: isClicked ? '#000' : '#fff',
+                      fontWeight: 'bold',
+                      flexShrink: 0
+                    }}
+                  >
+                    {isClicked ? '✓' : index + 1}
+                  </span>
+                  <span style={{
+                    wordBreak: 'break-word',
+                    color: isClicked ? '#00ff00' : '#fff',
+                    textDecoration: isClicked ? 'line-through' : 'none'
+                  }}>
+                    {buttonName}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Background Images Section - show when showButtonSequence is true */}
+      {showButtonSequence && (
+        <div
+          className="background-images-section"
+          style={{
+            borderTop: '1px solid rgba(255, 255, 255, 0.3)',
+            paddingTop: `${Math.round(10 * responsiveStyles.scale)}px`,
+            marginTop: `${Math.round(10 * responsiveStyles.scale)}px`
+          }}
+        >
+          <div
+            className="images-header"
+            style={{
+              fontWeight: 'bold',
+              marginBottom: `${Math.round(8 * responsiveStyles.scale)}px`,
+              fontSize: responsiveStyles.smallFontSize,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: `${Math.round(4 * responsiveStyles.scale)}px`
+            }}
+          >
+            <span>📸 Background Images ({parsedImages.length})</span>
+            {totalImages > 1 && (
+              <span style={{
+                fontSize: responsiveStyles.tinyFontSize,
+                fontWeight: 'normal',
+                color: '#00ff00'
+              }}>
+                Current: {currentImageIndex + 1}/{totalImages}
+                {currentImagePath && (
+                  <span style={{ marginLeft: `${Math.round(4 * responsiveStyles.scale)}px` }}>
+                    - {currentImagePath.split('/').pop()}
+                  </span>
+                )}
+              </span>
+            )}
+          </div>
+
+          {/* Image list */}
+          <div style={{
+            maxHeight: '200px',
+            overflowY: 'auto',
+            overflowX: 'hidden'
+          }}>
+            {parsedImages.length === 0 ? (
+              <div style={{
+                padding: `${Math.round(12 * responsiveStyles.scale)}px`,
+                textAlign: 'center',
+                color: 'rgba(255, 255, 255, 0.6)',
+                fontSize: responsiveStyles.tinyFontSize
+              }}>
+                No background images configured in settings.
+                <br />
+                Add images to 'image_background_paths' in data_centralization.
+              </div>
+            ) : (
+              parsedImages.map((image, index) => (
+              <div
+                key={index}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handlePathClick(image.path, index);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginBottom: `${Math.round(6 * responsiveStyles.scale)}px`,
+                  padding: `${Math.round(6 * responsiveStyles.scale)}px`,
+                  backgroundColor: index === currentImageIndex ? 'rgba(0, 255, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                  borderRadius: `${Math.round(4 * responsiveStyles.scale)}px`,
+                  border: index === currentImageIndex ? '1px solid #00ff00' : '1px solid rgba(255, 255, 255, 0.1)',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = index === currentImageIndex ? 'rgba(0, 255, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)';
+                }}
+              >
+                {/* Image thumbnail */}
+                <div style={{
+                  width: `${Math.round(40 * responsiveStyles.scale)}px`,
+                  height: `${Math.round(40 * responsiveStyles.scale)}px`,
+                  marginRight: `${Math.round(8 * responsiveStyles.scale)}px`,
+                  borderRadius: `${Math.round(4 * responsiveStyles.scale)}px`,
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <img
+                    src={getImageUrl(image.path)}
+                    alt={`Background ${index + 1}`}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                    onLoad={(e) => {
+                      e.target.nextSibling.style.display = 'none';
+                    }}
+                  />
+                  <div style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: responsiveStyles.baseFontSize
+                  }}>
+                    📷
+                  </div>
+                </div>
+
+                {/* Image info */}
+                <div style={{
+                  flex: 1,
+                  minWidth: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: `${Math.round(2 * responsiveStyles.scale)}px`
+                }}>
+                  {/* Path name */}
+                  <div style={{
+                    fontSize: responsiveStyles.tinyFontSize,
+                    color: '#fff',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: `${Math.round(4 * responsiveStyles.scale)}px`
+                  }}>
+                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {image.path.split('/').pop() || image.path}
+                    </span>
+                    <span style={{ flexShrink: 0, fontSize: `${Math.round(8 * responsiveStyles.scale)}px` }}>
+                      {expandedPath === index ? '▼' : '▶'}
+                    </span>
+                  </div>
+
+                  {/* Progress badge */}
+                  <div style={{
+                    fontSize: responsiveStyles.tinyFontSize,
+                    display: 'inline-flex',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{
+                      backgroundColor: 'rgba(0, 102, 204, 0.6)',
+                      padding: `${Math.round(2 * responsiveStyles.scale)}px ${Math.round(6 * responsiveStyles.scale)}px`,
+                      borderRadius: `${Math.round(3 * responsiveStyles.scale)}px`,
+                      fontSize: responsiveStyles.tinyFontSize,
+                      fontWeight: 'bold',
+                      border: '1px solid rgba(255, 255, 255, 0.3)'
+                    }}>
+                      {index === 0 ? `${buttonClickCount}/${image.times}` : `0/${image.times}`}
+                    </span>
+                    {index === 0 && buttonClickCount >= image.times && (
+                      <span style={{
+                        marginLeft: `${Math.round(4 * responsiveStyles.scale)}px`,
+                        color: '#00ff00'
+                      }}>
+                        ✓ Complete
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              ))
+            )}
+          </div>
+
+          {/* Expanded path display */}
+          {isExpanded && expandedPath !== null && (
+            <div style={{
+              marginTop: `${Math.round(8 * responsiveStyles.scale)}px`,
+              padding: `${Math.round(8 * responsiveStyles.scale)}px`,
+              backgroundColor: 'rgba(0, 0, 0, 0.3)',
+              borderRadius: `${Math.round(4 * responsiveStyles.scale)}px`,
+              border: '1px solid rgba(255, 255, 255, 0.2)'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: `${Math.round(4 * responsiveStyles.scale)}px`
+              }}>
+                <span style={{
+                  fontSize: responsiveStyles.tinyFontSize,
+                  fontWeight: 'bold',
+                  color: '#00ff00'
+                }}>
+                  Full Path:
+                </span>
+                <button
+                  onClick={closeExpandedPath}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#fff',
+                    fontSize: responsiveStyles.baseFontSize,
+                    cursor: 'pointer',
+                    padding: '0',
+                    width: `${Math.round(20 * responsiveStyles.scale)}px`,
+                    height: `${Math.round(20 * responsiveStyles.scale)}px`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  title="Close expanded path"
+                >
+                  ×
+                </button>
+              </div>
+              <div style={{
+                fontSize: responsiveStyles.tinyFontSize,
+                color: '#fff',
+                wordBreak: 'break-all',
+                lineHeight: '1.4'
+              }}>
+                {parsedImages[expandedPath]?.path || ''}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
