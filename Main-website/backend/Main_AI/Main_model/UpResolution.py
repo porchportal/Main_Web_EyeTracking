@@ -296,6 +296,7 @@ class FaceEnhancer:
         Cropped face image or None if face_box is None
         """
         if face_box is None:
+            print("⚠️ UpResolution - get_face_crop: face_box is None")
             return None
         # Extract coordinates from face_box tuples
         (min_x, min_y) = face_box[0]
@@ -306,8 +307,14 @@ class FaceEnhancer:
         min_y = max(0, min_y)
         max_x = min(w, max_x)
         max_y = min(h, max_y)
-        
-        return frame[min_y:max_y, min_x:max_x]
+
+        print(f"🔍 UpResolution - get_face_crop: Cropping face from ({min_x},{min_y}) to ({max_x},{max_y})")
+        print(f"🔍 UpResolution - get_face_crop: Original frame size: {w}x{h}, Crop size: {max_x-min_x}x{max_y-min_y}")
+
+        cropped = frame[min_y:max_y, min_x:max_x]
+        print(f"🔍 UpResolution - get_face_crop: Cropped face shape: {cropped.shape}")
+
+        return cropped
     
     def process_face(self, frame, face_box: Tuple[int, int]):
         """
@@ -499,25 +506,35 @@ class FaceEnhancer:
     def main_process_with_paste_back(self, frame, face_box: Tuple[int, int]):
         """
         Main processing function to enhance a face and paste it back into the original frame.
-        
+
         Args:
             frame: Input image frame
             face_box: Tuple of ((min_x, min_y), (max_x, max_y)) defining face boundaries
-            
+
         Returns:
             Full frame with enhanced face pasted back or original frame if processing fails
         """
-        try:    
+        try:
+            print(f"🔍 UpResolution - main_process_with_paste_back called")
+            print(f"🔍 UpResolution - frame shape: {frame.shape}, face_box: {face_box}")
+
             enhanced_face = self.process_face(frame, face_box)
-            
+
             if enhanced_face is not None:
+                print(f"🔍 UpResolution - Enhanced face shape: {enhanced_face.shape}")
+                print(f"🔍 UpResolution - Pasting enhanced face back into original frame")
                 # Paste the enhanced face back into the original frame
-                return self.paste_enhanced_face_back(frame, enhanced_face, face_box)
+                result = self.paste_enhanced_face_back(frame, enhanced_face, face_box)
+                print(f"✅ UpResolution - Successfully pasted enhanced face, result shape: {result.shape}")
+                return result
             else:
+                print(f"⚠️ UpResolution - process_face returned None, returning original frame")
                 return frame
-            
+
         except Exception as e:
-            print(f"Error in main process with paste back: {e}")
+            print(f"❌ UpResolution - Error in main process with paste back: {e}")
+            import traceback
+            traceback.print_exc()
             return frame
             
             

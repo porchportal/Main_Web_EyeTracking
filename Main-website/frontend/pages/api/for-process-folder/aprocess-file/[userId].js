@@ -106,7 +106,7 @@ export default async function handler(req, res) {
 
     // Call the auth service backend which handles image processing
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 300000); // 5 minute timeout for image processing
+    const timeout = setTimeout(() => controller.abort(), 1800000); // 30 minute timeout for image processing (Real-ESRGAN can be slow)
     
     const backendRequestBody = {
       user_id: userId,
@@ -229,7 +229,7 @@ export default async function handler(req, res) {
       return res.status(408).json({
         success: false,
         error: 'Request timeout - image processing took too long',
-        message: 'The processing operation timed out after 5 minutes'
+        message: 'The processing operation timed out after 30 minutes. Please try processing fewer files at once.'
       });
     } else if (error.message?.includes('ECONNREFUSED')) {
       return res.status(503).json({

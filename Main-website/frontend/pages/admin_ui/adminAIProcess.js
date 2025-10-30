@@ -512,8 +512,14 @@ const AdminAIProcess = ({ userId, onClose }) => {
           
           <div className={styles.statusIndicator}>
             <span>Processing Status:</span>
-            <span className={isProcessReady && captureLoaded && filesChecked ? styles.statusReady : styles.statusNotReady}>
-              {isProcessReady && captureLoaded && filesChecked ? 'Ready' : 'Not Ready'}
+            <span className={
+              filesChecked && captureLoaded && !isProcessReady
+                ? styles.statusComplete
+                : (isProcessReady && captureLoaded && filesChecked ? styles.statusReady : styles.statusNotReady)
+            }>
+              {filesChecked && captureLoaded && !isProcessReady
+                ? 'Complete'
+                : (isProcessReady && captureLoaded && filesChecked ? 'Ready' : 'Not Ready')}
             </span>
           </div>
         </div>

@@ -529,7 +529,7 @@ async def queue_processing(request: ProcessingRequest):
             response = await client.post(
                 f"{image_service_url}/process-images",
                 json=request_data,
-                timeout=300.0  # 5 minutes timeout
+                timeout=1800.0  # 30 minutes timeout (Real-ESRGAN face enhancement can be slow)
             )
             
             print(f"📥 Image service response: {response.status_code}")

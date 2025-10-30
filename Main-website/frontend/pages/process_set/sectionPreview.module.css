@@ -1196,3 +1196,273 @@
   color: #e74c3c;
   font-weight: 500;
 }
+
+/* Responsive design for components */
+/* Tablets and below */
+@media (max-width: 1024px) {
+  .fileList {
+    max-height: 400px;
+  }
+
+  .tabContent {
+    max-height: 300px;
+  }
+
+  .previewImage {
+    max-height: calc(100vh - 400px);
+  }
+
+  .previewText {
+    max-height: calc(100vh - 450px);
+  }
+}
+
+/* Mobile devices */
+@media (max-width: 768px) {
+  .fileList {
+    padding: 12px;
+    margin-bottom: 15px;
+    max-height: 350px;
+  }
+
+  .fileListHeader {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .fileList h3 {
+    font-size: 1.1em;
+  }
+
+  .folderSelector {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .folderButton {
+    padding: 6px 12px;
+    font-size: 0.85em;
+  }
+
+  .tabContent {
+    padding: 12px;
+    max-height: 280px;
+  }
+
+  .fileListItem {
+    padding: 10px;
+  }
+
+  .fileName {
+    font-size: 0.95em;
+  }
+
+  .filePath {
+    font-size: 0.85em;
+  }
+
+  .fileDetails {
+    font-size: 0.75em;
+  }
+
+  .previewPanel {
+    padding: 12px;
+  }
+
+  .previewPanel h3 {
+    font-size: 1.1em;
+    margin-bottom: 12px;
+  }
+
+  .previewImage {
+    max-height: calc(100vh - 350px);
+  }
+
+  .previewText {
+    max-height: calc(100vh - 400px);
+    padding: 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  .processSummary {
+    padding: 12px;
+    margin-bottom: 15px;
+  }
+
+  .processSummary h3 {
+    font-size: 1em;
+    margin-bottom: 10px;
+  }
+
+  .statItem {
+    padding: 6px 10px;
+    font-size: 0.9em;
+  }
+
+  .button {
+    padding: 0.6rem 1.5rem;
+    font-size: 0.95rem;
+  }
+
+  .enhanceFaceToggle {
+    transform: scale(0.9);
+  }
+
+  .toggleText {
+    font-size: 0.85rem;
+  }
+
+  .processingProgress {
+    padding: 16px;
+    margin: 15px 0;
+  }
+
+  .processingProgress h3 {
+    font-size: 1.1rem;
+  }
+
+  .progressInfo {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .progressMessage {
+    font-size: 0.9rem;
+  }
+
+  .progressPercent {
+    font-size: 1.2rem;
+  }
+
+  .progressDetails {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .progressFile {
+    font-size: 0.8rem;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+  .fileList {
+    padding: 10px;
+    max-height: 300px;
+  }
+
+  .fileList h3 {
+    font-size: 1em;
+  }
+
+  .folderButton {
+    padding: 5px 10px;
+    font-size: 0.8em;
+  }
+
+  .tabContent {
+    padding: 10px;
+    max-height: 250px;
+  }
+
+  .fileListItem {
+    padding: 8px;
+  }
+
+  .fileName {
+    font-size: 0.9em;
+  }
+
+  .filePath {
+    font-size: 0.8em;
+  }
+
+  .fileDetails {
+    font-size: 0.7em;
+  }
+
+  .previewPanel {
+    padding: 10px;
+  }
+
+  .previewPanel h3 {
+    font-size: 1em;
+  }
+
+  .previewImage {
+    max-height: calc(100vh - 300px);
+  }
+
+  .previewText {
+    max-height: calc(100vh - 350px);
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .processSummary {
+    padding: 10px;
+  }
+
+  .processSummary h3 {
+    font-size: 0.95em;
+  }
+
+  .statItem {
+    padding: 5px 8px;
+    font-size: 0.85em;
+  }
+
+  .button {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .toggleSlider {
+    width: 44px;
+    height: 22px;
+  }
+
+  .toggleKnob {
+    width: 14px;
+    height: 14px;
+  }
+
+  .toggleSlider.toggleActive .toggleKnob {
+    transform: translateX(22px);
+  }
+
+  .toggleText {
+    font-size: 0.8rem;
+  }
+
+  .processingProgress {
+    padding: 12px;
+  }
+
+  .processingProgress h3 {
+    font-size: 1rem;
+  }
+
+  .progressMessage {
+    font-size: 0.85rem;
+  }
+
+  .progressPercent {
+    font-size: 1.1rem;
+  }
+
+  .progressBar {
+    height: 20px;
+  }
+
+  .progressSets,
+  .progressFile {
+    font-size: 0.75rem;
+  }
+
+  .imageInfo {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+  }
+}

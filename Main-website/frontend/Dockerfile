@@ -5,12 +5,10 @@ WORKDIR /app
 
 # Install dependencies for better performance
 RUN apk add --no-cache libc6-compat wget su-exec
-
+RUN npm install -g npm@11.6.2
 # Copy package manifests
 COPY package*.json ./
 
-# Install dependencies
-# Note: Using --prefer-offline for faster builds when packages are cached
 RUN npm ci --prefer-offline --no-audit
 
 # Copy environment file

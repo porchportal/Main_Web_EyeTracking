@@ -298,5 +298,17 @@
       "night_mode": false
     },
     "updated_at": "2025-10-29T03:55:04.648135"
+  },
+  {
+    "user_id": "d7237623-fe62-4445-8c42-eed6e561d5f3",
+    "consent_accepted": true,
+    "consent_timestamp": "2025-10-30T10:29:37.454196",
+    "profile": {
+      "username": "",
+      "sex": "",
+      "age": "",
+      "night_mode": false
+    },
+    "updated_at": "2025-10-30T10:29:37.463136"
   }
 ]

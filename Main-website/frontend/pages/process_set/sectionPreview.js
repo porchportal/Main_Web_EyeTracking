@@ -429,7 +429,7 @@ export const ActionButtons = ({ onCheckFiles, onProcessFiles, isProcessReady, is
   const getProcessButtonTitle = () => {
     if (!captureLoaded) return 'Please load capture dataset first';
     if (!filesChecked) return 'Please click "Check Files" button first to validate files';
-    if (bothProcessingComplete) return `Current mode (${currentMode}) processing is complete`;
+    if (bothProcessingComplete) return 'All processing complete - Both Enhance and Complete modes are done';
     if (!isProcessReady) return 'No files need processing in current mode';
     if (isProcessing) return 'Processing in progress...';
     return 'Ready to process files';
@@ -464,7 +464,7 @@ export const ActionButtons = ({ onCheckFiles, onProcessFiles, isProcessReady, is
         disabled={!canProcess || isCheckingFiles}
         title={getProcessButtonTitle()}
       >
-        {isProcessing ? 'Processing...' : bothProcessingComplete ? `${currentMode} Complete` : 'Process Files'}
+        {isProcessing ? 'Processing...' : bothProcessingComplete ? 'All Complete' : 'Process Files'}
       </button>
     </div>
   );

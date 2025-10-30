@@ -1,8 +1,9 @@
 // pages/process_set/index.js
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import styles from './sectionPreview.module.css';
-import { useEffect, useState } from 'react';
+import styles from './main.module.css';
+import componentStyles from './sectionPreview.module.css';
+import { useEffect, useState, useRef } from 'react';
 import { useNotification } from '../../utils/NotificationContext';
 
 // Import API functions (only backend connection and processing)
@@ -45,18 +46,18 @@ export default function ProcessSet() {
   const [processingStatus, setProcessingStatus] = useState(null);
   const [progressData, setProgressData] = useState(null);
   const [enhanceFace, setEnhanceFace] = useState(false);
-  const [lastNotificationMessage, setLastNotificationMessage] = useState('');
+  const lastNotificationMessageRef = useRef('');
+  const lastProcessingStatusRef = useRef(null);
   const [captureLoaded, setCaptureLoaded] = useState(false);
   const [filesChecked, setFilesChecked] = useState(false);
   const [lastProcessingStatus, setLastProcessingStatus] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [isCheckingFiles, setIsCheckingFiles] = useState(false);
-  const [filesLoadingState, setFilesLoadingState] = useState({ 
-    capture: false, 
-    enhance: false, 
-    complete: false 
+  const [filesLoadingState, setFilesLoadingState] = useState({
+    capture: false,
+    enhance: false,
+    complete: false
   });
-  const [autoRefreshTriggered, setAutoRefreshTriggered] = useState(false);
 
   // Use notification from context
   const showNotification = (message, type = 'info') => {
@@ -189,23 +190,32 @@ export default function ProcessSet() {
         bothProcessingComplete: bothProcessingComplete
       };
 
-      // Check if the processing status has actually changed
-      const statusChanged = !lastProcessingStatus ||
-        lastProcessingStatus.needsProcessing !== currentProcessingStatus.needsProcessing ||
-        lastProcessingStatus.filesToProcess !== currentProcessingStatus.filesToProcess ||
-        lastProcessingStatus.currentModeComplete !== currentProcessingStatus.currentModeComplete;
+      // Check if the processing status has actually changed (use ref for synchronous comparison)
+      const statusChanged = !lastProcessingStatusRef.current ||
+        lastProcessingStatusRef.current.needsProcessing !== currentProcessingStatus.needsProcessing ||
+        lastProcessingStatusRef.current.filesToProcess !== currentProcessingStatus.filesToProcess ||
+        lastProcessingStatusRef.current.currentModeComplete !== currentProcessingStatus.currentModeComplete;
 
-      // Update state
-      setIsProcessReady(needsProcessing);
-      setProcessingStatus({
-        captureCount: captureCount,
-        enhanceCount: enhanceCount,
-        completeCount: completeCount,
-        totalProcessedCount: totalProcessedCount,
-        filesToProcess: filesToProcess,
-        bothProcessingComplete: currentModeComplete, // Use current mode for button state
-        allModesComplete: bothProcessingComplete
-      });
+      if (statusChanged) {
+        console.log('📊 Status changed:', {
+          from: lastProcessingStatusRef.current,
+          to: currentProcessingStatus
+        });
+      }
+
+      // Only update state if values actually changed to prevent unnecessary re-renders
+      if (statusChanged || showNotificationOnChange) {
+        setIsProcessReady(needsProcessing);
+        setProcessingStatus({
+          captureCount: captureCount,
+          enhanceCount: enhanceCount,
+          completeCount: completeCount,
+          totalProcessedCount: totalProcessedCount,
+          filesToProcess: filesToProcess,
+          bothProcessingComplete: currentModeComplete, // Use current mode for button state
+          allModesComplete: bothProcessingComplete
+        });
+      }
 
       // Only show notification if status actually changed or explicitly requested
       if (showNotificationOnChange || statusChanged) {
@@ -218,10 +228,11 @@ export default function ProcessSet() {
         } else {
           showNotificationIfNew('All sets are processed', 'success');
         }
-      }
 
-      // Update the last processing status
-      setLastProcessingStatus(currentProcessingStatus);
+        // Update the last processing status only when status changed (both state and ref)
+        setLastProcessingStatus(currentProcessingStatus);
+        lastProcessingStatusRef.current = currentProcessingStatus;
+      }
     } catch (error) {
       console.error('Error checking processing status:', error);
       if (showNotificationOnChange) {
@@ -235,9 +246,13 @@ export default function ProcessSet() {
     // Create a unique key for this type of notification
     const notificationKey = `${type}-${message}`;
 
-    if (notificationKey !== lastNotificationMessage) {
-      setLastNotificationMessage(notificationKey);
+    // Use ref for synchronous update to prevent duplicate notifications
+    if (notificationKey !== lastNotificationMessageRef.current) {
+      console.log('✅ Notification:', message);
+      lastNotificationMessageRef.current = notificationKey;
       showNotification(message, type);
+    } else {
+      console.log('⏭️ Skipping duplicate notification');
     }
   };
 
@@ -254,49 +269,134 @@ export default function ProcessSet() {
     initializeComponent();
   }, []); // ✅ FIXED: Remove isProcessing dependency
 
-  // Set up interval to check processing status with current enhanceFace value
-  useEffect(() => {
-    // Set up interval to check processing status - reduced from 10s to 30s
-    const statusInterval = setInterval(() => {
-      checkProcessingNeededWithEnhanceFace(enhanceFace, false);
-    }, 30000);
-    
-    // Clean up intervals when enhanceFace changes or component unmounts
-    return () => {
-      clearInterval(statusInterval);
-    };
-  }, [enhanceFace]); // ✅ FIXED: Recreate interval when enhanceFace changes
+  // ✅ REMOVED: 30-second status check interval
+  // Status is now only checked manually via "Check Files" button
+  // This prevents duplicate notifications and unnecessary API calls
 
-  // Separate effect for processing progress interval
+  // Progress bar update interval (only runs during active processing)
   useEffect(() => {
     let progressInterval = null;
-    
+    let hasShownCompletion = false; // Track if we've already shown completion notification
+
     if (isProcessing) {
       // Set up interval to check processing progress when processing is active
-      // Use shorter interval for more responsive progress updates
       progressInterval = setInterval(async () => {
         try {
           const userId = await getUserId();
           const result = await checkProcessingStatus(userId);
-          if (result.success && result.isProcessing === false) {
+
+          // Handle case where processing is not running anymore
+          if (result.success && result.isProcessing === false && result.progress === null) {
+            console.log('Processing no longer active, cleaning up...');
+            if (progressInterval) {
+              clearInterval(progressInterval);
+              progressInterval = null;
+            }
             setIsProcessing(false);
             setProgressData(null);
+            await handleCheckFiles();
             return;
           }
-          checkProcessingProgress();
+
+          // Check if we have progress data and update accordingly
+          if (result.progress && typeof result.progress === 'object') {
+            // Handle completion status FIRST before updating progress data
+            if (result.progress.status === 'completed' && !hasShownCompletion) {
+              console.log('Processing completed!');
+              hasShownCompletion = true; // Mark as shown
+
+              // Stop polling immediately
+              if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+              }
+
+              // Show final completion state briefly
+              setProgressData({
+                currentSet: result.progress.currentSet || 0,
+                totalSets: result.progress.totalSets || 0,
+                processedSets: result.progress.processedSets || [],
+                currentFile: result.progress.currentFile || '',
+                progress: 100,
+                status: 'completed',
+                message: '✓ Processing completed successfully!',
+                userId: userId,
+                timestamp: Date.now()
+              });
+
+              showNotification('Processing completed successfully!', 'success');
+
+              // Clear state after 1 second and refresh files
+              setTimeout(async () => {
+                setIsProcessing(false);
+                setProgressData(null);
+                await handleCheckFiles();
+              }, 1000);
+
+              return;
+            }
+            // Handle error status (only show notification once)
+            else if (result.progress.status === 'error' && !hasShownCompletion) {
+              console.error('Processing error:', result.progress.message);
+              hasShownCompletion = true; // Mark as shown
+
+              // Stop polling immediately
+              if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+              }
+
+              showNotification('Processing failed: ' + result.progress.message, 'error');
+
+              // Clear state after 2 seconds
+              setTimeout(() => {
+                setIsProcessing(false);
+                setProgressData(null);
+              }, 2000);
+
+              return;
+            }
+
+            // Only update progress data if NOT completed/error
+            if (result.progress.status !== 'completed' && result.progress.status !== 'error') {
+              const newProgressData = {
+                currentSet: result.progress.currentSet || 0,
+                totalSets: result.progress.totalSets || 0,
+                processedSets: result.progress.processedSets || [],
+                currentFile: result.progress.currentFile || '',
+                progress: result.progress.progress || 0,
+                status: result.progress.status || 'unknown',
+                message: result.progress.message || 'Processing...',
+                userId: userId,
+                timestamp: Date.now()
+              };
+              setProgressData(newProgressData);
+            }
+          } else if (result.success && result.isProcessing === false) {
+            // If processing is not running and no progress data, stop polling
+            console.log('No progress data and processing stopped');
+            if (progressInterval) {
+              clearInterval(progressInterval);
+              progressInterval = null;
+            }
+            setIsProcessing(false);
+            setProgressData(null);
+            await handleCheckFiles();
+          }
         } catch (error) {
           console.error('Error in progress polling:', error);
+          // Don't stop polling on error, just log it
         }
-      }, 2000); // Check every 2 seconds when processing for more responsive updates
+      }, 1500); // Check every 1.5 seconds for more responsive updates
     }
-    
+
     // Clean up interval when isProcessing changes or component unmounts
     return () => {
       if (progressInterval) {
         clearInterval(progressInterval);
       }
     };
-  }, [isProcessing, currentUserId]); // ✅ FIXED: Removed progressData dependency to avoid recreating interval
+  }, [isProcessing, currentUserId]);
 
   // Initialize component by checking backend connection and files
   const initializeComponent = async () => {
@@ -427,119 +527,9 @@ export default function ProcessSet() {
     setLoading(false);
   };
 
-  // Check processing progress
-  const checkProcessingProgress = async () => {
-    try {
-      // Get user ID (prioritize passed user ID)
-      const userId = await getUserId();
-      
-      // Check processing status
-      const result = await checkProcessingStatus(userId);
-      
-      if (result.success) {
-        // ✅ FIXED: Check if backend says processing is not running
-        if (result.isProcessing === false) {
-          console.log('🛑 Backend reports processing is not running, stopping frontend processing state');
-          setIsProcessing(false);
-          setProgressData(null);
-          return;
-        }
-        
-        // Additional check: if no progress file found and no active progress, stop processing
-        if (!result.progressFileFound && !result.hasActiveProgress) {
-          console.log('🛑 No progress file found and no active progress, stopping frontend processing state');
-          setIsProcessing(false);
-          setProgressData(null);
-          return;
-        }
-        
-        // Clear progress data if we have progress but it's not active processing
-        if (result.progress && result.progress.status !== 'processing' && result.progress.status !== 'starting') {
-          console.log('🛑 Progress file exists but status is not active processing, clearing progress data');
-          setProgressData(null);
-          return;
-        }
-        
-        // Check if all files are already processed (no need for processing)
-        if (result.captureCount > 0 && result.captureCount <= result.totalProcessedCount) {
-          console.log('🛑 All files are already processed, stopping frontend processing state');
-          setIsProcessing(false);
-          setProgressData(null);
-          return;
-        }
-        
-        if (result.progress && (result.progress.status === 'processing' || result.progress.status === 'starting')) {
-          // Only update progress data if we're actually processing
-          const progressData = {
-            currentSet: result.progress.currentSet || 0,
-            totalSets: result.progress.totalSets || 0,
-            processedSets: result.progress.processedSets || [],
-            currentFile: result.progress.currentFile || '',
-            progress: result.progress.progress || 0,
-            status: result.progress.status || 'unknown',
-            message: result.progress.message || '',
-            userId: userId
-          };
-          
-          // Only set progress data if we have meaningful progress (not 0% with no activity)
-          if (progressData.progress > 0 || progressData.status === 'processing' || progressData.status === 'starting') {
-            // Force a re-render by updating a timestamp
-            setProgressData({
-              ...progressData,
-              timestamp: Date.now()
-            });
-          }
-          
-          // If processing is completed, update state and clear progress after delay
-          if (result.progress.status === 'completed') {
-            showNotification('Processing completed successfully', 'success');
-            
-            // Only trigger auto-refresh once per processing session
-            if (!autoRefreshTriggered) {
-              setAutoRefreshTriggered(true);
-              
-              // Set a timeout to clear progress after 3 seconds, then auto-refresh
-              setTimeout(async () => {
-                console.log('🔄 Auto-refreshing files after processing completion...');
-                setIsProcessing(false);
-                setProgressData(null);
-                
-                // Show notification and refresh files
-                showNotification('Refreshing files list...', 'info');
-                await handleCheckFiles();
-                
-                // Reset the auto-refresh flag after completion
-                setTimeout(() => {
-                  setAutoRefreshTriggered(false);
-                }, 2000);
-              }, 3000); // 3 seconds delay
-            }
-          } else if (result.progress.status === 'error') {
-            showNotification('Processing failed: ' + result.progress.message, 'error');
-            
-            // Set a timeout to clear progress after 3 seconds for errors
-            setTimeout(() => {
-              setIsProcessing(false);
-              setProgressData(null);
-            }, 3000); // 3 seconds delay for errors
-          }
-        }
-      } else {
-        // If we can't get progress data and we think we're processing, stop
-        if (isProcessing) {
-          setIsProcessing(false);
-          setProgressData(null);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error checking processing progress:', error);
-      // If there's an error checking progress and we think we're processing, stop
-      if (isProcessing) {
-        setIsProcessing(false);
-        setProgressData(null);
-      }
-    }
-  };
+  // ✅ REMOVED: Old checkProcessingProgress function
+  // Progress checking is now handled directly in the useEffect polling interval above
+  // This provides better control over completion/error handling and prevents duplicate notifications
 
   // Check if processing is needed
   const checkProcessingNeeded = async (showNotificationOnChange = false) => {
@@ -708,8 +698,8 @@ export default function ProcessSet() {
         allModesComplete: bothProcessingComplete // Track if all modes are complete
       });
 
-      // Update processing status for comparison
-      setLastProcessingStatus({
+      // Update processing status for comparison (both state and ref for synchronous access)
+      const newProcessingStatus = {
         needsProcessing: needsProcessing,
         filesToProcess: filesToProcess,
         captureCount: captureCount,
@@ -718,7 +708,9 @@ export default function ProcessSet() {
         totalProcessedCount: totalProcessedCount,
         currentModeComplete: currentModeComplete,
         bothProcessingComplete: bothProcessingComplete
-      });
+      };
+      setLastProcessingStatus(newProcessingStatus);
+      lastProcessingStatusRef.current = newProcessingStatus;
 
       // Show appropriate notification
       if (bothProcessingComplete) {
@@ -789,9 +781,9 @@ export default function ProcessSet() {
 
   // Handle process files button click
   const handleProcessFiles = async () => {
-    
+
     // ✅ SAFETY: Check if both processing modes are complete before doing anything
-    if (processingStatus?.bothProcessingComplete) {
+    if (processingStatus?.allModesComplete) {
       showNotification('All processing complete - both Enhance and Complete modes are done', 'info');
       return;
     }
@@ -851,34 +843,19 @@ export default function ProcessSet() {
     
     setIsProcessing(true);
     showNotification('Processing started...', 'info');
-    
+
     // Clear any previous progress data when starting new processing
     setProgressData(null);
-    // Reset auto-refresh flag for new processing session
-    setAutoRefreshTriggered(false);
-    
+
     try {
       // Get user ID (prioritize passed user ID)
       const userId = await getUserId();
-      
+
       // Get the processing status first
       const result = await checkFilesNeedProcessing(userId, enhanceFace);
       if (!result.success) {
         throw new Error('Failed to get processing status');
       }
-      
-      // Set initial progress data immediately
-      setProgressData({
-        currentSet: 0,
-        totalSets: result.setsNeedingProcessing.length,
-        processedSets: [],
-        currentFile: 'Starting...',
-        progress: 0,
-        status: 'starting',
-        message: 'Initializing processing...',
-        userId: userId,
-        timestamp: Date.now()
-      });
 
       if (!result.setsNeedingProcessing || result.setsNeedingProcessing.length === 0) {
         showNotification('No files need processing', 'info');
@@ -911,7 +888,8 @@ export default function ProcessSet() {
         progress: 0,
         status: 'processing',
         message: 'Starting processing...',
-        userId: userId
+        userId: userId,
+        timestamp: Date.now()
       });
 
       // Start the processing (it will run in the background)
@@ -981,8 +959,18 @@ export default function ProcessSet() {
           
           <div className={styles.statusIndicator}>
             <span>Processing Status:</span>
-            <span className={isProcessReady && captureLoaded && filesChecked ? styles.statusReady : styles.statusNotReady}>
-              {isProcessReady && captureLoaded && filesChecked ? 'Ready' : 'Not Ready'}
+            <span className={
+              processingStatus?.allModesComplete
+                ? styles.statusComplete
+                : isProcessReady && captureLoaded && filesChecked
+                  ? styles.statusReady
+                  : styles.statusNotReady
+            }>
+              {processingStatus?.allModesComplete
+                ? 'Complete'
+                : isProcessReady && captureLoaded && filesChecked
+                  ? 'Ready'
+                  : 'Not Ready'}
             </span>
           </div>
           
@@ -995,14 +983,34 @@ export default function ProcessSet() {
           )}
         </div>
         
-        {/* Add the ProcessingProgress component if processing is active */}
-        {isProcessing && (
-          <ProcessingProgress 
-            key={progressData?.timestamp || 'default'}
-            isProcessing={isProcessing} 
-            progressData={progressData}
-            onClearProgress={handleClearProgress}
-          />
+        {/* Processing Progress */}
+        {isProcessing && progressData && (
+          <div className={styles.processingProgress}>
+            <h3>Processing Progress</h3>
+            <div className={styles.progressInfo}>
+              <span className={styles.progressMessage}>{progressData.message}</span>
+              <span className={styles.progressPercent}>{progressData.progress}%</span>
+            </div>
+            <div className={styles.progressBar}>
+              <div
+                className={styles.progressFill}
+                style={{
+                  width: `${progressData.progress}%`,
+                  transition: 'width 0.3s ease-in-out'
+                }}
+              ></div>
+            </div>
+            <div className={styles.progressDetails}>
+              <span className={styles.progressSets}>
+                Sets: {progressData.processedSets?.length || 0} / {progressData.totalSets}
+              </span>
+              {progressData.currentFile && (
+                <span className={styles.progressFile}>
+                  Current: {progressData.currentFile}
+                </span>
+              )}
+            </div>
+          </div>
         )}
 
         <div className={styles.processingContainer}>
@@ -1016,17 +1024,19 @@ export default function ProcessSet() {
               isCheckingFiles={isCheckingFiles}
               filesLoadingState={filesLoadingState}
               isProcessing={isProcessing}
+              styles={componentStyles}
             />
-            
-            <ProcessSummary files={files} enhanceFace={enhanceFace} isCheckingFiles={isCheckingFiles} />
+
+            <ProcessSummary files={files} enhanceFace={enhanceFace} isCheckingFiles={isCheckingFiles} styles={componentStyles} />
           </div>
-          
+
           <div className={styles.rightPanel}>
-            <FilePreviewPanel 
+            <FilePreviewPanel
               selectedFile={selectedFile}
               previewImage={previewImageData?.data}
               previewType={previewImageData?.type}
               folder={selectedFolder}
+              styles={componentStyles}
             />
           </div>
         </div>
@@ -1039,9 +1049,10 @@ export default function ProcessSet() {
           captureLoaded={captureLoaded}
           filesChecked={filesChecked}
           files={files}
-          bothProcessingComplete={processingStatus?.bothProcessingComplete || false}
+          bothProcessingComplete={processingStatus?.allModesComplete || false}
           isCheckingFiles={isCheckingFiles}
           currentMode={enhanceFace ? 'Enhance' : 'Complete'}
+          styles={componentStyles}
         />
         
         <button 
